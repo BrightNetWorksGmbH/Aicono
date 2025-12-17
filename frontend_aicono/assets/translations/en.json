@@ -1,0 +1,63 @@
+{
+  "login_screen": {
+    "welcome_message": "Hello, It's nice to have you here.",
+    "email_placeholder": "Enter your email",
+    "password_placeholder": "Enter your password",
+    "remember_me": "Save login details on this device",
+    "login_button": "Log in securely now",
+    "switch_account": "Switch Account",
+    "footer_title": "BryteVerse© by Publify is the future in Publishing.",
+    "menu": "Menu",
+    "footer_feature_1": "We reduce your costs",
+    "footer_feature_2": "We save you time",
+    "footer_feature_3": "We make your content relevant",
+    "footer_feature_4": "We centralize your content in one place",
+    "footer_feature_5": "We keep your content secure",
+    "footer_feature_6": "We are here for you",
+    "footer_social_media": "Social Media",
+    "footer_relevant_links": "Relevant Links",
+    "footer_link_contact": "Contact",
+    "footer_link_data_protection": "Data Protection",
+    "footer_link_privacy_settings": "Privacy Settings",
+    "footer_link_imprint": "Imprint"
+  },
+  "reset_password": {
+    "title": "Set Your Password",
+    "subtitle": "Choose a secure password to protect your account",
+    "password_label": "New password",
+    "password_hint": "Enter new password",
+    "confirm_label": "Confirm password",
+    "confirm_hint": "Re-enter new password",
+    "send_button": "Set Password",
+    "back_to_login": "Back to login"
+  },
+  "forgot_password": {
+    "title": "Forgot Password?",
+    "description": "Enter your email address and we'll send you a link to reset your password.",
+    "email_label": "Email address",
+    "email_placeholder": "Enter your email",
+    "email_required": "Email is required",
+    "email_invalid": "Please enter a valid email address",
+    "submit_button": "Send Reset Link",
+    "back_to_login": "Back to Login",
+    "success_message": "Password reset link has been sent to your email"
+  },
+  "app_footer": {
+    "relevant_links": "Relevant Links"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "back": "Back",
+    "next": "Next",
+    "edit": "Edit",
+    "delete": "Delete",
+    "loading": "Loading...",
+    "downloads": "Downloads",
+    "views": "Views",
+    "note": "Note:",
+    "retry": "Retry",
+    "submit": "Submit"
+  }
+}

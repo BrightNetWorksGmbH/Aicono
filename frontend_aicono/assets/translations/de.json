@@ -1,0 +1,64 @@
+{
+  "login_screen": {
+    "welcome_message": "Hallo, es ist schön, dass Du hier bist.",
+    "email_placeholder": "E-Mail-Adresse eingeben",
+    "password_placeholder": "Passwort eingeben",
+    "remember_me": "Anmeldedaten auf diesem Gerät speichern",
+    "login_button": "Jetzt sicher einloggen",
+    "switch_account": "Benutzer wechseln",
+    "footer_title": "BryteVerse© by Publify ist die Zukunft im Publishing.",
+    "menu": "Menü",
+    "footer_feature_1": "Wir senken Deine Kosten",
+    "footer_feature_2": "Wir sparen Deine Zeit",
+    "footer_feature_3": "Wir machen Deine Inhalte relevant",
+    "footer_feature_4": "Wir bündeln Deine Inhalte an einem Ort",
+    "footer_feature_5": "Wir machen Deine Inhalte sicher",
+    "footer_feature_6": "Wir sind für Dich da",
+    "footer_social_media": "Social Media",
+    "footer_relevant_links": "Relevante Links",
+    "footer_link_contact": "Kontakt",
+    "footer_link_data_protection": "Datenschutz",
+    "footer_link_privacy_settings": "Privatsphäre-Einstellungen",
+    "footer_link_imprint": "Impressum"
+  },
+  "reset_password": {
+    "title": "Passwort festlegen",
+    "subtitle": "Wählen Sie ein sicheres Passwort zum Schutz Ihres Kontos",
+    "password_label": "Neues Passwort",
+    "password_hint": "Neues Passwort eingeben",
+    "confirm_label": "Passwort bestätigen",
+    "confirm_hint": "Neues Passwort erneut eingeben",
+    "send_button": "Passwort festlegen",
+    "back_to_login": "Zurück zur Anmeldung"
+  },
+  "forgot_password": {
+    "title": "Passwort vergessen?",
+    "description": "Geben Sie Ihre E-Mail-Adresse ein und wir senden Ihnen einen Link zum Zurücksetzen Ihres Passworts.",
+    "email_label": "E-Mail-Adresse",
+    "email_placeholder": "Geben Sie Ihre E-Mail ein",
+    "email_required": "E-Mail ist erforderlich",
+    "email_invalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
+    "submit_button": "Link zum Zurücksetzen senden",
+    "back_to_login": "Zurück zur Anmeldung",
+    "success_message": "Link zum Zurücksetzen des Passworts wurde an Ihre E-Mail gesendet"
+  },
+  "app_footer": {
+    "relevant_links": "Relevante Links"
+  },
+  "common": {
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "save": "Speichern",
+    "back": "Zurück",
+    "next": "Weiter",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "loading": "Wird geladen...",
+    "downloads": "Downloads",
+    "views": "Aufrufe",
+    "note": "Hinweis:",
+    "retry": "Erneut versuchen",
+    "submit": "Absenden"
+  }
+ 
+}
