@@ -42,6 +42,7 @@ Future<void> init() async {
   // External dependencies
   final sharedPrefs = await SharedPreferences.getInstance();
   sl.registerLazySingleton(() => sharedPrefs);
+  // FlutterSecureStorage works on web with default configuration
   sl.registerLazySingleton(() => const FlutterSecureStorage());
 
   // Network

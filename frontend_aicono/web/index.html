@@ -31,6 +31,11 @@
 
   <title>frontend_aicono</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // Configure Flutter to use HTML renderer instead of CanvasKit
+    // This prevents the "Failed to fetch dynamically imported module" error
+    window.flutterWebRenderer = "html";
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
