@@ -29,3 +29,9 @@ Thumbs.db
 dist/
 build/
 
+# Loxone structure files (generated, should not be committed)
+data/loxone-structure/*.json
+
+# Keep the directory structure
+!data/loxone-structure/.gitkeep
+

@@ -11,8 +11,8 @@ class LoxoneConnectionManager {
         // Map of buildingId -> reconnect timers
         this.reconnectTimers = new Map();
         // Structure files directory
-        // Using root-level data folder to avoid nodemon restarts
-        this.structureFilesDir = path.join(__dirname, '../../data/loxone-structure');
+        // Keep inside backend folder for deployment compatibility
+        this.structureFilesDir = path.join(__dirname, '../data/loxone-structure');
         
         // Ensure directory exists
         if (!fs.existsSync(this.structureFilesDir)) {
