@@ -1,0 +1,24 @@
+// Export all models for easy importing
+module.exports = {
+  BryteSwitchSettings: require('./BryteSwitchSettings'),
+  User: require('./User'),
+  Role: require('./Role'),
+  UserRole: require('./UserRole'),
+  Invitation: require('./Invitation'),
+  Site: require('./Site'),
+  Building: require('./Building'),
+  Floor: require('./Floor'),
+  Room: require('./Room'),
+  LocalRoom: require('./LocalRoom'),
+  Sensor: require('./Sensor'),
+  MeasurementData: require('./MeasurementData'),
+  Tariff: require('./Tariff'),
+  CostData: require('./CostData'),
+  AlarmRule: require('./AlarmRule'),
+  AlarmLog: require('./AlarmLog'),
+  Comment: require('./Comment'),
+  RenovationProject: require('./RenovationProject'),
+  Benchmark: require('./Benchmark'),
+  ActivityLog: require('./ActivityLog'),
+};
+

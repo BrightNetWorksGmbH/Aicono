@@ -1,0 +1,483 @@
+{
+  "info": {
+    "name": "Aicono Loxone Integration API",
+    "description": "API endpoints for Loxone integration, building management, and floor planning",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "site_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "building_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "floor_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "room_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.token) {",
+                  "        pm.collectionVariables.set('auth_token', jsonData.token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Buildings",
+      "item": [
+        {
+          "name": "Create Multiple Buildings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buildingNames\": [\n    \"Building 1\",\n    \"Building 2\",\n    \"Building 3\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/buildings/site/:siteId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "buildings", "site", ":siteId"],
+              "variable": [
+                {
+                  "key": "siteId",
+                  "value": "{{site_id}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.length > 0) {",
+                  "        pm.collectionVariables.set('building_id', jsonData.data[0]._id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Buildings by Site",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/buildings/site/:siteId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "buildings", "site", ":siteId"],
+              "variable": [
+                {
+                  "key": "siteId",
+                  "value": "{{site_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Building by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/buildings/:buildingId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "buildings", ":buildingId"],
+              "variable": [
+                {
+                  "key": "buildingId",
+                  "value": "{{building_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Building Details",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"building_size\": 500,\n  \"num_floors\": 3,\n  \"year_of_construction\": 2020,\n  \"heated_building_area\": 450,\n  \"type_of_use\": \"Office\",\n  \"num_students_employees\": 50\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/buildings/:buildingId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "buildings", ":buildingId"],
+              "variable": [
+                {
+                  "key": "buildingId",
+                  "value": "{{building_id}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Loxone Connection",
+      "item": [
+        {
+          "name": "Connect to Loxone",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ip\": \"192.168.178.201\",\n  \"port\": \"\",\n  \"protocol\": \"wss\",\n  \"user\": \"AICONO_clouduser01\",\n  \"pass\": \"A9f!Q2m#R7xP\",\n  \"externalAddress\": \"dns.loxonecloud.com\",\n  \"serialNumber\": \"504F94D107EE\",\n  \"clientInfo\": \"Aicono Backend\",\n  \"permission\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/loxone/connect/:buildingId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "loxone", "connect", ":buildingId"],
+              "variable": [
+                {
+                  "key": "buildingId",
+                  "value": "{{building_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Connection Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/loxone/status/:buildingId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "loxone", "status", ":buildingId"],
+              "variable": [
+                {
+                  "key": "buildingId",
+                  "value": "{{building_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Connections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/loxone/connections",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "loxone", "connections"]
+            }
+          }
+        },
+        {
+          "name": "Get Loxone Rooms",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/loxone/rooms/:buildingId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "loxone", "rooms", ":buildingId"],
+              "variable": [
+                {
+                  "key": "buildingId",
+                  "value": "{{building_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Disconnect from Loxone",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/loxone/disconnect/:buildingId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "loxone", "disconnect", ":buildingId"],
+              "variable": [
+                {
+                  "key": "buildingId",
+                  "value": "{{building_id}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Floors",
+      "item": [
+        {
+          "name": "Create Floor with Rooms",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ground Floor\",\n  \"floor_plan_link\": \"https://example.com/floor-plan.png\",\n  \"rooms\": [\n    {\n      \"name\": \"Serverraum\",\n      \"color\": \"#FFEB3B\",\n      \"loxone_room_id\": \"<ObjectId of Loxone Room>\"\n    },\n    {\n      \"name\": \"Bürofläche 1\",\n      \"color\": \"#9C27B0\",\n      \"loxone_room_id\": \"<ObjectId of Loxone Room>\"\n    },\n    {\n      \"name\": \"Empfang\",\n      \"color\": \"#2196F3\",\n      \"loxone_room_id\": \"<ObjectId of Loxone Room>\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/floors/building/:buildingId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "floors", "building", ":buildingId"],
+              "variable": [
+                {
+                  "key": "buildingId",
+                  "value": "{{building_id}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.floor) {",
+                  "        pm.collectionVariables.set('floor_id', jsonData.data.floor._id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Floors by Building",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/floors/building/:buildingId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "floors", "building", ":buildingId"],
+              "variable": [
+                {
+                  "key": "buildingId",
+                  "value": "{{building_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Floor by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/floors/:floorId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "floors", ":floorId"],
+              "variable": [
+                {
+                  "key": "floorId",
+                  "value": "{{floor_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Floor",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"First Floor\",\n  \"floor_plan_link\": \"https://example.com/updated-floor-plan.png\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/floors/:floorId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "floors", ":floorId"],
+              "variable": [
+                {
+                  "key": "floorId",
+                  "value": "{{floor_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Room to Floor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Conference Room\",\n  \"color\": \"#4CAF50\",\n  \"loxone_room_id\": \"<ObjectId of Loxone Room>\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/floors/:floorId/rooms",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "floors", ":floorId", "rooms"],
+              "variable": [
+                {
+                  "key": "floorId",
+                  "value": "{{floor_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Local Room",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Room Name\",\n  \"color\": \"#FF5722\",\n  \"loxone_room_id\": \"<ObjectId of Loxone Room>\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/floors/rooms/:roomId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "floors", "rooms", ":roomId"],
+              "variable": [
+                {
+                  "key": "roomId",
+                  "value": "{{room_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Local Room",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/floors/rooms/:roomId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "floors", "rooms", ":roomId"],
+              "variable": [
+                {
+                  "key": "roomId",
+                  "value": "{{room_id}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+
