@@ -34,4 +34,5 @@ class Routelists {
   static const adminDashboard = 'adminDashboard';
   static const brytesightAdminDashboard = 'brytesightAdminDashboard';
   static const privacyPolicy = 'privacyPolicy';
+  static const floorPlanEditor = 'floor-plan-editor';
 }

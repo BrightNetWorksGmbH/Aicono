@@ -709,7 +709,7 @@ class _LoginFormState extends State<LoginForm> {
                 const SizedBox(height: 24),
 
                 // Forgot Password Link
-                Container(
+                SizedBox(
                   width: contentWidth > 600
                       ? contentWidth - contentWidth / 3
                       : contentWidth,
@@ -717,7 +717,9 @@ class _LoginFormState extends State<LoginForm> {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () {
-                        context.pushNamed(Routelists.forgotPassword);
+                        context.go('/floor-plan-editor');
+
+                        // context.pushNamed(Routelists.forgotPassword);
                       },
                       child: Text(
                         'Forgot Password?',
@@ -733,7 +735,7 @@ class _LoginFormState extends State<LoginForm> {
                 ),
 
                 const SizedBox(height: 24),
-                Container(
+                SizedBox(
                   width: contentWidth > 600
                       ? contentWidth - contentWidth / 3
                       : contentWidth,
