@@ -18,5 +18,16 @@ router.get('/connections', requireAuth, loxoneController.getAllConnections);
 // Get Loxone rooms for a building
 router.get('/rooms/:buildingId', requireAuth, loxoneController.getLoxoneRooms);
 
+// Aggregation endpoints
+router.get('/aggregation/status', requireAuth, loxoneController.getAggregationStatus);
+router.post('/aggregation/trigger/15min', requireAuth, loxoneController.trigger15MinAggregation);
+router.post('/aggregation/trigger/hourly', requireAuth, loxoneController.triggerHourlyAggregation);
+router.post('/aggregation/trigger/daily', requireAuth, loxoneController.triggerDailyAggregation);
+
+// Measurement query endpoints
+router.get('/measurements/:sensorId', requireAuth, loxoneController.getSensorMeasurements);
+router.get('/measurements/building/:buildingId', requireAuth, loxoneController.getBuildingMeasurements);
+router.get('/statistics/:buildingId', requireAuth, loxoneController.getBuildingStatistics);
+
 module.exports = router;
 

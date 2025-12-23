@@ -53,9 +53,15 @@ app.use(notFoundHandler);
 // Global error handling middleware (must be last)
 app.use(errorHandler);
 
+// Import aggregation scheduler
+const aggregationScheduler = require('./services/aggregationScheduler');
+
 // Start server after DB is connected
 connectToDatabase()
   .then(() => {
+    // Start aggregation scheduler after DB connection
+    aggregationScheduler.start();
+    
     app.listen(port, () => {
       console.log(`Aicono EMS Server running at http://localhost:${port}`);
     });

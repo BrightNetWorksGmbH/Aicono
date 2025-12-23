@@ -1,6 +1,8 @@
 const loxoneConnectionManager = require('../services/loxoneConnectionManager');
 const buildingService = require('../services/buildingService');
 const Room = require('../models/Room');
+const aggregationScheduler = require('../services/aggregationScheduler');
+const measurementQueryService = require('../services/measurementQueryService');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 /**
@@ -102,6 +104,151 @@ exports.getLoxoneRooms = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: rooms
+  });
+});
+
+/**
+ * GET /api/loxone/aggregation/status
+ * Get aggregation scheduler status
+ */
+exports.getAggregationStatus = asyncHandler(async (req, res) => {
+  const status = aggregationScheduler.getStatus();
+  res.json({
+    success: true,
+    data: status
+  });
+});
+
+/**
+ * POST /api/loxone/aggregation/trigger/15min
+ * Manually trigger 15-minute aggregation
+ */
+exports.trigger15MinAggregation = asyncHandler(async (req, res) => {
+  const buildingId = req.body?.buildingId || null;
+  const result = await aggregationScheduler.trigger15MinuteAggregation(buildingId);
+  res.json({
+    success: true,
+    message: '15-minute aggregation triggered',
+    data: result
+  });
+});
+
+/**
+ * POST /api/loxone/aggregation/trigger/hourly
+ * Manually trigger hourly aggregation
+ */
+exports.triggerHourlyAggregation = asyncHandler(async (req, res) => {
+  const buildingId = req.body?.buildingId || null;
+  const result = await aggregationScheduler.triggerHourlyAggregation(buildingId);
+  res.json({
+    success: true,
+    message: 'Hourly aggregation triggered',
+    data: result
+  });
+});
+
+/**
+ * POST /api/loxone/aggregation/trigger/daily
+ * Manually trigger daily aggregation
+ */
+exports.triggerDailyAggregation = asyncHandler(async (req, res) => {
+  const buildingId = req.body?.buildingId || null;
+  const result = await aggregationScheduler.triggerDailyAggregation(buildingId);
+  res.json({
+    success: true,
+    message: 'Daily aggregation triggered',
+    data: result
+  });
+});
+
+/**
+ * GET /api/loxone/measurements/:sensorId
+ * Get measurements for a sensor with automatic resolution selection
+ */
+exports.getSensorMeasurements = asyncHandler(async (req, res) => {
+  const { sensorId } = req.params;
+  const { startDate, endDate, resolution } = req.query;
+  
+  if (!startDate || !endDate) {
+    return res.status(400).json({
+      success: false,
+      error: 'startDate and endDate query parameters are required'
+    });
+  }
+  
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  const options = {};
+  if (resolution) {
+    options.resolution = parseInt(resolution);
+  }
+  
+  const result = await measurementQueryService.getMeasurements(sensorId, start, end, options);
+  
+  res.json({
+    success: true,
+    data: result
+  });
+});
+
+/**
+ * GET /api/loxone/measurements/building/:buildingId
+ * Get measurements for a building with automatic resolution selection
+ */
+exports.getBuildingMeasurements = asyncHandler(async (req, res) => {
+  const { buildingId } = req.params;
+  const { startDate, endDate, measurementType, resolution } = req.query;
+  
+  if (!startDate || !endDate) {
+    return res.status(400).json({
+      success: false,
+      error: 'startDate and endDate query parameters are required'
+    });
+  }
+  
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  const options = {};
+  if (measurementType) {
+    options.measurementType = measurementType;
+  }
+  if (resolution) {
+    options.resolution = parseInt(resolution);
+  }
+  
+  const result = await measurementQueryService.getMeasurementsByBuilding(buildingId, start, end, options);
+  
+  res.json({
+    success: true,
+    data: result
+  });
+});
+
+/**
+ * GET /api/loxone/statistics/:buildingId
+ * Get aggregated statistics for a building
+ */
+exports.getBuildingStatistics = asyncHandler(async (req, res) => {
+  const { buildingId } = req.params;
+  const { startDate, endDate, measurementType } = req.query;
+  
+  if (!startDate || !endDate) {
+    return res.status(400).json({
+      success: false,
+      error: 'startDate and endDate query parameters are required'
+    });
+  }
+  
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  const statistics = await measurementQueryService.getStatistics(buildingId, start, end, measurementType || null);
+  
+  res.json({
+    success: true,
+    data: statistics
   });
 });
 
