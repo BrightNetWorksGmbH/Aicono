@@ -482,11 +482,16 @@ class LoxoneStorageService {
             } : null);
             const measurementType = getMeasurementType(sensor, mapping.controlType, categoryInfo);
 
+            // Ensure buildingId is stored as ObjectId for consistent querying
+            const buildingObjectId = mongoose.Types.ObjectId.isValid(buildingId) 
+                ? new mongoose.Types.ObjectId(buildingId) 
+                : buildingId;
+            
             documents.push({
                 timestamp: measurement.timestamp || new Date(),
                 meta: {
                     sensorId: sensor._id,
-                    buildingId: buildingId,
+                    buildingId: buildingObjectId,
                     measurementType: measurementType,
                     stateType: mapping.stateType
                 },

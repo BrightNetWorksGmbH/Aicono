@@ -91,7 +91,7 @@ class LoxoneConnectionManager {
     async connect(buildingId, credentials) {
         // Prevent duplicate connections
         if (this.connections.has(buildingId)) {
-            console.log(`[LOXONE] [${buildingId}] Connection already exists`);
+            // //console.log(`[LOXONE] [${buildingId}] Connection already exists`);
             return { success: false, message: 'Connection already exists' };
         }
 
@@ -162,15 +162,15 @@ class LoxoneConnectionManager {
         
         // Log state info for debugging
         if (redirectCount > 0) {
-            console.log(`[LOXONE] [${buildingId}] Redirect attempt ${redirectCount}, state exists: ${!!state}, config exists: ${!!state.config}`);
+            //console.log(`[LOXONE] [${buildingId}] Redirect attempt ${redirectCount}, state exists: ${!!state}, config exists: ${!!state.config}`);
         }
 
         const wsUrl = redirectUrl || this.buildWebSocketURL(state.config);
-        console.log(`[LOXONE] [${buildingId}] Connecting to: ${wsUrl}`);
+        // //console.log(`[LOXONE] [${buildingId}] Connecting to: ${wsUrl}`);
         
         // Warn if using CloudDNS without serial number
         if (state.config.externalAddress && !state.config.serialNumber) {
-            console.warn(`[LOXONE] [${buildingId}] Warning: CloudDNS connection without serial number. Some Miniservers may require serial in URL format: wss://dns.loxonecloud.com/{serial}/ws/rfc6455`);
+            //console.warn(`[LOXONE] [${buildingId}] Warning: CloudDNS connection without serial number. Some Miniservers may require serial in URL format: wss://dns.loxonecloud.com/{serial}/ws/rfc6455`);
         }
 
         return new Promise((resolve, reject) => {
@@ -210,28 +210,28 @@ class LoxoneConnectionManager {
             // Set connection timeout
             timeoutId = setTimeout(() => {
                 if (ws.readyState !== WebSocket.OPEN) {
-                    console.error(`[LOXONE] [${buildingId}] Connection timeout after ${connectionTimeout}ms`);
+                    // //console.error(`[LOXONE] [${buildingId}] Connection timeout after ${connectionTimeout}ms`);
                     ws.terminate();
                     rejectOnce(new Error(`Connection timeout after ${connectionTimeout}ms. WebSocket state: ${ws.readyState}`));
                 }
             }, connectionTimeout);
 
             ws.on('open', () => {
-                console.log(`[LOXONE] [${buildingId}] WebSocket connected`);
+                //console.log(`[LOXONE] [${buildingId}] WebSocket connected`);
                 // Verify state exists before proceeding - get fresh reference
                 const currentState = this.connections.get(buildingId);
                 if (!currentState) {
-                    console.error(`[LOXONE] [${buildingId}] State missing after WebSocket open (redirectCount: ${redirectCount})`);
+                    // //console.error(`[LOXONE] [${buildingId}] State missing after WebSocket open (redirectCount: ${redirectCount})`);
                     rejectOnce(new Error('Connection state lost'));
                     return;
                 }
                 if (!currentState.config) {
-                    console.error(`[LOXONE] [${buildingId}] Config missing after WebSocket open (redirectCount: ${redirectCount})`);
-                    console.error(`[LOXONE] [${buildingId}] State keys:`, Object.keys(currentState));
+                    // //console.error(`[LOXONE] [${buildingId}] Config missing after WebSocket open (redirectCount: ${redirectCount})`);
+                    // //console.error(`[LOXONE] [${buildingId}] State keys:`, Object.keys(currentState));
                     rejectOnce(new Error('Connection config lost'));
                     return;
                 }
-                console.log(`[LOXONE] [${buildingId}] State verified, user: ${currentState.config.user}`);
+                // //console.log(`[LOXONE] [${buildingId}] State verified, user: ${currentState.config.user}`);
                 currentState.ws = ws;
                 this.setupWebSocketHandlers(buildingId, ws);
                 this.startAuthentication(buildingId);
@@ -241,18 +241,18 @@ class LoxoneConnectionManager {
             ws.on('error', (error) => {
                 // Don't reject on redirect-related errors - they're handled by unexpected-response
                 if (error.message.includes('Unexpected server response') || isRedirecting) {
-                    console.log(`[LOXONE] [${buildingId}] WebSocket error during redirect (ignored):`, error.message);
+                    // //console.log(`[LOXONE] [${buildingId}] WebSocket error during redirect (ignored):`, error.message);
                     return;
                 }
-                console.error(`[LOXONE] [${buildingId}] WebSocket error:`, error.message);
+                // //console.error(`[LOXONE] [${buildingId}] WebSocket error:`, error.message);
                 rejectOnce(error);
             });
 
             ws.on('close', (code, reason) => {
-                console.log(`[LOXONE] [${buildingId}] Connection closed. Code: ${code}`);
+                //console.log(`[LOXONE] [${buildingId}] Connection closed. Code: ${code}`);
                 // If we're redirecting, don't handle this as a disconnection or error
                 if (isRedirecting) {
-                    console.log(`[LOXONE] [${buildingId}] Ignoring close event during redirect`);
+                    //console.log(`[LOXONE] [${buildingId}] Ignoring close event during redirect`);
                     return;
                 }
                 if (!resolved) {
@@ -260,7 +260,7 @@ class LoxoneConnectionManager {
                     // But don't reject if it's a redirect-related close (code 1006 is common for redirects)
                     if (code === 1006) {
                         // Code 1006 often happens during redirects - wait a bit to see if redirect handler processes it
-                        console.log(`[LOXONE] [${buildingId}] Connection closed with code 1006 (may be redirect), waiting...`);
+                        //console.log(`[LOXONE] [${buildingId}] Connection closed with code 1006 (may be redirect), waiting...`);
                         // Give redirect handler a chance to process
                         setTimeout(() => {
                             if (!isRedirecting && !resolved) {
@@ -287,12 +287,12 @@ class LoxoneConnectionManager {
                         } else if (location.startsWith('http://')) {
                             redirectUrl = location.replace('http://', 'ws://');
                         }
-                        console.log(`[LOXONE] [${buildingId}] Redirect to: ${redirectUrl}`);
+                        //console.log(`[LOXONE] [${buildingId}] Redirect to: ${redirectUrl}`);
                         
                         // Verify state still exists before redirecting
                         const currentState = this.connections.get(buildingId);
                         if (!currentState || !currentState.config) {
-                            console.error(`[LOXONE] [${buildingId}] State lost before redirect!`);
+                            //console.error(`[LOXONE] [${buildingId}] State lost before redirect!`);
                             rejectOnce(new Error('Connection state lost during redirect'));
                             return;
                         }
@@ -353,7 +353,7 @@ class LoxoneConnectionManager {
                             const json = JSON.parse(binaryFileBuffer.toString('utf8'));
                             this.handleStructureFile(buildingId, json);
                         } catch (error) {
-                            console.error(`[LOXONE] [${buildingId}] Error parsing structure file:`, error);
+                            //console.error(`[LOXONE] [${buildingId}] Error parsing structure file:`, error);
                         }
                         binaryFileBuffer = null;
                         expectedFileLength = 0;
@@ -387,7 +387,7 @@ class LoxoneConnectionManager {
     send(buildingId, cmd) {
         const state = this.connections.get(buildingId);
         if (state && state.ws && state.ws.readyState === WebSocket.OPEN) {
-            console.log(`[LOXONE] [${buildingId}] [SEND] ${cmd}`);
+            //console.log(`[LOXONE] [${buildingId}] [SEND] ${cmd}`);
             state.ws.send(cmd);
         }
     }
@@ -398,10 +398,10 @@ class LoxoneConnectionManager {
     startAuthentication(buildingId) {
         const state = this.connections.get(buildingId);
         if (!state || !state.config || !state.config.user) {
-            console.error(`[LOXONE] [${buildingId}] Cannot start authentication: state or config missing`);
+            //console.error(`[LOXONE] [${buildingId}] Cannot start authentication: state or config missing`);
             return;
         }
-        console.log(`[LOXONE] [${buildingId}] Requesting key and salt...`);
+        //console.log(`[LOXONE] [${buildingId}] Requesting key and salt...`);
         this.send(buildingId, `jdev/sys/getkey2/${state.config.user}`);
     }
 
@@ -430,7 +430,7 @@ class LoxoneConnectionManager {
             }
         } catch (error) {
             // Not JSON, might be plain text
-            console.log(`[LOXONE] [${buildingId}] [RECEIVE TEXT]`, msg);
+            //console.log(`[LOXONE] [${buildingId}] [RECEIVE TEXT]`, msg);
         }
     }
 
@@ -458,7 +458,7 @@ class LoxoneConnectionManager {
             const encodedInfo = encodeURIComponent(state.config.info);
             this.send(buildingId, `jdev/sys/getjwt/${authHash}/${state.config.user}/${state.config.permission}/${state.config.uuid}/${encodedInfo}`);
         } catch (error) {
-            console.error(`[LOXONE] [${buildingId}] Error processing getkey2:`, error);
+            //console.error(`[LOXONE] [${buildingId}] Error processing getkey2:`, error);
         }
     }
 
@@ -478,16 +478,16 @@ class LoxoneConnectionManager {
                 }
 
                 state.authenticated = true;
-                console.log(`[LOXONE] [${buildingId}] ✓ Authentication successful`);
+                //console.log(`[LOXONE] [${buildingId}] ✓ Authentication successful`);
 
                 this.startKeepalive(buildingId);
-                console.log(`[LOXONE] [${buildingId}] Fetching structure file...`);
+                //console.log(`[LOXONE] [${buildingId}] Fetching structure file...`);
                 this.send(buildingId, 'data/LoxAPP3.json');
             } else {
-                console.error(`[LOXONE] [${buildingId}] Authentication failed:`, json.LL);
+                //console.error(`[LOXONE] [${buildingId}] Authentication failed:`, json.LL);
             }
         } catch (error) {
-            console.error(`[LOXONE] [${buildingId}] Error processing getjwt:`, error);
+            //console.error(`[LOXONE] [${buildingId}] Error processing getjwt:`, error);
         }
     }
 
@@ -496,7 +496,7 @@ class LoxoneConnectionManager {
      */
     handleAuthResponse(buildingId, json) {
         // Not needed for modern Loxone - JWT token acquisition is sufficient
-        console.log(`[LOXONE] [${buildingId}] Auth response received (not needed for JWT auth)`);
+        //console.log(`[LOXONE] [${buildingId}] Auth response received (not needed for JWT auth)`);
     }
 
     /**
@@ -507,12 +507,12 @@ class LoxoneConnectionManager {
         if (!state) return;
 
         try {
-            console.log(`[LOXONE] [${buildingId}] Structure file received`);
+            //console.log(`[LOXONE] [${buildingId}] Structure file received`);
 
             // Save structure file per building
             const structureFilePath = this.getStructureFilePath(buildingId);
             fs.writeFileSync(structureFilePath, JSON.stringify(json, null, 2));
-            console.log(`[LOXONE] [${buildingId}] Structure file saved: ${structureFilePath}`);
+            //console.log(`[LOXONE] [${buildingId}] Structure file saved: ${structureFilePath}`);
 
             state.structureLoaded = true;
             state.structureData = json;
@@ -522,17 +522,17 @@ class LoxoneConnectionManager {
                 await loxoneStorageService.initializeForBuilding(buildingId);
                 const uuidMap = await loxoneStorageService.loadStructureMapping(buildingId, json);
                 state.sensorUuidMap = uuidMap;
-                console.log(`[LOXONE] [${buildingId}] ✓ Structure imported and mapping loaded`);
+                //console.log(`[LOXONE] [${buildingId}] ✓ Structure imported and mapping loaded`);
             } catch (error) {
-                console.error(`[LOXONE] [${buildingId}] Error initializing storage:`, error.message);
+                //console.error(`[LOXONE] [${buildingId}] Error initializing storage:`, error.message);
             }
 
             // Enable live updates
-            console.log(`[LOXONE] [${buildingId}] Enabling live status updates...`);
+            //console.log(`[LOXONE] [${buildingId}] Enabling live status updates...`);
             this.send(buildingId, 'jdev/sps/enablebinstatusupdate');
-            console.log(`[LOXONE] [${buildingId}] ✓ Connection ready`);
+            //console.log(`[LOXONE] [${buildingId}] ✓ Connection ready`);
         } catch (error) {
-            console.error(`[LOXONE] [${buildingId}] Error handling structure file:`, error);
+            //console.error(`[LOXONE] [${buildingId}] Error handling structure file:`, error);
         }
     }
 
@@ -554,7 +554,7 @@ class LoxoneConnectionManager {
                     const textPayload = buffer.slice(8).toString('utf8');
                     this.handleTextMessage(buildingId, textPayload);
                 } catch (error) {
-                    console.error(`[LOXONE] [${buildingId}] Error parsing binary text:`, error);
+                    //console.error(`[LOXONE] [${buildingId}] Error parsing binary text:`, error);
                 }
                 break;
 
@@ -562,23 +562,23 @@ class LoxoneConnectionManager {
                 // Binary file (structure file LoxAPP3.json)
                 // The structure file comes as binary, but we need to wait for the actual JSON payload
                 // It will arrive as a text message after this binary file indicator
-                console.log(`[LOXONE] [${buildingId}] Received binary file indicator (structure file)`);
+                // //console.log(`[LOXONE] [${buildingId}] Received binary file indicator (structure file)`);
                 // The actual JSON will come in a subsequent message
                 break;
 
             case 2:
                 const valueStatesBuffer = buffer.slice(8);
                 this.handleValueStates(buildingId, valueStatesBuffer).catch(err => {
-                    console.error(`[LOXONE] [${buildingId}] Error handling value states:`, err.message);
+                    //console.error(`[LOXONE] [${buildingId}] Error handling value states:`, err.message);
                 });
                 break;
 
             case 3:
-                console.log(`[LOXONE] [${buildingId}] Received text state update(s)`);
+                //console.log(`[LOXONE] [${buildingId}] Received text state update(s)`);
                 break;
 
             default:
-                console.log(`[LOXONE] [${buildingId}] Unknown identifier: ${identifier}`);
+                //console.log(`[LOXONE] [${buildingId}] Unknown identifier: ${identifier}`);
         }
     }
 
@@ -594,7 +594,7 @@ class LoxoneConnectionManager {
 
         if (entryCount === 0) return;
 
-        console.log(`[LOXONE] [${buildingId}] Received ${entryCount} value state update(s)`);
+        //console.log(`[LOXONE] [${buildingId}] Received ${entryCount} value state update(s)`);
 
         const measurements = [];
         for (let i = 0; i < entryCount; i++) {
@@ -614,11 +614,11 @@ class LoxoneConnectionManager {
         if (measurements.length > 0) {
             try {
                 const result = await loxoneStorageService.storeMeasurements(buildingId, measurements);
-                if (result) {
-                    console.log(`[LOXONE] [${buildingId}] Stored ${result.stored} measurements, skipped ${result.skipped}`);
-                }
+                // if (result) {
+                //     //console.log(`[LOXONE] [${buildingId}] Stored ${result.stored} measurements, skipped ${result.skipped}`);
+                // }
             } catch (err) {
-                console.error(`[LOXONE] [${buildingId}] Error storing measurements:`, err.message);
+                //console.error(`[LOXONE] [${buildingId}] Error storing measurements:`, err.message);
             }
         }
     }
@@ -666,7 +666,7 @@ class LoxoneConnectionManager {
             }
         }, state.config.keepaliveInterval);
 
-        console.log(`[LOXONE] [${buildingId}] Keepalive started`);
+        //console.log(`[LOXONE] [${buildingId}] Keepalive started`);
     }
 
     /**
@@ -696,18 +696,18 @@ class LoxoneConnectionManager {
         if (state.reconnectAttempts < state.maxReconnectAttempts) {
             state.reconnectAttempts++;
             const delay = state.reconnectDelay * state.reconnectAttempts;
-            console.log(`[LOXONE] [${buildingId}] Reconnecting in ${delay}ms (attempt ${state.reconnectAttempts})`);
+            //console.log(`[LOXONE] [${buildingId}] Reconnecting in ${delay}ms (attempt ${state.reconnectAttempts})`);
 
             const timer = setTimeout(() => {
                 this.reconnectTimers.delete(buildingId);
                 this.establishConnection(buildingId).catch(err => {
-                    console.error(`[LOXONE] [${buildingId}] Reconnection failed:`, err.message);
+                    //console.error(`[LOXONE] [${buildingId}] Reconnection failed:`, err.message);
                 });
             }, delay);
 
             this.reconnectTimers.set(buildingId, timer);
         } else {
-            console.error(`[LOXONE] [${buildingId}] Max reconnection attempts reached`);
+            //console.error(`[LOXONE] [${buildingId}] Max reconnection attempts reached`);
             this.connections.delete(buildingId);
         }
     }
@@ -735,7 +735,7 @@ class LoxoneConnectionManager {
         }
 
         this.connections.delete(buildingId);
-        console.log(`[LOXONE] [${buildingId}] Disconnected`);
+        //console.log(`[LOXONE] [${buildingId}] Disconnected`);
         return { success: true, message: 'Disconnected' };
     }
 
