@@ -9,6 +9,7 @@ import 'package:frontend_aicono/features/Authentication/presentation/pages/forgo
 import 'package:frontend_aicono/features/Authentication/presentation/pages/forgot_reset_password_page.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/pages/reset_password_page.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/pages/invitation_validation_page.dart';
+import 'package:frontend_aicono/features/FloorPlan/presentation/pages/floor_plan_editor_page.dart';
 
 /// App router configuration using go_router
 class AppRouter {
@@ -205,6 +206,13 @@ class AppRouter {
           state,
           InvitationValidationPage(token: token),
         );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.floorPlanEditor}',
+      name: Routelists.floorPlanEditor,
+      pageBuilder: (context, state) {
+        return _buildPage(context, state, const FloorPlanPage());
       },
     ),
   ];

@@ -65,12 +65,18 @@ dependencies:
   cross_file: ^0.3.4
   path: ^1.8.3
   image_picker: ^1.0.7
+  path_provider: ^2.1.1
+  share_plus: ^7.2.1
 
   # Dependency Injection
   get_it: ^9.2.0
 
   # UI Components
   flutter_svg: ^2.0.9
+  
+  # Math utilities
+  vector_math: ^2.1.4
+  file_picker: ^10.3.8
 
 dev_dependencies:
   flutter_test:
