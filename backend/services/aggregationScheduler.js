@@ -20,6 +20,13 @@ class AggregationScheduler {
     constructor() {
         this.jobs = [];
         this.isRunning = false;
+        this.startedAt = null;
+        this.lastRun = {
+            '15-minute': null,
+            'hourly': null,
+            'daily': null,
+            'cleanup': null
+        };
         
         // Configuration from environment variables
         this.config = {
@@ -44,14 +51,17 @@ class AggregationScheduler {
      */
     start() {
         if (this.isRunning) {
-            console.log('[SCHEDULER] Scheduler is already running');
-            return;
+            console.log('[SCHEDULER] ⚠️  Scheduler is already running. Stopping existing jobs before restart...');
+            this.stop();
         }
+        
+        console.log('[SCHEDULER] 🚀 Starting aggregation scheduler...');
 
         // Job 1: Aggregate raw data to 15-minute buckets (every 15 minutes)
         const job15Min = cron.schedule('*/15 * * * *', async () => {
             const timestamp = new Date().toISOString();
-            console.log(`[SCHEDULER] [${timestamp}] Running 15-minute aggregation...`);
+            this.lastRun['15-minute'] = timestamp;
+            console.log(`[SCHEDULER] [${timestamp}] ⏰ Running 15-minute aggregation (cron triggered)...`);
             try {
                 const result = await measurementAggregationService.aggregate15Minutes(
                     null, // buildingId (null = all buildings)
@@ -60,12 +70,12 @@ class AggregationScheduler {
                 );
                 
                 if (result.skipped) {
-                    console.log(`[SCHEDULER] [${timestamp}] 15-minute aggregation skipped: Not enough data`);
+                    console.log(`[SCHEDULER] [${timestamp}] ⏭️  15-minute aggregation skipped: ${result.reason || 'Not enough data'}`);
                 } else {
-                    console.log(`[SCHEDULER] [${timestamp}] 15-minute aggregation completed: ${result.count} aggregates created, ${result.deleted || 0} raw data points deleted`);
+                    console.log(`[SCHEDULER] [${timestamp}] ✅ 15-minute aggregation completed: ${result.count} aggregates created, ${result.deleted || 0} raw data points deleted`);
                 }
             } catch (error) {
-                console.error(`[SCHEDULER] [${timestamp}] 15-minute aggregation failed:`, error.message);
+                console.error(`[SCHEDULER] [${timestamp}] ❌ 15-minute aggregation failed:`, error.message);
             }
         }, {
             scheduled: false, // Don't start immediately
@@ -75,12 +85,13 @@ class AggregationScheduler {
         // Job 2: Aggregate 15-minute data to hourly buckets (every hour at minute 0)
         const jobHourly = cron.schedule('0 * * * *', async () => {
             const timestamp = new Date().toISOString();
-            console.log(`[SCHEDULER] [${timestamp}] Running hourly aggregation...`);
+            this.lastRun['hourly'] = timestamp;
+            console.log(`[SCHEDULER] [${timestamp}] ⏰ Running hourly aggregation (cron triggered)...`);
             try {
                 const result = await measurementAggregationService.aggregateHourly();
-                console.log(`[SCHEDULER] [${timestamp}] Hourly aggregation completed: ${result.count} aggregates created`);
+                console.log(`[SCHEDULER] [${timestamp}] ✅ Hourly aggregation completed: ${result.count} aggregates created`);
             } catch (error) {
-                console.error(`[SCHEDULER] [${timestamp}] Hourly aggregation failed:`, error.message);
+                console.error(`[SCHEDULER] [${timestamp}] ❌ Hourly aggregation failed:`, error.message);
             }
         }, {
             scheduled: false,
@@ -90,12 +101,13 @@ class AggregationScheduler {
         // Job 3: Aggregate hourly data to daily buckets (daily at 1:00 AM)
         const jobDaily = cron.schedule('0 1 * * *', async () => {
             const timestamp = new Date().toISOString();
-            console.log(`[SCHEDULER] [${timestamp}] Running daily aggregation...`);
+            this.lastRun['daily'] = timestamp;
+            console.log(`[SCHEDULER] [${timestamp}] ⏰ Running daily aggregation (cron triggered)...`);
             try {
                 const result = await measurementAggregationService.aggregateDaily();
-                console.log(`[SCHEDULER] [${timestamp}] Daily aggregation completed: ${result.count} aggregates created`);
+                console.log(`[SCHEDULER] [${timestamp}] ✅ Daily aggregation completed: ${result.count} aggregates created`);
             } catch (error) {
-                console.error(`[SCHEDULER] [${timestamp}] Daily aggregation failed:`, error.message);
+                console.error(`[SCHEDULER] [${timestamp}] ❌ Daily aggregation failed:`, error.message);
             }
         }, {
             scheduled: false,
@@ -107,16 +119,17 @@ class AggregationScheduler {
         // It only deletes data older than the configured retention period
         const jobCleanup = cron.schedule('0 2 * * *', async () => {
             const timestamp = new Date().toISOString();
-            console.log(`[SCHEDULER] [${timestamp}] Running safety cleanup (retention: ${this.config.oldDataRetentionDays} days)...`);
+            this.lastRun['cleanup'] = timestamp;
+            console.log(`[SCHEDULER] [${timestamp}] ⏰ Running safety cleanup (cron triggered, retention: ${this.config.oldDataRetentionDays} days)...`);
             try {
                 // Only delete data older than retention period (default: 1 day)
                 // This acts as a safety net, but most data should already be deleted by immediate cleanup
                 const deletedCount = await measurementAggregationService.cleanupRawData(
                     this.config.oldDataRetentionDays
                 );
-                console.log(`[SCHEDULER] [${timestamp}] Safety cleanup completed: ${deletedCount} documents deleted`);
+                console.log(`[SCHEDULER] [${timestamp}] ✅ Safety cleanup completed: ${deletedCount} documents deleted`);
             } catch (error) {
-                console.error(`[SCHEDULER] [${timestamp}] Safety cleanup failed:`, error.message);
+                console.error(`[SCHEDULER] [${timestamp}] ❌ Safety cleanup failed:`, error.message);
             }
         }, {
             scheduled: false,
@@ -138,13 +151,28 @@ class AggregationScheduler {
         });
 
         this.isRunning = true;
+        this.startedAt = new Date().toISOString();
         console.log('[SCHEDULER] ✓ Aggregation scheduler started successfully');
-        console.log('[SCHEDULER] Jobs: 15-min (every 15m), Hourly (every hour), Daily (1 AM), Safety Cleanup (2 AM)');
+        console.log(`[SCHEDULER] Started at: ${this.startedAt}`);
+        console.log('[SCHEDULER] Jobs: 15-min (every 15m at :00, :15, :30, :45), Hourly (every hour at :00), Daily (1 AM UTC), Safety Cleanup (2 AM UTC)');
         if (this.config.deleteAfterAggregation) {
             console.log(`[SCHEDULER] Raw data will be deleted immediately after aggregation (buffer: ${this.config.rawDataBufferMinutes} minutes)`);
         } else {
             console.log('[SCHEDULER] Raw data deletion after aggregation is DISABLED');
         }
+        
+        // Calculate and log next run times
+        const now = new Date();
+        const next15Min = new Date(now);
+        next15Min.setMinutes(Math.ceil(now.getMinutes() / 15) * 15, 0, 0);
+        if (next15Min <= now) {
+            next15Min.setMinutes(next15Min.getMinutes() + 15);
+        }
+        const nextHour = new Date(now);
+        nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
+        
+        console.log(`[SCHEDULER] Next 15-min run: ${next15Min.toISOString()} (in ${Math.round((next15Min - now) / 1000 / 60)} minutes)`);
+        console.log(`[SCHEDULER] Next hourly run: ${nextHour.toISOString()} (in ${Math.round((nextHour - now) / 1000 / 60)} minutes)`);
     }
 
     /**
@@ -172,12 +200,49 @@ class AggregationScheduler {
      * @returns {Object} Status of all scheduled jobs
      */
     getStatus() {
+        const now = new Date();
+        
+        // Calculate next run times
+        const next15Min = new Date(now);
+        next15Min.setMinutes(Math.ceil(now.getMinutes() / 15) * 15, 0, 0);
+        if (next15Min <= now) {
+            next15Min.setMinutes(next15Min.getMinutes() + 15);
+        }
+        
+        const nextHour = new Date(now);
+        nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
+        
+        // Calculate next daily run (1 AM UTC)
+        const nextDaily = new Date(now);
+        nextDaily.setUTCHours(1, 0, 0, 0);
+        if (nextDaily <= now) {
+            nextDaily.setUTCDate(nextDaily.getUTCDate() + 1);
+        }
+        
+        // Calculate next cleanup run (2 AM UTC)
+        const nextCleanup = new Date(now);
+        nextCleanup.setUTCHours(2, 0, 0, 0);
+        if (nextCleanup <= now) {
+            nextCleanup.setUTCDate(nextCleanup.getUTCDate() + 1);
+        }
+        
         return {
             isRunning: this.isRunning,
+            startedAt: this.startedAt,
+            uptime: this.startedAt ? Math.round((now - new Date(this.startedAt)) / 1000) : 0, // seconds
+            lastRun: this.lastRun,
+            nextRun: {
+                '15-minute': next15Min.toISOString(),
+                'hourly': nextHour.toISOString(),
+                'daily': nextDaily.toISOString(),
+                'cleanup': nextCleanup.toISOString()
+            },
             jobs: this.jobs.map(({ name, job }) => ({
                 name,
-                running: job.running || false
-            }))
+                running: job.running || false,
+                lastRun: this.lastRun[name] || null
+            })),
+            config: this.config
         };
     }
 
@@ -189,15 +254,21 @@ class AggregationScheduler {
      * @returns {Promise<Object>} Aggregation result
      */
     async trigger15MinuteAggregation(buildingId = null, deleteAfterAggregation = null) {
-        console.log('[SCHEDULER] Manually triggering 15-minute aggregation...');
+        const timestamp = new Date().toISOString();
+        console.log(`[SCHEDULER] [${timestamp}] 🔧 Manually triggering 15-minute aggregation...`);
         const shouldDelete = deleteAfterAggregation !== null 
             ? deleteAfterAggregation 
             : this.config.deleteAfterAggregation;
-        return await measurementAggregationService.aggregate15Minutes(
+        const result = await measurementAggregationService.aggregate15Minutes(
             buildingId, 
             shouldDelete,
             this.config.rawDataBufferMinutes
         );
+        // Update last run time for manual triggers too
+        if (result && !result.skipped) {
+            this.lastRun['15-minute'] = timestamp;
+        }
+        return result;
     }
 
     /**
