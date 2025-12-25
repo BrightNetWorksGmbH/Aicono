@@ -600,10 +600,52 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * @desc    Get user by email
+ * @route   GET /api/v1/auth/user/email/:email
+ * @access  Public
+ * @params  {string} email - User email address
+ */
+const getUserByEmail = asyncHandler(async (req, res) => {
+  try {
+    const { email } = req.params;
+    
+    const user = await User.findOne({ email: email.toLowerCase() }).select('-password_hash');
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: "User not found" 
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        _id: user._id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        position: user.position,
+        profile_picture_url: user.profile_picture_url,
+        joined_switch: user.joined_switch,
+        is_active: user.is_active,
+        created_at: user.createdAt,
+        updated_at: user.updatedAt
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ 
+      success: false,
+      message: err.message 
+    });
+  }
+});
+
 module.exports = {
   registerUser,
   loginUser,
   forgotPassword,
   resetPassword,
+  getUserByEmail,
 };
 
