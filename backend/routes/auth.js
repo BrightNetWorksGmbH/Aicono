@@ -5,6 +5,7 @@ const {
   loginUser,
   forgotPassword,
   resetPassword,
+  getUserByEmail,
 } = require('../controllers/authController');
 const { body } = require('express-validator');
 const { validationErrorHandler } = require('../middleware/errorHandler');
@@ -103,6 +104,13 @@ router.post('/forgot-password', forgotPasswordValidation, validationErrorHandler
  * @access  Public
  */
 router.post('/reset-password', resetPasswordValidation, validationErrorHandler, resetPassword);
+
+/**
+ * @route   GET /api/v1/auth/user/email/:email
+ * @desc    Get user by email
+ * @access  Public
+ */
+router.get('/user/email/:email', getUserByEmail);
 
 module.exports = router;
 

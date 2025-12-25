@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
 // Connection strings
-const SOURCE_URI = 'mongodb+srv://doadmin:geXZ60R1r3G598a2@db-mongodb-fra1-38814-2d181fd3.mongo.ondigitalocean.com/admin?authSource=admin&replicaSet=db-mongodb-fra1-38814&tls=true';
-const TARGET_URI = 'mongodb+srv://doadmin:geXZ60R1r3G598a2@db-mongodb-fra1-38814-2d181fd3.mongo.ondigitalocean.com/aicono?authSource=admin&replicaSet=db-mongodb-fra1-38814&tls=true';
+const SOURCE_URI = 'source_uri';
+const TARGET_URI = 'target_uri';
 
 // Helper function to wait for mongoose connection
 function waitForConnection(connection) {

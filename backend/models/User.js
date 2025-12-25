@@ -38,6 +38,7 @@ const userSchema = new mongoose.Schema({
     default: false,
     index: true,
   },
+  joined_switch: [{ type: mongoose.Schema.Types.ObjectId, ref: "BryteSwitchSettings" }],
   // Password reset fields
   resetPasswordToken: String,
   resetPasswordExpire: Date,
@@ -49,6 +50,7 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ email: 1 });
 userSchema.index({ first_name: 1, last_name: 1 });
 userSchema.index({ resetPasswordToken: 1 });
+userSchema.index({ joined_switch: 1, is_active: 1 });
 
 // Helper methods
 userSchema.methods.setPassword = async function (plain) {
