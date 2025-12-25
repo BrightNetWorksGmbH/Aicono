@@ -26,19 +26,43 @@ class BryteSwitchService {
       throw new Error('Only superadmins can create initial BryteSwitch');
     }
 
+    // Check if organization_name already exists
+    const existingSwitch = await BryteSwitchSettings.findOne({ 
+      organization_name: organization_name.trim() 
+    });
+    if (existingSwitch) {
+      throw new Error('An organization with this name already exists');
+    }
+
     // Check if owner email already exists as a user (optional)
     const ownerUser = await User.findOne({ email: owner_email.toLowerCase() });
 
     // Create BryteSwitch
     const bryteSwitch = new BryteSwitchSettings({
-      organization_name,
+      organization_name: organization_name.trim(),
       owner_email: owner_email.toLowerCase(),
       sub_domain: sub_domain ? sub_domain.trim().toLowerCase() : undefined,
       created_by: ownerUser ? ownerUser._id : null,
       is_setup_complete: false,
     });
 
-    await bryteSwitch.save();
+    try {
+      await bryteSwitch.save();
+    } catch (error) {
+      // Handle duplicate key error for sub_domain (old unique index may still exist)
+      if (error.code === 11000 && error.keyPattern && error.keyPattern.sub_domain) {
+        throw new Error(
+          'Database migration required: The old unique index on sub_domain still exists. ' +
+          'Please run: node migrate-drop-subdomain-index.js to fix this issue.'
+        );
+      }
+      // Handle duplicate key error for organization_name
+      if (error.code === 11000 && error.keyPattern && error.keyPattern.organization_name) {
+        throw new Error('An organization with this name already exists');
+      }
+      // Re-throw other errors
+      throw error;
+    }
 
     // Ensure Owner role exists for this switch (idempotent)
     const ownerRole = await Role.findOneAndUpdate(
@@ -181,20 +205,20 @@ class BryteSwitchService {
       throw new Error('BryteSwitch setup is already complete');
     }
 
-    // Check if subdomain is available
-    if (sub_domain) {
+    // Check if organization_name is being changed and if it already exists
+    if (organization_name && organization_name.trim() !== bryteSwitch.organization_name) {
       const existingSwitch = await BryteSwitchSettings.findOne({
-        sub_domain,
+        organization_name: organization_name.trim(),
         _id: { $ne: bryteswitchId }
       });
       if (existingSwitch) {
-        throw new Error('Subdomain already taken');
+        throw new Error('An organization with this name already exists');
       }
     }
 
     // Update switch with provided data
     if (organization_name) {
-      bryteSwitch.organization_name = organization_name;
+      bryteSwitch.organization_name = organization_name.trim();
     }
     if (typeof sub_domain === 'string' && sub_domain.trim().length > 0) {
       bryteSwitch.sub_domain = sub_domain.trim().toLowerCase();
@@ -304,20 +328,20 @@ class BryteSwitchService {
       throw new Error('You do not have permission to update this BryteSwitch');
     }
 
-    // Handle subdomain uniqueness
-    if (updates.sub_domain && updates.sub_domain !== bryteSwitch.sub_domain) {
+    // Check if organization_name is being changed and if it already exists
+    if (updates.organization_name && updates.organization_name.trim() !== bryteSwitch.organization_name) {
       const existingSwitch = await BryteSwitchSettings.findOne({
-        sub_domain: updates.sub_domain,
+        organization_name: updates.organization_name.trim(),
         _id: { $ne: bryteswitchId }
       });
       if (existingSwitch) {
-        throw new Error('Subdomain already taken');
+        throw new Error('An organization with this name already exists');
       }
     }
 
     // Update allowed fields
     if (updates.organization_name !== undefined) {
-      bryteSwitch.organization_name = updates.organization_name;
+      bryteSwitch.organization_name = updates.organization_name.trim();
     }
     if (updates.sub_domain !== undefined) {
       bryteSwitch.sub_domain = updates.sub_domain ? updates.sub_domain.trim().toLowerCase() : undefined;

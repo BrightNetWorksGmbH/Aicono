@@ -11,11 +11,12 @@ const bryteSwitchSettingsSchema = new mongoose.Schema({
   organization_name: {
     type: String,
     required: true,
+    unique: true,
+    trim: true,
   },
   sub_domain: {
     type: String,
-    required: true,
-    unique: true,
+    required: false, // Made optional since it's not unique anymore
     sparse: true, // Allows null for incomplete setup
     lowercase: true,
     match: [
@@ -65,7 +66,8 @@ const bryteSwitchSettingsSchema = new mongoose.Schema({
 });
 
 // Indexes
-bryteSwitchSettingsSchema.index({ sub_domain: 1 });
+bryteSwitchSettingsSchema.index({ organization_name: 1 }, { unique: true });
+bryteSwitchSettingsSchema.index({ sub_domain: 1 }); // Non-unique index
 bryteSwitchSettingsSchema.index({ owner_email: 1 });
 bryteSwitchSettingsSchema.index({ is_setup_complete: 1 });
 bryteSwitchSettingsSchema.index({ created_by: 1 });
