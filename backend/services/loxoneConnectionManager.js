@@ -2,6 +2,7 @@ const WebSocket = require('ws');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
 const loxoneStorageService = require('./loxoneStorageService');
 
 class LoxoneConnectionManager {
@@ -86,6 +87,30 @@ class LoxoneConnectionManager {
     }
 
     /**
+     * Update building connection status in database
+     * @private
+     * @param {string} buildingId - Building ID
+     * @param {boolean} connected - Connection status
+     */
+    async updateBuildingConnectionStatus(buildingId, connected) {
+        try {
+            const Building = require('../models/Building');
+            const updateData = {
+                miniserver_connected: connected
+            };
+            
+            if (connected) {
+                updateData.miniserver_last_connected = new Date();
+            }
+            
+            await Building.findByIdAndUpdate(buildingId, updateData);
+        } catch (err) {
+            // Don't throw - connection status update is secondary
+            console.warn(`[LOXONE] [${buildingId}] Failed to update building connection status:`, err.message);
+        }
+    }
+
+    /**
      * Start a connection for a building
      */
     async connect(buildingId, credentials) {
@@ -133,9 +158,13 @@ class LoxoneConnectionManager {
         
         try {
             await this.establishConnection(buildingId);
+            // Update building connection status in database
+            await this.updateBuildingConnectionStatus(buildingId, true);
             return { success: true, message: 'Connection established' };
         } catch (error) {
             this.connections.delete(buildingId);
+            // Update building connection status on failure
+            await this.updateBuildingConnectionStatus(buildingId, false);
             return { success: false, message: error.message };
         }
     }
@@ -709,6 +738,8 @@ class LoxoneConnectionManager {
         } else {
             //console.error(`[LOXONE] [${buildingId}] Max reconnection attempts reached`);
             this.connections.delete(buildingId);
+            // Update building connection status when max attempts reached
+            this.updateBuildingConnectionStatus(buildingId, false).catch(() => {});
         }
     }
 
@@ -735,6 +766,10 @@ class LoxoneConnectionManager {
         }
 
         this.connections.delete(buildingId);
+        
+        // Update building connection status in database
+        await this.updateBuildingConnectionStatus(buildingId, false);
+        
         //console.log(`[LOXONE] [${buildingId}] Disconnected`);
         return { success: true, message: 'Disconnected' };
     }
@@ -769,6 +804,122 @@ class LoxoneConnectionManager {
             };
         }
         return statuses;
+    }
+
+    /**
+     * Restore all connections from database on server startup
+     * This ensures connections persist across server restarts/deployments
+     * 
+     * @returns {Promise<Object>} Restoration result with counts
+     */
+    async restoreConnections() {
+        try {
+            // Wait for mongoose to be ready
+            if (mongoose.connection.readyState !== 1) {
+                console.log('[LOXONE] Database not ready, skipping connection restoration');
+                return { restored: 0, failed: 0, results: [] };
+            }
+
+            const Building = require('../models/Building');
+            
+            // Find all buildings with Loxone configuration
+            const buildings = await Building.find({
+                $and: [
+                    { miniserver_user: { $exists: true, $ne: null, $ne: '' } },
+                    { miniserver_pass: { $exists: true, $ne: null, $ne: '' } },
+                    {
+                        $or: [
+                            { miniserver_ip: { $exists: true, $ne: null, $ne: '' } },
+                            { miniserver_external_address: { $exists: true, $ne: null, $ne: '' } }
+                        ]
+                    }
+                ]
+            });
+
+            if (buildings.length === 0) {
+                console.log('[LOXONE] No buildings with Loxone configuration found to restore');
+                return { restored: 0, failed: 0, results: [] };
+            }
+
+            console.log(`[LOXONE] Found ${buildings.length} building(s) with Loxone configuration. Restoring connections...`);
+
+            let restored = 0;
+            let failed = 0;
+            const results = [];
+
+            // Restore each connection
+            for (const building of buildings) {
+                try {
+                    const buildingId = building._id.toString();
+                    
+                    // Skip if connection already exists (from previous restore attempt or manual connection)
+                    if (this.connections.has(buildingId)) {
+                        const existingState = this.connections.get(buildingId);
+                        if (existingState.ws && existingState.ws.readyState === WebSocket.OPEN) {
+                            console.log(`[LOXONE] Connection already active for building: ${building.name} (${buildingId}), skipping restore`);
+                            restored++;
+                            results.push({
+                                buildingId: buildingId,
+                                buildingName: building.name,
+                                success: true,
+                                message: 'Connection already active'
+                            });
+                            continue;
+                        } else {
+                            // Connection exists but is not open, remove it first
+                            this.connections.delete(buildingId);
+                        }
+                    }
+                    
+                    const credentials = {
+                        ip: building.miniserver_ip,
+                        port: building.miniserver_port,
+                        protocol: building.miniserver_protocol,
+                        user: building.miniserver_user,
+                        pass: building.miniserver_pass,
+                        externalAddress: building.miniserver_external_address,
+                        serialNumber: building.miniserver_serial
+                    };
+
+                    const result = await this.connect(buildingId, credentials);
+                    
+                    if (result.success) {
+                        restored++;
+                        console.log(`[LOXONE] ✓ Restored connection for building: ${building.name} (${buildingId})`);
+                    } else {
+                        failed++;
+                        console.warn(`[LOXONE] ✗ Failed to restore connection for building: ${building.name} (${buildingId}): ${result.message}`);
+                    }
+                    
+                    results.push({
+                        buildingId: buildingId,
+                        buildingName: building.name,
+                        success: result.success,
+                        message: result.message
+                    });
+
+                    // Small delay between connections to avoid overwhelming the server
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } catch (error) {
+                    failed++;
+                    const buildingId = building._id.toString();
+                    console.error(`[LOXONE] Error restoring connection for building ${buildingId}:`, error.message);
+                    results.push({
+                        buildingId: buildingId,
+                        buildingName: building.name,
+                        success: false,
+                        message: error.message
+                    });
+                }
+            }
+
+            console.log(`[LOXONE] Connection restoration complete: ${restored} restored, ${failed} failed`);
+            return { restored, failed, results };
+        } catch (error) {
+            console.error('[LOXONE] Error during connection restoration:', error.message);
+            // Don't throw - allow server to start even if restoration fails
+            return { restored: 0, failed: 0, results: [], error: error.message };
+        }
     }
 }
 

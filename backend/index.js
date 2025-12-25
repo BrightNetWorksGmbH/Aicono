@@ -55,12 +55,27 @@ app.use(errorHandler);
 
 // Import aggregation scheduler
 const aggregationScheduler = require('./services/aggregationScheduler');
+// Import Loxone connection manager
+const loxoneConnectionManager = require('./services/loxoneConnectionManager');
 
 // Start server after DB is connected
 connectToDatabase()
-  .then(() => {
+  .then(async () => {
     // Start aggregation scheduler after DB connection
     aggregationScheduler.start();
+    
+    // Restore Loxone connections from database (non-blocking)
+    // This ensures connections persist across server restarts/deployments
+    loxoneConnectionManager.restoreConnections()
+      .then((result) => {
+        if (result.restored > 0 || result.failed > 0) {
+          console.log(`[LOXONE] Connection restoration: ${result.restored} restored, ${result.failed} failed`);
+        }
+      })
+      .catch((error) => {
+        console.error('[LOXONE] Failed to restore connections:', error.message);
+        // Don't fail server startup if connection restoration fails
+      });
     
     app.listen(port, () => {
       console.log(`Aicono EMS Server running at http://localhost:${port}`);
