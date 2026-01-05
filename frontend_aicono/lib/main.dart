@@ -10,7 +10,6 @@ import 'package:frontend_aicono/core/services/auth_service.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/bloc/register_user_bloc.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/bloc/invitation_validation_bloc.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/bloc/reset_password_bloc.dart';
-
 import 'package:frontend_aicono/core/services/dynamic_theme_service.dart';
 
 void main() async {

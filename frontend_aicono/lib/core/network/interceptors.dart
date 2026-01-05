@@ -153,9 +153,14 @@ class AuthInterceptor extends Interceptor {
   bool _shouldSkipAuth(String path) {
     final skipPaths = [
       '/auth/login',
+      '/api/v1/auth/login',
       '/auth/register',
+      '/api/v1/auth/register',
       '/auth/refresh',
       '/auth/forgot-password',
+      '/api/v1/auth/forgot-password',
+      '/auth/reset-password',
+      '/api/v1/auth/reset-password',
       '/invitation/validate',
     ];
 
@@ -164,10 +169,21 @@ class AuthInterceptor extends Interceptor {
       return true;
     }
 
-    // Public invitation token endpoint: exactly /invitation/{token}
-    // Keep /invitation/pending/{verseId} authenticated
+    // Public invitation token endpoint: /api/v1/invitations/token/{token}
+    // Also support old format: /invitation/{token}
+    final invitationTokenPattern = RegExp(r'^/api/v1/invitations/token/[^/]+$');
+    if (invitationTokenPattern.hasMatch(path)) {
+      return true;
+    }
+
     final invitationTokenOnly = RegExp(r'^/invitation/[^/]+$');
     if (invitationTokenOnly.hasMatch(path)) {
+      return true;
+    }
+
+    // Public user email check endpoint: /api/v1/auth/user/email/{email}
+    final userEmailPattern = RegExp(r'^/api/v1/auth/user/email/[^/]+$');
+    if (userEmailPattern.hasMatch(path)) {
       return true;
     }
 

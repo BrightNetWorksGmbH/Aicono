@@ -125,7 +125,7 @@ class _ForgotResetPasswordPageState extends State<ForgotResetPasswordPage> {
                     padding: const EdgeInsets.all(32.0),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFFE44D2E), Color(0xFFFF7F50)],
+                        colors: [Color(0xFF214a59), Color(0xFF171c23)],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
@@ -142,7 +142,7 @@ class _ForgotResetPasswordPageState extends State<ForgotResetPasswordPage> {
                             'Reset Your Password',
                             textAlign: TextAlign.center,
                             style: AppTextStyles.headlineMedium.copyWith(
-                              color: Colors.black,
+                              color: Colors.white,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
@@ -151,7 +151,7 @@ class _ForgotResetPasswordPageState extends State<ForgotResetPasswordPage> {
                             'Choose a new secure password for your account',
                             textAlign: TextAlign.center,
                             style: AppTextStyles.bodySmall.copyWith(
-                              color: Colors.black87,
+                              color: Colors.white,
                             ),
                           ),
                           const SizedBox(height: 24),
@@ -173,7 +173,7 @@ class _ForgotResetPasswordPageState extends State<ForgotResetPasswordPage> {
                             decoration: InputDecoration(
                               hintText: 'reset_password.password_hint'.tr(),
                               hintStyle: AppTextStyles.bodyMedium.copyWith(
-                                color: Colors.black54,
+                                color: Colors.white70,
                               ),
                               border: const OutlineInputBorder(
                                 borderSide: BorderSide(
@@ -198,7 +198,7 @@ class _ForgotResetPasswordPageState extends State<ForgotResetPasswordPage> {
                                   _obscurePassword
                                       ? Icons.visibility_off
                                       : Icons.visibility,
-                                  color: Colors.black54,
+                                  color: Colors.white,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -231,7 +231,7 @@ class _ForgotResetPasswordPageState extends State<ForgotResetPasswordPage> {
                             decoration: InputDecoration(
                               hintText: 'reset_password.confirm_hint'.tr(),
                               hintStyle: AppTextStyles.bodyMedium.copyWith(
-                                color: Colors.black54,
+                                color: Colors.white70,
                               ),
                               border: const OutlineInputBorder(
                                 borderSide: BorderSide(
@@ -256,7 +256,7 @@ class _ForgotResetPasswordPageState extends State<ForgotResetPasswordPage> {
                                   _obscureConfirm
                                       ? Icons.visibility_off
                                       : Icons.visibility,
-                                  color: Colors.black54,
+                                  color: Colors.white,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -347,7 +347,7 @@ class _ForgotResetPasswordPageState extends State<ForgotResetPasswordPage> {
                                                 'Reset Password',
                                                 style: AppTextStyles.bodyMedium
                                                     .copyWith(
-                                                      color: Colors.black,
+                                                      color: Colors.white,
                                                       fontWeight:
                                                           FontWeight.bold,
                                                     ),

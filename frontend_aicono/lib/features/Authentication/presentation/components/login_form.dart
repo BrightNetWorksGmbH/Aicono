@@ -140,14 +140,14 @@ class _LoginFormState extends State<LoginForm> {
                 await _checkVerseSetupAndRedirect();
                 return;
               }
-              // Already member of the invited verse → dashboard
-              context.goNamed(Routelists.dashboard);
+              // Already member of the invited verse → floor plan editor
+              context.goNamed(Routelists.floorPlanEditor);
               return;
             }
 
-            // 2) No invitation param: if already in any verse → dashboard
+            // 2) No invitation param: if already in any verse → floor plan editor
             if (user.joinedVerse.isNotEmpty) {
-              context.goNamed(Routelists.dashboard);
+              context.goNamed(Routelists.floorPlanEditor);
               return;
             }
 
@@ -179,7 +179,7 @@ class _LoginFormState extends State<LoginForm> {
 
           // Login successful
 
-          context.goNamed(Routelists.dashboard);
+          context.goNamed(Routelists.floorPlanEditor);
         },
       );
     } catch (e) {
@@ -517,7 +517,7 @@ class _LoginFormState extends State<LoginForm> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                Container(
+                SizedBox(
                   width: contentWidth > 600
                       ? contentWidth - contentWidth / 3
                       : contentWidth,
@@ -717,9 +717,7 @@ class _LoginFormState extends State<LoginForm> {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () {
-                        context.go('/floor-plan-editor');
-
-                        // context.pushNamed(Routelists.forgotPassword);
+                        context.pushNamed(Routelists.forgotPassword);
                       },
                       child: Text(
                         'Forgot Password?',

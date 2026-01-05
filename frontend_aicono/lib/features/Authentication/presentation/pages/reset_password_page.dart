@@ -122,7 +122,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                     padding: const EdgeInsets.all(32.0),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFFE44D2E), Color(0xFFFF7F50)],
+                        colors: [Color(0xFF214a59), Color(0xFF171c23)],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
@@ -139,7 +139,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             'login_screen.welcome_message'.tr(),
                             textAlign: TextAlign.center,
                             style: AppTextStyles.headlineMedium.copyWith(
-                              color: Colors.black,
+                              color: Colors.white,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
@@ -148,7 +148,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             'Set your password to complete your account setup',
                             textAlign: TextAlign.center,
                             style: AppTextStyles.bodySmall.copyWith(
-                              color: Colors.black87,
+                              color: Colors.white,
                             ),
                           ),
                           const SizedBox(height: 24),
@@ -170,7 +170,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             decoration: InputDecoration(
                               hintText: 'reset_password.password_hint'.tr(),
                               hintStyle: AppTextStyles.bodyMedium.copyWith(
-                                color: Colors.black54,
+                                color: Colors.white70,
                               ),
                               border: const OutlineInputBorder(
                                 borderSide: BorderSide(
@@ -195,7 +195,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                   _obscurePassword
                                       ? Icons.visibility_off
                                       : Icons.visibility,
-                                  color: Colors.black54,
+                                  color: Colors.white,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -237,7 +237,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             decoration: InputDecoration(
                               hintText: 'reset_password.confirm_hint'.tr(),
                               hintStyle: AppTextStyles.bodyMedium.copyWith(
-                                color: Colors.black54,
+                                color: Colors.white70,
                               ),
                               border: const OutlineInputBorder(
                                 borderSide: BorderSide(
@@ -262,7 +262,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                   _obscureConfirm
                                       ? Icons.visibility_off
                                       : Icons.visibility,
-                                  color: Colors.black54,
+                                  color: Colors.white,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -342,7 +342,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                                 'Create Account',
                                                 style: AppTextStyles.bodyMedium
                                                     .copyWith(
-                                                      color: Colors.black,
+                                                      color: Colors.white,
                                                       fontWeight:
                                                           FontWeight.bold,
                                                     ),
@@ -365,7 +365,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             child: Text(
                               'reset_password.back_to_login'.tr(),
                               style: AppTextStyles.bodyMedium.copyWith(
-                                color: Colors.black,
+                                color: Colors.white,
                               ),
                             ),
                           ),

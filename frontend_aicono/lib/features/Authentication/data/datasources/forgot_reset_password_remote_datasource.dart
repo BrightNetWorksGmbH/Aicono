@@ -26,7 +26,7 @@ class ForgotResetPasswordRemoteDataSourceImpl
   }) async {
     try {
       final response = await dioClient.post(
-        '/auth/reset-password',
+        '/api/v1/auth/reset-password',
         data: {
           'token': token,
           'new_password': newPassword,

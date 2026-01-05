@@ -74,7 +74,7 @@ class _ForgotPasswordFormState extends State<ForgotPasswordForm> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             gradient: LinearGradient(
-              colors: [Color(0xFFFF7F50), Colors.white],
+              colors: [Colors.white, Colors.white],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -90,7 +90,7 @@ class _ForgotPasswordFormState extends State<ForgotPasswordForm> {
               padding: const EdgeInsets.all(16.0),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFFE44D2E), Color(0xFFFF7F50)],
+                  colors: [Color(0xFF214a59), Color(0xFF171c23)],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -116,7 +116,7 @@ class _ForgotPasswordFormState extends State<ForgotPasswordForm> {
                     const SizedBox(height: 24),
 
                     // Logo
-                    Container(
+                    SizedBox(
                       width: contentWidth > 600
                           ? contentWidth - 200
                           : contentWidth,
@@ -129,7 +129,7 @@ class _ForgotPasswordFormState extends State<ForgotPasswordForm> {
                     const SizedBox(height: 24),
 
                     // Title
-                    Container(
+                    SizedBox(
                       width: contentWidth > 600
                           ? contentWidth - contentWidth / 3
                           : contentWidth,
@@ -143,14 +143,14 @@ class _ForgotPasswordFormState extends State<ForgotPasswordForm> {
                     const SizedBox(height: 12),
 
                     // Description
-                    Container(
+                    SizedBox(
                       width: contentWidth > 600
                           ? contentWidth - contentWidth / 3
                           : contentWidth,
                       child: Text(
                         'forgot_password.description'.tr(),
                         style: AppTextStyles.bodySmall.copyWith(
-                          color: Colors.black87,
+                          color: Colors.white,
                           height: 1.5,
                         ),
                         textAlign: TextAlign.center,
@@ -160,7 +160,7 @@ class _ForgotPasswordFormState extends State<ForgotPasswordForm> {
                     const SizedBox(height: 32),
 
                     // Email Field
-                    Container(
+                    SizedBox(
                       width: contentWidth > 600
                           ? contentWidth - contentWidth / 3
                           : contentWidth,
@@ -169,12 +169,12 @@ class _ForgotPasswordFormState extends State<ForgotPasswordForm> {
                         textAlign: TextAlign.center,
                         keyboardType: TextInputType.emailAddress,
                         style: AppTextStyles.bodyMedium.copyWith(
-                          color: Colors.black,
+                          color: Colors.white,
                         ),
                         decoration: InputDecoration(
                           hintText: 'forgot_password.email_placeholder'.tr(),
                           hintStyle: AppTextStyles.bodyMedium.copyWith(
-                            color: Colors.grey[400],
+                            color: Colors.white70,
                           ),
                           border: const OutlineInputBorder(
                             borderSide: BorderSide(
@@ -281,7 +281,7 @@ class _ForgotPasswordFormState extends State<ForgotPasswordForm> {
                                           'forgot_password.submit_button'.tr(),
                                           style: AppTextStyles.bodyMedium
                                               .copyWith(
-                                                color: Colors.black,
+                                                color: Colors.white,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                         ),
@@ -309,10 +309,10 @@ class _ForgotPasswordFormState extends State<ForgotPasswordForm> {
                           child: Text(
                             'forgot_password.back_to_login'.tr(),
                             style: AppTextStyles.bodySmall.copyWith(
-                              color: Colors.black,
+                              color: Colors.white,
                               fontWeight: FontWeight.w500,
                               decoration: TextDecoration.underline,
-                              decorationColor: Colors.black,
+                              decorationColor: Colors.white,
                             ),
                           ),
                         ),

@@ -22,11 +22,11 @@ class RegisterUserRemoteDataSourceImpl implements RegisterUserRemoteDataSource {
   ) async {
     try {
       final response = await dioClient.post(
-        '/register',
+        '/api/v1/auth/register',
         data: request.toJson(),
       );
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final registerResponse = RegisterUserResponse.fromJson(response.data);
         return Right(registerResponse);
       } else {

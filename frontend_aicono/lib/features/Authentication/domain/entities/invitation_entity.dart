@@ -32,20 +32,51 @@ class InvitationEntity extends Equatable {
   });
 
   factory InvitationEntity.fromJson(Map<String, dynamic> json) {
+    // Handle new API response structure
+    // Extract bryteswitch_id from bryteswitch_id object or bryteswitch object
+    final bryteswitchIdObj = json['bryteswitch_id'] ?? json['bryteswitch'];
+    final verseId = bryteswitchIdObj != null && bryteswitchIdObj is Map
+        ? (bryteswitchIdObj['_id'] ?? '')
+        : (json['verse_id'] ?? json['verseId'] ?? '');
+
+    // Extract role_id from role object
+    final roleObj = json['role'];
+    final roleId = roleObj != null && roleObj is Map
+        ? (roleObj['_id'] ?? '')
+        : (json['role_id'] ?? json['roleId'] ?? '');
+
+    // Extract invited_by from invited_by object
+    final invitedByObj = json['invited_by'];
+    final invitedBy = invitedByObj != null && invitedByObj is Map
+        ? (invitedByObj['_id'] ?? '')
+        : (json['invited_by'] ?? json['invitedBy'] ?? '');
+
+    // Extract email from recipient_email or email
+    final email = json['recipient_email'] ?? json['email'] ?? '';
+
+    // Determine isAccepted from status field
+    final status = json['status'] ?? '';
+    final isAccepted =
+        status.toLowerCase() == 'accepted' ||
+        status.toLowerCase() == 'completed' ||
+        (json['is_accepted'] ?? json['isAccepted'] ?? false);
+
     return InvitationEntity(
-      id: json['_id'] ?? json['id'],
-      verseId: json['verse_id'] ?? json['verseId'],
-      email: json['email'],
-      roleId: json['role_id'] ?? json['roleId'],
-      token: json['token'],
-      invitedBy: json['invited_by'] ?? json['invitedBy'],
-      isAccepted: json['is_accepted'] ?? json['isAccepted'] ?? false,
-      createdAt: DateTime.parse(json['created_at'] ?? json['createdAt']),
-      expiresAt: json['expires_at'] != null || json['expiresAt'] != null
-          ? DateTime.parse(json['expires_at'] ?? json['expiresAt'])
+      id: json['_id'] ?? json['id'] ?? '',
+      verseId: verseId,
+      email: email,
+      roleId: roleId,
+      token: json['token'] ?? '',
+      invitedBy: invitedBy,
+      isAccepted: isAccepted,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : DateTime.now(),
+      expiresAt: json['expires_at'] != null
+          ? DateTime.parse(json['expires_at'])
           : null,
-      acceptedAt: json['accepted_at'] != null || json['acceptedAt'] != null
-          ? DateTime.parse(json['accepted_at'] ?? json['acceptedAt'])
+      acceptedAt: json['accepted_at'] != null
+          ? DateTime.parse(json['accepted_at'])
           : null,
       firstName: json['first_name'] ?? json['firstName'] ?? '',
       lastName: json['last_name'] ?? json['lastName'] ?? '',

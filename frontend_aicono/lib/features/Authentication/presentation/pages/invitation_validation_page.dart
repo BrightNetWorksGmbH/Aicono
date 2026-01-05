@@ -101,7 +101,7 @@ class _InvitationValidationPageState extends State<InvitationValidationPage> {
                           height: 80,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [Color(0xFFE44D2E), Color(0xFFFF7F50)],
+                              colors: [Color(0xFF214a59), Color(0xFF171c23)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),

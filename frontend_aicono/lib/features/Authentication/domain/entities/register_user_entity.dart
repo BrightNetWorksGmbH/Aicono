@@ -3,27 +3,27 @@ import 'package:equatable/equatable.dart';
 class RegisterUserRequest extends Equatable {
   final String email;
   final String password;
-  final String? avatarUrl;
   final String invitationToken;
+  final String? avatarUrl;
 
   const RegisterUserRequest({
     required this.email,
     required this.password,
-    this.avatarUrl,
     required this.invitationToken,
+    this.avatarUrl,
   });
 
   Map<String, dynamic> toJson() {
     return {
       'email': email,
       'password': password,
-      if (avatarUrl != null) 'avatar_url': avatarUrl,
       'invitation_token': invitationToken,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
     };
   }
 
   @override
-  List<Object?> get props => [email, password, avatarUrl, invitationToken];
+  List<Object?> get props => [email, password, invitationToken, avatarUrl];
 }
 
 class RegisterUserResponse extends Equatable {

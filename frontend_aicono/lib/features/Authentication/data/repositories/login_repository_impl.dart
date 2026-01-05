@@ -19,21 +19,57 @@ class LoginRepositoryImpl implements LoginRepository {
     try {
       // Make API call to login endpoint
       final response = await dioClient.post(
-        '/login',
+        '/api/v1/auth/login',
         data: {'email': email, 'password': password},
       );
 
       if (response.statusCode == 200) {
-        final user = User.fromJson(response.data);
-        await prefs.setString('user_data', user.toJsonString());
+        final responseData = response.data;
 
-        // Save tokens to secure storage
-        await SecureStorage.saveTokens(
-          user.token, // Access token
-          user.refreshToken, // Refresh token (or token if refreshToken not provided)
-        );
+        // Check for success flag and data wrapper
+        if (responseData['success'] == true && responseData['data'] != null) {
+          final data = responseData['data'];
+          final userData = data['user'];
+          final token = data['token'] ?? '';
 
-        return Right(user);
+          // Combine user data with token and other fields from data
+          final combinedUserData = Map<String, dynamic>.from(userData);
+          combinedUserData['token'] = token;
+          combinedUserData['refresh_token'] =
+              token; // Use same token as refresh if not provided
+
+          // Handle roles array - extract bryteswitch_id for joinedVerse
+          if (data['roles'] != null && data['roles'] is List) {
+            final roles = data['roles'] as List;
+            final joinedVerse = roles
+                .where((role) => role['bryteswitch_id'] != null)
+                .map((role) => role['bryteswitch_id'].toString())
+                .toList();
+            combinedUserData['joined_verse'] = joinedVerse;
+          }
+
+          // Add is_setup_complete if present
+          if (data['is_setup_complete'] != null) {
+            combinedUserData['is_setup_complete'] = data['is_setup_complete'];
+          }
+
+          final user = User.fromJson(combinedUserData);
+          await prefs.setString('user_data', user.toJsonString());
+
+          // Save tokens to secure storage
+          await SecureStorage.saveTokens(
+            user.token, // Access token
+            user.refreshToken, // Refresh token (or token if refreshToken not provided)
+          );
+
+          return Right(user);
+        } else {
+          return Left(
+            ServerFailure(
+              'Invalid response format: success flag is false or data is missing',
+            ),
+          );
+        }
       } else {
         return Left(ServerFailure('Login failed: ${response.statusCode}'));
       }
@@ -82,11 +118,19 @@ class LoginRepositoryImpl implements LoginRepository {
   @override
   Future<Either<Failure, bool>> checkUserExists(String email) async {
     try {
-      final response = await dioClient.get('/user/email/$email');
+      final response = await dioClient.get('/api/v1/auth/user/email/$email');
 
       if (response.statusCode == 200) {
-        // User exists
-        return const Right(true);
+        final responseData = response.data;
+
+        // Check for success flag and data wrapper
+        if (responseData['success'] == true && responseData['data'] != null) {
+          // User exists
+          return const Right(true);
+        } else {
+          // User doesn't exist or invalid response
+          return const Right(false);
+        }
       } else if (response.statusCode == 404) {
         // User doesn't exist
         return const Right(false);

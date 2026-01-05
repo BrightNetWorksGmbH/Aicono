@@ -19,18 +19,36 @@ class InvitationRemoteDataSourceImpl implements InvitationRemoteDataSource {
     String token,
   ) async {
     try {
-      final response = await dioClient.get('/invitation/$token');
+      final response = await dioClient.get('/api/v1/invitations/token/$token');
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        final invitationData = responseData['invitation'];
 
-        if (invitationData != null) {
-          final invitation = InvitationEntity.fromJson(invitationData);
-          return Right(invitation);
+        // Check for success flag
+        if (responseData['success'] == true && responseData['data'] != null) {
+          final invitationData = responseData['data']['invitation'];
+
+          if (invitationData != null) {
+            // Add token from URL to the invitation data since it's not in the response
+            final invitationDataWithToken = Map<String, dynamic>.from(
+              invitationData,
+            );
+            invitationDataWithToken['token'] = token;
+
+            final invitation = InvitationEntity.fromJson(
+              invitationDataWithToken,
+            );
+            return Right(invitation);
+          } else {
+            return Left(
+              ServerFailure('Invalid response format: missing invitation data'),
+            );
+          }
         } else {
           return Left(
-            ServerFailure('Invalid response format: missing invitation data'),
+            ServerFailure(
+              'Invalid response format: success flag is false or data is missing',
+            ),
           );
         }
       } else {
@@ -45,6 +63,15 @@ class InvitationRemoteDataSourceImpl implements InvitationRemoteDataSource {
         return Left(
           ServerFailure(
             'Cannot connect to server. Please check if the backend server is running.',
+          ),
+        );
+      } else if (e.type == DioExceptionType.unknown) {
+        // Handle unknown errors (often SSL, network, or URL issues)
+        final errorMessage =
+            e.message ?? e.error?.toString() ?? 'Unknown network error';
+        return Left(
+          ServerFailure(
+            'Network error: $errorMessage. Please check your internet connection and try again.',
           ),
         );
       }

@@ -18,7 +18,7 @@ class ForgotPasswordRemoteDataSourceImpl
   Future<Either<Failure, String>> sendResetLink(String email) async {
     try {
       final response = await dioClient.post(
-        '/auth/forgot-password',
+        '/api/v1/auth/forgot-password',
         data: {'email': email},
       );
 
