@@ -45,6 +45,117 @@
   "app_footer": {
     "relevant_links": "Relevante Links"
   },
+  "activate_switchboard": {
+    "greeting": "Hallo, {name}!",
+    "greeting_fallback": "Hallo!",
+    "title": "Du bist dabei!",
+    "description": "Prima, Dein Unternehmen wurde für Switchboard freigeschaltet. Bevor es mit dem Ressourcen managen losgehen kann, lass uns schnelle das Board aufsetzen. Aber keine Sorge, das geht ganz schnell.",
+    "button_text": "Alles klar, lass uns loslegen!",
+    "menu": "MENU"
+  },
+  "set_organization_name": {
+    "title_with_name": "{name}, für welche Organisation legst Du Bryteswitch an?",
+    "title": "Für welche Organisation legst Du Bryteswitch an?",
+    "hint": "BrightNetWorks GmbH",
+    "tip": "Tipp: Gib den Unternehmensnamen so exakt wie möglich an, sodass die Wiedererkennung gegeben ist.",
+    "button_text": "So heißen wir. Weiter geht's."
+  },
+  "set_switch_name": {
+    "title": "Prima, dies ist der Name für Dein Bryteswitch:",
+    "hint": "brightnetworks.switchboard.com",
+    "tip": "Tipp: Du und Deine Kolleginnen und Kollegen erinnern sich leichter an den Namen des Bryteswitch, wenn er identisch zum Namen der Organisation ist.",
+    "edit_link": "Nochmal ändern",
+    "button_text": "Das passt so. Weiter geht's."
+  },
+  "set_switch_image": {
+    "title": "Möchtest Du Deinem Bryteswitch ein Logo hinzufügen?",
+    "change_verse": "+ Verse wechseln",
+    "tip": "Tipp: Das Logo Deiner Organisation schafft Wiedererkennung und macht sofort klar, um wen es geht.",
+    "skip_logo": "ohne Logo fortfahren",
+    "button_text": "Das passt so. Weiter geht's."
+  },
+  "set_switch_color": {
+    "title": "Möchtest Du den Look Deines Bryteswitch personalisieren?",
+    "change_color": "+ Farbe ändern",
+    "tip": "Tipp: Du kannst eine Akzentfarbe auswählen, um Dein Switchboard an den Look Deiner Organisation oder Deines Unternehmens anzupassen.",
+    "skip_link": "Nein danke, vielleicht später.",
+    "button_text": "Das ist das richtige Bild!"
+  },
+  "set_personalized_look": {
+    "title": "Möchtest Du den Look Deines Bryteswitch personalisieren?",
+    "option_1": "Augenfreundlichkeit priorisieren im Light-Mode",
+    "option_2": "Energie sparen im Dark-Mode",
+    "option_3": "Farb-Set barrierefrei wählen und überschreiben",
+    "tip": "Tipp: Farben sind Macht. Es kostet mehr Energie, ein Display mit hellem Grundton und dunkler Schrift zu beleuchten, als ein Display mit dunklem Grundton und heller Schrift. Wir bieten außerdem einen barrierefreien Farb-Modus an, um größtmögliche Rücksicht auf Menschen mit besonderen Anforderungen (z.B. Rot-Grün-Schwäche) oder Neurodivergenz zu nehmen.",
+    "button_text": "Das ist das richtige Bild!"
+  },
+  "structure_switch": {
+    "title": "Möchtest Du Dein Bryteswitch bereits etwas strukturieren?",
+    "tip": "Tipp: Wir können Dein Bryteswitch bereits jetzt grundlegend strukturieren und Dir auf diese Weise später viel Arbeit sparen. Du kannst aber auch direkt in Dein BryteSight-Verse starten und die Struktur selbst bauen.",
+    "start_directly_link": "Direkt ins Bryteswitch starten!",
+    "button_text": "Lass uns eine Struktur finden!"
+  },
+  "confirm_structure": {
+    "progress_text": "Fast geschafft, {name}!",
+    "progress_text_fallback": "Fast geschafft!",
+    "heading": "Gute Entscheidung, {name}. Lass uns strukturiert beginnen!",
+    "heading_fallback": "Gute Entscheidung. Lass uns strukturiert beginnen!",
+    "description": "Investiere jetzt 3-5 Minuten Deiner Zeit, um später schneller und strukturierter zu starten. Gemeinsam werden wir Deine Liegenschaften anlegen, erste Informationen dazu erfassen und Dein Bryteswitch in einfachen Schritten einsatzbereit machen. Zusammen.",
+    "skip_link": "Überspringen",
+    "button_text": "Lass uns eine Struktur finden!"
+  },
+  "add_property_name": {
+    "progress_text": "Fast geschafft, {name}!",
+    "progress_text_fallback": "Fast geschafft!",
+    "title": "Wie heißt die Liegenschaft?",
+    "hint": "Name der Liegenschaft",
+    "skip_link": "Schritt überspringen",
+    "button_text": "Das passt so"
+  },
+  "add_property_location": {
+    "progress_text": "Fast geschafft, {name}!",
+    "progress_text_fallback": "Fast geschafft!",
+    "title": "Wo ist die Liegenschaft?",
+    "option_headquarters": "Hauptsitz in Münster",
+    "option_specify": "Standort angeben",
+    "option_gps": "GPS-Koordinaten",
+    "skip_link": "Schritt überspringen",
+    "button_text": "Das passt so"
+  },
+  "select_resources": {
+    "progress_text": "Fast geschafft, {name}!",
+    "progress_text_fallback": "Fast geschafft!",
+    "title": "Welche Ressourcen sind hier relevant?",
+    "option_headquarters": "Hauptsitz in Münster",
+    "option_address": "Hafenweg 11a, 48155 Münster",
+    "option_energy": "Energie/Strom",
+    "option_water": "Wasser",
+    "option_gas": "Gas",
+    "skip_link": "Schritt überspringen",
+    "button_text": "Das passt so"
+  },
+  "add_additional_buildings": {
+    "progress_text": "Fast geschafft, {name}!",
+    "progress_text_fallback": "Fast geschafft!",
+    "title": "Hat die Liegenschaft weitere Gebäude?",
+    "building_headquarters": "Hauptsitz in Münster",
+    "building_address": "Hafenweg 11a, 48155 Münster",
+    "resources": "Strom, Wasser, Gas",
+    "building_hint": "Gebäudename",
+    "add_building_link": "+ Gebäude hinzufügen",
+    "add_details_link": "+ Details hinzufügen",
+    "yes": "ja",
+    "no": "nein",
+    "skip_link": "Schritt überspringen",
+    "button_text": "Das passt so"
+  },
+  "dashboard": {
+    "sidebar": {
+      "change_language": "Sprache ändern",
+      "english": "Englisch",
+      "deutsch": "Deutsch"
+    }
+  },
   "common": {
     "cancel": "Abbrechen",
     "close": "Schließen",
@@ -60,5 +171,4 @@
     "retry": "Erneut versuchen",
     "submit": "Absenden"
   }
- 
 }

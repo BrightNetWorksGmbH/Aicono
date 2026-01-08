@@ -10,6 +10,18 @@ import 'package:frontend_aicono/features/Authentication/presentation/pages/forgo
 import 'package:frontend_aicono/features/Authentication/presentation/pages/reset_password_page.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/pages/invitation_validation_page.dart';
 import 'package:frontend_aicono/features/FloorPlan/presentation/pages/floor_plan_editor_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/activate_switchboard_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/set_organization_name_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/set_switch_name_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/set_switch_image_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/set_switch_color_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/set_personalized_look_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/structure_switch_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/confirm_structure_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_property_name_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_property_location_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/select_resources_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_additional_buildings_page.dart';
 
 /// App router configuration using go_router
 class AppRouter {
@@ -205,6 +217,158 @@ class AppRouter {
           context,
           state,
           InvitationValidationPage(token: token),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.activateSwitchboard}',
+      name: Routelists.activateSwitchboard,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        return _buildPage(
+          context,
+          state,
+          ActivateSwitchboardPage(userName: userName),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.setOrganizationName}',
+      name: Routelists.setOrganizationName,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        return _buildPage(
+          context,
+          state,
+          SetOrganizationNamePage(userName: userName),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.setSwitchName}',
+      name: Routelists.setSwitchName,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        final organizationName = state.uri.queryParameters['organizationName'];
+        return _buildPage(
+          context,
+          state,
+          SetSwitchNamePage(
+            userName: userName,
+            organizationName: organizationName,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.setSwitchImage}',
+      name: Routelists.setSwitchImage,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        final organizationName = state.uri.queryParameters['organizationName'];
+        return _buildPage(
+          context,
+          state,
+          SetSwitchImagePage(
+            userName: userName,
+            organizationName: organizationName,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.setSwitchColor}',
+      name: Routelists.setSwitchColor,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        return _buildPage(
+          context,
+          state,
+          SetSwitchColorPage(userName: userName),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.setPersonalizedLook}',
+      name: Routelists.setPersonalizedLook,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        return _buildPage(
+          context,
+          state,
+          SetPersonalizedLookPage(userName: userName),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.structureSwitch}',
+      name: Routelists.structureSwitch,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        return _buildPage(
+          context,
+          state,
+          StructureSwitchPage(userName: userName),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.confirmStructure}',
+      name: Routelists.confirmStructure,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        return _buildPage(
+          context,
+          state,
+          ConfirmStructurePage(userName: userName),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.addPropertyName}',
+      name: Routelists.addPropertyName,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        return _buildPage(
+          context,
+          state,
+          AddPropertyNamePage(userName: userName),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.addPropertyLocation}',
+      name: Routelists.addPropertyLocation,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        return _buildPage(
+          context,
+          state,
+          AddPropertyLocationPage(userName: userName),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.selectResources}',
+      name: Routelists.selectResources,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        return _buildPage(
+          context,
+          state,
+          SelectResourcesPage(userName: userName),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.addAdditionalBuildings}',
+      name: Routelists.addAdditionalBuildings,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        return _buildPage(
+          context,
+          state,
+          AddAdditionalBuildingsPage(userName: userName),
         );
       },
     ),
