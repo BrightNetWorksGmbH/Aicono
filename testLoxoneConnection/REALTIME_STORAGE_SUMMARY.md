@@ -70,7 +70,7 @@ Add to your `.env` file:
 # MongoDB Connection
 MONGODB_URI=mongodb://localhost:27017/aicono
 # OR
-# MONGODB_URI=mongodb+srv://doadmin:6014M7Tk3G85fOqN@db-brightspace-f64857eb.mongo.ondigitalocean.com/admin?tls=true&authSource=admin&replicaSet=db-brightspace
+# MONGODB_URI=
 
 # Building ID (MongoDB ObjectId)
 BUILDING_ID=507f1f77bcf86cd799439011

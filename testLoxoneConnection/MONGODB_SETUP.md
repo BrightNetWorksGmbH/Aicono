@@ -70,7 +70,7 @@ Add these variables to your `.env` file:
 MONGODB_URI=mongodb://localhost:27017/aicono
 
 # OR DigitalOcean MongoDB
-MONGODB_URI=mongodb+srv://doadmin:6014M7Tk3G85fOqN@db-brightspace-f64857eb.mongo.ondigitalocean.com/admin?tls=true&authSource=admin&replicaSet=db-brightspace
+MONGODB_URI=
 
 # Building ID (required for MongoDB storage)
 # This is the MongoDB ObjectId of the Building document that corresponds to this Miniserver
