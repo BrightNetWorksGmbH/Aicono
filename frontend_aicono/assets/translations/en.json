@@ -45,6 +45,117 @@
   "app_footer": {
     "relevant_links": "Relevant Links"
   },
+  "activate_switchboard": {
+    "greeting": "Hello, {name}!",
+    "greeting_fallback": "Hello!",
+    "title": "You're in!",
+    "description": "Great, your company has been activated for Switchboard. Before you can start managing resources, let's quickly set up the board. But don't worry, it's very quick.",
+    "button_text": "Alright, let's get started!",
+    "menu": "MENU"
+  },
+  "set_organization_name": {
+    "title_with_name": "{name}, for which organization are you setting up Bryteswitch?",
+    "title": "For which organization are you setting up Bryteswitch?",
+    "hint": "BrightNetWorks GmbH",
+    "tip": "Tip: Enter the company name as precisely as possible so that it can be recognized.",
+    "button_text": "That's our name. Let's go."
+  },
+  "set_switch_name": {
+    "title": "Great, this is the name for your Bryteswitch:",
+    "hint": "brightnetworks.switchboard.com",
+    "tip": "Tip: You and your colleagues will remember the name of the Bryteswitch more easily if it is identical to the name of the organization.",
+    "edit_link": "Change again",
+    "button_text": "That's fine. Let's continue."
+  },
+  "set_switch_image": {
+    "title": "Would you like to add a logo to your Bryteswitch?",
+    "change_verse": "+ Verse wechseln",
+    "tip": "Tip: Your organization's logo creates recognition and immediately clarifies who it's about.",
+    "skip_logo": "ohne Logo fortfahren",
+    "button_text": "That's fine. Let's continue."
+  },
+  "set_switch_color": {
+    "title": "Would you like to personalise the look of your Bryteswitch?",
+    "change_color": "+ Change colour",
+    "tip": "Tip: You can choose an accent colour to match your switchboard to your organisation or company's look.",
+    "skip_link": "No thanks, maybe later.",
+    "button_text": "That's the right look!"
+  },
+  "set_personalized_look": {
+    "title": "Would you like to personalise the look of your Bryteswitch?",
+    "option_1": "Prioritise eye-friendliness in light mode",
+    "option_2": "Save energy in dark mode",
+    "option_3": "Choose and override an accessible colour set",
+    "tip": "Tip: Colours are powerful. It costs more energy to light a display with a light background and dark text than a display with a dark background and light text. We also offer an accessible colour mode to take the greatest possible account of people with special requirements (e.g. red-green weakness) or neurodivergence.",
+    "button_text": "That's the right look!"
+  },
+  "structure_switch": {
+    "title": "Would you like to structure your Bryteswitch already?",
+    "tip": "Tip: We can already structure your Bryteswitch fundamentally now and save you a lot of work later. However, you can also start directly in your BryteSight-Verse and build the structure yourself.",
+    "start_directly_link": "Start directly in Bryteswitch!",
+    "button_text": "Let's find a structure!"
+  },
+  "confirm_structure": {
+    "progress_text": "Almost done, {name}!",
+    "progress_text_fallback": "Almost done!",
+    "heading": "Good decision, {name}. Let's start structured!",
+    "heading_fallback": "Good decision. Let's start structured!",
+    "description": "Invest 3-5 minutes of your time now to start faster and more structured later. Together we will create your properties, record initial information, and make your Bryteswitch ready for use in simple steps. Together.",
+    "skip_link": "Skip",
+    "button_text": "Let's find a structure!"
+  },
+  "add_property_name": {
+    "progress_text": "Almost done, {name}!",
+    "progress_text_fallback": "Almost done!",
+    "title": "What is the name of the property?",
+    "hint": "Name of the property",
+    "skip_link": "Skip step",
+    "button_text": "That's fine"
+  },
+  "add_property_location": {
+    "progress_text": "Almost done, {name}!",
+    "progress_text_fallback": "Almost done!",
+    "title": "Where is the property?",
+    "option_headquarters": "Headquarters in Münster",
+    "option_specify": "Specify location",
+    "option_gps": "GPS-Coordinates",
+    "skip_link": "Skip step",
+    "button_text": "That's fine"
+  },
+  "select_resources": {
+    "progress_text": "Almost done, {name}!",
+    "progress_text_fallback": "Almost done!",
+    "title": "Which resources are relevant here?",
+    "option_headquarters": "Headquarters in Münster",
+    "option_address": "Hafenweg 11a, 48155 Münster",
+    "option_energy": "Energy/Electricity",
+    "option_water": "Water",
+    "option_gas": "Gas",
+    "skip_link": "Skip step",
+    "button_text": "That's fine"
+  },
+  "add_additional_buildings": {
+    "progress_text": "Almost done, {name}!",
+    "progress_text_fallback": "Almost done!",
+    "title": "Does the property have additional buildings?",
+    "building_headquarters": "Hauptsitz in Münster",
+    "building_address": "Hafenweg 11a, 48155 Münster",
+    "resources": "Strom, Wasser, Gas",
+    "building_hint": "Building name",
+    "add_building_link": "+ Gebäude hinzufügen",
+    "add_details_link": "+ Details hinzufügen",
+    "yes": "ja",
+    "no": "nein",
+    "skip_link": "Schritt überspringen",
+    "button_text": "Das passt so"
+  },
+  "dashboard": {
+    "sidebar": {
+      "change_language": "Change language",
+      "english": "English",
+      "deutsch": "Deutsch"
+    }
+  },
   "common": {
     "cancel": "Cancel",
     "close": "Close",

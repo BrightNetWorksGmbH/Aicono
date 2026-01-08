@@ -35,4 +35,16 @@ class Routelists {
   static const brytesightAdminDashboard = 'brytesightAdminDashboard';
   static const privacyPolicy = 'privacyPolicy';
   static const floorPlanEditor = 'floor-plan-editor';
+  static const activateSwitchboard = 'activate-switchboard';
+  static const setOrganizationName = 'set-organization-name';
+  static const setSwitchName = 'set-switch-name';
+  static const setSwitchImage = 'set-switch-image';
+  static const setSwitchColor = 'set-switch-color';
+  static const setPersonalizedLook = 'set-personalized-look';
+  static const structureSwitch = 'structure-switch';
+  static const confirmStructure = 'confirm-structure';
+  static const addPropertyName = 'add-property-name';
+  static const addPropertyLocation = 'add-property-location';
+  static const selectResources = 'select-resources';
+  static const addAdditionalBuildings = 'add-additional-buildings';
 }

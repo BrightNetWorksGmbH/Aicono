@@ -717,7 +717,11 @@ class _LoginFormState extends State<LoginForm> {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () {
-                        context.pushNamed(Routelists.forgotPassword);
+                        // context.pushNamed(Routelists.forgotPassword);
+                        context.goNamed(
+                          Routelists.activateSwitchboard,
+                          queryParameters: {'userName': 'test'},
+                        );
                       },
                       child: Text(
                         'Forgot Password?',
