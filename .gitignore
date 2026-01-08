@@ -1,0 +1,17 @@
+# Loxone structure files (generated, should not be committed)
+data/loxone-structure/*.json
+
+# Keep the directory structure
+!data/loxone-structure/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+

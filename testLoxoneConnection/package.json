@@ -1,0 +1,26 @@
+{
+  "name": "loxone-connection-demo",
+  "version": "1.0.0",
+  "description": "Demo Node.js application for connecting to Loxone Miniserver",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [
+    "loxone",
+    "miniserver",
+    "websocket",
+    "demo"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "mongoose": "^9.0.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}

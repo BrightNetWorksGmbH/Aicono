@@ -429,11 +429,13 @@ class LoxoneStorageService {
 
     /**
      * Store measurements for a building
+     * Optimized to avoid N+1 queries by batching sensor lookups
      */
     async storeMeasurements(buildingId, measurements) {
-        if (!mongoose.connection.readyState) {
-            console.warn(`[LOXONE-STORAGE] [${buildingId}] MongoDB not connected`);
-            return;
+        // Check connection health
+        if (mongoose.connection.readyState !== 1) {
+            console.warn(`[LOXONE-STORAGE] [${buildingId}] MongoDB not connected (readyState: ${mongoose.connection.readyState})`);
+            return { stored: 0, skipped: measurements.length, error: 'not_connected' };
         }
 
         const uuidToSensorMap = uuidMaps.get(buildingId);
@@ -454,22 +456,58 @@ class LoxoneStorageService {
         }
 
         const db = mongoose.connection.db;
-        const documents = [];
-        let storedCount = 0;
-        let skippedCount = 0;
-
         const currentMap = uuidMaps.get(buildingId) || new Map();
 
+        // Step 1: Collect all unique sensor IDs (optimize N+1 query problem)
+        const sensorIds = new Set();
+        const validMeasurements = [];
+        
         for (const measurement of measurements) {
             const normalizedUUID = normalizeUUID(measurement.uuid);
             const mapping = currentMap.get(normalizedUUID);
             
             if (!mapping || !mapping.sensor_id) {
-                skippedCount++;
                 continue;
             }
+            
+            sensorIds.add(mapping.sensor_id);
+            validMeasurements.push({
+                measurement,
+                mapping,
+                normalizedUUID
+            });
+        }
 
-            const sensor = await db.collection('sensors').findOne({ _id: mapping.sensor_id });
+        if (validMeasurements.length === 0) {
+            return { stored: 0, skipped: measurements.length };
+        }
+
+        // Step 2: Batch fetch all sensors at once (single query instead of N queries)
+        let sensorMap = new Map();
+        try {
+            const sensorIdsArray = Array.from(sensorIds);
+            const sensors = await db.collection('sensors')
+                .find({ _id: { $in: sensorIdsArray } })
+                .toArray();
+            
+            // Create a map for O(1) lookup
+            sensorMap = new Map(
+                sensors.map(sensor => [sensor._id.toString(), sensor])
+            );
+        } catch (error) {
+            console.error(`[LOXONE-STORAGE] [${buildingId}] Error fetching sensors:`, error.message);
+            return { stored: 0, skipped: measurements.length, error: 'sensor_fetch_failed' };
+        }
+
+        // Step 3: Build documents using the sensor map
+        const documents = [];
+        let skippedCount = 0;
+        const buildingObjectId = mongoose.Types.ObjectId.isValid(buildingId) 
+            ? new mongoose.Types.ObjectId(buildingId) 
+            : buildingId;
+
+        for (const { measurement, mapping } of validMeasurements) {
+            const sensor = sensorMap.get(mapping.sensor_id.toString());
             if (!sensor) {
                 skippedCount++;
                 continue;
@@ -481,11 +519,6 @@ class LoxoneStorageService {
                 name: sensor.loxone_category_name
             } : null);
             const measurementType = getMeasurementType(sensor, mapping.controlType, categoryInfo);
-
-            // Ensure buildingId is stored as ObjectId for consistent querying
-            const buildingObjectId = mongoose.Types.ObjectId.isValid(buildingId) 
-                ? new mongoose.Types.ObjectId(buildingId) 
-                : buildingId;
             
             documents.push({
                 timestamp: measurement.timestamp || new Date(),
@@ -503,20 +536,55 @@ class LoxoneStorageService {
             });
         }
 
+        // Step 4: Insert documents with timeout and error handling
+        let storedCount = 0;
         if (documents.length > 0) {
             try {
                 const collection = db.collection('measurements');
-                const result = await collection.insertMany(documents, { ordered: false });
+                
+                // Create insert operation with timeout protection
+                const insertOperation = collection.insertMany(documents, {
+                    ordered: false,
+                    writeConcern: { w: 1 } // Acknowledge write to primary only (faster, less blocking)
+                });
+                
+                // Add timeout wrapper (30 seconds)
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => {
+                        reject(new Error('Insert operation timeout after 30s'));
+                    }, 30000);
+                });
+                
+                const result = await Promise.race([insertOperation, timeoutPromise]);
                 storedCount = result.insertedCount || documents.length;
             } catch (error) {
+                // Handle duplicate key errors (code 11000)
                 if (error.code === 11000) {
                     storedCount = error.insertedCount || 0;
-                } else {
+                    console.warn(`[LOXONE-STORAGE] [${buildingId}] Some duplicates skipped: ${storedCount}/${documents.length} inserted`);
+                } 
+                // Handle timeout and connection errors gracefully
+                else if (
+                    error.message.includes('timeout') || 
+                    error.message.includes('Connection') ||
+                    error.message.includes('pool') ||
+                    error.name === 'MongoServerError' ||
+                    error.name === 'MongoNetworkError'
+                ) {
+                    console.error(`[LOXONE-STORAGE] [${buildingId}] Connection/timeout error storing measurements:`, error.message);
+                    // Don't throw - allow system to recover on next batch
+                    return { stored: 0, skipped: measurements.length, error: 'connection_timeout' };
+                } 
+                // Re-throw unexpected errors
+                else {
                     console.error(`[LOXONE-STORAGE] [${buildingId}] Error storing measurements:`, error.message);
                     throw error;
                 }
             }
         }
+
+        // Update skipped count to include measurements that couldn't be mapped to sensors
+        skippedCount += measurements.length - validMeasurements.length;
 
         return { stored: storedCount, skipped: skippedCount };
     }
