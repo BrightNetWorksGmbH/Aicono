@@ -23,6 +23,8 @@ router.get('/aggregation/status', requireAuth, loxoneController.getAggregationSt
 router.post('/aggregation/trigger/15min', requireAuth, loxoneController.trigger15MinAggregation);
 router.post('/aggregation/trigger/hourly', requireAuth, loxoneController.triggerHourlyAggregation);
 router.post('/aggregation/trigger/daily', requireAuth, loxoneController.triggerDailyAggregation);
+router.post('/aggregation/trigger/weekly', requireAuth, loxoneController.triggerWeeklyAggregation);
+router.post('/aggregation/trigger/monthly', requireAuth, loxoneController.triggerMonthlyAggregation);
 
 // Measurement query endpoints
 router.get('/measurements/:sensorId', requireAuth, loxoneController.getSensorMeasurements);

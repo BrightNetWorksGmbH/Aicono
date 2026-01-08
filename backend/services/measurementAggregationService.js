@@ -1,14 +1,25 @@
 const mongoose = require('mongoose');
+const { isConnectionHealthy } = require('../db/connection');
 
 /**
  * Measurement Aggregation Service
  * 
  * Handles aggregation of real-time measurements into different time resolutions:
- * - 15-minute aggregates (from raw data)
- * - Hourly aggregates (from 15-minute data)
- * - Daily aggregates (from hourly data)
+ * - 15-minute aggregates (from raw data) - resolution_minutes: 15
+ * - Hourly aggregates (from 15-minute data) - resolution_minutes: 60
+ * - Daily aggregates (from hourly data) - resolution_minutes: 1440
+ * - Weekly aggregates (from daily data) - resolution_minutes: 10080
+ * - Monthly aggregates (from weekly/daily data) - resolution_minutes: 43200
  * 
- * This service reduces storage requirements by ~96% while maintaining
+ * Data Retention Strategy:
+ * - Raw data (0): Deleted immediately after 15-min aggregation (with buffer)
+ * - 15-minute (15): Deleted when daily aggregation runs (older than 1 day)
+ * - Hourly (60): Deleted when weekly aggregation runs (older than 1 week)
+ * - Daily (1440): Kept for long-term storage
+ * - Weekly (10080): Kept for long-term storage
+ * - Monthly (43200): Kept indefinitely
+ * 
+ * This service reduces storage requirements by ~99% while maintaining
  * data integrity for reporting purposes.
  */
 class MeasurementAggregationService {
@@ -73,6 +84,11 @@ class MeasurementAggregationService {
      * @returns {Promise<Object>} Aggregation result with count of created aggregates
      */
     async aggregate15Minutes(buildingId = null, deleteAfterAggregation = true, bufferMinutes = 30) {
+        // Check connection health before starting heavy operations
+        if (!isConnectionHealthy()) {
+            throw new Error('Database connection not healthy. Please check MongoDB connection.');
+        }
+        
         const db = mongoose.connection.db;
         if (!db) {
             throw new Error('Database connection not available');
@@ -261,6 +277,11 @@ class MeasurementAggregationService {
                 const tempCollection = db.collection('measurements_aggregated_temp_15min');
                 const aggregatedDocs = await tempCollection.find({}).toArray();
                 
+                // Ensure resolution_minutes is set (safeguard - always set explicitly)
+                aggregatedDocs.forEach(doc => {
+                    doc.resolution_minutes = 15;
+                });
+                
                 // Upsert each document
                 for (const doc of aggregatedDocs) {
                     const result = await db.collection('measurements').replaceOne(
@@ -292,11 +313,27 @@ class MeasurementAggregationService {
                 const aggregatedDocs = await db.collection('measurements').aggregate(aggregationPipeline).toArray();
                 console.log(`[AGGREGATION] [15-min] Pipeline produced ${aggregatedDocs.length} aggregates`);
                 
+                // Check if pipeline output includes resolution_minutes
+                if (aggregatedDocs.length > 0) {
+                    const sampleFromPipeline = aggregatedDocs[0];
+                    const hasResolutionInPipeline = sampleFromPipeline.hasOwnProperty('resolution_minutes');
+                    const resolutionValue = sampleFromPipeline.resolution_minutes;
+                    console.log(`[AGGREGATION] [15-min] Pipeline output check: has resolution_minutes=${hasResolutionInPipeline}, value=${resolutionValue}`);
+                    if (!hasResolutionInPipeline || resolutionValue !== 15) {
+                        console.log(`[AGGREGATION] [15-min] ⚠️  WARNING: Pipeline output missing or incorrect resolution_minutes! Expected: 15, Got: ${resolutionValue}`);
+                        console.log(`[AGGREGATION] [15-min] Sample document keys:`, Object.keys(sampleFromPipeline).join(', '));
+                    }
+                }
+                
                 if (aggregatedDocs.length === 0) {
                     console.log(`[AGGREGATION] [15-min] No aggregates to insert`);
                 } else {
-                    // Show sample
-                    console.log(`[AGGREGATION] [15-min] Sample aggregate:`, JSON.stringify(aggregatedDocs[0], null, 2).substring(0, 200));
+                    // Show sample (full document to verify resolution_minutes is included)
+                    const sampleDoc = aggregatedDocs[0];
+                    console.log(`[AGGREGATION] [15-min] Sample aggregate:`, JSON.stringify(sampleDoc, null, 2).substring(0, 300));
+                    if (!sampleDoc.resolution_minutes) {
+                        console.log(`[AGGREGATION] [15-min] ⚠️  WARNING: Sample document is missing resolution_minutes!`);
+                    }
                     
                     // Delete existing aggregates in this time window first (to avoid duplicates)
                     const deleteMatchStage = {
@@ -313,16 +350,60 @@ class MeasurementAggregationService {
                     const deleteResult = await db.collection('measurements').deleteMany(deleteMatchStage);
                     console.log(`[AGGREGATION] [15-min] Deleted ${deleteResult.deletedCount} existing aggregates in time window`);
                     
+                    // Ensure resolution_minutes is set (safeguard - always set explicitly)
+                    let missingCount = 0;
+                    aggregatedDocs.forEach(doc => {
+                        if (!doc.resolution_minutes) {
+                            missingCount++;
+                        }
+                        // Always set explicitly to ensure it's present
+                        doc.resolution_minutes = 15;
+                    });
+                    
+                    if (missingCount > 0) {
+                        console.log(`[AGGREGATION] [15-min] ⚠️  ${missingCount} documents were missing resolution_minutes (fixed by safeguard)`);
+                    }
+                    
+                    // Verify all documents have resolution_minutes before insertion
+                    const allHaveResolution = aggregatedDocs.every(doc => doc.resolution_minutes === 15);
+                    if (!allHaveResolution) {
+                        console.error(`[AGGREGATION] [15-min] ❌ ERROR: Some documents still missing resolution_minutes after safeguard!`);
+                        aggregatedDocs.forEach((doc, idx) => {
+                            if (doc.resolution_minutes !== 15) {
+                                console.error(`[AGGREGATION] [15-min] Document ${idx} missing resolution_minutes:`, JSON.stringify(doc).substring(0, 200));
+                            }
+                        });
+                    }
+                    
+                    // Final verification: ensure ALL documents have resolution_minutes before insertion
+                    const docsMissingField = aggregatedDocs.filter(doc => doc.resolution_minutes !== 15);
+                    if (docsMissingField.length > 0) {
+                        console.error(`[AGGREGATION] [15-min] ❌ CRITICAL: ${docsMissingField.length} documents still missing resolution_minutes! Fixing now...`);
+                        docsMissingField.forEach((doc, idx) => {
+                            doc.resolution_minutes = 15;
+                            console.log(`[AGGREGATION] [15-min] Fixed document ${idx}:`, JSON.stringify(doc).substring(0, 150));
+                        });
+                    }
+                    
+                    // Double-check: verify all documents now have the field
+                    const allHaveField = aggregatedDocs.every(doc => doc.resolution_minutes === 15);
+                    if (!allHaveField) {
+                        throw new Error(`[AGGREGATION] [15-min] FATAL: Some documents still missing resolution_minutes after all safeguards!`);
+                    }
+                    
                     // Insert new aggregates using insertMany
                     try {
                         const insertResult = await db.collection('measurements').insertMany(aggregatedDocs, { ordered: false });
                         count = insertResult.insertedCount || aggregatedDocs.length;
                         console.log(`[AGGREGATION] [15-min] Inserted ${count} aggregates into Time Series collection`);
+                        console.log(`[AGGREGATION] [15-min] ✅ Verified: All ${count} inserted documents have resolution_minutes: 15`);
                     } catch (error) {
                         // Handle partial inserts
                         if (error.insertedCount) {
                             count = error.insertedCount;
-                            console.log(`[AGGREGATION] [15-min] Inserted ${count} aggregates (some duplicates may have been skipped)`);
+                            console.log(`[AGGREGATION] [15-min] ⚠️  Partial insert: ${count} aggregates inserted (some duplicates may have been skipped)`);
+                            console.log(`[AGGREGATION] [15-min] ⚠️  Note: Inserted documents should have resolution_minutes: 15`);
+                            // Note: We can't verify which specific documents were inserted in partial failure cases
                         } else {
                             console.error(`[AGGREGATION] [15-min] Error inserting aggregates:`, error.message);
                             throw error;
@@ -440,6 +521,11 @@ class MeasurementAggregationService {
      * @returns {Promise<Object>} Aggregation result with count of created aggregates
      */
     async aggregateHourly(buildingId = null) {
+        // Check connection health before starting heavy operations
+        if (!isConnectionHealthy()) {
+            throw new Error('Database connection not healthy. Please check MongoDB connection.');
+        }
+        
         const db = mongoose.connection.db;
         if (!db) {
             throw new Error('Database connection not available');
@@ -567,6 +653,11 @@ class MeasurementAggregationService {
                     
                     await db.collection('measurements').deleteMany(deleteMatchStage);
                     
+                    // Ensure resolution_minutes is set (safeguard - always set explicitly)
+                    aggregatedDocs.forEach(doc => {
+                        doc.resolution_minutes = 60;
+                    });
+                    
                     // Insert new aggregates
                     try {
                         const insertResult = await db.collection('measurements').insertMany(aggregatedDocs, { ordered: false });
@@ -601,6 +692,11 @@ class MeasurementAggregationService {
      * @returns {Promise<Object>} Aggregation result with count of created aggregates
      */
     async aggregateDaily(buildingId = null) {
+        // Check connection health before starting heavy operations
+        if (!isConnectionHealthy()) {
+            throw new Error('Database connection not healthy. Please check MongoDB connection.');
+        }
+        
         const db = mongoose.connection.db;
         if (!db) {
             throw new Error('Database connection not available');
@@ -728,6 +824,11 @@ class MeasurementAggregationService {
                     
                     await db.collection('measurements').deleteMany(deleteMatchStage);
                     
+                    // Ensure resolution_minutes is set (safeguard - always set explicitly)
+                    aggregatedDocs.forEach(doc => {
+                        doc.resolution_minutes = 1440;
+                    });
+                    
                     // Insert new aggregates
                     try {
                         const insertResult = await db.collection('measurements').insertMany(aggregatedDocs, { ordered: false });
@@ -748,9 +849,437 @@ class MeasurementAggregationService {
                 console.log(`[AGGREGATION] [Daily] Created ${count} aggregates for ${buildingId || 'all buildings'}`);
             }
             
-            return { success: true, count, buildingId };
+            // Delete 15-minute aggregates older than 1 day (now that we have daily aggregates)
+            let deleted15MinCount = 0;
+            if (count > 0) {
+                // Delete 15-minute aggregates older than yesterday (1 day ago)
+                const oneDayAgo = this.roundToDay(new Date(yesterday.getTime() - 24 * 60 * 60 * 1000));
+                deleted15MinCount = await this.deleteOldAggregates(15, oneDayAgo, buildingId);
+            }
+            
+            console.log(`\n========================================`);
+            console.log(`✅ [AGGREGATION] [Daily] SUCCESS!`);
+            console.log(`   Created ${count} daily aggregates`);
+            console.log(`   Deleted ${deleted15MinCount} old 15-minute aggregates (older than 1 day)`);
+            console.log(`   Building: ${buildingId || 'all buildings'}`);
+            console.log(`========================================\n`);
+            
+            return { 
+                success: true, 
+                count, 
+                deleted: deleted15MinCount,
+                buildingId 
+            };
         } catch (error) {
             console.error(`[AGGREGATION] [Daily] Error:`, error.message);
+            throw error;
+        }
+    }
+    
+    /**
+     * Aggregate daily data into weekly buckets
+     * Also deletes hourly aggregates older than 1 week
+     * 
+     * @param {string|null} buildingId - Optional building ID to filter aggregation
+     * @returns {Promise<Object>} Aggregation result with count of created aggregates
+     */
+    async aggregateWeekly(buildingId = null) {
+        // Check connection health before starting heavy operations
+        if (!isConnectionHealthy()) {
+            throw new Error('Database connection not healthy. Please check MongoDB connection.');
+        }
+        
+        const db = mongoose.connection.db;
+        if (!db) {
+            throw new Error('Database connection not available');
+        }
+        
+        // Get the database name
+        const dbName = this.getDatabaseName();
+        
+        // Check if measurements collection is a Time Series collection
+        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements');
+
+        const now = new Date();
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        
+        const weekStart = this.roundToWeek(oneWeekAgo);
+        const currentWeekStart = this.roundToWeek(now);
+        
+        const matchStage = {
+            resolution_minutes: 1440, // Aggregate from daily data
+            timestamp: { $gte: weekStart, $lt: currentWeekStart }
+        };
+        
+        if (buildingId) {
+            if (!mongoose.Types.ObjectId.isValid(buildingId)) {
+                throw new Error(`Invalid buildingId: ${buildingId}`);
+            }
+            matchStage['meta.buildingId'] = { 
+                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+            };
+        }
+        
+        const pipeline = [
+            { $match: matchStage },
+            {
+                $addFields: {
+                    // Calculate week start (Monday)
+                    // dayOfWeek: 1=Sunday, 2=Monday, ..., 7=Saturday
+                    // We want to go back to Monday (day 2)
+                    daysToMonday: {
+                        $cond: {
+                            if: { $eq: [{ $dayOfWeek: '$timestamp' }, 1] }, // Sunday
+                            then: 6, // Go back 6 days to Monday
+                            else: { $subtract: [{ $dayOfWeek: '$timestamp' }, 2] } // Otherwise subtract to get to Monday
+                        }
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    weekStart: {
+                        $dateSubtract: {
+                            startDate: {
+                                $dateFromParts: {
+                                    year: { $year: '$timestamp' },
+                                    month: { $month: '$timestamp' },
+                                    day: { $dayOfMonth: '$timestamp' },
+                                    hour: 0,
+                                    minute: 0,
+                                    second: 0
+                                }
+                            },
+                            unit: 'day',
+                            amount: '$daysToMonday'
+                        }
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        sensorId: '$meta.sensorId',
+                        buildingId: '$meta.buildingId',
+                        measurementType: '$meta.measurementType',
+                        stateType: '$meta.stateType',
+                        bucket: '$weekStart'
+                    },
+                    value: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ['$meta.measurementType', 'Energy'] },
+                                '$value',
+                                0
+                            ]
+                        }
+                    },
+                    avgValue: { $avg: '$avgValue' },
+                    minValue: { $min: '$minValue' },
+                    maxValue: { $max: '$maxValue' },
+                    count: { $sum: '$count' },
+                    unit: { $first: '$unit' },
+                    quality: { $avg: '$quality' }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    timestamp: '$_id.bucket',
+                    meta: {
+                        sensorId: '$_id.sensorId',
+                        buildingId: '$_id.buildingId',
+                        measurementType: '$_id.measurementType',
+                        stateType: '$_id.stateType'
+                    },
+                    value: {
+                        $cond: {
+                            if: { $eq: ['$_id.measurementType', 'Energy'] },
+                            then: '$value',
+                            else: '$avgValue'
+                        }
+                    },
+                    avgValue: 1,
+                    minValue: 1,
+                    maxValue: 1,
+                    unit: 1,
+                    quality: 1,
+                    count: 1,
+                    source: 'aggregated',
+                    resolution_minutes: 10080 // 7 days * 24 hours * 60 minutes = 10080
+                }
+            },
+            {
+                $merge: {
+                    into: dbName ? { db: dbName, coll: 'measurements' } : 'measurements',
+                    whenMatched: 'replace',
+                    whenNotMatched: 'insert'
+                }
+            }
+        ];
+        
+        try {
+            let count = 0;
+            
+            if (isTimeSeries) {
+                // Time Series collection: use direct inserts
+                const aggregationPipeline = pipeline.slice(0, -1);
+                const aggregatedDocs = await db.collection('measurements').aggregate(aggregationPipeline).toArray();
+                
+                if (aggregatedDocs.length > 0) {
+                    // Delete existing weekly aggregates in this time window
+                    const deleteMatchStage = {
+                        resolution_minutes: 10080,
+                        timestamp: { $gte: weekStart, $lt: currentWeekStart }
+                    };
+                    
+                    if (buildingId) {
+                        deleteMatchStage['meta.buildingId'] = { 
+                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                        };
+                    }
+                    
+                    await db.collection('measurements').deleteMany(deleteMatchStage);
+                    
+                    // Ensure resolution_minutes is set (safeguard - always set explicitly)
+                    aggregatedDocs.forEach(doc => {
+                        doc.resolution_minutes = 10080;
+                    });
+                    
+                    // Insert new aggregates
+                    try {
+                        const insertResult = await db.collection('measurements').insertMany(aggregatedDocs, { ordered: false });
+                        count = insertResult.insertedCount || aggregatedDocs.length;
+                    } catch (error) {
+                        if (error.insertedCount) {
+                            count = error.insertedCount;
+                        } else {
+                            throw error;
+                        }
+                    }
+                }
+                console.log(`[AGGREGATION] [Weekly] Created ${count} aggregates for ${buildingId || 'all buildings'} (Time Series)`);
+            } else {
+                // Regular collection: use $merge
+                const result = await db.collection('measurements').aggregate(pipeline).toArray();
+                count = result.length;
+                console.log(`[AGGREGATION] [Weekly] Created ${count} aggregates for ${buildingId || 'all buildings'}`);
+            }
+            
+            // Delete hourly aggregates older than 1 week (now that we have weekly aggregates)
+            let deletedHourlyCount = 0;
+            if (count > 0) {
+                const oneWeekAgoCutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                deletedHourlyCount = await this.deleteOldAggregates(60, oneWeekAgoCutoff, buildingId);
+            }
+            
+            console.log(`\n========================================`);
+            console.log(`✅ [AGGREGATION] [Weekly] SUCCESS!`);
+            console.log(`   Created ${count} weekly aggregates`);
+            console.log(`   Deleted ${deletedHourlyCount} old hourly aggregates (older than 1 week)`);
+            console.log(`   Building: ${buildingId || 'all buildings'}`);
+            console.log(`========================================\n`);
+            
+            return { 
+                success: true, 
+                count, 
+                deleted: deletedHourlyCount,
+                buildingId 
+            };
+        } catch (error) {
+            console.error(`[AGGREGATION] [Weekly] Error:`, error.message);
+            throw error;
+        }
+    }
+    
+    /**
+     * Aggregate daily/weekly data into monthly buckets
+     * 
+     * @param {string|null} buildingId - Optional building ID to filter aggregation
+     * @returns {Promise<Object>} Aggregation result with count of created aggregates
+     */
+    async aggregateMonthly(buildingId = null) {
+        // Check connection health before starting heavy operations
+        if (!isConnectionHealthy()) {
+            throw new Error('Database connection not healthy. Please check MongoDB connection.');
+        }
+        
+        const db = mongoose.connection.db;
+        if (!db) {
+            throw new Error('Database connection not available');
+        }
+        
+        // Get the database name
+        const dbName = this.getDatabaseName();
+        
+        // Check if measurements collection is a Time Series collection
+        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements');
+
+        const now = new Date();
+        const oneMonthAgo = new Date(now);
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        
+        const monthStart = this.roundToMonth(oneMonthAgo);
+        const currentMonthStart = this.roundToMonth(now);
+        
+        // Try to aggregate from weekly data first, fallback to daily
+        const matchStage = {
+            $or: [
+                { resolution_minutes: 10080 }, // Weekly
+                { resolution_minutes: 1440 }   // Daily (fallback)
+            ],
+            timestamp: { $gte: monthStart, $lt: currentMonthStart }
+        };
+        
+        if (buildingId) {
+            if (!mongoose.Types.ObjectId.isValid(buildingId)) {
+                throw new Error(`Invalid buildingId: ${buildingId}`);
+            }
+            matchStage['meta.buildingId'] = { 
+                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+            };
+        }
+        
+        const pipeline = [
+            { $match: matchStage },
+            {
+                $addFields: {
+                    // Calculate month start
+                    monthStart: {
+                        $dateFromParts: {
+                            year: { $year: '$timestamp' },
+                            month: { $month: '$timestamp' },
+                            day: 1,
+                            hour: 0,
+                            minute: 0,
+                            second: 0
+                        }
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        sensorId: '$meta.sensorId',
+                        buildingId: '$meta.buildingId',
+                        measurementType: '$meta.measurementType',
+                        stateType: '$meta.stateType',
+                        bucket: '$monthStart'
+                    },
+                    value: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ['$meta.measurementType', 'Energy'] },
+                                '$value',
+                                0
+                            ]
+                        }
+                    },
+                    avgValue: { $avg: '$avgValue' },
+                    minValue: { $min: '$minValue' },
+                    maxValue: { $max: '$maxValue' },
+                    count: { $sum: '$count' },
+                    unit: { $first: '$unit' },
+                    quality: { $avg: '$quality' }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    timestamp: '$_id.bucket',
+                    meta: {
+                        sensorId: '$_id.sensorId',
+                        buildingId: '$_id.buildingId',
+                        measurementType: '$_id.measurementType',
+                        stateType: '$_id.stateType'
+                    },
+                    value: {
+                        $cond: {
+                            if: { $eq: ['$_id.measurementType', 'Energy'] },
+                            then: '$value',
+                            else: '$avgValue'
+                        }
+                    },
+                    avgValue: 1,
+                    minValue: 1,
+                    maxValue: 1,
+                    unit: 1,
+                    quality: 1,
+                    count: 1,
+                    source: 'aggregated',
+                    resolution_minutes: 43200 // ~30 days * 24 hours * 60 minutes = 43200
+                }
+            },
+            {
+                $merge: {
+                    into: dbName ? { db: dbName, coll: 'measurements' } : 'measurements',
+                    whenMatched: 'replace',
+                    whenNotMatched: 'insert'
+                }
+            }
+        ];
+        
+        try {
+            let count = 0;
+            
+            if (isTimeSeries) {
+                // Time Series collection: use direct inserts
+                const aggregationPipeline = pipeline.slice(0, -1);
+                const aggregatedDocs = await db.collection('measurements').aggregate(aggregationPipeline).toArray();
+                
+                if (aggregatedDocs.length > 0) {
+                    // Delete existing monthly aggregates in this time window
+                    const deleteMatchStage = {
+                        resolution_minutes: 43200,
+                        timestamp: { $gte: monthStart, $lt: currentMonthStart }
+                    };
+                    
+                    if (buildingId) {
+                        deleteMatchStage['meta.buildingId'] = { 
+                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                        };
+                    }
+                    
+                    await db.collection('measurements').deleteMany(deleteMatchStage);
+                    
+                    // Ensure resolution_minutes is set (safeguard - always set explicitly)
+                    aggregatedDocs.forEach(doc => {
+                        doc.resolution_minutes = 43200;
+                    });
+                    
+                    // Insert new aggregates
+                    try {
+                        const insertResult = await db.collection('measurements').insertMany(aggregatedDocs, { ordered: false });
+                        count = insertResult.insertedCount || aggregatedDocs.length;
+                    } catch (error) {
+                        if (error.insertedCount) {
+                            count = error.insertedCount;
+                        } else {
+                            throw error;
+                        }
+                    }
+                }
+                console.log(`[AGGREGATION] [Monthly] Created ${count} aggregates for ${buildingId || 'all buildings'} (Time Series)`);
+            } else {
+                // Regular collection: use $merge
+                const result = await db.collection('measurements').aggregate(pipeline).toArray();
+                count = result.length;
+                console.log(`[AGGREGATION] [Monthly] Created ${count} aggregates for ${buildingId || 'all buildings'}`);
+            }
+            
+            console.log(`\n========================================`);
+            console.log(`✅ [AGGREGATION] [Monthly] SUCCESS!`);
+            console.log(`   Created ${count} monthly aggregates`);
+            console.log(`   Building: ${buildingId || 'all buildings'}`);
+            console.log(`========================================\n`);
+            
+            return { 
+                success: true, 
+                count,
+                buildingId 
+            };
+        } catch (error) {
+            console.error(`[AGGREGATION] [Monthly] Error:`, error.message);
             throw error;
         }
     }
@@ -763,6 +1292,11 @@ class MeasurementAggregationService {
      * @returns {Promise<number>} Number of deleted documents
      */
     async cleanupRawData(retentionDays = 30, buildingId = null) {
+        // Check connection health before starting operations
+        if (!isConnectionHealthy()) {
+            throw new Error('Database connection not healthy. Please check MongoDB connection.');
+        }
+        
         const db = mongoose.connection.db;
         if (!db) {
             throw new Error('Database connection not available');
@@ -820,6 +1354,106 @@ class MeasurementAggregationService {
         const rounded = new Date(date);
         rounded.setMinutes(0, 0, 0);
         return rounded;
+    }
+    
+    /**
+     * Helper: Round date to day boundary (start of day)
+     * 
+     * @param {Date} date - Date to round
+     * @returns {Date} Rounded date
+     */
+    roundToDay(date) {
+        const rounded = new Date(date);
+        rounded.setUTCHours(0, 0, 0, 0);
+        return rounded;
+    }
+    
+    /**
+     * Helper: Round date to week boundary (start of week, Monday)
+     * 
+     * @param {Date} date - Date to round
+     * @returns {Date} Rounded date
+     */
+    roundToWeek(date) {
+        const rounded = new Date(date);
+        rounded.setUTCHours(0, 0, 0, 0);
+        // Get day of week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+        const dayOfWeek = rounded.getUTCDay();
+        // Calculate days to subtract to get to Monday (or Sunday if week starts on Sunday)
+        // Using ISO week (Monday = start of week)
+        const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        rounded.setUTCDate(rounded.getUTCDate() - daysToSubtract);
+        return rounded;
+    }
+    
+    /**
+     * Helper: Round date to month boundary (start of month)
+     * 
+     * @param {Date} date - Date to round
+     * @returns {Date} Rounded date
+     */
+    roundToMonth(date) {
+        const rounded = new Date(date);
+        rounded.setUTCDate(1);
+        rounded.setUTCHours(0, 0, 0, 0);
+        return rounded;
+    }
+    
+    /**
+     * Modular helper: Delete old aggregates by resolution
+     * 
+     * @param {number} resolutionMinutes - Resolution to delete (15, 60, etc.)
+     * @param {Date} cutoffDate - Delete aggregates older than this date
+     * @param {string|null} buildingId - Optional building ID to filter
+     * @returns {Promise<number>} Number of deleted documents
+     */
+    async deleteOldAggregates(resolutionMinutes, cutoffDate, buildingId = null) {
+        const db = mongoose.connection.db;
+        if (!db) {
+            throw new Error('Database connection not available');
+        }
+        
+        const matchStage = {
+            resolution_minutes: resolutionMinutes,
+            timestamp: { $lt: cutoffDate }
+        };
+        
+        if (buildingId) {
+            if (!mongoose.Types.ObjectId.isValid(buildingId)) {
+                throw new Error(`Invalid buildingId: ${buildingId}`);
+            }
+            matchStage['meta.buildingId'] = { 
+                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+            };
+        }
+        
+        try {
+            const result = await db.collection('measurements').deleteMany(matchStage);
+            const resolutionLabel = this.getResolutionLabel(resolutionMinutes);
+            console.log(`[AGGREGATION] [Cleanup] Deleted ${result.deletedCount} ${resolutionLabel} aggregates older than ${cutoffDate.toISOString()}`);
+            return result.deletedCount;
+        } catch (error) {
+            console.error(`[AGGREGATION] [Cleanup] Error deleting ${this.getResolutionLabel(resolutionMinutes)} aggregates:`, error.message);
+            throw error;
+        }
+    }
+    
+    /**
+     * Helper: Get human-readable resolution label
+     * 
+     * @param {number} resolutionMinutes - Resolution in minutes
+     * @returns {string} Human-readable label
+     */
+    getResolutionLabel(resolutionMinutes) {
+        const labels = {
+            0: 'raw',
+            15: '15-minute',
+            60: 'hourly',
+            1440: 'daily',
+            10080: 'weekly',
+            43200: 'monthly'
+        };
+        return labels[resolutionMinutes] || `${resolutionMinutes}-minute`;
     }
 }
 

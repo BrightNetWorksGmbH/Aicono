@@ -162,6 +162,34 @@ exports.triggerDailyAggregation = asyncHandler(async (req, res) => {
 });
 
 /**
+ * POST /api/loxone/aggregation/trigger/weekly
+ * Manually trigger weekly aggregation
+ */
+exports.triggerWeeklyAggregation = asyncHandler(async (req, res) => {
+  const buildingId = req.body?.buildingId || null;
+  const result = await aggregationScheduler.triggerWeeklyAggregation(buildingId);
+  res.json({
+    success: true,
+    message: 'Weekly aggregation triggered',
+    data: result
+  });
+});
+
+/**
+ * POST /api/loxone/aggregation/trigger/monthly
+ * Manually trigger monthly aggregation
+ */
+exports.triggerMonthlyAggregation = asyncHandler(async (req, res) => {
+  const buildingId = req.body?.buildingId || null;
+  const result = await aggregationScheduler.triggerMonthlyAggregation(buildingId);
+  res.json({
+    success: true,
+    message: 'Monthly aggregation triggered',
+    data: result
+  });
+});
+
+/**
  * GET /api/loxone/measurements/:sensorId
  * Get measurements for a sensor with automatic resolution selection
  */

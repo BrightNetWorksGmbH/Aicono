@@ -1,0 +1,6 @@
+node_modules/
+.env
+LoxAPP3.json
+*.log
+.DS_Store
+

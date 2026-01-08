@@ -5,16 +5,20 @@ const measurementAggregationService = require('./measurementAggregationService')
  * Aggregation Scheduler
  * 
  * Manages cron jobs for automatic measurement aggregation:
- * - Every 15 minutes: Aggregate raw data to 15-minute buckets
- * - Every hour: Aggregate 15-minute data to hourly buckets
- * - Daily at 1 AM: Aggregate hourly data to daily buckets
- * - Daily at 2 AM: Cleanup old raw data (keep 30 days)
+ * - Every 15 minutes: Aggregate raw data to 15-minute buckets (deletes raw data)
+ * - Every hour: Aggregate 15-minute data to hourly buckets (keeps both)
+ * - Daily at 1 AM: Aggregate hourly data to daily buckets (deletes 15-min > 1 day old)
+ * - Weekly on Monday at 2 AM: Aggregate daily data to weekly buckets (deletes hourly > 1 week old)
+ * - Monthly on 1st at 3 AM: Aggregate weekly/daily data to monthly buckets
+ * - Daily at 4 AM: Cleanup old raw data (safety net)
  * 
  * Cron schedule format: minute hour day month weekday
  * Examples:
  * - Every 15 minutes: '*\/15 * * * *'
  * - Every hour at minute 0: '0 * * * *'
  * - Daily at 1:00 AM: '0 1 * * *'
+ * - Weekly on Monday at 2:00 AM: '0 2 * * 1'
+ * - Monthly on 1st at 3:00 AM: '0 3 1 * *'
  */
 class AggregationScheduler {
     constructor() {
@@ -25,6 +29,8 @@ class AggregationScheduler {
             '15-minute': null,
             'hourly': null,
             'daily': null,
+            'weekly': null,
+            'monthly': null,
             'cleanup': null
         };
         
@@ -99,13 +105,14 @@ class AggregationScheduler {
         });
 
         // Job 3: Aggregate hourly data to daily buckets (daily at 1:00 AM)
+        // This also deletes 15-minute aggregates older than 1 day
         const jobDaily = cron.schedule('0 1 * * *', async () => {
             const timestamp = new Date().toISOString();
             this.lastRun['daily'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running daily aggregation (cron triggered)...`);
             try {
                 const result = await measurementAggregationService.aggregateDaily();
-                console.log(`[SCHEDULER] [${timestamp}] ✅ Daily aggregation completed: ${result.count} aggregates created`);
+                console.log(`[SCHEDULER] [${timestamp}] ✅ Daily aggregation completed: ${result.count} aggregates created, ${result.deleted || 0} old 15-minute aggregates deleted`);
             } catch (error) {
                 console.error(`[SCHEDULER] [${timestamp}] ❌ Daily aggregation failed:`, error.message);
             }
@@ -114,10 +121,43 @@ class AggregationScheduler {
             timezone: 'UTC'
         });
 
-        // Job 4: Cleanup old raw data (safety net - runs daily at 2:00 AM)
+        // Job 4: Aggregate daily data to weekly buckets (weekly on Monday at 2:00 AM)
+        // This also deletes hourly aggregates older than 1 week
+        const jobWeekly = cron.schedule('0 2 * * 1', async () => {
+            const timestamp = new Date().toISOString();
+            this.lastRun['weekly'] = timestamp;
+            console.log(`[SCHEDULER] [${timestamp}] ⏰ Running weekly aggregation (cron triggered)...`);
+            try {
+                const result = await measurementAggregationService.aggregateWeekly();
+                console.log(`[SCHEDULER] [${timestamp}] ✅ Weekly aggregation completed: ${result.count} aggregates created, ${result.deleted || 0} old hourly aggregates deleted`);
+            } catch (error) {
+                console.error(`[SCHEDULER] [${timestamp}] ❌ Weekly aggregation failed:`, error.message);
+            }
+        }, {
+            scheduled: false,
+            timezone: 'UTC'
+        });
+
+        // Job 5: Aggregate weekly/daily data to monthly buckets (monthly on 1st at 3:00 AM)
+        const jobMonthly = cron.schedule('0 3 1 * *', async () => {
+            const timestamp = new Date().toISOString();
+            this.lastRun['monthly'] = timestamp;
+            console.log(`[SCHEDULER] [${timestamp}] ⏰ Running monthly aggregation (cron triggered)...`);
+            try {
+                const result = await measurementAggregationService.aggregateMonthly();
+                console.log(`[SCHEDULER] [${timestamp}] ✅ Monthly aggregation completed: ${result.count} aggregates created`);
+            } catch (error) {
+                console.error(`[SCHEDULER] [${timestamp}] ❌ Monthly aggregation failed:`, error.message);
+            }
+        }, {
+            scheduled: false,
+            timezone: 'UTC'
+        });
+
+        // Job 6: Cleanup old raw data (safety net - runs daily at 4:00 AM)
         // This is a safety net in case immediate deletion fails or is disabled
         // It only deletes data older than the configured retention period
-        const jobCleanup = cron.schedule('0 2 * * *', async () => {
+        const jobCleanup = cron.schedule('0 4 * * *', async () => {
             const timestamp = new Date().toISOString();
             this.lastRun['cleanup'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running safety cleanup (cron triggered, retention: ${this.config.oldDataRetentionDays} days)...`);
@@ -141,6 +181,8 @@ class AggregationScheduler {
             { name: '15-minute', job: job15Min },
             { name: 'hourly', job: jobHourly },
             { name: 'daily', job: jobDaily },
+            { name: 'weekly', job: jobWeekly },
+            { name: 'monthly', job: jobMonthly },
             { name: 'cleanup', job: jobCleanup }
         ];
 
@@ -154,7 +196,7 @@ class AggregationScheduler {
         this.startedAt = new Date().toISOString();
         console.log('[SCHEDULER] ✓ Aggregation scheduler started successfully');
         console.log(`[SCHEDULER] Started at: ${this.startedAt}`);
-        console.log('[SCHEDULER] Jobs: 15-min (every 15m at :00, :15, :30, :45), Hourly (every hour at :00), Daily (1 AM UTC), Safety Cleanup (2 AM UTC)');
+        console.log('[SCHEDULER] Jobs: 15-min (every 15m), Hourly (every hour at :00), Daily (1 AM UTC), Weekly (Mon 2 AM UTC), Monthly (1st 3 AM UTC), Safety Cleanup (4 AM UTC)');
         if (this.config.deleteAfterAggregation) {
             console.log(`[SCHEDULER] Raw data will be deleted immediately after aggregation (buffer: ${this.config.rawDataBufferMinutes} minutes)`);
         } else {
@@ -219,9 +261,26 @@ class AggregationScheduler {
             nextDaily.setUTCDate(nextDaily.getUTCDate() + 1);
         }
         
-        // Calculate next cleanup run (2 AM UTC)
+        // Calculate next weekly run (Monday 2 AM UTC)
+        const nextWeekly = new Date(now);
+        nextWeekly.setUTCHours(2, 0, 0, 0);
+        const dayOfWeek = nextWeekly.getUTCDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+        const daysUntilMonday = dayOfWeek === 0 ? 1 : (dayOfWeek === 1 ? (nextWeekly <= now ? 7 : 0) : (8 - dayOfWeek));
+        if (daysUntilMonday > 0) {
+            nextWeekly.setUTCDate(nextWeekly.getUTCDate() + daysUntilMonday);
+        }
+        
+        // Calculate next monthly run (1st 3 AM UTC)
+        const nextMonthly = new Date(now);
+        nextMonthly.setUTCDate(1);
+        nextMonthly.setUTCHours(3, 0, 0, 0);
+        if (nextMonthly <= now) {
+            nextMonthly.setUTCMonth(nextMonthly.getUTCMonth() + 1);
+        }
+        
+        // Calculate next cleanup run (4 AM UTC)
         const nextCleanup = new Date(now);
-        nextCleanup.setUTCHours(2, 0, 0, 0);
+        nextCleanup.setUTCHours(4, 0, 0, 0);
         if (nextCleanup <= now) {
             nextCleanup.setUTCDate(nextCleanup.getUTCDate() + 1);
         }
@@ -235,6 +294,8 @@ class AggregationScheduler {
                 '15-minute': next15Min.toISOString(),
                 'hourly': nextHour.toISOString(),
                 'daily': nextDaily.toISOString(),
+                'weekly': nextWeekly.toISOString(),
+                'monthly': nextMonthly.toISOString(),
                 'cleanup': nextCleanup.toISOString()
             },
             jobs: this.jobs.map(({ name, job }) => ({
@@ -291,6 +352,28 @@ class AggregationScheduler {
     async triggerDailyAggregation(buildingId = null) {
         console.log('[SCHEDULER] Manually triggering daily aggregation...');
         return await measurementAggregationService.aggregateDaily(buildingId);
+    }
+
+    /**
+     * Manually trigger weekly aggregation (for testing)
+     * 
+     * @param {string|null} buildingId - Optional building ID
+     * @returns {Promise<Object>} Aggregation result
+     */
+    async triggerWeeklyAggregation(buildingId = null) {
+        console.log('[SCHEDULER] Manually triggering weekly aggregation...');
+        return await measurementAggregationService.aggregateWeekly(buildingId);
+    }
+
+    /**
+     * Manually trigger monthly aggregation (for testing)
+     * 
+     * @param {string|null} buildingId - Optional building ID
+     * @returns {Promise<Object>} Aggregation result
+     */
+    async triggerMonthlyAggregation(buildingId = null) {
+        console.log('[SCHEDULER] Manually triggering monthly aggregation...');
+        return await measurementAggregationService.aggregateMonthly(buildingId);
     }
 }
 
