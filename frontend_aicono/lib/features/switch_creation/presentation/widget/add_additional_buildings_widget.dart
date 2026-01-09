@@ -93,8 +93,8 @@ class _AddAdditionalBuildingsWidgetState
     setState(() {
       _hasAdditionalBuildings = isYes;
       if (!isYes) {
-        // If "no" is selected, remove any additional buildings (keep only pre-selected)
-        _buildings.removeWhere((b) => !b.isPreSelected);
+        // If "no" is selected, remove any editable buildings (keep only pre-selected)
+        _buildings.removeWhere((b) => b.isEditable && !b.isPreSelected);
         _showAddBuildingInput = false;
         _newBuildingController.clear();
       }
@@ -109,12 +109,21 @@ class _AddAdditionalBuildingsWidgetState
     });
   }
 
+  bool _hasEditableBuildings() {
+    return _buildings.any((b) => b.isEditable && !b.isPreSelected);
+  }
+
   void _addBuilding() {
     final name = _newBuildingController.text.trim();
     if (name.isNotEmpty) {
       setState(() {
+        // If user adds a building, automatically set to "yes" if not already selected
+        if (_hasAdditionalBuildings == null) {
+          _hasAdditionalBuildings = true;
+          widget.onHasAdditionalBuildingsChanged?.call(true);
+        }
         _buildings.add(BuildingItem(
-          id: 'building_${_buildings.length}',
+          id: 'building_${DateTime.now().millisecondsSinceEpoch}',
           name: name,
           isEditable: true,
         ));
@@ -125,12 +134,6 @@ class _AddAdditionalBuildingsWidgetState
     }
   }
 
-  void _removeBuilding(String id) {
-    setState(() {
-      _buildings.removeWhere((b) => b.id == id);
-    });
-    widget.onBuildingsChanged?.call(_buildings);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -171,131 +174,149 @@ class _AddAdditionalBuildingsWidgetState
                 ),
               ],
               const SizedBox(height: 50),
-              SizedBox(
-                width: screenSize.width < 600
-                    ? screenSize.width * 0.95
-                    : screenSize.width < 1200
-                        ? screenSize.width * 0.5
-                        : screenSize.width * 0.6,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _buildProgressText(),
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: 0.9,
-                        backgroundColor: Colors.grey.shade300,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          const Color(0xFF8B9A5B), // Muted green color
-                        ),
-                        minHeight: 8,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    Text(
-                      'add_additional_buildings.title'.tr(),
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.headlineSmall.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    // Display existing buildings
-                    ..._buildings.map((building) => Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: _buildBuildingItem(building),
-                        )),
-                    // Show input field if "yes" is selected and add button was clicked
-                    if (_hasAdditionalBuildings == true &&
-                        _showAddBuildingInput) ...[
-                      TextField(
-                        controller: _newBuildingController,
-                        decoration: InputDecoration(
-                          hintText: 'add_additional_buildings.building_hint'.tr(),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(4),
-                            borderSide: BorderSide(
-                              color: const Color(0xFF8B9A5B),
-                              width: 2,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(4),
-                            borderSide: BorderSide(
-                              color: const Color(0xFF8B9A5B),
-                              width: 2,
-                            ),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 18,
-                          ),
-                        ),
-                        onSubmitted: (_) => _addBuilding(),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    // Yes/No selection (always show below buildings)
-                    const SizedBox(height: 24),
-                    Row(
+              Expanded(
+                child: SingleChildScrollView(
+                  child: SizedBox(
+                    width: screenSize.width < 600
+                        ? screenSize.width * 0.95
+                        : screenSize.width < 1200
+                            ? screenSize.width * 0.5
+                            : screenSize.width * 0.6,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildYesNoOption(
-                          label: 'add_additional_buildings.yes'.tr(),
-                          isSelected: _hasAdditionalBuildings == true,
-                          onTap: () => _handleYesNoSelection(true),
-                        ),
-                        const SizedBox(width: 24),
-                        _buildYesNoOption(
-                          label: 'add_additional_buildings.no'.tr(),
-                          isSelected: _hasAdditionalBuildings == false,
-                          onTap: () => _handleYesNoSelection(false),
-                        ),
-                      ],
-                    ),
-                    // Add building link (only show if "yes" is selected)
-                    if (_hasAdditionalBuildings == true &&
-                        !_showAddBuildingInput) ...[
-                      const SizedBox(height: 16),
-                      InkWell(
-                        onTap: _showAddBuildingField,
-                        child: Text(
-                          'add_additional_buildings.add_building_link'.tr(),
+                        Text(
+                          _buildProgressText(),
                           style: AppTextStyles.bodyMedium.copyWith(
-                            decoration: TextDecoration.underline,
                             color: Colors.black87,
                           ),
                         ),
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    InkWell(
-                      onTap: widget.onSkip,
-                      child: Text(
-                        'add_additional_buildings.skip_link'.tr(),
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          decoration: TextDecoration.underline,
-                          color: Colors.black87,
+                        const SizedBox(height: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: 0.9,
+                            backgroundColor: Colors.grey.shade300,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              const Color(0xFF8B9A5B), // Muted green color
+                            ),
+                            minHeight: 8,
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    PrimaryOutlineButton(
-                      label: 'add_additional_buildings.button_text'.tr(),
-                      width: 260,
-                      onPressed: widget.onContinue,
-                    ),
-                  ],
+                        const SizedBox(height: 32),
+                        Text(
+                          'add_additional_buildings.title'.tr(),
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.headlineSmall.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                        // Display existing buildings
+                        ..._buildings.map((building) => Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _buildBuildingItem(building),
+                            )),
+                        // Show input field if add button was clicked
+                        if (_showAddBuildingInput) ...[
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _newBuildingController,
+                            decoration: InputDecoration(
+                              hintText: 'add_additional_buildings.building_hint'.tr(),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(4),
+                                borderSide: BorderSide(
+                                  color: const Color(0xFF8B9A5B),
+                                  width: 2,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(4),
+                                borderSide: BorderSide(
+                                  color: const Color(0xFF8B9A5B),
+                                  width: 2,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 18,
+                              ),
+                            ),
+                            onSubmitted: (_) => _addBuilding(),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        // Add building link (show when "yes" is selected OR when editable buildings exist, and input is not showing)
+                        if ((_hasAdditionalBuildings == true || _hasEditableBuildings()) &&
+                            !_showAddBuildingInput) ...[
+                          const SizedBox(height: 16),
+                          InkWell(
+                            onTap: _showAddBuildingField,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  '+ ',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'add_additional_buildings.add_building_link'.tr(),
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    decoration: TextDecoration.underline,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        // Yes/No selection (only show when no editable buildings exist yet)
+                        if (!_hasEditableBuildings()) ...[
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _buildYesNoOption(
+                                label: 'add_additional_buildings.yes'.tr(),
+                                isSelected: _hasAdditionalBuildings == true,
+                                onTap: () => _handleYesNoSelection(true),
+                              ),
+                              const SizedBox(width: 24),
+                              _buildYesNoOption(
+                                label: 'add_additional_buildings.no'.tr(),
+                                isSelected: _hasAdditionalBuildings == false,
+                                onTap: () => _handleYesNoSelection(false),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        InkWell(
+                          onTap: widget.onSkip,
+                          child: Text(
+                            'add_additional_buildings.skip_link'.tr(),
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              decoration: TextDecoration.underline,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        PrimaryOutlineButton(
+                          label: 'add_additional_buildings.button_text'.tr(),
+                          width: 260,
+                          onPressed: widget.onContinue,
+                        ),
+                      ],
+                  ),
                 ),
               ),
+            ),
             ],
           ),
         ),
@@ -310,14 +331,15 @@ class _AddAdditionalBuildingsWidgetState
       decoration: BoxDecoration(
         border: Border.all(
           color: building.isEditable
-              ? const Color(0xFF8B9A5B) // Green border for editable
-              : Colors.black54,
+              ? const Color(0xFF8B9A5B) // Green border for editable buildings
+              : Colors.black54, // Gray border for pre-selected buildings
           width: 2,
         ),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         children: [
+          // Show checkmark for pre-selected buildings
           if (building.isPreSelected) ...[
             const Icon(
               Icons.check_circle,
@@ -326,13 +348,18 @@ class _AddAdditionalBuildingsWidgetState
             ),
             const SizedBox(width: 12),
           ],
+          // Building name
           Expanded(
             child: Text(
               building.name,
-              style: AppTextStyles.bodyMedium,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: building.isEditable ? Colors.black87 : Colors.black87,
+              ),
             ),
           ),
-          if (building.resources != null) ...[
+          // Resources text (only for pre-selected buildings with resources)
+          if (building.resources != null && building.isPreSelected) ...[
+            const SizedBox(width: 12),
             Text(
               building.resources!,
               style: AppTextStyles.bodyMedium.copyWith(
@@ -340,16 +367,31 @@ class _AddAdditionalBuildingsWidgetState
               ),
             ),
           ],
+          // Add details link for editable buildings
           if (building.isEditable) ...[
             const SizedBox(width: 12),
             InkWell(
-              onTap: () => _removeBuilding(building.id),
-              child: Text(
-                'add_additional_buildings.add_details_link'.tr(),
-                style: AppTextStyles.bodyMedium.copyWith(
-                  decoration: TextDecoration.underline,
-                  color: Colors.black87,
-                ),
+              onTap: () {
+                // Handle add details action
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '+ ',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'add_additional_buildings.add_details_link'.tr(),
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      decoration: TextDecoration.underline,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
