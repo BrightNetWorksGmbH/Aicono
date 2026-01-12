@@ -132,6 +132,7 @@ const loginUser = asyncHandler(async (req, res) => {
           last_name: user.last_name,
           position: user.position,
           profile_picture_url: user.profile_picture_url,
+          is_superadmin: user.is_superadmin || false,
         },
         token,
         roles,
