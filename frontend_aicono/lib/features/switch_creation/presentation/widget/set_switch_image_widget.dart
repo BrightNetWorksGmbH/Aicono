@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:easy_localization/easy_localization.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
@@ -12,8 +10,11 @@ import 'package:frontend_aicono/core/widgets/xChackbox.dart';
 class SetSwitchImageWidget extends StatefulWidget {
   final String? userName;
   final String? organizationName;
+  final XFile? selectedImageFile;
+  final bool skipLogo;
   final VoidCallback onLanguageChanged;
-  final ValueChanged<File?>? onImageSelected;
+  final ValueChanged<XFile?>? onImageSelected;
+  final ValueChanged<bool>? onSkipLogoChanged;
   final VoidCallback? onContinue;
   final VoidCallback? onVerseChange;
   final VoidCallback? onBack;
@@ -22,8 +23,11 @@ class SetSwitchImageWidget extends StatefulWidget {
     super.key,
     this.userName,
     this.organizationName,
+    this.selectedImageFile,
+    this.skipLogo = false,
     required this.onLanguageChanged,
     this.onImageSelected,
+    this.onSkipLogoChanged,
     this.onContinue,
     this.onVerseChange,
     this.onBack,
@@ -34,60 +38,51 @@ class SetSwitchImageWidget extends StatefulWidget {
 }
 
 class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
-  File? _selectedImage;
-  Uint8List? _selectedImageBytes; // For web support
-  bool _skipLogo = false;
+  final ImagePicker _imagePicker = ImagePicker();
+  Uint8List? _selectedImageBytes; // For displaying the image
 
   Future<void> _pickImage() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
       );
 
-      if (result != null && result.files.single.path != null) {
-        if (kIsWeb) {
-          // Web: use bytes
-          final bytes = result.files.single.bytes;
-          if (bytes != null) {
-            setState(() {
-              _selectedImageBytes = bytes;
-              _selectedImage = null;
-              _skipLogo = false;
-            });
-            // For web, we pass null since File doesn't work on web
-            // The parent can handle bytes separately if needed
-            widget.onImageSelected?.call(null);
-          }
-        } else {
-          // Mobile/Desktop: use file path
-          final file = File(result.files.single.path!);
-          setState(() {
-            _selectedImage = file;
-            _selectedImageBytes = null;
-            _skipLogo = false;
-          });
-          widget.onImageSelected?.call(file);
-        }
-      } else if (result != null &&
-          result.files.single.bytes != null &&
-          kIsWeb) {
-        // Web: handle bytes directly
-        final bytes = result.files.single.bytes!;
+      if (image != null) {
+        // Read bytes for display
+        final bytes = await image.readAsBytes();
         setState(() {
           _selectedImageBytes = bytes;
-          _selectedImage = null;
-          _skipLogo = false;
         });
-        widget.onImageSelected?.call(null);
+        // Notify parent with XFile
+        widget.onImageSelected?.call(image);
       }
     } catch (e) {
-      // Handle error silently or show snackbar
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error picking image: $e')));
       }
+    }
+  }
+
+  @override
+  void didUpdateWidget(SetSwitchImageWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update image bytes when selectedImageFile changes
+    if (widget.selectedImageFile != null &&
+        widget.selectedImageFile != oldWidget.selectedImageFile) {
+      widget.selectedImageFile!.readAsBytes().then((bytes) {
+        if (mounted) {
+          setState(() {
+            _selectedImageBytes = bytes;
+          });
+        }
+      });
+    } else if (widget.selectedImageFile == null) {
+      setState(() {
+        _selectedImageBytes = null;
+      });
     }
   }
 
@@ -98,7 +93,7 @@ class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
     return Padding(
       padding: const EdgeInsets.all(12.0),
       child: Container(
-        height: (screenSize.height * 0.95) + 50,
+        height: (screenSize.height * 0.95) + 60,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -179,13 +174,7 @@ class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
                                 ),
                               ),
                               const SizedBox(height: 40),
-                              if (_selectedImage != null)
-                                Image.file(
-                                  _selectedImage!,
-                                  height: 80,
-                                  fit: BoxFit.contain,
-                                )
-                              else if (_selectedImageBytes != null)
+                              if (_selectedImageBytes != null)
                                 Image.memory(
                                   _selectedImageBytes!,
                                   height: 80,
@@ -215,16 +204,13 @@ class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         XCheckBox(
-                          value: _skipLogo,
+                          value: widget.skipLogo,
                           onChanged: (value) {
-                            setState(() {
-                              _skipLogo = value ?? false;
-                              if (_skipLogo) {
-                                _selectedImage = null;
-                                _selectedImageBytes = null;
-                                widget.onImageSelected?.call(null);
-                              }
-                            });
+                            final skip = value ?? false;
+                            widget.onSkipLogoChanged?.call(skip);
+                            if (skip) {
+                              widget.onImageSelected?.call(null);
+                            }
                           },
                         ),
                         const SizedBox(width: 8),

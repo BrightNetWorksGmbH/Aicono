@@ -13,6 +13,7 @@ class AddAdditionalBuildingsWidget extends StatefulWidget {
   final VoidCallback? onSkip;
   final VoidCallback? onContinue;
   final VoidCallback? onBack;
+  final ValueChanged<BuildingItem>? onAddBuildingDetails;
 
   const AddAdditionalBuildingsWidget({
     super.key,
@@ -23,6 +24,7 @@ class AddAdditionalBuildingsWidget extends StatefulWidget {
     this.onSkip,
     this.onContinue,
     this.onBack,
+    this.onAddBuildingDetails,
   });
 
   @override
@@ -254,24 +256,12 @@ class _AddAdditionalBuildingsWidgetState
                           const SizedBox(height: 16),
                           InkWell(
                             onTap: _showAddBuildingField,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  '+ ',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  'add_additional_buildings.add_building_link'.tr(),
-                                  style: AppTextStyles.bodyMedium.copyWith(
-                                    decoration: TextDecoration.underline,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              'add_additional_buildings.add_building_link'.tr(),
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                decoration: TextDecoration.underline,
+                                color: Colors.black87,
+                              ),
                             ),
                           ),
                         ],
@@ -339,21 +329,19 @@ class _AddAdditionalBuildingsWidgetState
       ),
       child: Row(
         children: [
-          // Show checkmark for pre-selected buildings
-          if (building.isPreSelected) ...[
-            const Icon(
-              Icons.check_circle,
-              color: Color(0xFF238636), // Green checkmark
-              size: 24,
-            ),
-            const SizedBox(width: 12),
-          ],
+          // Show checkmark for ALL buildings (both pre-selected and editable)
+          const Icon(
+            Icons.check_circle,
+            color: Color(0xFF238636), // Green checkmark
+            size: 24,
+          ),
+          const SizedBox(width: 12),
           // Building name
           Expanded(
             child: Text(
               building.name,
               style: AppTextStyles.bodyMedium.copyWith(
-                color: building.isEditable ? Colors.black87 : Colors.black87,
+                color: Colors.black87,
               ),
             ),
           ),
@@ -367,31 +355,19 @@ class _AddAdditionalBuildingsWidgetState
               ),
             ),
           ],
-          // Add details link for editable buildings
-          if (building.isEditable) ...[
+          // Add details link for editable buildings (user-added buildings)
+          if (building.isEditable && !building.isPreSelected) ...[
             const SizedBox(width: 12),
             InkWell(
               onTap: () {
-                // Handle add details action
+                widget.onAddBuildingDetails?.call(building);
               },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    '+ ',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'add_additional_buildings.add_details_link'.tr(),
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      decoration: TextDecoration.underline,
-                      color: Colors.blue,
-                    ),
-                  ),
-                ],
+              child: Text(
+                'add_additional_buildings.add_details_link'.tr(),
+                style: AppTextStyles.bodyMedium.copyWith(
+                  decoration: TextDecoration.underline,
+                  color: Colors.blue,
+                ),
               ),
             ),
           ],

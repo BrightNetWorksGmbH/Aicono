@@ -4,10 +4,16 @@ import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/widget/activate_switchboard_widget.dart';
+import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
 
 class ActivateSwitchboardPage extends StatefulWidget {
   final String? userName;
-  const ActivateSwitchboardPage({super.key, this.userName});
+  final InvitationEntity? invitation;
+  const ActivateSwitchboardPage({
+    super.key,
+    this.userName,
+    this.invitation,
+  });
 
   @override
   State<ActivateSwitchboardPage> createState() =>
@@ -21,12 +27,13 @@ class _ActivateSwitchboardPageState extends State<ActivateSwitchboardPage> {
   }
 
   void _handleContinue() {
-    // Navigate to set organization name page, passing userName if available
+    // Navigate to set organization name page, passing userName if available and invitation
     context.pushNamed(
       Routelists.setOrganizationName,
       queryParameters: widget.userName != null
           ? {'userName': widget.userName!}
           : {},
+      extra: widget.invitation,
     );
   }
 
@@ -54,7 +61,7 @@ class _ActivateSwitchboardPageState extends State<ActivateSwitchboardPage> {
             child: Column(
               children: [
                 ActivateSwitchboardWidget(
-                  userName: widget.userName,
+                  userName: widget.invitation?.firstName ?? widget.userName,
                   onLanguageChanged: _handleLanguageChanged,
                   onContinue: _handleContinue,
                 ),

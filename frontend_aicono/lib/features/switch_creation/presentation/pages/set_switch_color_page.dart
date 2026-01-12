@@ -4,11 +4,17 @@ import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/widget/set_switch_color_widget.dart';
+import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
 
 class SetSwitchColorPage extends StatefulWidget {
   final String? userName;
+  final InvitationEntity? invitation;
 
-  const SetSwitchColorPage({super.key, this.userName});
+  const SetSwitchColorPage({
+    super.key,
+    this.userName,
+    this.invitation,
+  });
 
   @override
   State<SetSwitchColorPage> createState() => _SetSwitchColorPageState();

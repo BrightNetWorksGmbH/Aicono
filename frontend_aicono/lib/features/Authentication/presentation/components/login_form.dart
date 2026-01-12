@@ -133,6 +133,15 @@ class _LoginFormState extends State<LoginForm> {
             if (widget.invitation != null &&
                 widget.invitation!.email.toLowerCase() ==
                     _emailController.text.trim().toLowerCase()) {
+              // Check if setup is not complete, navigate to activate switchboard
+              if (!widget.invitation!.isSetupComplete) {
+                context.pushNamed(
+                  Routelists.activateSwitchboard,
+                  extra: widget.invitation,
+                );
+                return;
+              }
+
               final invitedVerseId = widget.invitation!.verseId;
               final alreadyMember = user.joinedVerse.contains(invitedVerseId);
               if (!alreadyMember) {
@@ -154,23 +163,15 @@ class _LoginFormState extends State<LoginForm> {
             // 3) No joined verses: if has pending invitations → use index 0
             if (user.pendingInvitations.isNotEmpty) {
               final firstInvitation = user.pendingInvitations.first;
-              await _checkVerseSetupAndRedirectFor(
-                InvitationEntity(
-                  id: firstInvitation.id,
-                  verseId: firstInvitation.verseId,
-                  email: firstInvitation.email,
-                  roleId: firstInvitation.roleId,
-                  token: firstInvitation.token,
-                  invitedBy: firstInvitation.invitedBy,
-                  isAccepted: firstInvitation.isAccepted,
-                  createdAt: firstInvitation.createdAt,
-                  expiresAt: firstInvitation.expiresAt,
-                  acceptedAt: firstInvitation.acceptedAt,
-                  firstName: firstInvitation.firstName,
-                  lastName: firstInvitation.lastName,
-                  position: firstInvitation.position,
-                ),
-              );
+              // Check if setup is not complete, navigate to activate switchboard
+              if (!firstInvitation.isSetupComplete) {
+                context.pushNamed(
+                  Routelists.activateSwitchboard,
+                  extra: firstInvitation,
+                );
+                return;
+              }
+              await _checkVerseSetupAndRedirectFor(firstInvitation);
               return;
             }
           } catch (e) {
@@ -717,11 +718,11 @@ class _LoginFormState extends State<LoginForm> {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () {
-                        // context.pushNamed(Routelists.forgotPassword);
-                        context.goNamed(
-                          Routelists.activateSwitchboard,
-                          queryParameters: {'userName': 'test'},
-                        );
+                        context.pushNamed(Routelists.forgotPassword);
+                        // context.goNamed(
+                        //   Routelists.activateSwitchboard,
+                        //   queryParameters: {'userName': 'test'},
+                        // );
                       },
                       child: Text(
                         'Forgot Password?',

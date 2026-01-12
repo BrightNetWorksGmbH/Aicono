@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
-import 'package:frontend_aicono/features/switch_creation/presentation/widget/set_building_details_widget.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/widget/building_detail_widget/set_building_details_widget.dart';
 
 class SetBuildingDetailsPage extends StatefulWidget {
   final String? userName;
@@ -15,8 +15,7 @@ class SetBuildingDetailsPage extends StatefulWidget {
   });
 
   @override
-  State<SetBuildingDetailsPage> createState() =>
-      _SetBuildingDetailsPageState();
+  State<SetBuildingDetailsPage> createState() => _SetBuildingDetailsPageState();
 }
 
 class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
@@ -36,31 +35,24 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
   }
 
   void _handleContinue() {
-    // Navigate to next page
-    // Update with appropriate route when available
-    // context.pushNamed(
-    //   Routelists.nextRoute,
-    //   queryParameters: {
-    //     if (widget.userName != null) 'userName': widget.userName!,
-    //   },
-    // );
+    // Navigate back to the previous page (add additional buildings page)
+    if (context.canPop()) {
+      context.pop();
+    }
   }
 
   void _handleSkip() {
-    // Navigate to next page (skip this step)
-    // Update with appropriate route when available
-    // context.pushNamed(
-    //   Routelists.nextRoute,
-    //   queryParameters: {
-    //     if (widget.userName != null) 'userName': widget.userName!,
-    //   },
-    // );
+    // Navigate back to the previous page (skip this step)
+    if (context.canPop()) {
+      context.pop();
+    }
   }
 
   void _handleEditAddress() {
     // Navigate back to address selection page
-    // Update with appropriate route when available
-    // context.pop();
+    if (context.canPop()) {
+      context.pop();
+    }
   }
 
   @override
