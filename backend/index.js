@@ -20,6 +20,7 @@ const buildingRouter = require('./routes/buildings');
 const loxoneRouter = require('./routes/loxone');
 const floorRouter = require('./routes/floors');
 const dashboardRouter = require('./routes/dashboard');
+const uploadRouter = require('./routes/upload');
 
 // CORS configuration
 const corsOptions = {
@@ -48,6 +49,7 @@ app.use('/api/v1/buildings', buildingRouter);
 app.use('/api/v1/loxone', loxoneRouter);
 app.use('/api/v1/floors', floorRouter);
 app.use('/api/v1/dashboard', dashboardRouter);
+app.use('/api/v1/upload', uploadRouter);
 
 // Handle 404 - Not Found routes
 app.use(notFoundHandler);
