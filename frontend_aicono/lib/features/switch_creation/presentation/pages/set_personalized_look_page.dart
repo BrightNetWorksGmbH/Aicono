@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
+import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/widget/set_personalize_look_widget.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/switch_creation_cubit.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
 
 class SetPersonalizedLookPage extends StatefulWidget {
@@ -33,13 +36,13 @@ class _SetPersonalizedLookPageState extends State<SetPersonalizedLookPage> {
   }
 
   void _handleContinue() {
-    // Navigate to structure switch page
-    context.pushNamed(
-      Routelists.structureSwitch,
-      queryParameters: {
-        if (widget.userName != null) 'userName': widget.userName!,
-      },
-    );
+    // The widget will handle calling the bloc to complete setup
+    // Navigation will happen after success
+  }
+
+  void _handleDarkModeChanged(bool darkMode) {
+    // Update bloc with dark mode preference
+    sl<SwitchCreationCubit>().setDarkMode(darkMode);
   }
 
   @override
@@ -64,11 +67,42 @@ class _SetPersonalizedLookPageState extends State<SetPersonalizedLookPage> {
             ),
             child: Column(
               children: [
-                SetPersonalizeLookWidget(
-                  userName: widget.userName,
-                  onLanguageChanged: _handleLanguageChanged,
-                  onBack: _handleBack,
-                  onContinue: _handleContinue,
+                BlocProvider.value(
+                  value: sl<SwitchCreationCubit>(),
+                  child: BlocListener<SwitchCreationCubit, SwitchCreationState>(
+                    listener: (context, state) {
+                      if (state is SwitchCreationCompleteSuccess) {
+                        // Navigate to structure switch page on success
+                        if (mounted) {
+                          context.pushNamed(
+                            Routelists.structureSwitch,
+                            queryParameters: {
+                              if (widget.userName != null)
+                                'userName': widget.userName!,
+                            },
+                          );
+                        }
+                      } else if (state is SwitchCreationCompleteFailure) {
+                        // Show error message
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(state.message),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    child: SetPersonalizeLookWidget(
+                      userName: widget.userName,
+                      invitation: widget.invitation,
+                      onLanguageChanged: _handleLanguageChanged,
+                      onBack: _handleBack,
+                      onContinue: _handleContinue,
+                      onDarkModeChanged: _handleDarkModeChanged,
+                    ),
+                  ),
                 ),
                 AppFooter(
                   onLanguageChanged: _handleLanguageChanged,

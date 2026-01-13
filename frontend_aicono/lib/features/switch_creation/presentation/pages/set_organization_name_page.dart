@@ -70,7 +70,7 @@ class _SetOrganizationNamePageState extends State<SetOrganizationNamePage> {
     }
     // Navigate to set switch name page, passing userName, organizationName, and token
     context.pushNamed(
-      Routelists.setSwitchName,
+      Routelists.setSubDomain,
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
         if (_organizationName != null) 'organizationName': _organizationName!,

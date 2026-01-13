@@ -9,8 +9,9 @@ import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 class SetSwitchNameWidget extends StatefulWidget {
   final String? userName;
   final String? organizationName;
+  final String? initialSubDomain;
   final VoidCallback onLanguageChanged;
-  final ValueChanged<String>? onSwitchNameChanged;
+  final ValueChanged<String>? onSubDomainChanged;
   final VoidCallback? onContinue;
   final VoidCallback? onEdit;
   final VoidCallback? onBack;
@@ -19,8 +20,9 @@ class SetSwitchNameWidget extends StatefulWidget {
     super.key,
     this.userName,
     this.organizationName,
+    this.initialSubDomain,
     required this.onLanguageChanged,
-    this.onSwitchNameChanged,
+    this.onSubDomainChanged,
     this.onContinue,
     this.onEdit,
     this.onBack,
@@ -36,21 +38,21 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
   @override
   void initState() {
     super.initState();
-    // Generate switch name from organization name
-    final switchName = _generateSwitchName(widget.organizationName);
-    _controller = TextEditingController(text: switchName);
+    // Initialize with subdomain from invitation or generate from organization name
+    final subDomain = widget.initialSubDomain ?? _generateSubDomain(widget.organizationName);
+    _controller = TextEditingController(text: subDomain);
   }
 
-  String _generateSwitchName(String? orgName) {
+  String _generateSubDomain(String? orgName) {
     if (orgName == null || orgName.trim().isEmpty) {
-      return 'brightnetworks.switchboard.com';
+      return '';
     }
     // Convert organization name to lowercase, remove special chars, replace spaces with nothing
     final cleaned = orgName
         .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9\s]'), '')
+        .replaceAll(RegExp(r'[^a-z0-9\s-]'), '')
         .replaceAll(RegExp(r'\s+'), '');
-    return '$cleaned.switchboard.com';
+    return cleaned;
   }
 
   @override
@@ -109,7 +111,7 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'set_switch_name.title'.tr(),
+                      'set_subdomain.title'.tr(),
                       textAlign: TextAlign.center,
                       style: AppTextStyles.headlineSmall.copyWith(
                         fontWeight: FontWeight.w900,
@@ -118,9 +120,11 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
                     const SizedBox(height: 40),
                     TextField(
                       controller: _controller,
-                      onChanged: widget.onSwitchNameChanged,
+                      onChanged: (value) {
+                        widget.onSubDomainChanged?.call(value);
+                      },
                       decoration: InputDecoration(
-                        hintText: 'set_switch_name.hint'.tr(),
+                        hintText: 'set_subdomain.hint'.tr(),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(4),
                           borderSide: const BorderSide(
@@ -143,7 +147,7 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'set_switch_name.tip'.tr(),
+                      'set_subdomain.tip'.tr(),
                       textAlign: TextAlign.center,
                       style: AppTextStyles.bodySmall.copyWith(
                         color: Colors.black87,
@@ -162,7 +166,7 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
                                 }
                               },
                           child: Text(
-                            'set_switch_name.edit_link'.tr(),
+                            'set_subdomain.edit_link'.tr(),
                             style: AppTextStyles.bodyMedium.copyWith(
                               decoration: TextDecoration.underline,
                               color: Colors.black87,
@@ -171,7 +175,7 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
                         ),
                         const SizedBox(width: 24),
                         PrimaryOutlineButton(
-                          label: 'set_switch_name.button_text'.tr(),
+                          label: 'set_subdomain.button_text'.tr(),
                           width: 260,
                           onPressed: widget.onContinue,
                         ),

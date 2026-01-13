@@ -37,7 +37,7 @@ class Routelists {
   static const floorPlanEditor = 'floor-plan-editor';
   static const activateSwitchboard = 'activate-switchboard';
   static const setOrganizationName = 'set-organization-name';
-  static const setSwitchName = 'set-switch-name';
+  static const setSubDomain = 'set-subdomain';
   static const setSwitchImage = 'set-switch-image';
   static const setSwitchColor = 'set-switch-color';
   static const setPersonalizedLook = 'set-personalized-look';

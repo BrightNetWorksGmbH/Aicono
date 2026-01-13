@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,7 @@ import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:frontend_aicono/core/storage/secure_storage.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/widget/set_switch_image_widget.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/switch_creation_cubit.dart';
 import 'package:frontend_aicono/features/upload/presentation/bloc/upload_bloc.dart';
@@ -36,13 +38,18 @@ class _SetSwitchImagePageState extends State<SetSwitchImagePage> {
   @override
   void initState() {
     super.initState();
-    // Initialize bloc from invitation if available
+    // Initialize bloc from invitation if available (preserves existing bloc state)
     if (widget.invitation != null) {
       final cubit = sl<SwitchCreationCubit>();
-      cubit.initializeFromInvitation(
-        organizationName: widget.invitation!.organizationName,
-        subDomain: widget.invitation!.subDomain,
-      );
+      // Only initialize if not already set, to preserve any existing data
+      final currentState = cubit.state;
+      if (currentState.organizationName == null ||
+          currentState.subDomain == null) {
+        cubit.initializeFromInvitation(
+          organizationName: widget.invitation!.organizationName,
+          subDomain: widget.invitation!.subDomain,
+        );
+      }
     }
   }
 
@@ -69,13 +76,37 @@ class _SetSwitchImagePageState extends State<SetSwitchImagePage> {
       _skipLogo = skip;
       if (skip) {
         _selectedImageFile = null;
+        // Clear logo URL from bloc when skipping
+        sl<SwitchCreationCubit>().setLogoUrl(null);
       }
     });
   }
 
-  void _handleContinue(BuildContext blocContext) {
+  void _handleContinue(BuildContext blocContext) async {
+    // If skip logo is checked, ensure logo URL is cleared
+    if (_skipLogo) {
+      sl<SwitchCreationCubit>().setLogoUrl(null);
+    }
+
     // If image is set, upload it first
     if (_selectedImageFile != null && widget.invitation != null) {
+      // Check if user is authenticated before attempting upload
+      final token = await SecureStorage.getAccessToken();
+      if (token == null || token.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Authentication required. Please log in to upload images.',
+              ),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+        return;
+      }
+
       final uploadBloc = blocContext.read<UploadBloc>();
       uploadBloc.add(
         UploadImageEvent(
@@ -160,6 +191,9 @@ class _SetSwitchImagePageState extends State<SetSwitchImagePage> {
                     child: Column(
                       children: [
                         SetSwitchImageWidget(
+                          key: ValueKey(
+                            '${_skipLogo}_${_selectedImageFile?.path}',
+                          ),
                           userName: widget.userName,
                           organizationName: widget.organizationName,
                           selectedImageFile: _selectedImageFile,

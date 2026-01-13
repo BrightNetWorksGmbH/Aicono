@@ -60,10 +60,10 @@
     "tip": "Tip: Enter the company name as precisely as possible so that it can be recognized.",
     "button_text": "That's our name. Let's go."
   },
-  "set_switch_name": {
-    "title": "Great, this is the name for your Bryteswitch:",
-    "hint": "brightnetworks.switchboard.com",
-    "tip": "Tip: You and your colleagues will remember the name of the Bryteswitch more easily if it is identical to the name of the organization.",
+  "set_subdomain": {
+    "title": "Great, this is the subdomain for your Bryteswitch:",
+    "hint": "testorg",
+    "tip": "Tip: You and your colleagues will remember the subdomain more easily if it is identical to the name of the organization.",
     "edit_link": "Change again",
     "button_text": "That's fine. Let's continue."
   },
@@ -71,7 +71,7 @@
     "title": "Would you like to add a logo to your Bryteswitch?",
     "change_verse": "+ Verse wechseln",
     "tip": "Tip: Your organization's logo creates recognition and immediately clarifies who it's about.",
-    "skip_logo": "ohne Logo fortfahren",
+    "skip_logo": "Continue without logo",
     "button_text": "That's fine. Let's continue.",
     "uploading": "Uploading..."
   },
