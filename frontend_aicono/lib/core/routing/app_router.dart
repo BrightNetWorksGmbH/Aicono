@@ -170,7 +170,9 @@ class AppRouter {
       pageBuilder: (context, state) {
         final invitation = state.extra as InvitationEntity?;
         final token = state.uri.queryParameters['token'];
-        print('AppRouter - Login route with invitation: $invitation, token: $token');
+        print(
+          'AppRouter - Login route with invitation: $invitation, token: $token',
+        );
         return _buildPage(
           context,
           state,
@@ -266,10 +268,7 @@ class AppRouter {
         return _buildPage(
           context,
           state,
-          ActivateSwitchboardPage(
-            userName: userName,
-            token: token,
-          ),
+          ActivateSwitchboardPage(userName: userName, token: token),
         );
       },
     ),
@@ -301,8 +300,8 @@ class AppRouter {
       },
     ),
     GoRoute(
-      path: '/${Routelists.setSwitchName}',
-      name: Routelists.setSwitchName,
+      path: '/${Routelists.setSubDomain}',
+      name: Routelists.setSubDomain,
       redirect: (context, state) {
         final invitation = state.extra as InvitationEntity?;
         final token = state.uri.queryParameters['token'];

@@ -60,10 +60,10 @@
     "tip": "Tipp: Gib den Unternehmensnamen so exakt wie möglich an, sodass die Wiedererkennung gegeben ist.",
     "button_text": "So heißen wir. Weiter geht's."
   },
-  "set_switch_name": {
-    "title": "Prima, dies ist der Name für Dein Bryteswitch:",
-    "hint": "brightnetworks.switchboard.com",
-    "tip": "Tipp: Du und Deine Kolleginnen und Kollegen erinnern sich leichter an den Namen des Bryteswitch, wenn er identisch zum Namen der Organisation ist.",
+  "set_subdomain": {
+    "title": "Prima, dies ist die Subdomain für Dein Bryteswitch:",
+    "hint": "testorg",
+    "tip": "Tipp: Du und Deine Kolleginnen und Kollegen erinnern sich leichter an die Subdomain, wenn sie identisch zum Namen der Organisation ist.",
     "edit_link": "Nochmal ändern",
     "button_text": "Das passt so. Weiter geht's."
   },

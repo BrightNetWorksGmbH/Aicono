@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart'; // XFile works both on web & mobile
 import 'package:http_parser/http_parser.dart';
 
-import 'package:frontend_aicono/core/storage/secure_storage.dart';
 import 'package:frontend_aicono/core/network/error_extractor.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/services/token_service.dart';
@@ -25,11 +24,6 @@ class UploadRemoteDataSourceImpl implements UploadRemoteDataSource {
     String verseId,
     String folderPath,
   ) async {
-    final token = await SecureStorage.getAccessToken();
-    if (token == null || token.isEmpty) {
-      throw const ServerException("Authentication token missing");
-    }
-
     MultipartFile multipartFile;
 
     if (kIsWeb) {
@@ -56,19 +50,30 @@ class UploadRemoteDataSourceImpl implements UploadRemoteDataSource {
     });
 
     try {
-      final response = await dio.post(
-        "https://brightcore-iugy8.ondigitalocean.app/upload/single",
-        data: formData,
-        options: Options(
-          headers: {
-            "Content-Type": "multipart/form-data",
-            "Authorization": "Bearer $token",
-          },
-        ),
-      );
+      // Let AuthInterceptor handle the Authorization header
+      // Dio automatically sets Content-Type for FormData, so we don't need to set it manually
+      final response = await dio.post("/api/v1/upload/single", data: formData);
 
       if (response.statusCode == 200) {
-        return response.data['file']['url'];
+        final responseData = response.data;
+
+        // Check for success flag and data wrapper
+        if (responseData['success'] == true && responseData['data'] != null) {
+          final data = responseData['data'];
+          // Use url or cdnUrl (prefer cdnUrl if available)
+          final url = data['cdnUrl'] ?? data['url'];
+          if (url != null && url is String) {
+            return url;
+          } else {
+            throw ServerException(
+              'Invalid response format: missing url in data',
+            );
+          }
+        } else {
+          throw ServerException(
+            'Invalid response format: success flag is false or data is missing',
+          );
+        }
       } else {
         throw ServerException(
           "Upload failed with status ${response.statusCode}",

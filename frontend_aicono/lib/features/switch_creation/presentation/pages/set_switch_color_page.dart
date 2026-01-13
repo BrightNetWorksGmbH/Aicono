@@ -30,14 +30,33 @@ class _SetSwitchColorPageState extends State<SetSwitchColorPage> {
   @override
   void initState() {
     super.initState();
-    // Initialize from invitation if available
+    // Initialize from invitation if available (preserves existing bloc state)
     if (widget.invitation != null) {
       final cubit = sl<SwitchCreationCubit>();
-      cubit.initializeFromInvitation(
-        organizationName: widget.invitation!.organizationName,
-        subDomain: widget.invitation!.subDomain,
-      );
-      // Load existing color if available (would need to be parsed from invitation)
+      // Only initialize if not already set, to preserve logo URL and other data
+      final currentState = cubit.state;
+      if (currentState.organizationName == null ||
+          currentState.subDomain == null) {
+        cubit.initializeFromInvitation(
+          organizationName: widget.invitation!.organizationName,
+          subDomain: widget.invitation!.subDomain,
+        );
+      }
+      // Load existing color from bloc state if available
+      final state = cubit.state;
+      if (state.primaryColor != null && state.primaryColor!.isNotEmpty) {
+        try {
+          _colorHex = state.primaryColor!;
+          _primaryColor = Color(
+            int.parse(state.primaryColor!.replaceFirst('#', '0xFF')),
+          );
+        } catch (e) {
+          // If parsing fails, use default
+        }
+      }
+      if (state.colorName != null && state.colorName!.isNotEmpty) {
+        _colorName = state.colorName!;
+      }
     }
   }
 
@@ -69,6 +88,10 @@ class _SetSwitchColorPageState extends State<SetSwitchColorPage> {
   }
 
   void _handleSkip() {
+    // Clear color from bloc when skipping
+    sl<SwitchCreationCubit>()
+      ..setPrimaryColor(null)
+      ..setColorName(null);
     context.pushNamed(
       Routelists.setPersonalizedLook,
       queryParameters: {
@@ -80,6 +103,13 @@ class _SetSwitchColorPageState extends State<SetSwitchColorPage> {
   }
 
   void _handleContinue() {
+    // Ensure color is saved to bloc before navigating
+    if (_colorHex.isNotEmpty) {
+      sl<SwitchCreationCubit>().setPrimaryColor(_colorHex);
+    }
+    if (_colorName.isNotEmpty) {
+      sl<SwitchCreationCubit>().setColorName(_colorName);
+    }
     context.pushNamed(
       Routelists.setPersonalizedLook,
       queryParameters: {

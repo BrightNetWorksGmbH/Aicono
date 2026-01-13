@@ -41,6 +41,10 @@ import 'package:frontend_aicono/features/upload/data/repositories/upload_reposit
 import 'package:frontend_aicono/features/upload/domain/repositories/upload_repository.dart';
 import 'package:frontend_aicono/features/upload/domain/usecases/upload_usecase.dart';
 import 'package:frontend_aicono/features/upload/presentation/bloc/upload_bloc.dart';
+import 'package:frontend_aicono/features/switch_creation/data/datasources/complete_setup_remote_data_source.dart';
+import 'package:frontend_aicono/features/switch_creation/data/repositories/complete_setup_repository_impl.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/repositories/complete_setup_repository.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/usecases/complete_setup_usecase.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -81,6 +85,10 @@ Future<void> init() async {
     () => ResetPasswordRemoteDataSourceImpl(dioClient: sl()),
   );
 
+  sl.registerLazySingleton<CompleteSetupRemoteDataSource>(
+    () => CompleteSetupRemoteDataSourceImpl(dioClient: sl()),
+  );
+
   // Repositories - Auth is online-only, Verse is offline-first
   sl.registerLazySingleton<InvitationRepository>(
     () => InvitationRepositoryImpl(remoteDataSource: sl()),
@@ -106,6 +114,10 @@ Future<void> init() async {
     () => LoginRepositoryImpl(dioClient: sl(), prefs: sl()),
   );
 
+  sl.registerLazySingleton<CompleteSetupRepository>(
+    () => CompleteSetupRepositoryImpl(remoteDataSource: sl()),
+  );
+
   // Use cases
   sl.registerLazySingleton(() => InvitationUseCase(sl()));
   sl.registerLazySingleton(() => RegisterUserUseCase(repository: sl()));
@@ -113,6 +125,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => ForgotResetPasswordUseCase(repository: sl()));
   sl.registerLazySingleton(() => ResetPasswordUseCase(sl()));
   sl.registerLazySingleton(() => LoginUseCase(repository: sl()));
+  sl.registerLazySingleton(() => CompleteSetupUseCase(repository: sl()));
 
   // Services
   sl.registerLazySingleton(() => AuthService(sl()));
@@ -133,7 +146,9 @@ Future<void> init() async {
   );
 
   // Switch Creation Bloc (singleton to persist state across pages)
-  sl.registerLazySingleton(() => SwitchCreationCubit());
+  sl.registerLazySingleton(
+    () => SwitchCreationCubit(completeSetupUseCase: sl()),
+  );
 
   // Upload dependencies
   sl.registerLazySingleton<UploadRemoteDataSource>(

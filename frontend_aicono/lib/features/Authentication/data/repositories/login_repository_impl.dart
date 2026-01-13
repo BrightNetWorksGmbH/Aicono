@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:frontend_aicono/core/error/failure.dart';
 import 'package:frontend_aicono/core/storage/secure_storage.dart';
 import 'package:frontend_aicono/core/network/error_extractor.dart';
@@ -57,10 +58,19 @@ class LoginRepositoryImpl implements LoginRepository {
           await prefs.setString('user_data', user.toJsonString());
 
           // Save tokens to secure storage
+          if (kDebugMode) {
+            print('💾 LoginRepository: Saving tokens - access: ${user.token.length} chars, refresh: ${user.refreshToken.length} chars');
+          }
           await SecureStorage.saveTokens(
             user.token, // Access token
             user.refreshToken, // Refresh token (or token if refreshToken not provided)
           );
+          
+          // Verify token was saved
+          if (kDebugMode) {
+            final verifyToken = await SecureStorage.getAccessToken();
+            print('🔍 LoginRepository: Token verification - ${verifyToken != null ? "✅ Token saved successfully" : "❌ Token NOT found after save!"}');
+          }
 
           return Right(user);
         } else {

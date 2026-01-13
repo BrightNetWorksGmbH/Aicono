@@ -1,22 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
+import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/switch_creation_cubit.dart';
+import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
 import 'package:frontend_aicono/core/widgets/xChackbox.dart';
 
 class SetPersonalizeLookWidget extends StatefulWidget {
   final String? userName;
+  final InvitationEntity? invitation;
   final VoidCallback onLanguageChanged;
   final VoidCallback? onContinue;
   final VoidCallback? onBack;
+  final ValueChanged<bool>? onDarkModeChanged;
 
   const SetPersonalizeLookWidget({
     super.key,
     this.userName,
+    this.invitation,
     required this.onLanguageChanged,
     this.onContinue,
     this.onBack,
+    this.onDarkModeChanged,
   });
 
   @override
@@ -27,6 +35,18 @@ class SetPersonalizeLookWidget extends StatefulWidget {
 class _SetPersonalizeLookWidgetState extends State<SetPersonalizeLookWidget> {
   bool _opt1 = true; // Light mode
   bool _opt2 = false; // Dark mode
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize from bloc state if available
+    final cubit = sl<SwitchCreationCubit>();
+    final darkMode = cubit.state.darkMode;
+    if (darkMode != null) {
+      _opt1 = !darkMode;
+      _opt2 = darkMode;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +116,12 @@ class _SetPersonalizeLookWidgetState extends State<SetPersonalizeLookWidget> {
                       onChanged: (v) {
                         setState(() {
                           _opt1 = v ?? false;
-                          if (_opt1) _opt2 = false; // Ensure only one is selected
+                          if (_opt1) {
+                            _opt2 = false; // Ensure only one is selected
+                            // Update bloc with light mode (darkMode = false)
+                            sl<SwitchCreationCubit>().setDarkMode(false);
+                            widget.onDarkModeChanged?.call(false);
+                          }
                         });
                       },
                       text: 'set_personalized_look.option_1'.tr(),
@@ -106,7 +131,12 @@ class _SetPersonalizeLookWidgetState extends State<SetPersonalizeLookWidget> {
                       onChanged: (v) {
                         setState(() {
                           _opt2 = v ?? false;
-                          if (_opt2) _opt1 = false; // Ensure only one is selected
+                          if (_opt2) {
+                            _opt1 = false; // Ensure only one is selected
+                            // Update bloc with dark mode (darkMode = true)
+                            sl<SwitchCreationCubit>().setDarkMode(true);
+                            widget.onDarkModeChanged?.call(true);
+                          }
                         });
                       },
                       text: 'set_personalized_look.option_2'.tr(),
@@ -120,12 +150,46 @@ class _SetPersonalizeLookWidgetState extends State<SetPersonalizeLookWidget> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    Center(
-                      child: PrimaryOutlineButton(
-                        label: 'set_personalized_look.button_text'.tr(),
-                        width: 260,
-                        onPressed: widget.onContinue,
-                      ),
+                    BlocBuilder<SwitchCreationCubit, SwitchCreationState>(
+                      builder: (context, state) {
+                        final isLoading = state.isLoading;
+                        return Center(
+                          child: isLoading
+                              ? const SizedBox(
+                                  width: 260,
+                                  height: 48,
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                              : PrimaryOutlineButton(
+                                  label: 'set_personalized_look.button_text'.tr(),
+                                  width: 260,
+                                  onPressed: () {
+                                    // Get switch ID from invitation
+                                    if (widget.invitation == null ||
+                                        widget.invitation!.verseId.isEmpty) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Invalid invitation. Please try again.',
+                                          ),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    // Call bloc to complete setup
+                                    context
+                                        .read<SwitchCreationCubit>()
+                                        .completeSetup(
+                                          widget.invitation!.verseId,
+                                        );
+                                  },
+                                ),
+                        );
+                      },
                     ),
                   ],
                 ),
