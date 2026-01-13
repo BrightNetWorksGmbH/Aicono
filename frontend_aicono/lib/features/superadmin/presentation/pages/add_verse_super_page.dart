@@ -39,7 +39,7 @@ class _AddVerseSuperPageState extends State<AddVerseSuperPage> {
       child: BlocListener<VerseCreateBloc, VerseCreateState>(
         listener: (context, state) {
           if (state is VerseCreateSuccess) {
-            // Refresh the verse list after successful creation
+            // Refresh the switch list after successful creation
             context.read<VerseListBloc>().add(LoadAllVersesRequested());
           }
         },
@@ -93,12 +93,12 @@ class _AddVerseSuperPageState extends State<AddVerseSuperPage> {
                                   ),
                                   const SizedBox(height: 32),
 
-                                  // Add Verse Form
+                                  // Add Switch Form
                                   const AddVerseForm(),
 
                                   const SizedBox(height: 48),
 
-                                  // Verse List Table
+                                  // Switch List Table
                                   const VerseListTable(),
                                 ],
                               ),

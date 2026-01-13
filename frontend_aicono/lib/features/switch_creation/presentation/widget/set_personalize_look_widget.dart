@@ -25,9 +25,8 @@ class SetPersonalizeLookWidget extends StatefulWidget {
 }
 
 class _SetPersonalizeLookWidgetState extends State<SetPersonalizeLookWidget> {
-  bool _opt1 = true;
-  bool _opt2 = false;
-  bool _opt3 = false;
+  bool _opt1 = true; // Light mode
+  bool _opt2 = false; // Dark mode
 
   @override
   Widget build(BuildContext context) {
@@ -94,18 +93,23 @@ class _SetPersonalizeLookWidgetState extends State<SetPersonalizeLookWidget> {
                     const SizedBox(height: 32),
                     _buildOption(
                       value: _opt1,
-                      onChanged: (v) => setState(() => _opt1 = v ?? false),
+                      onChanged: (v) {
+                        setState(() {
+                          _opt1 = v ?? false;
+                          if (_opt1) _opt2 = false; // Ensure only one is selected
+                        });
+                      },
                       text: 'set_personalized_look.option_1'.tr(),
                     ),
                     _buildOption(
                       value: _opt2,
-                      onChanged: (v) => setState(() => _opt2 = v ?? false),
+                      onChanged: (v) {
+                        setState(() {
+                          _opt2 = v ?? false;
+                          if (_opt2) _opt1 = false; // Ensure only one is selected
+                        });
+                      },
                       text: 'set_personalized_look.option_2'.tr(),
-                    ),
-                    _buildOption(
-                      value: _opt3,
-                      onChanged: (v) => setState(() => _opt3 = v ?? false),
-                      text: 'set_personalized_look.option_3'.tr(),
                     ),
                     const SizedBox(height: 24),
                     Text(

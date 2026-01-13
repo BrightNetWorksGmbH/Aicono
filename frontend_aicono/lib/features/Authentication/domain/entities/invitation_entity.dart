@@ -14,6 +14,9 @@ class InvitationEntity extends Equatable {
   final String firstName;
   final String lastName;
   final String position;
+  final bool isSetupComplete;
+  final String? organizationName;
+  final String? subDomain;
 
   const InvitationEntity({
     required this.id,
@@ -29,6 +32,9 @@ class InvitationEntity extends Equatable {
     required this.firstName,
     required this.lastName,
     required this.position,
+    this.isSetupComplete = false,
+    this.organizationName,
+    this.subDomain,
   });
 
   factory InvitationEntity.fromJson(Map<String, dynamic> json) {
@@ -61,6 +67,18 @@ class InvitationEntity extends Equatable {
         status.toLowerCase() == 'completed' ||
         (json['is_accepted'] ?? json['isAccepted'] ?? false);
 
+    // Extract is_setup_complete and organization_name from bryteswitch or bryteswitch_id object
+    final bryteswitchObj = json['bryteswitch'] ?? json['bryteswitch_id'];
+    final isSetupComplete = bryteswitchObj != null && bryteswitchObj is Map
+        ? (bryteswitchObj['is_setup_complete'] ?? false) as bool
+        : (json['is_setup_complete'] ?? false) as bool;
+    final organizationName = bryteswitchObj != null && bryteswitchObj is Map
+        ? (bryteswitchObj['organization_name'] ?? json['organization_name']) as String?
+        : (json['organization_name'] ?? json['organizationName']) as String?;
+    final subDomain = bryteswitchObj != null && bryteswitchObj is Map
+        ? (bryteswitchObj['sub_domain'] ?? json['sub_domain']) as String?
+        : (json['sub_domain'] ?? json['subDomain']) as String?;
+
     return InvitationEntity(
       id: json['_id'] ?? json['id'] ?? '',
       verseId: verseId,
@@ -81,6 +99,9 @@ class InvitationEntity extends Equatable {
       firstName: json['first_name'] ?? json['firstName'] ?? '',
       lastName: json['last_name'] ?? json['lastName'] ?? '',
       position: json['position'] ?? '',
+      isSetupComplete: isSetupComplete,
+      organizationName: organizationName,
+      subDomain: subDomain,
     );
   }
 
@@ -99,6 +120,9 @@ class InvitationEntity extends Equatable {
       'first_name': firstName,
       'last_name': lastName,
       'position': position,
+      'is_setup_complete': isSetupComplete,
+      'organization_name': organizationName,
+      'sub_domain': subDomain,
     };
   }
 
@@ -117,5 +141,8 @@ class InvitationEntity extends Equatable {
     firstName,
     lastName,
     position,
+    isSetupComplete,
+    organizationName,
+    subDomain,
   ];
 }

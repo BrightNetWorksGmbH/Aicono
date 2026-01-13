@@ -47,4 +47,5 @@ class Routelists {
   static const addPropertyLocation = 'add-property-location';
   static const selectResources = 'select-resources';
   static const addAdditionalBuildings = 'add-additional-buildings';
+  static const setBuildingDetails = 'set-building-details';
 }

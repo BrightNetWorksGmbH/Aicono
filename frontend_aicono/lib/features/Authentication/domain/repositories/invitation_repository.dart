@@ -4,4 +4,5 @@ import 'package:frontend_aicono/features/Authentication/domain/entities/invitati
 
 abstract class InvitationRepository {
   Future<Either<Failure, InvitationEntity>> getInvitationByToken(String token);
+  Future<Either<Failure, InvitationEntity>> getInvitationById(String id);
 }

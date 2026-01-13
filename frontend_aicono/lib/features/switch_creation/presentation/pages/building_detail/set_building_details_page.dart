@@ -1,28 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
-import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
-import 'package:frontend_aicono/features/switch_creation/presentation/widget/set_switch_name_widget.dart';
-import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/widget/building_detail_widget/set_building_details_widget.dart';
 
-class SetSwitchNamePage extends StatefulWidget {
+class SetBuildingDetailsPage extends StatefulWidget {
   final String? userName;
-  final String? organizationName;
-  final InvitationEntity? invitation;
+  final String? buildingAddress;
 
-  const SetSwitchNamePage({
+  const SetBuildingDetailsPage({
     super.key,
     this.userName,
-    this.organizationName,
-    this.invitation,
+    this.buildingAddress,
   });
 
   @override
-  State<SetSwitchNamePage> createState() => _SetSwitchNamePageState();
+  State<SetBuildingDetailsPage> createState() => _SetBuildingDetailsPageState();
 }
 
-class _SetSwitchNamePageState extends State<SetSwitchNamePage> {
+class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
   void _handleLanguageChanged() {
     setState(() {});
   }
@@ -33,28 +29,30 @@ class _SetSwitchNamePageState extends State<SetSwitchNamePage> {
     }
   }
 
-  void _handleSwitchNameChanged(String value) {
-    // Handle switch name changes if needed
+  void _handleBuildingDetailsChanged(Map<String, String?> details) {
+    // Handle building details changes if needed
     // Currently not used but kept for future integration
   }
 
   void _handleContinue() {
-    // Navigate to set switch image page, passing userName, organizationName, and token
-    context.pushNamed(
-      Routelists.setSwitchImage,
-      queryParameters: {
-        if (widget.userName != null) 'userName': widget.userName!,
-        if (widget.organizationName != null)
-          'organizationName': widget.organizationName!,
-        if (widget.invitation != null) 'token': widget.invitation!.token,
-      },
-      extra: widget.invitation,
-    );
+    // Navigate back to the previous page (add additional buildings page)
+    if (context.canPop()) {
+      context.pop();
+    }
   }
 
-  void _handleEdit() {
-    // Navigate back to set organization name page
-    context.pop();
+  void _handleSkip() {
+    // Navigate back to the previous page (skip this step)
+    if (context.canPop()) {
+      context.pop();
+    }
+  }
+
+  void _handleEditAddress() {
+    // Navigate back to address selection page
+    if (context.canPop()) {
+      context.pop();
+    }
   }
 
   @override
@@ -79,14 +77,15 @@ class _SetSwitchNamePageState extends State<SetSwitchNamePage> {
             ),
             child: Column(
               children: [
-                SetSwitchNameWidget(
+                SetBuildingDetailsWidget(
                   userName: widget.userName,
-                  organizationName: widget.organizationName,
+                  buildingAddress: widget.buildingAddress,
                   onLanguageChanged: _handleLanguageChanged,
-                  onSwitchNameChanged: _handleSwitchNameChanged,
+                  onBuildingDetailsChanged: _handleBuildingDetailsChanged,
                   onBack: _handleBack,
                   onContinue: _handleContinue,
-                  onEdit: _handleEdit,
+                  onSkip: _handleSkip,
+                  onEditAddress: _handleEditAddress,
                 ),
                 AppFooter(
                   onLanguageChanged: _handleLanguageChanged,

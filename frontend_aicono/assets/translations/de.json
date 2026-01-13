@@ -72,7 +72,8 @@
     "change_verse": "+ Verse wechseln",
     "tip": "Tipp: Das Logo Deiner Organisation schafft Wiedererkennung und macht sofort klar, um wen es geht.",
     "skip_logo": "ohne Logo fortfahren",
-    "button_text": "Das passt so. Weiter geht's."
+    "button_text": "Das passt so. Weiter geht's.",
+    "uploading": "Wird hochgeladen..."
   },
   "set_switch_color": {
     "title": "Möchtest Du den Look Deines Bryteswitch personalisieren?",
@@ -146,6 +147,17 @@
     "add_details_link": "+ Details hinzufügen",
     "yes": "ja",
     "no": "nein",
+    "skip_link": "Schritt überspringen",
+    "button_text": "Das passt so"
+  },
+  "set_building_details": {
+    "progress_text": "Fast geschafft, {name}!",
+    "progress_text_fallback": "Fast geschafft!",
+    "title": "Prima, wie sieht das Gebäude aus?",
+    "size_hint": "Wie groß ist das Gebäude?",
+    "rooms_hint": "Wieviele Räume hat das Gebäude?",
+    "year_hint": "Was ist das Baujahr des Gebäudes?",
+    "edit_link": "anpassen",
     "skip_link": "Schritt überspringen",
     "button_text": "Das passt so"
   },

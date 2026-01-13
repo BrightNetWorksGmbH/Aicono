@@ -35,6 +35,12 @@ import 'package:frontend_aicono/features/Authentication/domain/usecases/forgot_r
 import 'package:frontend_aicono/features/Authentication/domain/usecases/reset_password_usecase.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/bloc/forget_password_bloc/forgot_password_bloc.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/bloc/forgot_reset_password_bloc/forgot_reset_password_bloc.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/switch_creation_cubit.dart';
+import 'package:frontend_aicono/features/upload/data/datasources/upload_remote_data_source.dart';
+import 'package:frontend_aicono/features/upload/data/repositories/upload_repository_impl.dart';
+import 'package:frontend_aicono/features/upload/domain/repositories/upload_repository.dart';
+import 'package:frontend_aicono/features/upload/domain/usecases/upload_usecase.dart';
+import 'package:frontend_aicono/features/upload/presentation/bloc/upload_bloc.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -125,4 +131,17 @@ Future<void> init() async {
   sl.registerFactory(
     () => ForgotResetPasswordBloc(forgotResetPasswordUseCase: sl()),
   );
+
+  // Switch Creation Bloc (singleton to persist state across pages)
+  sl.registerLazySingleton(() => SwitchCreationCubit());
+
+  // Upload dependencies
+  sl.registerLazySingleton<UploadRemoteDataSource>(
+    () => UploadRemoteDataSourceImpl(dio: sl(), tokenService: sl()),
+  );
+  sl.registerLazySingleton<UploadRepository>(
+    () => UploadRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton(() => UploadImage(sl()));
+  sl.registerFactory(() => UploadBloc(sl()));
 }

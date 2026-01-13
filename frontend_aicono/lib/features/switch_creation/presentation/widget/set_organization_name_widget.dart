@@ -7,6 +7,7 @@ import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 
 class SetOrganizationNameWidget extends StatefulWidget {
   final String? userName;
+  final String? initialOrganizationName;
   final VoidCallback onLanguageChanged;
   final ValueChanged<String>? onNameChanged;
   final VoidCallback? onBack;
@@ -15,6 +16,7 @@ class SetOrganizationNameWidget extends StatefulWidget {
   const SetOrganizationNameWidget({
     super.key,
     this.userName,
+    this.initialOrganizationName,
     required this.onLanguageChanged,
     this.onNameChanged,
     this.onBack,
@@ -32,7 +34,17 @@ class _SetOrganizationNameWidgetState extends State<SetOrganizationNameWidget> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController();
+    _controller = TextEditingController(
+      text: widget.initialOrganizationName ?? '',
+    );
+    // Notify parent if initial value is provided
+    if (widget.initialOrganizationName != null &&
+        widget.initialOrganizationName!.isNotEmpty &&
+        widget.onNameChanged != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onNameChanged?.call(widget.initialOrganizationName!);
+      });
+    }
   }
 
   @override

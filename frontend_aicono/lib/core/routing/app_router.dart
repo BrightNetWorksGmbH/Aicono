@@ -22,6 +22,8 @@ import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_property_location_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/select_resources_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_additional_buildings_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/set_building_details_page.dart';
+import 'package:frontend_aicono/features/superadmin/presentation/pages/add_verse_super_page.dart';
 
 /// App router configuration using go_router
 class AppRouter {
@@ -67,8 +69,12 @@ class AppRouter {
         }
 
         final isAuthenticated = authService.isAuthenticated;
+        final currentUser = authService.currentUser;
+        final isSuperAdmin = currentUser?.isSuperAdmin ?? false;
         final isLoginRoute = state.uri.path == '/login';
         final isDashboardRoute = state.uri.path == '/dashboard';
+        final isSuperAdminRoute =
+            state.uri.path == '/${Routelists.addVerseSuper}';
 
         // Allow unauthenticated access to password reset and forgot password routes
         final isResetPasswordRoute =
@@ -101,9 +107,30 @@ class AppRouter {
           return null; // No redirect needed
         }
 
-        // If user is authenticated and trying to access login, redirect to login (stay on login)
-        if (isAuthenticated && isLoginRoute) {
-          return null; // Stay on login page
+        // Super admin routing logic
+        if (isSuperAdmin) {
+          // If super admin tries to access login, redirect to super admin page
+          if (isLoginRoute) {
+            return '/${Routelists.addVerseSuper}';
+          }
+          // If super admin tries to access root, redirect to super admin page
+          if (state.uri.path == '/') {
+            return '/${Routelists.addVerseSuper}';
+          }
+          // If super admin tries to access dashboard, redirect to super admin page
+          if (isDashboardRoute) {
+            return '/${Routelists.addVerseSuper}';
+          }
+        } else {
+          // Non-super admin users cannot access super admin page
+          if (isSuperAdminRoute) {
+            return '/login';
+          }
+        }
+
+        // If user is authenticated and trying to access login, redirect based on role
+        if (isAuthenticated && isLoginRoute && !isSuperAdmin) {
+          return null; // Stay on login page for non-super admins
         }
 
         // If user is not authenticated and trying to access dashboard, redirect to login
@@ -116,8 +143,8 @@ class AppRouter {
           return '/login';
         }
 
-        // If user is authenticated and on root, redirect to login
-        if (isAuthenticated && state.uri.path == '/') {
+        // If user is authenticated and on root (non-super admin), redirect to login
+        if (isAuthenticated && state.uri.path == '/' && !isSuperAdmin) {
           return '/login';
         }
 
@@ -142,13 +169,15 @@ class AppRouter {
       name: 'login',
       pageBuilder: (context, state) {
         final invitation = state.extra as InvitationEntity?;
-        print('AppRouter - Login route with invitation: $invitation');
+        final token = state.uri.queryParameters['token'];
+        print('AppRouter - Login route with invitation: $invitation, token: $token');
         return _buildPage(
           context,
           state,
           LoginPage(
-            key: ValueKey(invitation?.id ?? 'no-invitation'),
+            key: ValueKey(invitation?.id ?? token ?? 'no-invitation'),
             invitation: invitation,
+            token: token,
           ),
         );
       },
@@ -223,39 +252,82 @@ class AppRouter {
     GoRoute(
       path: '/${Routelists.activateSwitchboard}',
       name: Routelists.activateSwitchboard,
+      redirect: (context, state) {
+        final token = state.uri.queryParameters['token'];
+        if (token == null || token.isEmpty) {
+          // If no token provided, redirect to login
+          return '/login';
+        }
+        return null; // Continue to pageBuilder
+      },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
+        final token = state.uri.queryParameters['token']!;
         return _buildPage(
           context,
           state,
-          ActivateSwitchboardPage(userName: userName),
+          ActivateSwitchboardPage(
+            userName: userName,
+            token: token,
+          ),
         );
       },
     ),
     GoRoute(
       path: '/${Routelists.setOrganizationName}',
       name: Routelists.setOrganizationName,
+      redirect: (context, state) {
+        final invitation = state.extra as InvitationEntity?;
+        final token = state.uri.queryParameters['token'];
+        // If no invitation and no token, redirect to login
+        if (invitation == null && (token == null || token.isEmpty)) {
+          return '/login';
+        }
+        // If invitation is null but we have token, redirect to activate switchboard with token
+        if (invitation == null && token != null && token.isNotEmpty) {
+          final userName = state.uri.queryParameters['userName'] ?? '';
+          return '/${Routelists.activateSwitchboard}?token=$token${userName.isNotEmpty ? '&userName=$userName' : ''}';
+        }
+        return null; // Continue to pageBuilder
+      },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
+        final invitation = state.extra as InvitationEntity?;
         return _buildPage(
           context,
           state,
-          SetOrganizationNamePage(userName: userName),
+          SetOrganizationNamePage(userName: userName, invitation: invitation),
         );
       },
     ),
     GoRoute(
       path: '/${Routelists.setSwitchName}',
       name: Routelists.setSwitchName,
+      redirect: (context, state) {
+        final invitation = state.extra as InvitationEntity?;
+        final token = state.uri.queryParameters['token'];
+        // If no invitation and no token, redirect to login
+        if (invitation == null && (token == null || token.isEmpty)) {
+          return '/login';
+        }
+        // If invitation is null but we have token, redirect to activate switchboard with token
+        if (invitation == null && token != null && token.isNotEmpty) {
+          final userName = state.uri.queryParameters['userName'] ?? '';
+          return '/${Routelists.activateSwitchboard}?token=$token${userName.isNotEmpty ? '&userName=$userName' : ''}';
+        }
+        return null; // Continue to pageBuilder
+      },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final organizationName = state.uri.queryParameters['organizationName'];
+        final invitation = state.extra as InvitationEntity?;
         return _buildPage(
           context,
           state,
           SetSwitchNamePage(
             userName: userName,
             organizationName: organizationName,
+            invitation: invitation,
           ),
         );
       },
@@ -263,15 +335,31 @@ class AppRouter {
     GoRoute(
       path: '/${Routelists.setSwitchImage}',
       name: Routelists.setSwitchImage,
+      redirect: (context, state) {
+        final invitation = state.extra as InvitationEntity?;
+        final token = state.uri.queryParameters['token'];
+        // If no invitation and no token, redirect to login
+        if (invitation == null && (token == null || token.isEmpty)) {
+          return '/login';
+        }
+        // If invitation is null but we have token, redirect to activate switchboard with token
+        if (invitation == null && token != null && token.isNotEmpty) {
+          final userName = state.uri.queryParameters['userName'] ?? '';
+          return '/${Routelists.activateSwitchboard}?token=$token${userName.isNotEmpty ? '&userName=$userName' : ''}';
+        }
+        return null; // Continue to pageBuilder
+      },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final organizationName = state.uri.queryParameters['organizationName'];
+        final invitation = state.extra as InvitationEntity?;
         return _buildPage(
           context,
           state,
           SetSwitchImagePage(
             userName: userName,
             organizationName: organizationName,
+            invitation: invitation,
           ),
         );
       },
@@ -279,24 +367,54 @@ class AppRouter {
     GoRoute(
       path: '/${Routelists.setSwitchColor}',
       name: Routelists.setSwitchColor,
+      redirect: (context, state) {
+        final invitation = state.extra as InvitationEntity?;
+        final token = state.uri.queryParameters['token'];
+        // If no invitation and no token, redirect to login
+        if (invitation == null && (token == null || token.isEmpty)) {
+          return '/login';
+        }
+        // If invitation is null but we have token, redirect to activate switchboard with token
+        if (invitation == null && token != null && token.isNotEmpty) {
+          final userName = state.uri.queryParameters['userName'] ?? '';
+          return '/${Routelists.activateSwitchboard}?token=$token${userName.isNotEmpty ? '&userName=$userName' : ''}';
+        }
+        return null; // Continue to pageBuilder
+      },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
+        final invitation = state.extra as InvitationEntity?;
         return _buildPage(
           context,
           state,
-          SetSwitchColorPage(userName: userName),
+          SetSwitchColorPage(userName: userName, invitation: invitation),
         );
       },
     ),
     GoRoute(
       path: '/${Routelists.setPersonalizedLook}',
       name: Routelists.setPersonalizedLook,
+      redirect: (context, state) {
+        final invitation = state.extra as InvitationEntity?;
+        final token = state.uri.queryParameters['token'];
+        // If no invitation and no token, redirect to login
+        if (invitation == null && (token == null || token.isEmpty)) {
+          return '/login';
+        }
+        // If invitation is null but we have token, redirect to activate switchboard with token
+        if (invitation == null && token != null && token.isNotEmpty) {
+          final userName = state.uri.queryParameters['userName'] ?? '';
+          return '/${Routelists.activateSwitchboard}?token=$token${userName.isNotEmpty ? '&userName=$userName' : ''}';
+        }
+        return null; // Continue to pageBuilder
+      },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
+        final invitation = state.extra as InvitationEntity?;
         return _buildPage(
           context,
           state,
-          SetPersonalizedLookPage(userName: userName),
+          SetPersonalizedLookPage(userName: userName, invitation: invitation),
         );
       },
     ),
@@ -373,11 +491,44 @@ class AppRouter {
       },
     ),
     GoRoute(
+      path: '/${Routelists.setBuildingDetails}',
+      name: Routelists.setBuildingDetails,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        final buildingAddress = state.uri.queryParameters['buildingAddress'];
+        return _buildPage(
+          context,
+          state,
+          SetBuildingDetailsPage(
+            userName: userName,
+            buildingAddress: buildingAddress,
+          ),
+        );
+      },
+    ),
+    GoRoute(
       path: '/${Routelists.floorPlanEditor}',
       name: Routelists.floorPlanEditor,
       pageBuilder: (context, state) {
         return _buildPage(context, state, const FloorPlanPage());
       },
+    ),
+    GoRoute(
+      path: '/${Routelists.addVerseSuper}',
+      name: Routelists.addVerseSuper,
+      redirect: (context, state) {
+        final authService = sl<AuthService>();
+        final currentUser = authService.currentUser;
+
+        // Only allow access if user is super admin
+        if (currentUser == null || !currentUser.isSuperAdmin) {
+          print('Access denied to super admin page - redirecting to login');
+          return '/login';
+        }
+        return null;
+      },
+      pageBuilder: (context, state) =>
+          _buildPage(context, state, const AddVerseSuperPage()),
     ),
   ];
 

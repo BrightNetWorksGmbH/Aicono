@@ -16,7 +16,8 @@ class AddAdditionalBuildingsPage extends StatefulWidget {
       _AddAdditionalBuildingsPageState();
 }
 
-class _AddAdditionalBuildingsPageState extends State<AddAdditionalBuildingsPage> {
+class _AddAdditionalBuildingsPageState
+    extends State<AddAdditionalBuildingsPage> {
   void _handleLanguageChanged() {
     setState(() {});
   }
@@ -33,6 +34,17 @@ class _AddAdditionalBuildingsPageState extends State<AddAdditionalBuildingsPage>
 
   void _handleBuildingsChanged(List<BuildingItem> buildings) {
     // Handle buildings list changes if needed
+  }
+
+  void _handleAddBuildingDetails(BuildingItem building) {
+    // Navigate to building details page with building information
+    context.pushNamed(
+      Routelists.setBuildingDetails,
+      queryParameters: {
+        if (widget.userName != null) 'userName': widget.userName!,
+        'buildingAddress': building.name,
+      },
+    );
   }
 
   void _handleSkip() {
@@ -70,11 +82,13 @@ class _AddAdditionalBuildingsPageState extends State<AddAdditionalBuildingsPage>
                 AddAdditionalBuildingsWidget(
                   userName: widget.userName,
                   onLanguageChanged: _handleLanguageChanged,
-                  onHasAdditionalBuildingsChanged: _handleHasAdditionalBuildingsChanged,
+                  onHasAdditionalBuildingsChanged:
+                      _handleHasAdditionalBuildingsChanged,
                   onBuildingsChanged: _handleBuildingsChanged,
                   onBack: _handleBack,
                   onSkip: _handleSkip,
                   onContinue: _handleContinue,
+                  onAddBuildingDetails: _handleAddBuildingDetails,
                 ),
                 AppFooter(
                   onLanguageChanged: _handleLanguageChanged,

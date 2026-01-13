@@ -72,7 +72,8 @@
     "change_verse": "+ Verse wechseln",
     "tip": "Tip: Your organization's logo creates recognition and immediately clarifies who it's about.",
     "skip_logo": "ohne Logo fortfahren",
-    "button_text": "That's fine. Let's continue."
+    "button_text": "That's fine. Let's continue.",
+    "uploading": "Uploading..."
   },
   "set_switch_color": {
     "title": "Would you like to personalise the look of your Bryteswitch?",
@@ -148,6 +149,17 @@
     "no": "nein",
     "skip_link": "Schritt überspringen",
     "button_text": "Das passt so"
+  },
+  "set_building_details": {
+    "progress_text": "Almost done, {name}!",
+    "progress_text_fallback": "Almost done!",
+    "title": "Great, what does the building look like?",
+    "size_hint": "How big is the building?",
+    "rooms_hint": "How many rooms does the building have?",
+    "year_hint": "What is the year of construction of the building?",
+    "edit_link": "adjust",
+    "skip_link": "Skip step",
+    "button_text": "That's fine"
   },
   "dashboard": {
     "sidebar": {
