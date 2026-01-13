@@ -39,14 +39,16 @@ class _SetSwitchNamePageState extends State<SetSwitchNamePage> {
   }
 
   void _handleContinue() {
-    // Navigate to set switch image page, passing userName and organizationName
+    // Navigate to set switch image page, passing userName, organizationName, and token
     context.pushNamed(
       Routelists.setSwitchImage,
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
         if (widget.organizationName != null)
           'organizationName': widget.organizationName!,
+        if (widget.invitation != null) 'token': widget.invitation!.token,
       },
+      extra: widget.invitation,
     );
   }
 

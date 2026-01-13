@@ -12,7 +12,8 @@ import 'package:frontend_aicono/features/Authentication/domain/entities/invitati
 
 class LoginForm extends StatefulWidget {
   final InvitationEntity? invitation;
-  const LoginForm({super.key, this.invitation});
+  final String? token;
+  const LoginForm({super.key, this.invitation, this.token});
 
   @override
   State<LoginForm> createState() => _LoginFormState();
@@ -135,10 +136,15 @@ class _LoginFormState extends State<LoginForm> {
                     _emailController.text.trim().toLowerCase()) {
               // Check if setup is not complete, navigate to activate switchboard
               if (!widget.invitation!.isSetupComplete) {
-                context.pushNamed(
-                  Routelists.activateSwitchboard,
-                  extra: widget.invitation,
-                );
+                final tokenToUse = widget.token ?? widget.invitation!.token;
+                if (tokenToUse != null) {
+                  context.pushNamed(
+                    Routelists.activateSwitchboard,
+                    queryParameters: {
+                      'token': tokenToUse,
+                    },
+                  );
+                }
                 return;
               }
 
@@ -165,10 +171,15 @@ class _LoginFormState extends State<LoginForm> {
               final firstInvitation = user.pendingInvitations.first;
               // Check if setup is not complete, navigate to activate switchboard
               if (!firstInvitation.isSetupComplete) {
-                context.pushNamed(
-                  Routelists.activateSwitchboard,
-                  extra: firstInvitation,
-                );
+                final tokenToUse = widget.token ?? firstInvitation.token;
+                if (tokenToUse != null) {
+                  context.pushNamed(
+                    Routelists.activateSwitchboard,
+                    queryParameters: {
+                      'token': tokenToUse,
+                    },
+                  );
+                }
                 return;
               }
               await _checkVerseSetupAndRedirectFor(firstInvitation);

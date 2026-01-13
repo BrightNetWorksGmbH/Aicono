@@ -72,7 +72,8 @@
     "change_verse": "+ Verse wechseln",
     "tip": "Tip: Your organization's logo creates recognition and immediately clarifies who it's about.",
     "skip_logo": "ohne Logo fortfahren",
-    "button_text": "That's fine. Let's continue."
+    "button_text": "That's fine. Let's continue.",
+    "uploading": "Uploading..."
   },
   "set_switch_color": {
     "title": "Would you like to personalise the look of your Bryteswitch?",

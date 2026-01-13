@@ -15,4 +15,9 @@ class InvitationRepositoryImpl implements InvitationRepository {
   ) async {
     return await remoteDataSource.getInvitationByToken(token);
   }
+
+  @override
+  Future<Either<Failure, InvitationEntity>> getInvitationById(String id) async {
+    return await remoteDataSource.getInvitationById(id);
+  }
 }

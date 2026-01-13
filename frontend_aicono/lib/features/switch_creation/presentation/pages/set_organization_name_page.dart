@@ -68,12 +68,13 @@ class _SetOrganizationNamePageState extends State<SetOrganizationNamePage> {
     if (_organizationName != null) {
       sl<SwitchCreationCubit>().setOrganizationName(_organizationName!);
     }
-    // Navigate to set switch name page, passing userName and organizationName
+    // Navigate to set switch name page, passing userName, organizationName, and token
     context.pushNamed(
       Routelists.setSwitchName,
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
         if (_organizationName != null) 'organizationName': _organizationName!,
+        if (widget.invitation != null) 'token': widget.invitation!.token,
       },
       extra: widget.invitation,
     );

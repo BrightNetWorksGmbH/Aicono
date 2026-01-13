@@ -73,6 +73,7 @@ dependencies:
 
   # UI Components
   flutter_svg: ^2.0.9
+  flutter_colorpicker: ^1.0.3
   
   # Math utilities
   vector_math: ^2.1.4

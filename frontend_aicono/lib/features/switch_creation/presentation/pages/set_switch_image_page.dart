@@ -61,17 +61,7 @@ class _SetSwitchImagePageState extends State<SetSwitchImagePage> {
       _selectedImageFile = imageFile;
       _skipLogo = false;
     });
-    // Trigger upload if image is selected
-    if (imageFile != null && widget.invitation != null) {
-      final uploadBloc = context.read<UploadBloc>();
-      uploadBloc.add(
-        UploadImageEvent(
-          imageFile,
-          widget.invitation!.verseId, // Use verseId as switchId
-          'switchlogo', // folderPath
-        ),
-      );
-    }
+    // Don't upload immediately - wait for continue button
   }
 
   void _handleSkipLogoChanged(bool skip) {
@@ -83,12 +73,31 @@ class _SetSwitchImagePageState extends State<SetSwitchImagePage> {
     });
   }
 
-  void _handleContinue() {
-    // Navigate to set switch color page, passing userName and invitation
+  void _handleContinue(BuildContext blocContext) {
+    // If image is set, upload it first
+    if (_selectedImageFile != null && widget.invitation != null) {
+      final uploadBloc = blocContext.read<UploadBloc>();
+      uploadBloc.add(
+        UploadImageEvent(
+          _selectedImageFile!,
+          widget.invitation!.verseId, // Use verseId as switchId
+          'switchlogo', // folderPath
+        ),
+      );
+      // Navigation will happen after upload success in the listener
+    } else {
+      // No image or skip logo - navigate directly
+      _navigateToNextPage();
+    }
+  }
+
+  void _navigateToNextPage() {
+    // Navigate to set switch color page, passing userName, token, and invitation
     context.pushNamed(
       Routelists.setSwitchColor,
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
+        if (widget.invitation != null) 'token': widget.invitation!.token,
       },
       extra: widget.invitation,
     );
@@ -116,6 +125,8 @@ class _SetSwitchImagePageState extends State<SetSwitchImagePage> {
                   backgroundColor: Colors.green,
                 ),
               );
+              // Navigate to next page after successful upload
+              _navigateToNextPage();
             }
           } else if (state is UploadFailure) {
             if (mounted) {
@@ -128,45 +139,50 @@ class _SetSwitchImagePageState extends State<SetSwitchImagePage> {
             }
           }
         },
-        child: Scaffold(
-          backgroundColor: AppTheme.background,
-          body: Center(
-            child: SingleChildScrollView(
-              child: Container(
-                width: screenSize.width,
-                decoration: BoxDecoration(
-                  color: AppTheme.surface,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.5),
-                      blurRadius: 25,
-                      offset: const Offset(0, 10),
+        child: BlocBuilder<UploadBloc, UploadState>(
+          builder: (context, uploadState) {
+            return Scaffold(
+              backgroundColor: AppTheme.background,
+              body: Center(
+                child: SingleChildScrollView(
+                  child: Container(
+                    width: screenSize.width,
+                    decoration: BoxDecoration(
+                      color: AppTheme.surface,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 25,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    SetSwitchImageWidget(
-                      userName: widget.userName,
-                      organizationName: widget.organizationName,
-                      selectedImageFile: _selectedImageFile,
-                      skipLogo: _skipLogo,
-                      onLanguageChanged: _handleLanguageChanged,
-                      onImageSelected: _handleImageSelected,
-                      onSkipLogoChanged: _handleSkipLogoChanged,
-                      onBack: _handleBack,
-                      onContinue: _handleContinue,
-                      onVerseChange: _handleVerseChange,
+                    child: Column(
+                      children: [
+                        SetSwitchImageWidget(
+                          userName: widget.userName,
+                          organizationName: widget.organizationName,
+                          selectedImageFile: _selectedImageFile,
+                          skipLogo: _skipLogo,
+                          isUploading: uploadState is UploadLoading,
+                          onLanguageChanged: _handleLanguageChanged,
+                          onImageSelected: _handleImageSelected,
+                          onSkipLogoChanged: _handleSkipLogoChanged,
+                          onBack: _handleBack,
+                          onContinue: () => _handleContinue(context),
+                          onVerseChange: _handleVerseChange,
+                        ),
+                        AppFooter(
+                          onLanguageChanged: _handleLanguageChanged,
+                          containerWidth: screenSize.width,
+                        ),
+                      ],
                     ),
-                    AppFooter(
-                      onLanguageChanged: _handleLanguageChanged,
-                      containerWidth: screenSize.width,
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );

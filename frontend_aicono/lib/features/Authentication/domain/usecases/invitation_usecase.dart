@@ -11,4 +11,8 @@ class InvitationUseCase {
   Future<Either<Failure, InvitationEntity>> getInvitationByToken(String token) {
     return repository.getInvitationByToken(token);
   }
+
+  Future<Either<Failure, InvitationEntity>> getInvitationById(String id) {
+    return repository.getInvitationById(id);
+  }
 }

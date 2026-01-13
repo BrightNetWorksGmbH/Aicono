@@ -72,7 +72,8 @@
     "change_verse": "+ Verse wechseln",
     "tip": "Tipp: Das Logo Deiner Organisation schafft Wiedererkennung und macht sofort klar, um wen es geht.",
     "skip_logo": "ohne Logo fortfahren",
-    "button_text": "Das passt so. Weiter geht's."
+    "button_text": "Das passt so. Weiter geht's.",
+    "uploading": "Wird hochgeladen..."
   },
   "set_switch_color": {
     "title": "Möchtest Du den Look Deines Bryteswitch personalisieren?",

@@ -6,7 +6,8 @@ import 'package:frontend_aicono/features/Authentication/presentation/components/
 
 class LoginPage extends StatefulWidget {
   final InvitationEntity? invitation;
-  const LoginPage({super.key, this.invitation});
+  final String? token;
+  const LoginPage({super.key, this.invitation, this.token});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -52,8 +53,9 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 // LoginHeader(onLanguageChanged: _handleLanguageChanged),
                 LoginForm(
-                  key: ValueKey(widget.invitation?.id ?? 'no-invitation'),
+                  key: ValueKey(widget.invitation?.id ?? widget.token ?? 'no-invitation'),
                   invitation: widget.invitation,
+                  token: widget.token,
                 ),
                 AppFooter(
                   onLanguageChanged: _handleLanguageChanged,

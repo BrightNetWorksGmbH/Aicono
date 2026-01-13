@@ -59,7 +59,11 @@ class _InvitationValidationPageState extends State<InvitationValidationPage> {
         if (state is InvitationValidationSuccess) {
           // If user already exists -> go to login; else -> reset password
           if (state.userExists) {
-            context.pushNamed(Routelists.login, extra: state.invitation);
+            context.pushNamed(
+              Routelists.login,
+              queryParameters: {'token': widget.token},
+              extra: state.invitation,
+            );
           } else {
             context.pushNamed(
               Routelists.resetPassword,

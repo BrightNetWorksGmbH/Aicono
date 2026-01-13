@@ -12,6 +12,7 @@ class SetSwitchImageWidget extends StatefulWidget {
   final String? organizationName;
   final XFile? selectedImageFile;
   final bool skipLogo;
+  final bool isUploading;
   final VoidCallback onLanguageChanged;
   final ValueChanged<XFile?>? onImageSelected;
   final ValueChanged<bool>? onSkipLogoChanged;
@@ -25,6 +26,7 @@ class SetSwitchImageWidget extends StatefulWidget {
     this.organizationName,
     this.selectedImageFile,
     this.skipLogo = false,
+    this.isUploading = false,
     required this.onLanguageChanged,
     this.onImageSelected,
     this.onSkipLogoChanged,
@@ -222,9 +224,12 @@ class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
                     ),
                     const SizedBox(height: 32),
                     PrimaryOutlineButton(
-                      label: 'set_switch_image.button_text'.tr(),
+                      label: widget.isUploading
+                          ? 'set_switch_image.uploading'.tr()
+                          : 'set_switch_image.button_text'.tr(),
                       width: 260,
-                      onPressed: widget.onContinue,
+                      enabled: !widget.isUploading,
+                      onPressed: widget.isUploading ? null : widget.onContinue,
                     ),
                   ],
                 ),

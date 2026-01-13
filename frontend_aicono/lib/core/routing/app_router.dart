@@ -169,13 +169,15 @@ class AppRouter {
       name: 'login',
       pageBuilder: (context, state) {
         final invitation = state.extra as InvitationEntity?;
-        print('AppRouter - Login route with invitation: $invitation');
+        final token = state.uri.queryParameters['token'];
+        print('AppRouter - Login route with invitation: $invitation, token: $token');
         return _buildPage(
           context,
           state,
           LoginPage(
-            key: ValueKey(invitation?.id ?? 'no-invitation'),
+            key: ValueKey(invitation?.id ?? token ?? 'no-invitation'),
             invitation: invitation,
+            token: token,
           ),
         );
       },
@@ -250,19 +252,44 @@ class AppRouter {
     GoRoute(
       path: '/${Routelists.activateSwitchboard}',
       name: Routelists.activateSwitchboard,
+      redirect: (context, state) {
+        final token = state.uri.queryParameters['token'];
+        if (token == null || token.isEmpty) {
+          // If no token provided, redirect to login
+          return '/login';
+        }
+        return null; // Continue to pageBuilder
+      },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
-        final invitation = state.extra as InvitationEntity?;
+        final token = state.uri.queryParameters['token']!;
         return _buildPage(
           context,
           state,
-          ActivateSwitchboardPage(userName: userName, invitation: invitation),
+          ActivateSwitchboardPage(
+            userName: userName,
+            token: token,
+          ),
         );
       },
     ),
     GoRoute(
       path: '/${Routelists.setOrganizationName}',
       name: Routelists.setOrganizationName,
+      redirect: (context, state) {
+        final invitation = state.extra as InvitationEntity?;
+        final token = state.uri.queryParameters['token'];
+        // If no invitation and no token, redirect to login
+        if (invitation == null && (token == null || token.isEmpty)) {
+          return '/login';
+        }
+        // If invitation is null but we have token, redirect to activate switchboard with token
+        if (invitation == null && token != null && token.isNotEmpty) {
+          final userName = state.uri.queryParameters['userName'] ?? '';
+          return '/${Routelists.activateSwitchboard}?token=$token${userName.isNotEmpty ? '&userName=$userName' : ''}';
+        }
+        return null; // Continue to pageBuilder
+      },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final invitation = state.extra as InvitationEntity?;
@@ -276,6 +303,20 @@ class AppRouter {
     GoRoute(
       path: '/${Routelists.setSwitchName}',
       name: Routelists.setSwitchName,
+      redirect: (context, state) {
+        final invitation = state.extra as InvitationEntity?;
+        final token = state.uri.queryParameters['token'];
+        // If no invitation and no token, redirect to login
+        if (invitation == null && (token == null || token.isEmpty)) {
+          return '/login';
+        }
+        // If invitation is null but we have token, redirect to activate switchboard with token
+        if (invitation == null && token != null && token.isNotEmpty) {
+          final userName = state.uri.queryParameters['userName'] ?? '';
+          return '/${Routelists.activateSwitchboard}?token=$token${userName.isNotEmpty ? '&userName=$userName' : ''}';
+        }
+        return null; // Continue to pageBuilder
+      },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final organizationName = state.uri.queryParameters['organizationName'];
@@ -294,6 +335,20 @@ class AppRouter {
     GoRoute(
       path: '/${Routelists.setSwitchImage}',
       name: Routelists.setSwitchImage,
+      redirect: (context, state) {
+        final invitation = state.extra as InvitationEntity?;
+        final token = state.uri.queryParameters['token'];
+        // If no invitation and no token, redirect to login
+        if (invitation == null && (token == null || token.isEmpty)) {
+          return '/login';
+        }
+        // If invitation is null but we have token, redirect to activate switchboard with token
+        if (invitation == null && token != null && token.isNotEmpty) {
+          final userName = state.uri.queryParameters['userName'] ?? '';
+          return '/${Routelists.activateSwitchboard}?token=$token${userName.isNotEmpty ? '&userName=$userName' : ''}';
+        }
+        return null; // Continue to pageBuilder
+      },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final organizationName = state.uri.queryParameters['organizationName'];
@@ -312,6 +367,20 @@ class AppRouter {
     GoRoute(
       path: '/${Routelists.setSwitchColor}',
       name: Routelists.setSwitchColor,
+      redirect: (context, state) {
+        final invitation = state.extra as InvitationEntity?;
+        final token = state.uri.queryParameters['token'];
+        // If no invitation and no token, redirect to login
+        if (invitation == null && (token == null || token.isEmpty)) {
+          return '/login';
+        }
+        // If invitation is null but we have token, redirect to activate switchboard with token
+        if (invitation == null && token != null && token.isNotEmpty) {
+          final userName = state.uri.queryParameters['userName'] ?? '';
+          return '/${Routelists.activateSwitchboard}?token=$token${userName.isNotEmpty ? '&userName=$userName' : ''}';
+        }
+        return null; // Continue to pageBuilder
+      },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final invitation = state.extra as InvitationEntity?;
@@ -325,6 +394,20 @@ class AppRouter {
     GoRoute(
       path: '/${Routelists.setPersonalizedLook}',
       name: Routelists.setPersonalizedLook,
+      redirect: (context, state) {
+        final invitation = state.extra as InvitationEntity?;
+        final token = state.uri.queryParameters['token'];
+        // If no invitation and no token, redirect to login
+        if (invitation == null && (token == null || token.isEmpty)) {
+          return '/login';
+        }
+        // If invitation is null but we have token, redirect to activate switchboard with token
+        if (invitation == null && token != null && token.isNotEmpty) {
+          final userName = state.uri.queryParameters['userName'] ?? '';
+          return '/${Routelists.activateSwitchboard}?token=$token${userName.isNotEmpty ? '&userName=$userName' : ''}';
+        }
+        return null; // Continue to pageBuilder
+      },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final invitation = state.extra as InvitationEntity?;
