@@ -66,6 +66,7 @@ const bryteSwitchSettingsSchema = new mongoose.Schema({
 
 // Indexes
 bryteSwitchSettingsSchema.index({ sub_domain: 1 });
+bryteSwitchSettingsSchema.index({ organization_name: 1 }, { unique: true });
 bryteSwitchSettingsSchema.index({ owner_email: 1 });
 bryteSwitchSettingsSchema.index({ is_setup_complete: 1 });
 bryteSwitchSettingsSchema.index({ created_by: 1 });

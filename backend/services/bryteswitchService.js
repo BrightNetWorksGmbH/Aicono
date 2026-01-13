@@ -26,12 +26,20 @@ class BryteSwitchService {
       throw new Error('Only superadmins can create initial BryteSwitch');
     }
 
+    // Check if organization name already exists
+    const existingSwitch = await BryteSwitchSettings.findOne({ 
+      organization_name: organization_name.trim() 
+    });
+    if (existingSwitch) {
+      throw new Error('Organization name already exists. Please choose a different name.');
+    }
+
     // Check if owner email already exists as a user (optional)
     const ownerUser = await User.findOne({ email: owner_email.toLowerCase() });
 
     // Create BryteSwitch
     const bryteSwitch = new BryteSwitchSettings({
-      organization_name,
+      organization_name: organization_name.trim(),
       owner_email: owner_email.toLowerCase(),
       sub_domain: sub_domain ? sub_domain.trim().toLowerCase() : undefined,
       created_by: ownerUser ? ownerUser._id : null,
@@ -181,20 +189,20 @@ class BryteSwitchService {
       throw new Error('BryteSwitch setup is already complete');
     }
 
-    // Check if subdomain is available
-    if (sub_domain) {
+    // Check if organization name already exists (excluding current switch)
+    if (organization_name) {
       const existingSwitch = await BryteSwitchSettings.findOne({
-        sub_domain,
+        organization_name: organization_name.trim(),
         _id: { $ne: bryteswitchId }
       });
       if (existingSwitch) {
-        throw new Error('Subdomain already taken');
+        throw new Error('Organization name already exists. Please choose a different name.');
       }
     }
 
     // Update switch with provided data
     if (organization_name) {
-      bryteSwitch.organization_name = organization_name;
+      bryteSwitch.organization_name = organization_name.trim();
     }
     if (typeof sub_domain === 'string' && sub_domain.trim().length > 0) {
       bryteSwitch.sub_domain = sub_domain.trim().toLowerCase();
@@ -304,20 +312,20 @@ class BryteSwitchService {
       throw new Error('You do not have permission to update this BryteSwitch');
     }
 
-    // Handle subdomain uniqueness
-    if (updates.sub_domain && updates.sub_domain !== bryteSwitch.sub_domain) {
+    // Check if organization name already exists (excluding current switch)
+    if (updates.organization_name && updates.organization_name.trim() !== bryteSwitch.organization_name) {
       const existingSwitch = await BryteSwitchSettings.findOne({
-        sub_domain: updates.sub_domain,
+        organization_name: updates.organization_name.trim(),
         _id: { $ne: bryteswitchId }
       });
       if (existingSwitch) {
-        throw new Error('Subdomain already taken');
+        throw new Error('Organization name already exists. Please choose a different name.');
       }
     }
 
     // Update allowed fields
     if (updates.organization_name !== undefined) {
-      bryteSwitch.organization_name = updates.organization_name;
+      bryteSwitch.organization_name = updates.organization_name.trim();
     }
     if (updates.sub_domain !== undefined) {
       bryteSwitch.sub_domain = updates.sub_domain ? updates.sub_domain.trim().toLowerCase() : undefined;
