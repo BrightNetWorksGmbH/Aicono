@@ -1,0 +1,265 @@
+{
+  "info": {
+    "name": "Aicono Sensor Management API",
+    "description": "API endpoints for sensor management, threshold and peak value configuration",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "site_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "building_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sensor_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.token) {",
+                  "        pm.collectionVariables.set('auth_token', jsonData.token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"your-email@example.com\",\n  \"password\": \"your-password\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sensors",
+      "item": [
+        {
+          "name": "Get Sensors by Building",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sensors/building/{{building_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sensors", "building", "{{building_id}}"]
+            },
+            "description": "Get all sensors for a specific building. Returns sensors with their current threshold_min and threshold_max values."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sensors by Site",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sensors/site/{{site_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sensors", "site", "{{site_id}}"]
+            },
+            "description": "Get all sensors for a specific site (across all buildings). Returns sensors with their current threshold_min and threshold_max values."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sensor by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sensors/{{sensor_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sensors", "{{sensor_id}}"]
+            },
+            "description": "Get a single sensor by its ID with room information."
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Update Sensor Thresholds",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.sensors && jsonData.data.sensors.length > 0) {",
+                  "        // Store first sensor ID for future use",
+                  "        pm.collectionVariables.set('sensor_id', jsonData.data.sensors[0]._id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sensors\": [\n    {\n      \"sensorId\": \"sensor_id_1\",\n      \"threshold_min\": 10,\n      \"threshold_max\": 30\n    },\n    {\n      \"sensorId\": \"sensor_id_2\",\n      \"threshold_min\": 5,\n      \"threshold_max\": 25\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sensors/bulk-update",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sensors", "bulk-update"]
+            },
+            "description": "Bulk update threshold_min and threshold_max values for multiple sensors. You can update one or more sensors at once. Both threshold_min and threshold_max are optional - you can update just one if needed."
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Update - Single Sensor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sensors\": [\n    {\n      \"sensorId\": \"{{sensor_id}}\",\n      \"threshold_min\": 15,\n      \"threshold_max\": 35\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sensors/bulk-update",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sensors", "bulk-update"]
+            },
+            "description": "Example of updating a single sensor's thresholds."
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Update - Only Min Threshold",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sensors\": [\n    {\n      \"sensorId\": \"{{sensor_id}}\",\n      \"threshold_min\": 20\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sensors/bulk-update",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sensors", "bulk-update"]
+            },
+            "description": "Example of updating only the minimum threshold (threshold_max remains unchanged)."
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Update - Only Max Threshold",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sensors\": [\n    {\n      \"sensorId\": \"{{sensor_id}}\",\n      \"threshold_max\": 40\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sensors/bulk-update",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sensors", "bulk-update"]
+            },
+            "description": "Example of updating only the maximum threshold (threshold_min remains unchanged)."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
+
