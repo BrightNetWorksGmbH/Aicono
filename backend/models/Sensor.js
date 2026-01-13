@@ -30,6 +30,15 @@ const sensorSchema = new mongoose.Schema({
   loxone_category_type: {
     type: String, // e.g., 'indoortemperature', 'lights', 'shading', 'media'
   },
+  // User-defined thresholds for plausibility checks
+  threshold_min: {
+    type: Number,
+    // Minimum threshold value for plausibility checks
+  },
+  threshold_max: {
+    type: Number,
+    // Maximum threshold (peak) value for plausibility checks
+  },
 }, {
   timestamps: true,
 });
