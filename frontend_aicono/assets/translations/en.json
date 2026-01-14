@@ -182,5 +182,57 @@
     "note": "Note:",
     "retry": "Retry",
     "submit": "Submit"
+  },
+  "superadmin": {
+    "title": "Bryteswitch Administration",
+    "description": "Manage and configure all Bryteswitch instances",
+    "registered_verses": "Registered Switches",
+    "refresh": "Refresh",
+    "no_verses": "No switches registered yet",
+    "create_new_verse": "Create New Switch",
+    "verse_name_hint": "Switch name",
+    "admin_email_hint": "Admin email address",
+    "first_name_hint": "First name",
+    "last_name_hint": "Last name",
+    "position_hint": "Position",
+    "create_verse_button": "Create Switch",
+    "errors": {
+      "required": "This field is required",
+      "invalid_email": "Please enter a valid email address"
+    },
+    "table": {
+      "number": "#",
+      "verse_name": "Switch Name",
+      "subdomain": "Subdomain",
+      "admin_email": "Admin Email",
+      "created": "Created",
+      "status": "Status",
+      "actions": "Actions",
+      "active": "Active",
+      "setup_pending": "Setup Pending",
+      "enable": "Enable",
+      "disable": "Disable",
+      "delete": "Delete"
+    },
+    "delete_verse": {
+      "title": "Delete Switch",
+      "message": "Are you sure you want to delete the switch \"{name}\"?",
+      "warning": "This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    },
+    "invite": {
+      "title": "Invite Admins to Switch",
+      "search_hint": "Search admins...",
+      "select_all": "Select All",
+      "send_invitation": "Send Invitation",
+      "send_invitation_count": "Send Invitations ({count})",
+      "sending_invitations": "Sending invitations...",
+      "no_admins": "No admins available",
+      "no_results": "No results found",
+      "select_at_least_one": "Please select at least one admin",
+      "selected": "Selected",
+      "invitations_sent": "Invitations sent successfully"
+    }
   }
 }

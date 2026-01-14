@@ -182,5 +182,57 @@
     "note": "Hinweis:",
     "retry": "Erneut versuchen",
     "submit": "Absenden"
+  },
+  "superadmin": {
+    "title": "Bryteswitch Verwaltung",
+    "description": "Verwalte und konfiguriere alle Bryteswitch-Instanzen",
+    "registered_verses": "Registrierte Switches",
+    "refresh": "Aktualisieren",
+    "no_verses": "Noch keine Switches registriert",
+    "create_new_verse": "Neuen Switch erstellen",
+    "verse_name_hint": "Switch-Name",
+    "admin_email_hint": "Admin-E-Mail-Adresse",
+    "first_name_hint": "Vorname",
+    "last_name_hint": "Nachname",
+    "position_hint": "Position",
+    "create_verse_button": "Switch erstellen",
+    "errors": {
+      "required": "Dieses Feld ist erforderlich",
+      "invalid_email": "Bitte geben Sie eine gültige E-Mail-Adresse ein"
+    },
+    "table": {
+      "number": "#",
+      "verse_name": "Switch-Name",
+      "subdomain": "Subdomain",
+      "admin_email": "Admin-E-Mail",
+      "created": "Erstellt",
+      "status": "Status",
+      "actions": "Aktionen",
+      "active": "Aktiv",
+      "setup_pending": "Einrichtung ausstehend",
+      "enable": "Aktivieren",
+      "disable": "Deaktivieren",
+      "delete": "Löschen"
+    },
+    "delete_verse": {
+      "title": "Switch löschen",
+      "message": "Möchten Sie den Switch \"{name}\" wirklich löschen?",
+      "warning": "Diese Aktion kann nicht rückgängig gemacht werden.",
+      "cancel": "Abbrechen",
+      "confirm": "Löschen"
+    },
+    "invite": {
+      "title": "Admins zum Switch einladen",
+      "search_hint": "Admins suchen...",
+      "select_all": "Alle auswählen",
+      "send_invitation": "Einladung senden",
+      "send_invitation_count": "Einladungen senden ({count})",
+      "sending_invitations": "Einladungen werden gesendet...",
+      "no_admins": "Keine Admins verfügbar",
+      "no_results": "Keine Ergebnisse gefunden",
+      "select_at_least_one": "Bitte wählen Sie mindestens einen Admin aus",
+      "selected": "Ausgewählt",
+      "invitations_sent": "Einladungen erfolgreich gesendet"
+    }
   }
 }
