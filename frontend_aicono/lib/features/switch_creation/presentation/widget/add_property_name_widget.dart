@@ -136,15 +136,18 @@ class _AddPropertyNameWidgetState extends State<AddPropertyNameWidget> {
                       },
                       decoration: InputDecoration(
                         hintText: 'add_property_name.hint'.tr(),
+                        hintStyle: AppTextStyles.bodyMedium.copyWith(
+                          color: Colors.grey.shade400,
+                        ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.zero,
                           borderSide: const BorderSide(
                             color: Colors.black54,
                             width: 2,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.zero,
                           borderSide: BorderSide(
                             color: AppTheme.primary,
                             width: 2,

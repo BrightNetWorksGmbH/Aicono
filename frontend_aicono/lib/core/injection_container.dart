@@ -36,6 +36,13 @@ import 'package:frontend_aicono/features/Authentication/domain/usecases/reset_pa
 import 'package:frontend_aicono/features/Authentication/presentation/bloc/forget_password_bloc/forgot_password_bloc.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/bloc/forgot_reset_password_bloc/forgot_reset_password_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/switch_creation_cubit.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/create_site_bloc.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_site_bloc.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/create_buildings_bloc.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/usecases/create_site_usecase.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/usecases/get_site_usecase.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/usecases/create_buildings_usecase.dart';
 import 'package:frontend_aicono/features/upload/data/datasources/upload_remote_data_source.dart';
 import 'package:frontend_aicono/features/upload/data/repositories/upload_repository_impl.dart';
 import 'package:frontend_aicono/features/upload/domain/repositories/upload_repository.dart';
@@ -143,6 +150,9 @@ Future<void> init() async {
   sl.registerLazySingleton(() => ResetPasswordUseCase(sl()));
   sl.registerLazySingleton(() => LoginUseCase(repository: sl()));
   sl.registerLazySingleton(() => CompleteSetupUseCase(repository: sl()));
+  sl.registerLazySingleton(() => CreateSiteUseCase(repository: sl()));
+  sl.registerLazySingleton(() => GetSiteUseCase(repository: sl()));
+  sl.registerLazySingleton(() => CreateBuildingsUseCase(repository: sl()));
 
   // Superadmin use cases
   sl.registerLazySingleton(() => CreateVerseUseCase(repository: sl()));
@@ -171,6 +181,18 @@ Future<void> init() async {
   sl.registerLazySingleton(
     () => SwitchCreationCubit(completeSetupUseCase: sl()),
   );
+
+  // Property Setup Bloc (singleton to persist state across pages)
+  sl.registerLazySingleton(() => PropertySetupCubit());
+
+  // Create Site Bloc
+  sl.registerFactory(() => CreateSiteBloc(createSiteUseCase: sl()));
+
+  // Get Site Bloc
+  sl.registerFactory(() => GetSiteBloc(getSiteUseCase: sl()));
+
+  // Create Buildings Bloc
+  sl.registerFactory(() => CreateBuildingsBloc(createBuildingsUseCase: sl()));
 
   // Upload dependencies
   sl.registerLazySingleton<UploadRemoteDataSource>(

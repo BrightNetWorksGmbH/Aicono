@@ -7,8 +7,9 @@ import 'package:frontend_aicono/features/switch_creation/presentation/widget/str
 
 class StructureSwitchPage extends StatefulWidget {
   final String? userName;
+  final String? switchId;
 
-  const StructureSwitchPage({super.key, this.userName});
+  const StructureSwitchPage({super.key, this.userName, this.switchId});
 
   @override
   State<StructureSwitchPage> createState() => _StructureSwitchPageState();
@@ -17,12 +18,6 @@ class StructureSwitchPage extends StatefulWidget {
 class _StructureSwitchPageState extends State<StructureSwitchPage> {
   void _handleLanguageChanged() {
     setState(() {});
-  }
-
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
   }
 
   void _handleStartDirectly() {
@@ -36,6 +31,7 @@ class _StructureSwitchPageState extends State<StructureSwitchPage> {
       Routelists.confirmStructure,
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
+        if (widget.switchId != null) 'switchId': widget.switchId!,
       },
     );
   }
@@ -65,7 +61,6 @@ class _StructureSwitchPageState extends State<StructureSwitchPage> {
                 StructureSwitchWidget(
                   userName: widget.userName,
                   onLanguageChanged: _handleLanguageChanged,
-                  onBack: _handleBack,
                   onStartDirectly: _handleStartDirectly,
                   onFindStructure: _handleFindStructure,
                 ),

@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/core/widgets/xChackbox.dart';
+import 'package:frontend_aicono/core/widgets/shimmer_widget.dart';
+import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/entities/get_site_entity.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/create_buildings_bloc.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_site_bloc.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
 
 class AddAdditionalBuildingsWidget extends StatefulWidget {
   final String? userName;
+  final String? siteId;
   final VoidCallback onLanguageChanged;
   final ValueChanged<bool>? onHasAdditionalBuildingsChanged;
   final ValueChanged<List<BuildingItem>>? onBuildingsChanged;
@@ -18,6 +26,7 @@ class AddAdditionalBuildingsWidget extends StatefulWidget {
   const AddAdditionalBuildingsWidget({
     super.key,
     this.userName,
+    this.siteId,
     required this.onLanguageChanged,
     this.onHasAdditionalBuildingsChanged,
     this.onBuildingsChanged,
@@ -52,32 +61,21 @@ class _AddAdditionalBuildingsWidgetState
     extends State<AddAdditionalBuildingsWidget> {
   bool? _hasAdditionalBuildings; // null = not selected, true = yes, false = no
   final List<BuildingItem> _buildings = [];
-  final TextEditingController _newBuildingController = TextEditingController();
-  bool _showAddBuildingInput = false;
+  final Map<String, TextEditingController> _buildingControllers = {};
 
   @override
   void initState() {
     super.initState();
-    // Pre-populate with the two default buildings
-    _buildings.addAll([
-      BuildingItem(
-        id: 'headquarters',
-        name: 'add_additional_buildings.building_headquarters'.tr(),
-        resources: 'add_additional_buildings.resources'.tr(),
-        isPreSelected: true,
-      ),
-      BuildingItem(
-        id: 'address',
-        name: 'add_additional_buildings.building_address'.tr(),
-        isPreSelected: true,
-      ),
-    ]);
-    widget.onBuildingsChanged?.call(_buildings);
+    // Buildings list will be populated by user adding new buildings
+    // Property name and location are shown separately from cubit state
   }
 
   @override
   void dispose() {
-    _newBuildingController.dispose();
+    for (var controller in _buildingControllers.values) {
+      controller.dispose();
+    }
+    _buildingControllers.clear();
     super.dispose();
   }
 
@@ -94,54 +92,123 @@ class _AddAdditionalBuildingsWidgetState
   void _handleYesNoSelection(bool isYes) {
     setState(() {
       _hasAdditionalBuildings = isYes;
-      if (!isYes) {
-        // If "no" is selected, remove any editable buildings (keep only pre-selected)
-        _buildings.removeWhere((b) => b.isEditable && !b.isPreSelected);
-        _showAddBuildingInput = false;
-        _newBuildingController.clear();
+      if (isYes) {
+        // When "ja" is selected for the first time, create one default building text field
+        if (_buildings.isEmpty) {
+          final buildingId = 'building_${DateTime.now().millisecondsSinceEpoch}';
+          final controller = TextEditingController();
+          _buildingControllers[buildingId] = controller;
+          _buildings.add(BuildingItem(
+            id: buildingId,
+            name: '',
+            isEditable: true,
+          ));
+        }
+      } else {
+        // If "no" is selected, remove all user-added buildings
+        for (var controller in _buildingControllers.values) {
+          controller.dispose();
+        }
+        _buildingControllers.clear();
+        _buildings.clear();
       }
     });
     widget.onHasAdditionalBuildingsChanged?.call(isYes);
     widget.onBuildingsChanged?.call(_buildings);
   }
 
-  void _showAddBuildingField() {
+  void _addNewBuildingField() {
     setState(() {
-      _showAddBuildingInput = true;
+      final buildingId = 'building_${DateTime.now().millisecondsSinceEpoch}';
+      final controller = TextEditingController();
+      _buildingControllers[buildingId] = controller;
+      _buildings.add(BuildingItem(
+        id: buildingId,
+        name: '',
+        isEditable: true,
+      ));
+    });
+    widget.onBuildingsChanged?.call(_buildings);
+  }
+
+  void _updateBuildingName(String buildingId, String name) {
+    setState(() {
+      final building = _buildings.firstWhere((b) => b.id == buildingId);
+      final index = _buildings.indexOf(building);
+      _buildings[index] = BuildingItem(
+        id: building.id,
+        name: name,
+        isEditable: building.isEditable,
+      );
+    });
+    widget.onBuildingsChanged?.call(_buildings);
+  }
+
+  bool _hasBuildingsWithData() {
+    if (_buildings.isEmpty) return false;
+    return _buildings.every((building) {
+      final controller = _buildingControllers[building.id];
+      return controller != null && controller.text.trim().isNotEmpty;
     });
   }
 
-  bool _hasEditableBuildings() {
-    return _buildings.any((b) => b.isEditable && !b.isPreSelected);
+  void _removeBuilding(String buildingId) {
+    setState(() {
+      final controller = _buildingControllers[buildingId];
+      if (controller != null) {
+        controller.dispose();
+        _buildingControllers.remove(buildingId);
+      }
+      _buildings.removeWhere((building) => building.id == buildingId);
+      
+      // If all buildings are removed and "ja" was selected, reset to show checkboxes
+      if (_buildings.isEmpty && _hasAdditionalBuildings == true) {
+        _hasAdditionalBuildings = null;
+        widget.onHasAdditionalBuildingsChanged?.call(false);
+      }
+    });
+    widget.onBuildingsChanged?.call(_buildings);
   }
 
-  void _addBuilding() {
-    final name = _newBuildingController.text.trim();
-    if (name.isNotEmpty) {
-      setState(() {
-        // If user adds a building, automatically set to "yes" if not already selected
-        if (_hasAdditionalBuildings == null) {
-          _hasAdditionalBuildings = true;
-          widget.onHasAdditionalBuildingsChanged?.call(true);
-        }
-        _buildings.add(BuildingItem(
-          id: 'building_${DateTime.now().millisecondsSinceEpoch}',
-          name: name,
-          isEditable: true,
-        ));
-        _newBuildingController.clear();
-        _showAddBuildingInput = false;
-      });
-      widget.onBuildingsChanged?.call(_buildings);
-    }
-  }
 
+  Widget _buildShimmerField() {
+    return ShimmerContainer(
+      width: double.infinity,
+      height: 60,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
 
-    return Padding(
+    return BlocBuilder<GetSiteBloc, GetSiteState>(
+      builder: (context, getSiteState) {
+        // Get site data from bloc if available
+        SiteData? siteData;
+        if (getSiteState is GetSiteSuccess) {
+          siteData = getSiteState.siteData;
+        }
+
+        // Use siteData from bloc if available, otherwise fall back to PropertySetupCubit
+        final propertyName = siteData?.name;
+        final location = siteData?.address;
+        final resourceTypes = siteData != null
+            ? [siteData.resourceType]
+            : <String>[];
+
+        // If siteData is not provided, try to get from cubit as fallback
+        final cubit = sl<PropertySetupCubit>();
+        final fallbackPropertyName = propertyName ?? cubit.state.propertyName;
+        final fallbackLocation = location ?? cubit.state.location;
+        final fallbackResourceTypes = resourceTypes.isNotEmpty
+            ? resourceTypes
+            : cubit.state.resourceTypes;
+
+        final isLoading = getSiteState is GetSiteLoading;
+        final hasError = getSiteState is GetSiteFailure;
+
+        return Padding(
       padding: const EdgeInsets.all(12.0),
       child: Container(
         height: (screenSize.height * 0.95) + 50,
@@ -215,47 +282,84 @@ class _AddAdditionalBuildingsWidgetState
                           ),
                         ),
                         const SizedBox(height: 40),
-                        // Display existing buildings
-                        ..._buildings.map((building) => Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: _buildBuildingItem(building),
-                            )),
-                        // Show input field if add button was clicked
-                        if (_showAddBuildingInput) ...[
+                        // Show property name with resource types and check icon if available
+                        if (isLoading) ...[
+                          _buildShimmerField(),
                           const SizedBox(height: 16),
-                          TextField(
-                            controller: _newBuildingController,
-                            decoration: InputDecoration(
-                              hintText: 'add_additional_buildings.building_hint'.tr(),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: const Color(0xFF8B9A5B),
-                                  width: 2,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: const Color(0xFF8B9A5B),
-                                  width: 2,
-                                ),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 18,
-                              ),
+                          _buildShimmerField(),
+                          const SizedBox(height: 24),
+                        ] else if (hasError) ...[
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              border: Border.all(color: Colors.red.shade300),
+                              borderRadius: BorderRadius.zero,
                             ),
-                            onSubmitted: (_) => _addBuilding(),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Error loading site data',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    color: Colors.red.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  getSiteState.message,
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    color: Colors.red.shade600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 12),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    if (widget.siteId != null &&
+                                        widget.siteId!.isNotEmpty) {
+                                      context.read<GetSiteBloc>().add(
+                                            GetSiteRequested(
+                                              siteId: widget.siteId!,
+                                            ),
+                                          );
+                                    }
+                                  },
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
                           ),
+                          const SizedBox(height: 24),
+                        ] else ...[
+                          if (fallbackPropertyName != null &&
+                              fallbackPropertyName.isNotEmpty) ...[
+                            _buildCompletedField(
+                              value: fallbackPropertyName,
+                              resourceTypes: fallbackResourceTypes,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          // Show location with check icon if available
+                          if (fallbackLocation != null &&
+                              fallbackLocation.isNotEmpty) ...[
+                            _buildCompletedField(value: fallbackLocation),
+                            const SizedBox(height: 24),
+                          ],
+                        ],
+                        // Display buildings with text fields
+                        if (_buildings.isNotEmpty) ...[
+                          ..._buildings.map((building) => Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: _buildBuildingTextField(building),
+                              )),
                           const SizedBox(height: 16),
                         ],
-                        // Add building link (show when "yes" is selected OR when editable buildings exist, and input is not showing)
-                        if ((_hasAdditionalBuildings == true || _hasEditableBuildings()) &&
-                            !_showAddBuildingInput) ...[
+                        // Add building link (show only if buildings have data)
+                        if (_hasBuildingsWithData()) ...[
                           const SizedBox(height: 16),
                           InkWell(
-                            onTap: _showAddBuildingField,
+                            onTap: _addNewBuildingField,
                             child: Text(
                               'add_additional_buildings.add_building_link'.tr(),
                               style: AppTextStyles.bodyMedium.copyWith(
@@ -265,21 +369,21 @@ class _AddAdditionalBuildingsWidgetState
                             ),
                           ),
                         ],
-                        // Yes/No selection (only show when no editable buildings exist yet)
-                        if (!_hasEditableBuildings()) ...[
+                        // Yes/No selection (only show when "ja" hasn't been selected yet)
+                        if (_hasAdditionalBuildings == null) ...[
                           const SizedBox(height: 24),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               _buildYesNoOption(
                                 label: 'add_additional_buildings.yes'.tr(),
-                                isSelected: _hasAdditionalBuildings == true,
+                                isSelected: false,
                                 onTap: () => _handleYesNoSelection(true),
                               ),
                               const SizedBox(width: 24),
                               _buildYesNoOption(
                                 label: 'add_additional_buildings.no'.tr(),
-                                isSelected: _hasAdditionalBuildings == false,
+                                isSelected: false,
                                 onTap: () => _handleYesNoSelection(false),
                               ),
                             ],
@@ -297,82 +401,144 @@ class _AddAdditionalBuildingsWidgetState
                           ),
                         ),
                         const SizedBox(height: 32),
-                        PrimaryOutlineButton(
-                          label: 'add_additional_buildings.button_text'.tr(),
-                          width: 260,
-                          onPressed: widget.onContinue,
+                        BlocBuilder<CreateBuildingsBloc, CreateBuildingsState>(
+                          builder: (context, createBuildingsState) {
+                            final isLoading = createBuildingsState is CreateBuildingsLoading;
+                            return isLoading
+                                ? const SizedBox(
+                                    width: 260,
+                                    height: 48,
+                                    child: Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  )
+                                : PrimaryOutlineButton(
+                                    label: 'add_additional_buildings.button_text'.tr(),
+                                    width: 260,
+                                    enabled: _hasBuildingsWithData() && !isLoading,
+                                    onPressed: _hasBuildingsWithData() && !isLoading
+                                        ? widget.onContinue
+                                        : null,
+                                  );
+                          },
                         ),
                       ],
+                    ),
                   ),
                 ),
               ),
-            ),
             ],
           ),
         ),
       ),
+        );
+      },
     );
   }
 
-  Widget _buildBuildingItem(BuildingItem building) {
+  Widget _buildCompletedField({
+    required String value,
+    List<String>? resourceTypes,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
         border: Border.all(
-          color: building.isEditable
-              ? const Color(0xFF8B9A5B) // Green border for editable buildings
-              : Colors.black54, // Gray border for pre-selected buildings
+          color: Colors.black54,
           width: 2,
         ),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.zero,
       ),
       child: Row(
         children: [
-          // Show checkmark for ALL buildings (both pre-selected and editable)
-          const Icon(
-            Icons.check_circle,
-            color: Color(0xFF238636), // Green checkmark
-            size: 24,
+          Image.asset(
+            'assets/images/check.png',
+            width: 16,
+            height: 16,
+            color: const Color(0xFF238636), // Green checkmark
           ),
           const SizedBox(width: 12),
-          // Building name
           Expanded(
             child: Text(
-              building.name,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: Colors.black87,
-              ),
+              value,
+              style: AppTextStyles.bodyMedium,
             ),
           ),
-          // Resources text (only for pre-selected buildings with resources)
-          if (building.resources != null && building.isPreSelected) ...[
-            const SizedBox(width: 12),
+          if (resourceTypes != null && resourceTypes.isNotEmpty) ...[
+            const SizedBox(width: 16),
             Text(
-              building.resources!,
+              _formatResourceTypes(resourceTypes),
               style: AppTextStyles.bodyMedium.copyWith(
-                color: Colors.black54,
-              ),
-            ),
-          ],
-          // Add details link for editable buildings (user-added buildings)
-          if (building.isEditable && !building.isPreSelected) ...[
-            const SizedBox(width: 12),
-            InkWell(
-              onTap: () {
-                widget.onAddBuildingDetails?.call(building);
-              },
-              child: Text(
-                'add_additional_buildings.add_details_link'.tr(),
-                style: AppTextStyles.bodyMedium.copyWith(
-                  decoration: TextDecoration.underline,
-                  color: Colors.blue,
-                ),
+                color: Colors.grey.shade400,
               ),
             ),
           ],
         ],
       ),
+    );
+  }
+
+  String _formatResourceTypes(List<String> resourceTypes) {
+    final List<String> translatedTypes = resourceTypes.map((type) {
+      switch (type) {
+        case 'energy':
+          return 'select_resources.option_energy'.tr();
+        case 'water':
+          return 'select_resources.option_water'.tr();
+        case 'gas':
+          return 'select_resources.option_gas'.tr();
+        default:
+          return type;
+      }
+    }).toList();
+    return translatedTypes.join(', ');
+  }
+
+  Widget _buildBuildingTextField(BuildingItem building) {
+    final controller = _buildingControllers[building.id] ?? TextEditingController();
+    if (!_buildingControllers.containsKey(building.id)) {
+      _buildingControllers[building.id] = controller;
+    }
+
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        hintText: 'add_additional_buildings.building_hint'.tr(),
+        hintStyle: AppTextStyles.bodyMedium.copyWith(
+          color: Colors.grey.shade400,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.zero,
+          borderSide: BorderSide(
+            color: const Color(0xFF8B9A5B),
+            width: 2,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.zero,
+          borderSide: BorderSide(
+            color: const Color(0xFF8B9A5B),
+            width: 2,
+          ),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 18,
+        ),
+        suffixIcon: IconButton(
+          onPressed: () => _removeBuilding(building.id),
+          icon: const Icon(Icons.close, color: Colors.grey),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(
+            minWidth: 40,
+            minHeight: 40,
+          ),
+        ),
+      ),
+      onChanged: (value) {
+        _updateBuildingName(building.id, value);
+      },
     );
   }
 

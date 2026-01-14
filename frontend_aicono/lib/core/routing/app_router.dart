@@ -418,14 +418,15 @@ class AppRouter {
       },
     ),
     GoRoute(
-      path: '/${Routelists.structureSwitch}',
+      path: '/${Routelists.structureSwitch}/:switchId',
       name: Routelists.structureSwitch,
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
+        final switchId = state.pathParameters['switchId'];
         return _buildPage(
           context,
           state,
-          StructureSwitchPage(userName: userName),
+          StructureSwitchPage(userName: userName, switchId: switchId),
         );
       },
     ),
@@ -434,10 +435,11 @@ class AppRouter {
       name: Routelists.confirmStructure,
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
+        final switchId = state.uri.queryParameters['switchId'];
         return _buildPage(
           context,
           state,
-          ConfirmStructurePage(userName: userName),
+          ConfirmStructurePage(userName: userName, switchId: switchId),
         );
       },
     ),
@@ -446,10 +448,11 @@ class AppRouter {
       name: Routelists.addPropertyName,
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
+        final switchId = state.uri.queryParameters['switchId'];
         return _buildPage(
           context,
           state,
-          AddPropertyNamePage(userName: userName),
+          AddPropertyNamePage(userName: userName, switchId: switchId),
         );
       },
     ),
@@ -458,10 +461,11 @@ class AppRouter {
       name: Routelists.addPropertyLocation,
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
+        final switchId = state.uri.queryParameters['switchId'];
         return _buildPage(
           context,
           state,
-          AddPropertyLocationPage(userName: userName),
+          AddPropertyLocationPage(userName: userName, switchId: switchId),
         );
       },
     ),
@@ -470,10 +474,11 @@ class AppRouter {
       name: Routelists.selectResources,
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
+        final switchId = state.uri.queryParameters['switchId'];
         return _buildPage(
           context,
           state,
-          SelectResourcesPage(userName: userName),
+          SelectResourcesPage(userName: userName, switchId: switchId),
         );
       },
     ),
@@ -482,10 +487,11 @@ class AppRouter {
       name: Routelists.addAdditionalBuildings,
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
+        final siteId = state.uri.queryParameters['siteId'];
         return _buildPage(
           context,
           state,
-          AddAdditionalBuildingsPage(userName: userName),
+          AddAdditionalBuildingsPage(userName: userName, siteId: siteId),
         );
       },
     ),

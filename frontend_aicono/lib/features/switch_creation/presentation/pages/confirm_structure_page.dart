@@ -7,8 +7,9 @@ import 'package:frontend_aicono/features/switch_creation/presentation/widget/con
 
 class ConfirmStructurePage extends StatefulWidget {
   final String? userName;
+  final String? switchId;
 
-  const ConfirmStructurePage({super.key, this.userName});
+  const ConfirmStructurePage({super.key, this.userName, this.switchId});
 
   @override
   State<ConfirmStructurePage> createState() => _ConfirmStructurePageState();
@@ -36,6 +37,7 @@ class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
       Routelists.addPropertyName,
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
+        if (widget.switchId != null) 'switchId': widget.switchId!,
       },
     );
   }
