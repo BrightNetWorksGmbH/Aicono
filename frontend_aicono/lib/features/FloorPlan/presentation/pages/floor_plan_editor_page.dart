@@ -1,9 +1,14 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:convert' show base64Encode;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
 import 'package:vector_math/vector_math_64.dart' show Matrix4;
 import 'package:file_picker/file_picker.dart';
 import 'package:xml/xml.dart' as xml;
+import 'dart:io' show File;
 
 // Web-specific imports
 import 'dart:html' as html show AnchorElement, Blob, Url;
@@ -31,7 +36,7 @@ class Door {
   Path path;
   double rotation;
   final String roomId; // Reference to the room this door belongs to
-  final String edge; // Which edge: 'top', 'bottom', 'left', 'right'
+  String edge; // Which edge: 'top', 'bottom', 'left', 'right'
 
   Door({
     required this.id,
@@ -43,6 +48,48 @@ class Door {
 }
 
 enum ResizeHandle { topLeft, topRight, bottomLeft, bottomRight }
+
+/// State snapshot for undo/redo functionality
+class _FloorPlanState {
+  final List<Room> rooms;
+  final List<Door> doors;
+  final int roomCounter;
+
+  _FloorPlanState({
+    required this.rooms,
+    required this.doors,
+    required this.roomCounter,
+  });
+
+  // Deep copy constructor
+  _FloorPlanState copy() {
+    return _FloorPlanState(
+      rooms: rooms
+          .map(
+            (room) => Room(
+              id: room.id,
+              path: Path.from(room.path),
+              doorOpenings: room.doorOpenings.map((p) => Path.from(p)).toList(),
+              fillColor: room.fillColor,
+              name: room.name,
+            ),
+          )
+          .toList(),
+      doors: doors
+          .map(
+            (door) => Door(
+              id: door.id,
+              path: Path.from(door.path),
+              rotation: door.rotation,
+              roomId: door.roomId,
+              edge: door.edge,
+            ),
+          )
+          .toList(),
+      roomCounter: roomCounter,
+    );
+  }
+}
 
 /* =======================
    MAIN PAGE
@@ -76,6 +123,33 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
 
   // Room counter for default names
   int _roomCounter = 1;
+
+  // Canvas size - will be calculated dynamically
+  Size _canvasSize = const Size(4000, 4000);
+
+  // Transformation controller for InteractiveViewer
+  final TransformationController _transformationController =
+      TransformationController();
+
+  // Viewport size for fit calculations
+  Size? _viewportSize;
+
+  // Background image
+  Uint8List? _backgroundImageBytes;
+  double? _backgroundImageWidth;
+  double? _backgroundImageHeight;
+
+  // Undo/Redo history
+  final List<_FloorPlanState> _history = [];
+  int _historyIndex = -1;
+  static const int _maxHistorySize = 50;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize history with empty state
+    _saveState();
+  }
 
   // Color palette
   static const List<Color> colorPalette = [
@@ -228,6 +302,214 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
   }
 
   /* =======================
+     UNDO/REDO
+  ======================= */
+
+  void _saveState() {
+    // Remove any states after current index (when user does new action after undo)
+    if (_historyIndex < _history.length - 1) {
+      _history.removeRange(_historyIndex + 1, _history.length);
+    }
+
+    // Create new state snapshot
+    final state = _FloorPlanState(
+      rooms: rooms
+          .map(
+            (room) => Room(
+              id: room.id,
+              path: Path.from(room.path),
+              doorOpenings: room.doorOpenings.map((p) => Path.from(p)).toList(),
+              fillColor: room.fillColor,
+              name: room.name,
+            ),
+          )
+          .toList(),
+      doors: doors
+          .map(
+            (door) => Door(
+              id: door.id,
+              path: Path.from(door.path),
+              rotation: door.rotation,
+              roomId: door.roomId,
+              edge: door.edge,
+            ),
+          )
+          .toList(),
+      roomCounter: _roomCounter,
+    );
+
+    // Add to history
+    _history.add(state);
+    _historyIndex = _history.length - 1;
+
+    // Limit history size
+    if (_history.length > _maxHistorySize) {
+      _history.removeAt(0);
+      _historyIndex--;
+    }
+  }
+
+  void _restoreState(_FloorPlanState state) {
+    rooms.clear();
+    doors.clear();
+
+    // Restore rooms
+    for (final room in state.rooms) {
+      rooms.add(
+        Room(
+          id: room.id,
+          path: Path.from(room.path),
+          doorOpenings: room.doorOpenings.map((p) => Path.from(p)).toList(),
+          fillColor: room.fillColor,
+          name: room.name,
+        ),
+      );
+    }
+
+    // Restore doors
+    for (final door in state.doors) {
+      doors.add(
+        Door(
+          id: door.id,
+          path: Path.from(door.path),
+          rotation: door.rotation,
+          roomId: door.roomId,
+          edge: door.edge,
+        ),
+      );
+    }
+
+    _roomCounter = state.roomCounter;
+    selectedRoom = null;
+    selectedDoor = null;
+    _updateCanvasSize();
+  }
+
+  void _undo() {
+    if (_historyIndex > 0) {
+      _historyIndex--;
+      _restoreState(_history[_historyIndex]);
+      setState(() {});
+    }
+  }
+
+  void _redo() {
+    if (_historyIndex < _history.length - 1) {
+      _historyIndex++;
+      _restoreState(_history[_historyIndex]);
+      setState(() {});
+    }
+  }
+
+  bool get _canUndo => _historyIndex > 0;
+  bool get _canRedo => _historyIndex < _history.length - 1;
+
+  /* =======================
+     CANVAS SIZE CALCULATION
+  ======================= */
+
+  void _fitToView() {
+    if (rooms.isEmpty && doors.isEmpty || _viewportSize == null) {
+      // Reset to default view
+      _transformationController.value = Matrix4.identity();
+      return;
+    }
+
+    // Calculate content bounds
+    double minX = double.infinity;
+    double minY = double.infinity;
+    double maxX = double.negativeInfinity;
+    double maxY = double.negativeInfinity;
+
+    for (final room in rooms) {
+      final bounds = room.path.getBounds();
+      minX = math.min(minX, bounds.left);
+      minY = math.min(minY, bounds.top);
+      maxX = math.max(maxX, bounds.right);
+      maxY = math.max(maxY, bounds.bottom);
+    }
+
+    for (final door in doors) {
+      final bounds = door.path.getBounds();
+      minX = math.min(minX, bounds.left);
+      minY = math.min(minY, bounds.top);
+      maxX = math.max(maxX, bounds.right);
+      maxY = math.max(maxY, bounds.bottom);
+    }
+
+    // Add padding
+    const padding = 50.0;
+    final contentWidth = maxX - minX + padding * 2;
+    final contentHeight = maxY - minY + padding * 2;
+    final contentCenterX = (minX + maxX) / 2;
+    final contentCenterY = (minY + maxY) / 2;
+
+    // Use actual viewport size
+    final viewportWidth = _viewportSize!.width;
+    final viewportHeight = _viewportSize!.height;
+
+    // Calculate scale to fit content
+    final scaleX = viewportWidth / contentWidth;
+    final scaleY = viewportHeight / contentHeight;
+    final scale = math.min(scaleX, scaleY).clamp(0.1, 2.0);
+
+    // Calculate translation to center content
+    final translateX = viewportWidth / 2 - contentCenterX * scale;
+    final translateY = viewportHeight / 2 - contentCenterY * scale;
+
+    // Apply transformation
+    _transformationController.value = Matrix4.identity()
+      ..translate(translateX, translateY)
+      ..scale(scale);
+  }
+
+  void _updateCanvasSize() {
+    // If background image is present, use its dimensions
+    if (_backgroundImageBytes != null &&
+        _backgroundImageWidth != null &&
+        _backgroundImageHeight != null) {
+      _canvasSize = Size(_backgroundImageWidth!, _backgroundImageHeight!);
+      return;
+    }
+
+    if (rooms.isEmpty && doors.isEmpty) {
+      _canvasSize = const Size(4000, 4000);
+      return;
+    }
+
+    double minX = double.infinity;
+    double minY = double.infinity;
+    double maxX = double.negativeInfinity;
+    double maxY = double.negativeInfinity;
+
+    // Calculate bounds from all rooms
+    for (final room in rooms) {
+      final bounds = room.path.getBounds();
+      minX = math.min(minX, bounds.left);
+      minY = math.min(minY, bounds.top);
+      maxX = math.max(maxX, bounds.right);
+      maxY = math.max(maxY, bounds.bottom);
+    }
+
+    // Calculate bounds from all doors
+    for (final door in doors) {
+      final bounds = door.path.getBounds();
+      minX = math.min(minX, bounds.left);
+      minY = math.min(minY, bounds.top);
+      maxX = math.max(maxX, bounds.right);
+      maxY = math.max(maxY, bounds.bottom);
+    }
+
+    // Add padding around the content
+    const padding = 200.0;
+    final width = (maxX - minX + padding * 2).clamp(2000.0, 20000.0);
+    final height = (maxY - minY + padding * 2).clamp(2000.0, 20000.0);
+
+    // Adjust canvas size, ensuring it's at least 4000x4000 for new drawings
+    _canvasSize = Size(math.max(width, 4000), math.max(height, 4000));
+  }
+
+  /* =======================
      INTERACTION
   ======================= */
 
@@ -372,6 +654,23 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
 
     if (sx > 0.2 && sy > 0.2) {
       selectedRoom!.path = scalePath(selectedRoom!.path, sx, sy, anchor);
+
+      // Scale door openings with the room
+      for (var i = 0; i < selectedRoom!.doorOpenings.length; i++) {
+        selectedRoom!.doorOpenings[i] = scalePath(
+          selectedRoom!.doorOpenings[i],
+          sx,
+          sy,
+          anchor,
+        );
+      }
+
+      // Scale associated doors using roomId
+      for (final door in doors) {
+        if (door.roomId == selectedRoom!.id) {
+          door.path = scalePath(door.path, sx, sy, anchor);
+        }
+      }
     }
 
     setState(() {});
@@ -387,14 +686,9 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
             delta,
           );
         }
-        // Move associated doors
+        // Move associated doors using roomId
         for (final door in doors) {
-          if (selectedRoom!.doorOpenings.any(
-            (opening) =>
-                (opening.getBounds().center - door.path.getBounds().center)
-                    .distance <
-                5,
-          )) {
+          if (door.roomId == selectedRoom!.id) {
             door.path = door.path.shift(delta);
           }
         }
@@ -408,27 +702,111 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
 
   void rotateSelected() {
     if (selectedRoom != null) {
+      _saveState();
       final bounds = selectedRoom!.path.getBounds();
+      final roomCenter = bounds.center;
       setState(() {
-        selectedRoom!.path = rotatePath(selectedRoom!.path, 90, bounds.center);
+        selectedRoom!.path = rotatePath(selectedRoom!.path, 90, roomCenter);
+
         // Rotate door openings
         for (var i = 0; i < selectedRoom!.doorOpenings.length; i++) {
           selectedRoom!.doorOpenings[i] = rotatePath(
             selectedRoom!.doorOpenings[i],
             90,
-            bounds.center,
+            roomCenter,
           );
         }
-        // Rotate associated doors
+
+        // Get new bounds after rotation
+        final newBounds = selectedRoom!.path.getBounds();
+
+        // Rotate and realign associated doors using roomId
         for (final door in doors) {
-          if (selectedRoom!.doorOpenings.any(
-            (opening) =>
-                (opening.getBounds().center - door.path.getBounds().center)
-                    .distance <
-                5,
-          )) {
-            door.path = rotatePath(door.path, 90, bounds.center);
+          if (door.roomId == selectedRoom!.id) {
+            // Update door edge after rotation (clockwise: top->right->bottom->left->top)
+            final edgeMap = {
+              'top': 'right',
+              'right': 'bottom',
+              'bottom': 'left',
+              'left': 'top',
+            };
+            door.edge = edgeMap[door.edge] ?? door.edge;
+
+            // Rotate door path around room center
+            door.path = rotatePath(door.path, 90, roomCenter);
             door.rotation = (door.rotation + 90) % 360;
+
+            // Realign door to the new edge position
+            final doorBounds = door.path.getBounds();
+            final doorCenter = doorBounds.center;
+            Offset newDoorCenter;
+
+            switch (door.edge) {
+              case 'top':
+                newDoorCenter = Offset(
+                  doorCenter.dx.clamp(
+                    newBounds.left + 25,
+                    newBounds.right - 25,
+                  ),
+                  newBounds.top,
+                );
+                break;
+              case 'bottom':
+                newDoorCenter = Offset(
+                  doorCenter.dx.clamp(
+                    newBounds.left + 25,
+                    newBounds.right - 25,
+                  ),
+                  newBounds.bottom,
+                );
+                break;
+              case 'left':
+                newDoorCenter = Offset(
+                  newBounds.left,
+                  doorCenter.dy.clamp(
+                    newBounds.top + 25,
+                    newBounds.bottom - 25,
+                  ),
+                );
+                break;
+              case 'right':
+                newDoorCenter = Offset(
+                  newBounds.right,
+                  doorCenter.dy.clamp(
+                    newBounds.top + 25,
+                    newBounds.bottom - 25,
+                  ),
+                );
+                break;
+              default:
+                continue;
+            }
+
+            // Adjust door position to align with new edge
+            final adjustment = newDoorCenter - doorCenter;
+            door.path = door.path.shift(adjustment);
+
+            // Ensure door opening is also aligned
+            Path? matchingOpening;
+            double minDistance = double.infinity;
+            final adjustedDoorCenter = door.path.getBounds().center;
+
+            for (final opening in selectedRoom!.doorOpenings) {
+              final openingCenter = opening.getBounds().center;
+              final distance = (openingCenter - adjustedDoorCenter).distance;
+
+              if (distance < minDistance) {
+                minDistance = distance;
+                matchingOpening = opening;
+              }
+            }
+
+            // Fine-tune alignment with opening if close
+            if (matchingOpening != null && minDistance < 30) {
+              final openingCenter = matchingOpening.getBounds().center;
+              final fineAdjustment = openingCenter - adjustedDoorCenter;
+              door.path = door.path.shift(fineAdjustment);
+            }
           }
         }
       });
@@ -450,6 +828,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
   }
 
   void addDoorToRoomAtEdge(Room room, String edge, Offset clickPos) {
+    _saveState();
     final bounds = room.path.getBounds();
     Offset doorCenter;
     Path doorPath;
@@ -502,6 +881,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
           edge: edge,
         ),
       );
+      _updateCanvasSize();
     });
   }
 
@@ -509,160 +889,295 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
      UI
   ======================= */
 
+  void _handleDelete() {
+    if (selectedRoom != null || selectedDoor != null) {
+      _saveState();
+      setState(() {
+        if (selectedRoom != null) {
+          // Remove all doors associated with this room
+          doors.removeWhere((door) => door.roomId == selectedRoom!.id);
+          rooms.remove(selectedRoom);
+          selectedRoom = null;
+        } else if (selectedDoor != null) {
+          doors.remove(selectedDoor);
+          selectedDoor = null;
+        }
+        _updateCanvasSize();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      body: Row(
-        children: [
-          // Left Sidebar - Editing Tools
-          _leftSidebar(),
-          // Main Content Area
-          Expanded(
-            child: Column(
+    return Shortcuts(
+      shortcuts: {
+        // Undo: Ctrl+Z (or Cmd+Z on Mac)
+        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyZ):
+            const UndoIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyZ):
+            const UndoIntent(),
+        // Redo: Ctrl+Y or Ctrl+Shift+Z (or Cmd+Shift+Z on Mac)
+        LogicalKeySet(
+          LogicalKeyboardKey.meta,
+          LogicalKeyboardKey.shift,
+          LogicalKeyboardKey.keyZ,
+        ): const RedoIntent(),
+        LogicalKeySet(
+          LogicalKeyboardKey.control,
+          LogicalKeyboardKey.shift,
+          LogicalKeyboardKey.keyZ,
+        ): const RedoIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyY):
+            const RedoIntent(),
+        // Delete: Delete or Backspace
+        LogicalKeySet(LogicalKeyboardKey.delete): const DeleteIntent(),
+        LogicalKeySet(LogicalKeyboardKey.backspace): const DeleteIntent(),
+      },
+      child: Actions(
+        actions: {
+          UndoIntent: CallbackAction<UndoIntent>(
+            onInvoke: (_) {
+              if (_canUndo) {
+                _undo();
+              }
+              return null;
+            },
+          ),
+          RedoIntent: CallbackAction<RedoIntent>(
+            onInvoke: (_) {
+              if (_canRedo) {
+                _redo();
+              }
+              return null;
+            },
+          ),
+          DeleteIntent: CallbackAction<DeleteIntent>(
+            onInvoke: (_) {
+              _handleDelete();
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            backgroundColor: Colors.grey.shade100,
+            body: Row(
               children: [
-                // Top Bar
-                _topBar(),
-                // Contextual Bar (for selected item properties)
-                if (selectedRoom != null || selectedDoor != null)
-                  _contextualBar(),
-                // Door placement mode indicator
-                if (doorPlacementMode && selectedRoom != null)
-                  Container(
-                    height: 40,
-                    color: Colors.orange.shade100,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline, color: Colors.orange),
-                        const SizedBox(width: 8),
-                        const Text(
-                          "Click on a border edge to place the door",
-                          style: TextStyle(color: Colors.orange),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              doorPlacementMode = false;
-                            });
-                          },
-                          child: const Text("Cancel"),
-                        ),
-                      ],
-                    ),
-                  ),
-                // Pencil mode indicator
-                if (pencilMode)
-                  Container(
-                    height: 40,
-                    color: Colors.blue.shade100,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.edit, color: Colors.blue),
-                        const SizedBox(width: 8),
-                        const Text(
-                          "Draw mode active - Drag to draw walls/rooms",
-                          style: TextStyle(color: Colors.blue),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              pencilMode = false;
-                              drawingPath = null;
-                            });
-                          },
-                          child: const Text("Cancel"),
-                        ),
-                      ],
-                    ),
-                  ),
-                // Canvas Area
+                // Left Sidebar - Editing Tools
+                _leftSidebar(),
+                // Main Content Area
                 Expanded(
-                  child: Container(
-                    color: const Color(0xFFE3F2FD), // Light blue canvas
-                    child: InteractiveViewer(
-                      minScale: 0.5,
-                      maxScale: 4,
-                      child: GestureDetector(
-                        onTapDown: (d) {
-                          if (!pencilMode) {
-                            selectRoom(d.localPosition);
-                          } else {
-                            // Cancel door placement mode if clicking elsewhere
-                            if (doorPlacementMode) {
-                              setState(() {
-                                doorPlacementMode = false;
-                              });
-                            }
-                          }
-                        },
-                        onPanStart: (d) {
-                          lastPanPosition = d.localPosition;
-                          if (pencilMode) {
-                            drawingPath = Path()
-                              ..moveTo(d.localPosition.dx, d.localPosition.dy);
-                          }
-                        },
-                        onPanUpdate: (d) {
-                          if (pencilMode) {
-                            setState(() {
-                              drawingPath!.lineTo(
-                                d.localPosition.dx,
-                                d.localPosition.dy,
+                  child: Column(
+                    children: [
+                      // Top Bar
+                      _topBar(),
+                      // Contextual Bar (for selected item properties)
+                      // Always reserve space to prevent layout shifts
+                      SizedBox(
+                        height: 48,
+                        child: (selectedRoom != null || selectedDoor != null)
+                            ? _contextualBar()
+                            : const SizedBox.shrink(),
+                      ),
+                      // Door placement mode indicator
+                      if (doorPlacementMode && selectedRoom != null)
+                        Container(
+                          height: 40,
+                          color: Colors.orange.shade100,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.info_outline,
+                                color: Colors.orange,
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                "Click on a border edge to place the door",
+                                style: TextStyle(color: Colors.orange),
+                              ),
+                              const Spacer(),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    doorPlacementMode = false;
+                                  });
+                                },
+                                child: const Text("Cancel"),
+                              ),
+                            ],
+                          ),
+                        ),
+                      // Pencil mode indicator
+                      if (pencilMode)
+                        Container(
+                          height: 40,
+                          color: Colors.blue.shade100,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.edit, color: Colors.blue),
+                              const SizedBox(width: 8),
+                              const Text(
+                                "Draw mode active - Drag to draw walls/rooms",
+                                style: TextStyle(color: Colors.blue),
+                              ),
+                              const Spacer(),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    pencilMode = false;
+                                    drawingPath = null;
+                                  });
+                                },
+                                child: const Text("Cancel"),
+                              ),
+                            ],
+                          ),
+                        ),
+                      // Canvas Area
+                      Expanded(
+                        child: Container(
+                          color: _backgroundImageBytes == null
+                              ? const Color(
+                                  0xFFE3F2FD,
+                                ) // Light blue canvas (fallback)
+                              : Colors.transparent,
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              // Store viewport size for fit calculations
+                              _viewportSize = Size(
+                                constraints.maxWidth,
+                                constraints.maxHeight,
                               );
-                            });
-                          } else if (activeHandle != null) {
-                            resizeRoom(d.delta);
-                          } else if (selectedRoom != null ||
-                              selectedDoor != null) {
-                            moveSelected(d.delta);
-                          }
-                        },
-                        onPanEnd: (d) {
-                          activeHandle = null;
-                          startBounds = null;
-                          if (pencilMode && drawingPath != null) {
-                            setState(() {
-                              // Close the path to create a complete room shape
-                              final closedPath = Path.from(drawingPath!)
-                                ..close();
-                              rooms.add(
-                                Room(
-                                  id: UniqueKey().toString(),
-                                  path: closedPath,
-                                  fillColor:
-                                      selectedColor ?? const Color(0xFFF5F5DC),
-                                  name: 'Room $_roomCounter',
+
+                              return InteractiveViewer(
+                                transformationController:
+                                    _transformationController,
+                                minScale: 0.1,
+                                maxScale: 4,
+                                child: Stack(
+                                  children: [
+                                    // Background image - display at actual size (1:1 pixel ratio) to match coordinate system
+                                    if (_backgroundImageBytes != null &&
+                                        _backgroundImageWidth != null &&
+                                        _backgroundImageHeight != null)
+                                      Positioned(
+                                        left: 0,
+                                        top: 0,
+                                        width: _backgroundImageWidth,
+                                        height: _backgroundImageHeight,
+                                        child: Image.memory(
+                                          _backgroundImageBytes!,
+                                          fit: BoxFit.none,
+                                          alignment: Alignment.topLeft,
+                                        ),
+                                      ),
+                                    // Canvas with rooms and doors
+                                    GestureDetector(
+                                      onTapDown: (d) {
+                                        if (!pencilMode) {
+                                          selectRoom(d.localPosition);
+                                        } else {
+                                          // Cancel door placement mode if clicking elsewhere
+                                          if (doorPlacementMode) {
+                                            setState(() {
+                                              doorPlacementMode = false;
+                                            });
+                                          }
+                                        }
+                                      },
+                                      onPanStart: (d) {
+                                        lastPanPosition = d.localPosition;
+                                        if (pencilMode) {
+                                          drawingPath = Path()
+                                            ..moveTo(
+                                              d.localPosition.dx,
+                                              d.localPosition.dy,
+                                            );
+                                        }
+                                      },
+                                      onPanUpdate: (d) {
+                                        if (pencilMode) {
+                                          setState(() {
+                                            drawingPath!.lineTo(
+                                              d.localPosition.dx,
+                                              d.localPosition.dy,
+                                            );
+                                          });
+                                        } else if (activeHandle != null) {
+                                          resizeRoom(d.delta);
+                                        } else if (selectedRoom != null ||
+                                            selectedDoor != null) {
+                                          moveSelected(d.delta);
+                                        }
+                                      },
+                                      onPanEnd: (d) {
+                                        // Save state after move or resize operations
+                                        final hadActiveOperation =
+                                            activeHandle != null ||
+                                            (selectedRoom != null &&
+                                                lastPanPosition != null) ||
+                                            (selectedDoor != null &&
+                                                lastPanPosition != null);
+                                        if (!pencilMode && hadActiveOperation) {
+                                          _saveState();
+                                        }
+                                        activeHandle = null;
+                                        startBounds = null;
+                                        lastPanPosition = null;
+                                        if (pencilMode && drawingPath != null) {
+                                          setState(() {
+                                            // Close the path to create a complete room shape
+                                            final closedPath = Path.from(
+                                              drawingPath!,
+                                            )..close();
+                                            rooms.add(
+                                              Room(
+                                                id: UniqueKey().toString(),
+                                                path: closedPath,
+                                                fillColor:
+                                                    selectedColor ??
+                                                    const Color(0xFFF5F5DC),
+                                                name: 'Room $_roomCounter',
+                                              ),
+                                            );
+                                            _roomCounter++;
+                                            drawingPath = null;
+                                            _updateCanvasSize();
+                                          });
+                                        }
+                                      },
+                                      child: CustomPaint(
+                                        size: _canvasSize,
+                                        painter: FloorPainter(
+                                          rooms: rooms,
+                                          doors: doors,
+                                          selectedRoom: selectedRoom,
+                                          selectedDoor: selectedDoor,
+                                          previewPath: drawingPath,
+                                          hasBackgroundImage:
+                                              _backgroundImageBytes != null,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               );
-                              _roomCounter++;
-                              drawingPath = null;
-                            });
-                          }
-                        },
-                        child: CustomPaint(
-                          size: const Size(2000, 2000),
-                          painter: FloorPainter(
-                            rooms: rooms,
-                            doors: doors,
-                            selectedRoom: selectedRoom,
-                            selectedDoor: selectedDoor,
-                            previewPath: drawingPath,
+                            },
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
+                // Right Sidebar - Structure/Adding Elements
+                _rightSidebar(),
               ],
             ),
           ),
-          // Right Sidebar - Structure/Adding Elements
-          _rightSidebar(),
-        ],
+        ),
       ),
     );
   }
@@ -701,6 +1216,14 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
             style: TextButton.styleFrom(foregroundColor: Colors.blue),
           ),
           const SizedBox(width: 8),
+          // Background image button
+          TextButton.icon(
+            onPressed: () => _uploadBackgroundImage(),
+            icon: const Icon(Icons.image, size: 18),
+            label: const Text("Background"),
+            style: TextButton.styleFrom(foregroundColor: Colors.blue),
+          ),
+          const SizedBox(width: 8),
           IconButton(icon: const Icon(Icons.close), onPressed: () {}),
           ElevatedButton.icon(
             onPressed: () => _downloadSVG(),
@@ -732,12 +1255,14 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
           ),
           TextButton(
             onPressed: () {
+              _saveState();
               setState(() {
                 rooms.clear();
                 doors.clear();
                 selectedRoom = null;
                 selectedDoor = null;
                 _roomCounter = 1;
+                _updateCanvasSize();
               });
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
@@ -752,6 +1277,92 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
         ],
       ),
     );
+  }
+
+  // Upload background image
+  Future<void> _uploadBackgroundImage() async {
+    try {
+      FilePickerResult? result;
+
+      if (kIsWeb) {
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['png', 'jpg', 'jpeg'],
+          withData: true,
+        );
+      } else {
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['png', 'jpg', 'jpeg'],
+        );
+      }
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.single;
+
+        if (file.extension == 'png' ||
+            file.extension == 'jpg' ||
+            file.extension == 'jpeg') {
+          Uint8List imageBytes;
+
+          if (kIsWeb) {
+            final bytes = file.bytes;
+            if (bytes == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Error: Could not read file data'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+              return;
+            }
+            imageBytes = bytes;
+          } else {
+            final filePath = file.path;
+            if (filePath == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Error: Could not read file path'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+              return;
+            }
+            imageBytes = await File(filePath).readAsBytes();
+          }
+
+          // Decode image to get dimensions
+          final codec = await ui.instantiateImageCodec(imageBytes);
+          final frame = await codec.getNextFrame();
+          final image = frame.image;
+
+          setState(() {
+            _backgroundImageBytes = imageBytes;
+            _backgroundImageWidth = image.width.toDouble();
+            _backgroundImageHeight = image.height.toDouble();
+            // Update canvas size to match image dimensions
+            _updateCanvasSize();
+          });
+
+          image.dispose();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Background image uploaded successfully'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error uploading background image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error uploading image: ${e.toString()}'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   // Open SVG file
@@ -852,7 +1463,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
 
         // Check if this is a room (has fill color) or a door line (just stroke)
         if (fill != null && fill != 'none') {
-          // This is a room
+          // This is a room - paths are in original coordinates, no adjustment needed
           final roomPath = _parseSVGPath(pathData);
           final fillColor = _hexToColor(fill);
 
@@ -973,6 +1584,12 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
         selectedRoom = null;
         selectedDoor = null;
         _roomCounter = roomIndex;
+        _updateCanvasSize();
+      });
+
+      // Fit view to show all content after loading
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fitToView();
       });
     } catch (e) {
       debugPrint('Error parsing SVG: $e');
@@ -1208,6 +1825,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
           ),
           onSubmitted: (value) {
             if (value.trim().isNotEmpty) {
+              _saveState();
               setState(() {
                 selectedRoom!.name = value.trim();
               });
@@ -1223,6 +1841,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
           TextButton(
             onPressed: () {
               if (controller.text.trim().isNotEmpty) {
+                _saveState();
                 setState(() {
                   selectedRoom!.name = controller.text.trim();
                 });
@@ -1253,6 +1872,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
           _sidebarButton(Icons.add, "New", () => _createNew()),
           _sidebarButton(Icons.folder_open, "Open", () => _openSVG()),
           _sidebarButton(Icons.clear_all_outlined, "Clear All", () {
+            _saveState();
             setState(() {
               // Clear all rooms and doors
               rooms.clear();
@@ -1272,6 +1892,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
               selectedColor = null;
               // Reset room counter
               _roomCounter = 1;
+              _updateCanvasSize();
             });
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -1281,18 +1902,25 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
             );
           }),
           _sidebarButton(Icons.save, "Save", () => _downloadSVG()),
+          _sidebarButton(Icons.fit_screen, "Fit to View", () {
+            _fitToView();
+          }),
           const Divider(),
           // Editing tools
           _sidebarButton(Icons.delete, "Delete", () {
-            if (selectedRoom != null) {
+            if (selectedRoom != null || selectedDoor != null) {
+              _saveState();
               setState(() {
-                rooms.remove(selectedRoom);
-                selectedRoom = null;
-              });
-            } else if (selectedDoor != null) {
-              setState(() {
-                doors.remove(selectedDoor);
-                selectedDoor = null;
+                if (selectedRoom != null) {
+                  // Remove all doors associated with this room
+                  doors.removeWhere((door) => door.roomId == selectedRoom!.id);
+                  rooms.remove(selectedRoom);
+                  selectedRoom = null;
+                } else if (selectedDoor != null) {
+                  doors.remove(selectedDoor);
+                  selectedDoor = null;
+                }
+                _updateCanvasSize();
               });
             }
           }),
@@ -1302,17 +1930,25 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
               _showColorPicker(context);
             }
           }),
+          const Spacer(),
+          _sidebarButton(Icons.undo, "Undo", _undo, enabled: _canUndo),
+          _sidebarButton(Icons.redo, "Redo", _redo, enabled: _canRedo),
         ],
       ),
     );
   }
 
-  Widget _sidebarButton(IconData icon, String tooltip, VoidCallback onPressed) {
+  Widget _sidebarButton(
+    IconData icon,
+    String tooltip,
+    VoidCallback onPressed, {
+    bool enabled = true,
+  }) {
     return Tooltip(
       message: tooltip,
       child: IconButton(
         icon: Icon(icon),
-        onPressed: onPressed,
+        onPressed: enabled ? onPressed : null,
         tooltip: tooltip,
       ),
     );
@@ -1342,6 +1978,9 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
                 final isSelected = selectedColor == color;
                 return GestureDetector(
                   onTap: () {
+                    if (selectedRoom != null) {
+                      _saveState();
+                    }
                     setState(() {
                       selectedColor = color;
                       // Apply to selected room if one is selected
@@ -1386,6 +2025,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
               crossAxisSpacing: 8,
               children: [
                 _structureButton(Icons.crop_square, "Square room", () {
+                  _saveState();
                   setState(() {
                     rooms.add(
                       Room(
@@ -1396,9 +2036,11 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
                       ),
                     );
                     _roomCounter++;
+                    _updateCanvasSize();
                   });
                 }),
                 _structureButton(Icons.crop_square, "L-shape room", () {
+                  _saveState();
                   setState(() {
                     rooms.add(
                       Room(
@@ -1409,9 +2051,11 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
                       ),
                     );
                     _roomCounter++;
+                    _updateCanvasSize();
                   });
                 }),
                 _structureButton(Icons.account_tree, "U-shape room", () {
+                  _saveState();
                   setState(() {
                     rooms.add(
                       Room(
@@ -1422,9 +2066,11 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
                       ),
                     );
                     _roomCounter++;
+                    _updateCanvasSize();
                   });
                 }),
                 _structureButton(Icons.call_split, "T-shape room", () {
+                  _saveState();
                   setState(() {
                     rooms.add(
                       Room(
@@ -1435,9 +2081,11 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
                       ),
                     );
                     _roomCounter++;
+                    _updateCanvasSize();
                   });
                 }),
                 _structureButton(Icons.circle, "Circular room", () {
+                  _saveState();
                   setState(() {
                     rooms.add(
                       Room(
@@ -1448,6 +2096,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
                       ),
                     );
                     _roomCounter++;
+                    _updateCanvasSize();
                   });
                 }),
                 _structureButton(Icons.edit, "Walls", () {
@@ -1487,6 +2136,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
             return GestureDetector(
               onTap: () {
                 if (selectedRoom != null) {
+                  _saveState();
                   setState(() {
                     selectedRoom!.fillColor = color;
                     selectedColor = color;
@@ -1579,42 +2229,79 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
   }
 
   // Generate SVG content from rooms and doors
-  String _generateSVG() {
-    // Calculate overall bounds
-    Rect? overallBounds;
-    for (final room in rooms) {
-      final bounds = room.path.getBounds();
-      overallBounds = overallBounds == null
-          ? bounds
-          : overallBounds.expandToInclude(bounds);
-    }
+  Future<String> _generateSVG() async {
+    // Use background image dimensions if available, otherwise calculate from rooms
+    double width;
+    double height;
 
-    if (overallBounds == null) {
-      overallBounds = const Rect.fromLTWH(0, 0, 2000, 2000);
-    }
+    if (_backgroundImageBytes != null &&
+        _backgroundImageWidth != null &&
+        _backgroundImageHeight != null) {
+      // Use exact background image dimensions
+      width = _backgroundImageWidth!;
+      height = _backgroundImageHeight!;
+      // viewBox starts at (0,0) to match the image exactly
+    } else {
+      // Calculate overall bounds from rooms
+      Rect? overallBounds;
+      for (final room in rooms) {
+        final bounds = room.path.getBounds();
+        overallBounds = overallBounds == null
+            ? bounds
+            : overallBounds.expandToInclude(bounds);
+      }
 
-    // Add padding
-    final padding = 50.0;
-    final width = overallBounds.width + (padding * 2);
-    final height = overallBounds.height + (padding * 2);
-    final viewBoxX = overallBounds.left - padding;
-    final viewBoxY = overallBounds.top - padding;
+      if (overallBounds == null) {
+        overallBounds = const Rect.fromLTWH(0, 0, 2000, 2000);
+      }
+
+      // Add padding
+      final padding = 50.0;
+      width = overallBounds.width + (padding * 2);
+      height = overallBounds.height + (padding * 2);
+    }
 
     final buffer = StringBuffer();
     buffer.writeln('<?xml version="1.0" encoding="UTF-8"?>');
     buffer.writeln(
       '<svg xmlns="http://www.w3.org/2000/svg" '
+      'xmlns:xlink="http://www.w3.org/1999/xlink" '
       'width="${width.toStringAsFixed(0)}" '
       'height="${height.toStringAsFixed(0)}" '
-      'viewBox="$viewBoxX $viewBoxY $width $height">',
+      'viewBox="0 0 $width $height">',
     );
 
-    // Background
-    buffer.writeln(
-      '  <rect x="$viewBoxX" y="$viewBoxY" width="$width" height="$height" fill="#E3F2FD"/>',
-    );
+    // Background - use image if available, otherwise use color
+    if (_backgroundImageBytes != null) {
+      // Convert image to base64
+      final base64Image = base64Encode(_backgroundImageBytes!);
 
-    // Draw rooms
+      // Determine image type
+      String imageType = 'png';
+      if (_backgroundImageBytes!.length >= 2) {
+        if (_backgroundImageBytes![0] == 0xFF &&
+            _backgroundImageBytes![1] == 0xD8) {
+          imageType = 'jpeg';
+        } else if (_backgroundImageBytes![0] == 0x89 &&
+            _backgroundImageBytes![1] == 0x50) {
+          imageType = 'png';
+        }
+      }
+
+      // Add background image - positioned at (0,0) with exact dimensions
+      buffer.writeln(
+        '  <image x="0" y="0" width="$width" height="$height" '
+        'xlink:href="data:image/$imageType;base64,$base64Image" '
+        'preserveAspectRatio="none"/>',
+      );
+    } else {
+      // Default background color
+      buffer.writeln(
+        '  <rect x="0" y="0" width="$width" height="$height" fill="#E3F2FD"/>',
+      );
+    }
+
+    // Draw rooms (using original coordinates, viewBox handles the viewport)
     for (final room in rooms) {
       final pathData = _pathToSvgPathData(room.path);
       final fillColor = _colorToHex(room.fillColor);
@@ -1624,7 +2311,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
         '  <path d="$pathData" fill="$fillColor" stroke="#424242" stroke-width="3"/>',
       );
 
-      // Room name and area (as text)
+      // Room name and area (as text) - using original coordinates
       final bounds = room.path.getBounds();
       final center = bounds.center;
       final area = _calculateArea(room.path);
@@ -1638,13 +2325,13 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
       );
     }
 
-    // Draw doors (as gaps with swing arcs)
+    // Draw doors (as gaps with swing arcs) - using original coordinates
     for (final door in doors) {
       final bounds = door.path.getBounds();
       final center = bounds.center;
       final doorLength = math.max(bounds.width, bounds.height);
 
-      // Calculate door opening lines
+      // Calculate door opening lines (using original coordinates)
       Offset doorLineStart;
       Offset doorLineEnd;
 
@@ -1668,6 +2355,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
         default:
           continue;
       }
+      ;
 
       // Draw door gap lines
       if (door.edge == 'top' || door.edge == 'bottom') {
@@ -1700,7 +2388,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
   }
 
   // Download SVG file
-  void _downloadSVG() {
+  Future<void> _downloadSVG() async {
     if (rooms.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1712,7 +2400,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
     }
 
     try {
-      final svgContent = _generateSVG();
+      final svgContent = await _generateSVG();
 
       if (kIsWeb) {
         // Web: Use browser download
@@ -1811,6 +2499,7 @@ class FloorPainter extends CustomPainter {
   final Room? selectedRoom;
   final Door? selectedDoor;
   final Path? previewPath;
+  final bool hasBackgroundImage;
 
   FloorPainter({
     required this.rooms,
@@ -1818,6 +2507,7 @@ class FloorPainter extends CustomPainter {
     this.selectedRoom,
     this.selectedDoor,
     this.previewPath,
+    this.hasBackgroundImage = false,
   });
 
   @override
@@ -1967,83 +2657,120 @@ class FloorPainter extends CustomPainter {
     final bounds = door.path.getBounds();
     final center = bounds.center;
     final doorWidth = math.max(bounds.width, bounds.height);
+    // Door panel length matches the door opening size (the cutout)
+    final doorPanelLength = doorWidth;
+    final doorPanelThickness = 2.5; // Thickness of door panel line
+    // Arc radius matches the door opening size (the cutout)
+    final arcRadius = doorWidth;
 
-    // Determine door opening lines based on door edge
-    Offset doorLineStart;
-    Offset doorLineEnd;
+    final doorPaint = Paint()
+      ..color = Colors.black87
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = doorPanelThickness;
+
+    // Light fill paint for arc enclosure
+    final arcFillPaint = Paint()
+      ..color = Colors.grey.shade200.withOpacity(0.5)
+      ..style = PaintingStyle.fill;
+
+    // Border paint for arc
+    final arcBorderPaint = Paint()
+      ..color = Colors.grey.shade400
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    Offset doorHingePoint;
+    Offset doorEndPoint; // Door panel end point (in open position, 90 degrees)
+    Offset arcCenter;
+    double startAngle;
+    double sweepAngle;
 
     switch (door.edge) {
       case 'top':
-        doorLineStart = Offset(center.dx - doorWidth / 2, center.dy);
-        doorLineEnd = Offset(center.dx + doorWidth / 2, center.dy);
+        // Door on top edge, hinged on LEFT, swings down/right (into room)
+        // Hinge is at the left end so arc starts from the right (cut edge)
+        doorHingePoint = Offset(center.dx - doorWidth / 2, center.dy);
+        // Door panel rotated 90 degrees down from wall
+        doorEndPoint = Offset(
+          center.dx - doorWidth / 2,
+          center.dy + doorPanelLength,
+        );
+        // Arc center is at the hinge (left end), arc starts from right (cut edge) and sweeps down
+        arcCenter = doorHingePoint;
+        startAngle =
+            0; // Start at 0 degrees (pointing right along the wall - the cut edge)
+        sweepAngle = math.pi / 2; // 90 degree arc swinging down into the room
         break;
       case 'bottom':
-        doorLineStart = Offset(center.dx - doorWidth / 2, center.dy);
-        doorLineEnd = Offset(center.dx + doorWidth / 2, center.dy);
+        // Door on bottom edge, hinged on left, swings up/right (into room)
+        doorHingePoint = Offset(center.dx - doorWidth / 2, center.dy);
+        // Door panel rotated 90 degrees up from wall
+        doorEndPoint = Offset(
+          center.dx - doorWidth / 2,
+          center.dy - doorPanelLength,
+        );
+        arcCenter = doorHingePoint;
+        startAngle = -math.pi / 2; // Start at -90 degrees (pointing up)
+        sweepAngle = math.pi / 2; // 90 degree arc
         break;
       case 'left':
-        doorLineStart = Offset(center.dx, center.dy - doorWidth / 2);
-        doorLineEnd = Offset(center.dx, center.dy + doorWidth / 2);
+        // Door on left edge, hinged on top, swings right/down (into room)
+        doorHingePoint = Offset(center.dx, center.dy - doorWidth / 2);
+        // Door panel rotated 90 degrees right from wall
+        doorEndPoint = Offset(
+          center.dx + doorPanelLength,
+          center.dy - doorWidth / 2,
+        );
+        arcCenter = doorHingePoint;
+        startAngle = 0; // Start at 0 degrees (pointing right)
+        sweepAngle = math.pi / 2; // 90 degree arc
         break;
       case 'right':
-        doorLineStart = Offset(center.dx, center.dy - doorWidth / 2);
-        doorLineEnd = Offset(center.dx, center.dy + doorWidth / 2);
+        // Door on right edge, hinged on BOTTOM, swings left/up (into room)
+        // Hinge is at the bottom end so arc starts from the top (cut edge)
+        doorHingePoint = Offset(center.dx, center.dy + doorWidth / 2);
+        // Door panel rotated 90 degrees left from wall
+        doorEndPoint = Offset(
+          center.dx - doorPanelLength,
+          center.dy + doorWidth / 2,
+        );
+        // Arc center is at the hinge (bottom end), arc starts from top (cut edge)
+        arcCenter = doorHingePoint;
+        startAngle =
+            -math.pi /
+            2; // Start at -90 degrees (pointing up along the wall - the cut edge)
+        sweepAngle = -math.pi / 2; // 90 degree arc swinging left
         break;
       default:
         return;
     }
 
-    // Draw door opening indicators (small perpendicular lines at gap edges)
-    // These show where the wall gap is
-    final gapPaint = Paint()
-      ..color = Colors.black87
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+    // Draw door panel (straight line from hinge to end point, showing door in open position at 90 degrees)
+    canvas.drawLine(doorHingePoint, doorEndPoint, doorPaint);
 
-    // Draw small perpendicular lines to indicate the gap
-    if (door.edge == 'top' || door.edge == 'bottom') {
-      // Horizontal door - draw vertical indicator lines
-      final indicatorLength = 6.0;
-      canvas.drawLine(
-        doorLineStart,
-        Offset(
-          doorLineStart.dx,
-          doorLineStart.dy -
-              (door.edge == 'top' ? indicatorLength : -indicatorLength),
-        ),
-        gapPaint,
-      );
-      canvas.drawLine(
-        doorLineEnd,
-        Offset(
-          doorLineEnd.dx,
-          doorLineEnd.dy -
-              (door.edge == 'top' ? indicatorLength : -indicatorLength),
-        ),
-        gapPaint,
-      );
-    } else {
-      // Vertical door - draw horizontal indicator lines
-      final indicatorLength = 6.0;
-      canvas.drawLine(
-        doorLineStart,
-        Offset(
-          doorLineStart.dx -
-              (door.edge == 'left' ? indicatorLength : -indicatorLength),
-          doorLineStart.dy,
-        ),
-        gapPaint,
-      );
-      canvas.drawLine(
-        doorLineEnd,
-        Offset(
-          doorLineEnd.dx -
-              (door.edge == 'left' ? indicatorLength : -indicatorLength),
-          doorLineEnd.dy,
-        ),
-        gapPaint,
-      );
-    }
+    // Create enclosed arc path (quarter circle sector showing swing direction)
+    final arcPath = Path();
+    final arcRect = Rect.fromCircle(center: arcCenter, radius: arcRadius);
+
+    // Move to center (hinge point)
+    arcPath.moveTo(arcCenter.dx, arcCenter.dy);
+
+    // Draw line to start of arc (from hinge to arc start)
+    final arcStartX = arcCenter.dx + arcRadius * math.cos(startAngle);
+    final arcStartY = arcCenter.dy + arcRadius * math.sin(startAngle);
+    arcPath.lineTo(arcStartX, arcStartY);
+
+    // Draw quarter-circle arc showing door swing (90 degrees)
+    arcPath.arcTo(arcRect, startAngle, sweepAngle, false);
+
+    // Close path back to center (hinge point) to create enclosed sector
+    arcPath.close();
+
+    // Draw filled arc enclosure with light background
+    canvas.drawPath(arcPath, arcFillPaint);
+
+    // Draw border around the arc enclosure
+    canvas.drawPath(arcPath, arcBorderPaint);
   }
 
   void _drawRoomBorderWithDoors(Canvas canvas, Room room, Paint borderPaint) {
@@ -2061,9 +2788,12 @@ class FloorPainter extends CustomPainter {
         final openingBounds = doorOpening.getBounds();
 
         // Draw canvas background color to create gap in border
+        // Use transparent if background image is present, otherwise use light blue
         final gapPaint = Paint()
-          ..color =
-              const Color(0xFFE3F2FD) // Canvas background color
+          ..color = hasBackgroundImage
+              ? Colors
+                    .transparent // Transparent when background image is present
+              : const Color(0xFFE3F2FD) // Canvas background color (light blue)
           ..style = PaintingStyle.fill;
 
         // Create a wider rectangle to cover the border line
@@ -2145,6 +2875,7 @@ class FloorPainter extends CustomPainter {
       (start.dx + end.dx) / 2 - textPainter.width / 2,
       (start.dy + end.dy) / 2 - textPainter.height / 2,
     );
+
     textPainter.paint(canvas, labelPos);
   }
 
@@ -2155,4 +2886,17 @@ class FloorPainter extends CustomPainter {
 // Helper class for type checking
 abstract class PlanItem {
   Path get path;
+}
+
+// Intent classes for keyboard shortcuts
+class UndoIntent extends Intent {
+  const UndoIntent();
+}
+
+class RedoIntent extends Intent {
+  const RedoIntent();
+}
+
+class DeleteIntent extends Intent {
+  const DeleteIntent();
 }

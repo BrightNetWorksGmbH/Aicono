@@ -140,9 +140,7 @@ class _LoginFormState extends State<LoginForm> {
                 if (tokenToUse != null) {
                   context.pushNamed(
                     Routelists.activateSwitchboard,
-                    queryParameters: {
-                      'token': tokenToUse,
-                    },
+                    queryParameters: {'token': tokenToUse},
                   );
                 }
                 return;
@@ -175,9 +173,7 @@ class _LoginFormState extends State<LoginForm> {
                 if (tokenToUse != null) {
                   context.pushNamed(
                     Routelists.activateSwitchboard,
-                    queryParameters: {
-                      'token': tokenToUse,
-                    },
+                    queryParameters: {'token': tokenToUse},
                   );
                 }
                 return;

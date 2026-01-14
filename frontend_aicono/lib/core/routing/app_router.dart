@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
@@ -24,6 +25,9 @@ import 'package:frontend_aicono/features/switch_creation/presentation/pages/sele
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_additional_buildings_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/set_building_details_page.dart';
 import 'package:frontend_aicono/features/superadmin/presentation/pages/add_verse_super_page.dart';
+import 'package:frontend_aicono/features/Building/presentation/pages/building_list_page.dart';
+import 'package:frontend_aicono/features/Building/presentation/pages/building_onboarding_page.dart';
+import 'package:frontend_aicono/features/Building/presentation/pages/floor_plan_activation_page.dart';
 
 /// App router configuration using go_router
 class AppRouter {
@@ -529,6 +533,37 @@ class AppRouter {
       pageBuilder: (context, state) =>
           _buildPage(context, state, const AddVerseSuperPage()),
     ),
+    GoRoute(
+      path: '/${Routelists.floorPlanActivation}',
+      name: Routelists.floorPlanActivation,
+      pageBuilder: (context, state) {
+        final imageBytes = state.extra as Uint8List?;
+        return _buildPage(
+          context,
+          state,
+          FloorPlanActivationPage(initialImageBytes: imageBytes),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.buildingList}',
+      name: Routelists.buildingList,
+      pageBuilder: (context, state) {
+        return _buildPage(context, state, const BuildingListPage());
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.buildingOnboarding}',
+      name: Routelists.buildingOnboarding,
+      pageBuilder: (context, state) {
+        final buildingId = state.uri.queryParameters['buildingId'];
+        return _buildPage(
+          context,
+          state,
+          BuildingOnboardingPage(buildingId: buildingId),
+        );
+      },
+    ),
   ];
 
   static Page<dynamic> _buildPage(
@@ -545,11 +580,13 @@ class AppRouter {
     String name, {
     Map<String, String> pathParameters = const {},
     Map<String, dynamic> queryParameters = const {},
+    Object? extra,
   }) {
     context.pushNamed(
       name,
       pathParameters: pathParameters,
       queryParameters: queryParameters,
+      extra: extra,
     );
   }
 
