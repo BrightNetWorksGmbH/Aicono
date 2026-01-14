@@ -49,4 +49,8 @@ class Routelists {
   static const addAdditionalBuildings = 'add-additional-buildings';
   static const additionalBuildingList = 'additional-building-list';
   static const setBuildingDetails = 'set-building-details';
+  static const buildingFloorManagement = 'building-floor-management';
+  static const floorPlanActivation = 'floor-plan-activation';
+  static const buildingList = 'building-list';
+  static const buildingOnboarding = 'building-onboarding';
 }
