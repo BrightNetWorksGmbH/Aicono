@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
+import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:frontend_aicono/core/services/auth_service.dart';
+import 'package:frontend_aicono/core/routing/routeLists.dart';
 
-/// UI-only top header skeleton (no Bloc, routing, or services).
+/// Top header widget with menu, language switcher, and logout functionality.
 ///
-/// You can later pass real data via [userInitial], [verseInitial] and wire
+/// You can pass real data via [userInitial], [verseInitial] and wire
 /// behaviour via [onMenuTap] / [onLanguageChanged].
 class TopHeader extends StatelessWidget {
   final VoidCallback? onMenuTap;
@@ -206,42 +211,57 @@ class TopHeader extends StatelessWidget {
           ),
         ),
       ],
-    ).then((value) {
-      // Skeleton only – handle `value` when integrating.
+    ).then((value) async {
+      if (value == 'logout') {
+        await _handleLogout(context);
+      }
     });
   }
 
   Widget _buildLanguageOptions(BuildContext context) {
+    final currentLocale = context.locale;
+
     return Column(
       children: [
         _buildLanguageOption(
+          context: context,
+          locale: const Locale('en'),
           label: 'English',
-          isSelected: true,
-          onTap: () {
-            onLanguageChanged();
-            Navigator.of(context).pop();
-          },
+          isSelected: currentLocale.languageCode == 'en',
         ),
         const SizedBox(height: 4),
         _buildLanguageOption(
+          context: context,
+          locale: const Locale('de'),
           label: 'Deutsch',
-          isSelected: false,
-          onTap: () {
-            onLanguageChanged();
-            Navigator.of(context).pop();
-          },
+          isSelected: currentLocale.languageCode == 'de',
         ),
       ],
     );
   }
 
   Widget _buildLanguageOption({
+    required BuildContext context,
+    required Locale locale,
     required String label,
     required bool isSelected,
-    required VoidCallback onTap,
   }) {
     return InkWell(
-      onTap: onTap,
+      onTap: () async {
+        await context.setLocale(locale);
+        if (!context.mounted) return;
+
+        // Close the current menu
+        Navigator.pop(context);
+
+        // Notify parent to rebuild
+        onLanguageChanged();
+
+        // Small delay to ensure locale is updated, then reopen menu
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (!context.mounted) return;
+        _showMenuPopup(context);
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         child: Row(
@@ -249,7 +269,21 @@ class TopHeader extends StatelessWidget {
             Radio<bool>(
               value: true,
               groupValue: isSelected,
-              onChanged: (_) => onTap(),
+              onChanged: (value) async {
+                await context.setLocale(locale);
+                if (!context.mounted) return;
+
+                // Close the current menu
+                Navigator.pop(context);
+
+                // Notify parent to rebuild
+                onLanguageChanged();
+
+                // Small delay to ensure locale is updated, then reopen menu
+                await Future.delayed(const Duration(milliseconds: 100));
+                if (!context.mounted) return;
+                _showMenuPopup(context);
+              },
             ),
             const SizedBox(width: 4),
             Text(
@@ -263,5 +297,27 @@ class TopHeader extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _handleLogout(BuildContext context) async {
+    try {
+      final authService = sl<AuthService>();
+      await authService.logout();
+
+      // Navigate to login page after successful logout
+      if (context.mounted) {
+        context.goNamed(Routelists.login);
+      }
+    } catch (e) {
+      // If logout fails, still try to clear local state and navigate
+      try {
+        sl<AuthService>().clearAuth();
+        if (context.mounted) {
+          context.goNamed(Routelists.login);
+        }
+      } catch (_) {
+        // If navigation fails, at least we tried
+      }
+    }
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
+import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/features/superadmin/presentation/bloc/verse_list_bloc/verse_list_bloc.dart';
 import 'package:frontend_aicono/features/superadmin/presentation/bloc/verse_list_bloc/verse_list_event.dart';
@@ -23,7 +24,7 @@ class _AddVerseSuperPageState extends State<AddVerseSuperPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   void _handleLanguageChanged() {
-    // setState(() {});
+    setState(() {});
   }
 
   @override
@@ -76,6 +77,12 @@ class _AddVerseSuperPageState extends State<AddVerseSuperPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
+                                  // Top Header
+                                  TopHeader(
+                                    onLanguageChanged: _handleLanguageChanged,
+                                    containerWidth: screenSize.width,
+                                  ),
+                                  const SizedBox(height: 32),
                                   // Page Title
                                   Text(
                                     'superadmin.title'.tr(),
