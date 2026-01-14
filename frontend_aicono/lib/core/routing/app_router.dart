@@ -24,10 +24,12 @@ import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/select_resources_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_additional_buildings_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/set_building_details_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_floor_management_page.dart';
 import 'package:frontend_aicono/features/superadmin/presentation/pages/add_verse_super_page.dart';
 import 'package:frontend_aicono/features/Building/presentation/pages/building_list_page.dart';
 import 'package:frontend_aicono/features/Building/presentation/pages/building_onboarding_page.dart';
 import 'package:frontend_aicono/features/Building/presentation/pages/floor_plan_activation_page.dart';
+import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 
 /// App router configuration using go_router
 class AppRouter {
@@ -506,6 +508,36 @@ class AppRouter {
             userName: userName,
             buildingAddress: buildingAddress,
           ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.buildingFloorManagement}',
+      name: Routelists.buildingFloorManagement,
+      pageBuilder: (context, state) {
+        final buildingName =
+            state.uri.queryParameters['buildingName'] ?? 'Building';
+        final buildingAddress = state.uri.queryParameters['buildingAddress'];
+        final numberOfFloors =
+            int.tryParse(state.uri.queryParameters['numberOfFloors'] ?? '1') ??
+            1;
+        final totalArea = double.tryParse(
+          state.uri.queryParameters['totalArea'] ?? '',
+        );
+        final constructionYear = state.uri.queryParameters['constructionYear'];
+
+        final building = BuildingEntity(
+          name: buildingName,
+          address: buildingAddress,
+          numberOfFloors: numberOfFloors,
+          totalArea: totalArea,
+          constructionYear: constructionYear,
+        );
+
+        return _buildPage(
+          context,
+          state,
+          BuildingFloorManagementPage(building: building),
         );
       },
     ),

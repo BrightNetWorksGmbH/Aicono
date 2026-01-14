@@ -879,7 +879,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
         // For web, convert SVG string to bytes and download
         try {
           final svgBytes = utf8.encode(svgContent);
-          // await _downloadFileWeb(svgBytes, fileName, 'image/svg+xml');
+          await _downloadFileWeb(svgBytes, fileName, 'image/svg+xml');
           _showSuccess('SVG downloaded successfully');
           saveSuccess = true;
         } catch (e) {

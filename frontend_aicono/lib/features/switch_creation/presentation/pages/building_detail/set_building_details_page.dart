@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
+import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/widget/building_detail_widget/set_building_details_widget.dart';
 
 class SetBuildingDetailsPage extends StatefulWidget {
@@ -19,6 +20,9 @@ class SetBuildingDetailsPage extends StatefulWidget {
 }
 
 class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
+  Map<String, String?> _buildingDetails = {};
+  String? _buildingName = 'Building';
+
   void _handleLanguageChanged() {
     setState(() {});
   }
@@ -30,15 +34,33 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
   }
 
   void _handleBuildingDetailsChanged(Map<String, String?> details) {
-    // Handle building details changes if needed
-    // Currently not used but kept for future integration
+    setState(() {
+      _buildingDetails = details;
+    });
   }
 
   void _handleContinue() {
-    // Navigate back to the previous page (add additional buildings page)
-    if (context.canPop()) {
-      context.pop();
-    }
+    // Navigate to floor management page with building details
+    final numberOfFloors = _buildingDetails['rooms'] != null
+        ? int.tryParse(_buildingDetails['rooms']!)
+        : 1;
+
+    final totalArea = _buildingDetails['size'] != null
+        ? double.tryParse(_buildingDetails['size']!)
+        : null;
+
+    context.pushNamed(
+      Routelists.buildingFloorManagement,
+      queryParameters: {
+        'buildingName': _buildingName,
+        if (widget.buildingAddress != null)
+          'buildingAddress': widget.buildingAddress!,
+        'numberOfFloors': (numberOfFloors ?? 1).toString(),
+        if (totalArea != null) 'totalArea': totalArea.toString(),
+        if (_buildingDetails['year'] != null)
+          'constructionYear': _buildingDetails['year']!,
+      },
+    );
   }
 
   void _handleSkip() {

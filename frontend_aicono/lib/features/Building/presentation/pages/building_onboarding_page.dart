@@ -184,6 +184,16 @@ class _BuildingOnboardingPageState extends State<BuildingOnboardingPage> {
                         building: _buildingData!,
                         onNext: _saveBuilding,
                         onSkip: _saveBuilding,
+                        onBack: () {
+                          // Go back to previous step (Building Appearance)
+                          setState(() {
+                            _currentStep = 0;
+                          });
+                          _pageController.previousPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
                         onEditFloor: _editFloor,
                         completedFloors: _completedFloors,
                       ),
@@ -192,6 +202,7 @@ class _BuildingOnboardingPageState extends State<BuildingOnboardingPage> {
                         building: _buildingData!,
                         onNext: _goToFloorList,
                         onSkip: _goToFloorList,
+                        onBack: _goToFloorList,
                         onBuildFloorPlan: () {
                           // Navigate to floor plan editor
                           AppRouter.instance.pushNamed(

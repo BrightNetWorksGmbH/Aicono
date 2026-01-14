@@ -23,6 +23,7 @@ class BuildingFloorPlanStep extends StatefulWidget {
   final BuildingEntity building;
   final VoidCallback onNext;
   final VoidCallback? onSkip;
+  final VoidCallback? onBack;
   final VoidCallback? onBuildFloorPlan;
   final VoidCallback? onAddFloorPlan;
 
@@ -31,6 +32,7 @@ class BuildingFloorPlanStep extends StatefulWidget {
     required this.building,
     required this.onNext,
     this.onSkip,
+    this.onBack,
     this.onBuildFloorPlan,
     this.onAddFloorPlan,
   });
@@ -321,6 +323,28 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                   child: ListView(
                     // crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Back button
+                      if (widget.onBack != null) ...[
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: InkWell(
+                            onTap: widget.onBack,
+                            borderRadius: BorderRadius.circular(8),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 8,
+                              ),
+                              child: Icon(
+                                Icons.arrow_back,
+                                color: Colors.black87,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       // Question with floor number
                       Text(
                         _totalFloors > 1
