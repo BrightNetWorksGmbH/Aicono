@@ -45,6 +45,15 @@ import 'package:frontend_aicono/features/switch_creation/data/datasources/comple
 import 'package:frontend_aicono/features/switch_creation/data/repositories/complete_setup_repository_impl.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/repositories/complete_setup_repository.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/complete_setup_usecase.dart';
+import 'package:frontend_aicono/features/superadmin/data/datasources/verse_remote_datasource.dart';
+import 'package:frontend_aicono/features/superadmin/data/repositories/verse_repository_impl.dart';
+import 'package:frontend_aicono/features/superadmin/domain/repositories/verse_repository.dart';
+import 'package:frontend_aicono/features/superadmin/domain/usecases/create_verse_usecase.dart';
+import 'package:frontend_aicono/features/superadmin/domain/usecases/get_all_verses_usecase.dart';
+import 'package:frontend_aicono/features/superadmin/domain/usecases/delete_verse_usecase.dart';
+import 'package:frontend_aicono/features/superadmin/presentation/bloc/verse_create_bloc/verse_create_bloc.dart';
+import 'package:frontend_aicono/features/superadmin/presentation/bloc/verse_list_bloc/verse_list_bloc.dart';
+import 'package:frontend_aicono/features/superadmin/presentation/bloc/delete_verse_bloc/delete_verse_bloc.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -89,6 +98,10 @@ Future<void> init() async {
     () => CompleteSetupRemoteDataSourceImpl(dioClient: sl()),
   );
 
+  sl.registerLazySingleton<VerseRemoteDataSource>(
+    () => VerseRemoteDataSourceImpl(dioClient: sl()),
+  );
+
   // Repositories - Auth is online-only, Verse is offline-first
   sl.registerLazySingleton<InvitationRepository>(
     () => InvitationRepositoryImpl(remoteDataSource: sl()),
@@ -118,6 +131,10 @@ Future<void> init() async {
     () => CompleteSetupRepositoryImpl(remoteDataSource: sl()),
   );
 
+  sl.registerLazySingleton<VerseRepository>(
+    () => VerseRepositoryImpl(remoteDataSource: sl()),
+  );
+
   // Use cases
   sl.registerLazySingleton(() => InvitationUseCase(sl()));
   sl.registerLazySingleton(() => RegisterUserUseCase(repository: sl()));
@@ -126,6 +143,11 @@ Future<void> init() async {
   sl.registerLazySingleton(() => ResetPasswordUseCase(sl()));
   sl.registerLazySingleton(() => LoginUseCase(repository: sl()));
   sl.registerLazySingleton(() => CompleteSetupUseCase(repository: sl()));
+
+  // Superadmin use cases
+  sl.registerLazySingleton(() => CreateVerseUseCase(repository: sl()));
+  sl.registerLazySingleton(() => GetAllVersesUseCase(repository: sl()));
+  sl.registerLazySingleton(() => DeleteVerseUseCase(repository: sl()));
 
   // Services
   sl.registerLazySingleton(() => AuthService(sl()));
@@ -159,4 +181,9 @@ Future<void> init() async {
   );
   sl.registerLazySingleton(() => UploadImage(sl()));
   sl.registerFactory(() => UploadBloc(sl()));
+
+  // Superadmin blocs
+  sl.registerFactory(() => VerseCreateBloc(createVerseUseCase: sl()));
+  sl.registerFactory(() => VerseListBloc(getAllVersesUseCase: sl()));
+  sl.registerFactory(() => DeleteVerseBloc(deleteVerseUseCase: sl()));
 }

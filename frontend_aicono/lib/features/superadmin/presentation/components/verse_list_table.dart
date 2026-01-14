@@ -172,7 +172,7 @@ class _VerseListTableState extends State<VerseListTable> {
                               color: AppTheme.primary.withOpacity(0.1),
                             ),
                             child: Text(
-                              '${allVerses.length} ${allVerses.length == 1 ? 'Verse' : 'Verses'}',
+                              '${allVerses.length} ${allVerses.length == 1 ? 'Switch' : 'Switches'}',
                               style: AppTextStyles.caption.copyWith(
                                 fontSize:
                                     MediaQuery.of(context).size.width < 768

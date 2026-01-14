@@ -48,7 +48,7 @@ class VerseRemoteDataSourceImpl implements VerseRemoteDataSource {
   ) async {
     try {
       final response = await dioClient.post(
-        '/verse/create-initial',
+        '/api/v1/bryteswitch/create-initial',
         data: request.toJson(),
       );
 

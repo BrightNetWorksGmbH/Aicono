@@ -41,12 +41,12 @@ class CreateVerseRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      'name': name,
-      'admin_email': adminEmail,
+      'organization_name': name,
+      'owner_email': adminEmail,
       'first_name': firstName,
       'last_name': lastName,
       'position': position,
-      'subdomain': subdomain,
+      'sub_domain': subdomain,
     };
   }
 }
@@ -63,23 +63,25 @@ class CreateVerseResponse {
   });
 
   factory CreateVerseResponse.fromJson(Map<String, dynamic> json) {
-    final verseData = json['verse'] as Map<String, dynamic>;
-    final invitationData = json['invitation'] as Map<String, dynamic>;
+    // Handle new API response structure with nested data
+    final data = json['data'] as Map<String, dynamic>? ?? json;
+    final bryteSwitchData = data['bryteSwitch'] as Map<String, dynamic>;
+    final invitationData = data['invitation'] as Map<String, dynamic>;
 
     return CreateVerseResponse(
       message: json['message'] as String,
       verse: VerseEntity(
-        id: verseData['_id'] as String,
-        name: verseData['name'] as String,
-        subdomain: verseData['subdomain'] as String?,
-        organizationName: verseData['organization_name'] as String?,
-        adminEmail: verseData['admin_email'] as String,
-        isSetupComplete: verseData['is_setup_complete'] as bool,
+        id: bryteSwitchData['_id'] as String,
+        name: bryteSwitchData['organization_name'] as String,
+        subdomain: bryteSwitchData['sub_domain'] as String?,
+        organizationName: bryteSwitchData['organization_name'] as String?,
+        adminEmail: bryteSwitchData['owner_email'] as String,
+        isSetupComplete: bryteSwitchData['is_setup_complete'] as bool? ?? false,
         canCreateBrytesight:
-            verseData['can_create_brytesight'] as bool? ?? false,
-        createdAt: DateTime.parse(verseData['created_at'] as String),
-        updatedAt: verseData['updated_at'] != null
-            ? DateTime.parse(verseData['updated_at'] as String)
+            false, // Not provided in response, default to false
+        createdAt: DateTime.parse(bryteSwitchData['created_at'] as String),
+        updatedAt: bryteSwitchData['updated_at'] != null
+            ? DateTime.parse(bryteSwitchData['updated_at'] as String)
             : null,
       ),
       invitationToken: invitationData['token'] as String,
