@@ -22,6 +22,7 @@ import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_property_location_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/select_resources_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_additional_buildings_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/additional_building_list_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/set_building_details_page.dart';
 import 'package:frontend_aicono/features/superadmin/presentation/pages/add_verse_super_page.dart';
 
@@ -492,6 +493,19 @@ class AppRouter {
           context,
           state,
           AddAdditionalBuildingsPage(userName: userName, siteId: siteId),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.additionalBuildingList}',
+      name: Routelists.additionalBuildingList,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        final siteId = state.uri.queryParameters['siteId'];
+        return _buildPage(
+          context,
+          state,
+          AdditionalBuildingListPage(userName: userName, siteId: siteId),
         );
       },
     ),

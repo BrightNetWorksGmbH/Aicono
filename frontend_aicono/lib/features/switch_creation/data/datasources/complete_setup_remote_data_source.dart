@@ -9,6 +9,7 @@ import 'package:frontend_aicono/features/switch_creation/domain/entities/complet
 import 'package:frontend_aicono/features/switch_creation/domain/entities/create_site_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_site_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/create_buildings_entity.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/entities/get_buildings_entity.dart';
 
 abstract class CompleteSetupRemoteDataSource {
   Future<Either<Failure, CompleteSetupResponse>> completeSetup(
@@ -27,6 +28,8 @@ abstract class CompleteSetupRemoteDataSource {
     String siteId,
     CreateBuildingsRequest request,
   );
+
+  Future<Either<Failure, GetBuildingsResponse>> getBuildings(String siteId);
 }
 
 class CompleteSetupRemoteDataSourceImpl
@@ -350,6 +353,75 @@ class CompleteSetupRemoteDataSourceImpl
         print('Response Data: ${e.response?.data}');
         print('Response Headers: ${e.response?.headers}');
         print('Request Data: ${e.requestOptions.data}');
+      }
+
+      return Left(ServerFailure(ErrorExtractor.extractServerMessage(e)));
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Unexpected Error: $e');
+      }
+      return Left(ServerFailure('Unexpected error: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, GetBuildingsResponse>> getBuildings(String siteId) async {
+    try {
+      // Debug: Print the request
+      if (kDebugMode) {
+        print('📤 Get Buildings Request:');
+        print('Site ID: $siteId');
+      }
+
+      final response = await dioClient.get('/api/v1/buildings/site/$siteId');
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+
+        if (responseData['success'] == true || response.statusCode == 200) {
+          final getBuildingsResponse = GetBuildingsResponse.fromJson(
+            responseData is Map<String, dynamic>
+                ? responseData
+                : {'success': true, 'data': responseData},
+          );
+          return Right(getBuildingsResponse);
+        } else {
+          return Left(
+            ServerFailure(
+              responseData['message'] ??
+                  'Failed to fetch buildings. Please try again.',
+            ),
+          );
+        }
+      } else {
+        return Left(
+          ServerFailure(
+            'Failed to fetch buildings with status ${response.statusCode}',
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return Left(ServerFailure('Site not found'));
+      } else if (e.type == DioExceptionType.connectionError) {
+        return Left(
+          ServerFailure(
+            'Cannot connect to server. Please check your internet connection.',
+          ),
+        );
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        return Left(
+          ServerFailure('Request timed out. Please try again.'),
+        );
+      }
+      // Log more details about the error
+      if (kDebugMode && e.response != null) {
+        print('❌ Server Error Details:');
+        print('Status Code: ${e.response?.statusCode}');
+        print('Response Data: ${e.response?.data}');
+        print('Response Headers: ${e.response?.headers}');
       }
 
       return Left(ServerFailure(ErrorExtractor.extractServerMessage(e)));

@@ -5,6 +5,7 @@ import 'package:frontend_aicono/features/switch_creation/domain/entities/complet
 import 'package:frontend_aicono/features/switch_creation/domain/entities/create_site_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_site_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/create_buildings_entity.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/entities/get_buildings_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/repositories/complete_setup_repository.dart';
 
 class CompleteSetupRepositoryImpl implements CompleteSetupRepository {
@@ -39,5 +40,10 @@ class CompleteSetupRepositoryImpl implements CompleteSetupRepository {
     CreateBuildingsRequest request,
   ) async {
     return await remoteDataSource.createBuildings(siteId, request);
+  }
+
+  @override
+  Future<Either<Failure, GetBuildingsResponse>> getBuildings(String siteId) async {
+    return await remoteDataSource.getBuildings(siteId);
   }
 }

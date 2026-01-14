@@ -130,9 +130,15 @@ class _AddAdditionalBuildingsPageState
       child: BlocListener<CreateBuildingsBloc, CreateBuildingsState>(
         listener: (context, state) {
           if (state is CreateBuildingsSuccess) {
-            // Navigate to next step on success
+            // Navigate to additional building list page on success
             if (mounted) {
-              context.pushNamed(Routelists.floorPlanEditor);
+              context.pushNamed(
+                Routelists.additionalBuildingList,
+                queryParameters: {
+                  if (widget.userName != null) 'userName': widget.userName!,
+                  if (widget.siteId != null) 'siteId': widget.siteId!,
+                },
+              );
             }
           } else if (state is CreateBuildingsFailure) {
             // Show error message
