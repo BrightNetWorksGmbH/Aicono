@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
+import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/widget/add_property_location_widget.dart';
 
 class AddPropertyLocationPage extends StatefulWidget {
   final String? userName;
+  final String? switchId;
 
-  const AddPropertyLocationPage({super.key, this.userName});
+  const AddPropertyLocationPage({super.key, this.userName, this.switchId});
 
   @override
   State<AddPropertyLocationPage> createState() =>
@@ -26,11 +30,6 @@ class _AddPropertyLocationPageState extends State<AddPropertyLocationPage> {
     }
   }
 
-  void _handleLocationSelected(String value) {
-    // Handle location selection if needed
-    // Currently not used but kept for future integration
-  }
-
   void _handleSkip() {
     // TODO: navigate to next step or skip location setup
     context.pushNamed(Routelists.floorPlanEditor);
@@ -42,6 +41,7 @@ class _AddPropertyLocationPageState extends State<AddPropertyLocationPage> {
       Routelists.selectResources,
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
+        if (widget.switchId != null) 'switchId': widget.switchId!,
       },
     );
   }
@@ -68,13 +68,15 @@ class _AddPropertyLocationPageState extends State<AddPropertyLocationPage> {
             ),
             child: Column(
               children: [
-                AddPropertyLocationWidget(
-                  userName: widget.userName,
-                  onLanguageChanged: _handleLanguageChanged,
-                  onLocationSelected: _handleLocationSelected,
-                  onBack: _handleBack,
-                  onSkip: _handleSkip,
-                  onContinue: _handleContinue,
+                BlocProvider.value(
+                  value: sl<PropertySetupCubit>(),
+                  child: AddPropertyLocationWidget(
+                    userName: widget.userName,
+                    onLanguageChanged: _handleLanguageChanged,
+                    onBack: _handleBack,
+                    onSkip: _handleSkip,
+                    onContinue: _handleContinue,
+                  ),
                 ),
                 AppFooter(
                   onLanguageChanged: _handleLanguageChanged,

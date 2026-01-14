@@ -13,11 +13,7 @@ class SetPersonalizedLookPage extends StatefulWidget {
   final String? userName;
   final InvitationEntity? invitation;
 
-  const SetPersonalizedLookPage({
-    super.key,
-    this.userName,
-    this.invitation,
-  });
+  const SetPersonalizedLookPage({super.key, this.userName, this.invitation});
 
   @override
   State<SetPersonalizedLookPage> createState() =>
@@ -74,13 +70,19 @@ class _SetPersonalizedLookPageState extends State<SetPersonalizedLookPage> {
                       if (state is SwitchCreationCompleteSuccess) {
                         // Navigate to structure switch page on success
                         if (mounted) {
-                          context.pushNamed(
-                            Routelists.structureSwitch,
-                            queryParameters: {
-                              if (widget.userName != null)
-                                'userName': widget.userName!,
-                            },
-                          );
+                          if (widget.invitation != null &&
+                              widget.invitation!.verseId.isNotEmpty) {
+                            context.pushNamed(
+                              Routelists.structureSwitch,
+                              pathParameters: {
+                                'switchId': widget.invitation!.verseId,
+                              },
+                              queryParameters: {
+                                if (widget.userName != null)
+                                  'userName': widget.userName!,
+                              },
+                            );
+                          }
                         }
                       } else if (state is SwitchCreationCompleteFailure) {
                         // Show error message

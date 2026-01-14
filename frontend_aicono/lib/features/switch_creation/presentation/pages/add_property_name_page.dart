@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
+import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/widget/add_property_name_widget.dart';
 
 class AddPropertyNamePage extends StatefulWidget {
   final String? userName;
+  final String? switchId;
 
-  const AddPropertyNamePage({super.key, this.userName});
+  const AddPropertyNamePage({super.key, this.userName, this.switchId});
 
   @override
   State<AddPropertyNamePage> createState() => _AddPropertyNamePageState();
@@ -30,6 +33,9 @@ class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
   void _handlePropertyNameChanged(String value) {
     setState(() {
       _propertyName = value.trim().isEmpty ? null : value.trim();
+      if (_propertyName != null) {
+        sl<PropertySetupCubit>().setPropertyName(_propertyName!);
+      }
     });
   }
 
@@ -39,13 +45,17 @@ class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
   }
 
   void _handleContinue() {
-    // Navigate to add property location page
-    context.pushNamed(
-      Routelists.addPropertyLocation,
-      queryParameters: {
-        if (widget.userName != null) 'userName': widget.userName!,
-      },
-    );
+    if (_propertyName != null && _propertyName!.isNotEmpty) {
+      sl<PropertySetupCubit>().setPropertyName(_propertyName!);
+      // Navigate to add property location page
+      context.pushNamed(
+        Routelists.addPropertyLocation,
+        queryParameters: {
+          if (widget.userName != null) 'userName': widget.userName!,
+          if (widget.switchId != null) 'switchId': widget.switchId!,
+        },
+      );
+    }
   }
 
   @override

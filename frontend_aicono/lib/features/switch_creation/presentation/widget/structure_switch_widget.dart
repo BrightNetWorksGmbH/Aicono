@@ -9,7 +9,6 @@ class StructureSwitchWidget extends StatelessWidget {
   final VoidCallback onLanguageChanged;
   final VoidCallback? onStartDirectly;
   final VoidCallback? onFindStructure;
-  final VoidCallback? onBack;
 
   const StructureSwitchWidget({
     super.key,
@@ -17,7 +16,6 @@ class StructureSwitchWidget extends StatelessWidget {
     required this.onLanguageChanged,
     this.onStartDirectly,
     this.onFindStructure,
-    this.onBack,
   });
 
   @override
@@ -44,24 +42,6 @@ class StructureSwitchWidget extends StatelessWidget {
                     ? 500
                     : screenSize.width * 0.98,
               ),
-              if (onBack != null) ...[
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: InkWell(
-                    onTap: onBack,
-                    borderRadius: BorderRadius.circular(8),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      child: Icon(
-                        Icons.arrow_back,
-                        color: Colors.black87,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
               const SizedBox(height: 50),
               SizedBox(
                 width: screenSize.width < 600
