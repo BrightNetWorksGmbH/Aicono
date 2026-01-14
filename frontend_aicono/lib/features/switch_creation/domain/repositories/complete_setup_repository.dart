@@ -4,6 +4,7 @@ import 'package:frontend_aicono/features/switch_creation/domain/entities/complet
 import 'package:frontend_aicono/features/switch_creation/domain/entities/create_site_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_site_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/create_buildings_entity.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/entities/get_buildings_entity.dart';
 
 abstract class CompleteSetupRepository {
   Future<Either<Failure, CompleteSetupResponse>> completeSetup(
@@ -22,4 +23,6 @@ abstract class CompleteSetupRepository {
     String siteId,
     CreateBuildingsRequest request,
   );
+
+  Future<Either<Failure, GetBuildingsResponse>> getBuildings(String siteId);
 }
