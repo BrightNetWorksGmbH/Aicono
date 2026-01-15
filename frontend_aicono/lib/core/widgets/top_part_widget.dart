@@ -38,7 +38,7 @@ class TopHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _buildStackedAvatars(),
-          Image.asset('assets/images/bryteversebubbles.png', height: 40),
+          _buildBrandLogo(),
           _buildRightSection(context),
         ],
       ),
@@ -91,6 +91,29 @@ class TopHeader extends StatelessWidget {
           color: Colors.white,
           fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+
+  Widget _buildBrandLogo() {
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: 'BRYTE',
+            style: AppTextStyles.appTitle.copyWith(
+              color: Colors.black,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          TextSpan(
+            text: 'SWITCH',
+            style: AppTextStyles.appTitle.copyWith(
+              color: const Color(0xFF636F57),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }

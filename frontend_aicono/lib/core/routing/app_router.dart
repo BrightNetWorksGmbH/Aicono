@@ -31,6 +31,7 @@ import 'package:frontend_aicono/features/Building/presentation/pages/building_li
 import 'package:frontend_aicono/features/Building/presentation/pages/building_onboarding_page.dart';
 import 'package:frontend_aicono/features/Building/presentation/pages/floor_plan_activation_page.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/page/dashboard_page.dart';
 
 /// App router configuration using go_router
 class AppRouter {
@@ -135,9 +136,9 @@ class AppRouter {
           }
         }
 
-        // If user is authenticated and trying to access login, redirect based on role
+        // If user is authenticated and trying to access login, redirect to dashboard
         if (isAuthenticated && isLoginRoute && !isSuperAdmin) {
-          return null; // Stay on login page for non-super admins
+          return '/dashboard';
         }
 
         // If user is not authenticated and trying to access dashboard, redirect to login
@@ -150,9 +151,9 @@ class AppRouter {
           return '/login';
         }
 
-        // If user is authenticated and on root (non-super admin), redirect to login
+        // If user is authenticated and on root (non-super admin), redirect to dashboard
         if (isAuthenticated && state.uri.path == '/' && !isSuperAdmin) {
-          return '/login';
+          return '/dashboard';
         }
 
         return null; // No redirect needed
@@ -613,6 +614,18 @@ class AppRouter {
           context,
           state,
           BuildingOnboardingPage(buildingId: buildingId),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.dashboard}',
+      name: Routelists.dashboard,
+      pageBuilder: (context, state) {
+        final verseId = state.uri.queryParameters['verseId'];
+        return _buildPage(
+          context,
+          state,
+          DashboardPage(verseId: verseId),
         );
       },
     ),

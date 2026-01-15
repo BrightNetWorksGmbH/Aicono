@@ -167,10 +167,43 @@
     "button_text": "Das passt so"
   },
   "dashboard": {
+    "error": {
+      "failed_to_load_user": "Benutzer konnte nicht geladen werden: {error}",
+      "loading_dashboard": "Fehler beim Laden des Dashboards: {error}",
+      "no_verses_available": "Keine Verse verfügbar"
+    },
     "sidebar": {
       "change_language": "Sprache ändern",
       "english": "Englisch",
-      "deutsch": "Deutsch"
+      "deutsch": "Deutsch",
+      "properties": "Deine Liegenschaften:",
+      "reportings": "Deine Reportings:",
+      "companies": "Deine Unternehmen:",
+      "settings": "Einstellungen",
+      "links": "Verknüpfungen",
+      "statistics": "Statistiken",
+      "add_user": "+ Nutzer hinzufügen",
+      "add_location": "+ Standort hinzufügen",
+      "add_reporting": "+ Reporting hinzufügen",
+      "profile": "Profil",
+      "language": "Sprache",
+      "logout": "Abmelden",
+      "no_entries": "Keine Einträge verfügbar"
+    },
+    "main_content": {
+      "greeting": "Hallo, {name}!",
+      "greeting_fallback": "Hallo, User!",
+      "welcome_back": "Schön, dass Du zurück bist. Lass uns Dein Unternehmen gemeinsam ein bisschen grüner und resilienter machen.",
+      "reporting_preview": "Reporting Preview",
+      "what_do_you_need": "Was brauchst Du gerade?",
+      "enter_measurement_data": "+ Messdaten eingeben",
+      "add_building": "+ Gebäude ergänzen",
+      "add_room": "+ Raum hinzufügen",
+      "add_branding": "+ Branding",
+      "coming_soon": "– coming soon"
+    },
+    "tree_view": {
+      "no_entries": "Keine Einträge verfügbar"
     }
   },
   "common": {
