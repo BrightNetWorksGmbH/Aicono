@@ -39,7 +39,8 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
   void initState() {
     super.initState();
     // Initialize with subdomain from invitation or generate from organization name
-    final subDomain = widget.initialSubDomain ?? _generateSubDomain(widget.organizationName);
+    final subDomain =
+        widget.initialSubDomain ?? _generateSubDomain(widget.organizationName);
     _controller = TextEditingController(text: subDomain);
   }
 
@@ -94,7 +95,11 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
                     borderRadius: BorderRadius.circular(8),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      child: Icon(Icons.arrow_back, color: Colors.black87, size: 24),
+                      child: Icon(
+                        Icons.arrow_back,
+                        color: Colors.black87,
+                        size: 24,
+                      ),
                     ),
                   ),
                 ),
@@ -113,7 +118,7 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
                     Text(
                       'set_subdomain.title'.tr(),
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.headlineSmall.copyWith(
+                      style: AppTextStyles.headlineLarge.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -126,14 +131,14 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
                       decoration: InputDecoration(
                         hintText: 'set_subdomain.hint'.tr(),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(24),
                           borderSide: const BorderSide(
                             color: Colors.black54,
                             width: 2,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide(
                             color: AppTheme.primary,
                             width: 2,
@@ -154,8 +159,9 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+
                       children: [
                         InkWell(
                           onTap:
@@ -165,6 +171,7 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
                                   context.pop();
                                 }
                               },
+
                           child: Text(
                             'set_subdomain.edit_link'.tr(),
                             style: AppTextStyles.bodyMedium.copyWith(
@@ -173,7 +180,7 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 24),
+                        const SizedBox(height: 24),
                         PrimaryOutlineButton(
                           label: 'set_subdomain.button_text'.tr(),
                           width: 260,

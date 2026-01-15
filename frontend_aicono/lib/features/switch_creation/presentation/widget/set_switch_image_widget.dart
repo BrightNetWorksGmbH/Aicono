@@ -41,11 +41,14 @@ class SetSwitchImageWidget extends StatefulWidget {
 
 class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
   final ImagePicker _imagePicker = ImagePicker();
+  bool _skipLogo = false;
   Uint8List? _selectedImageBytes; // For displaying the image
 
   @override
   void initState() {
     super.initState();
+    // Sync local state with widget prop
+    _skipLogo = widget.skipLogo;
     // Load image bytes if selectedImageFile is provided
     _loadImageBytes();
   }
@@ -103,6 +106,12 @@ class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
   @override
   void didUpdateWidget(SetSwitchImageWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Sync local state with widget prop when it changes
+    if (widget.skipLogo != oldWidget.skipLogo) {
+      setState(() {
+        _skipLogo = widget.skipLogo;
+      });
+    }
     // Update image bytes when selectedImageFile changes
     if (widget.selectedImageFile != oldWidget.selectedImageFile) {
       _loadImageBytes();
@@ -116,7 +125,7 @@ class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
     return Padding(
       padding: const EdgeInsets.all(12.0),
       child: Container(
-        height: (screenSize.height * 0.95) + 60,
+        height: (screenSize.height * 0.95) + 70,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -129,9 +138,7 @@ class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
               const SizedBox(height: 20),
               TopHeader(
                 onLanguageChanged: widget.onLanguageChanged,
-                containerWidth: screenSize.width > 500
-                    ? 500
-                    : screenSize.width * 0.98,
+                containerWidth: screenSize.width,
               ),
               if (widget.onBack != null) ...[
                 const SizedBox(height: 16),
@@ -165,7 +172,7 @@ class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
                     Text(
                       'set_switch_image.title'.tr(),
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.headlineSmall.copyWith(
+                      style: AppTextStyles.headlineLarge.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -175,24 +182,23 @@ class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
                       child: _DashedBorder(
                         borderColor: Colors.black54,
                         strokeWidth: 2,
-                        dashLength: 6,
-                        gapLength: 4,
+                        dashLength: 3,
+                        gapLength: 3,
                         borderRadius: 4,
                         child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(32),
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Align(
-                                alignment: Alignment.topRight,
-                                child: InkWell(
-                                  onTap: widget.onVerseChange,
-                                  child: Text(
-                                    'set_switch_image.change_verse'.tr(),
-                                    style: AppTextStyles.bodySmall.copyWith(
-                                      decoration: TextDecoration.underline,
-                                      color: Colors.black87,
-                                    ),
+                              InkWell(
+                                onTap: widget.onVerseChange,
+                                child: Text(
+                                  'set_switch_image.change_verse'.tr(),
+                                  textAlign: TextAlign.center,
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    decoration: TextDecoration.underline,
+                                    color: Colors.black87,
                                   ),
                                 ),
                               ),
@@ -223,41 +229,36 @@ class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    InkWell(
-                      onTap: () {
-                        final newValue = !widget.skipLogo;
-                        widget.onSkipLogoChanged?.call(newValue);
-                        if (newValue) {
-                          widget.onImageSelected?.call(null);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(4),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        XCheckBox(
+                          value: _skipLogo,
+                          onChanged: (value) {
+                            // Update local state immediately for responsive UI
+                            setState(() {
+                              _skipLogo = value ?? false;
+                            });
+                            // Notify parent
+                            widget.onSkipLogoChanged?.call(value ?? false);
+                            if (value == true) {
+                              widget.onImageSelected?.call(null);
+                            }
+                          },
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IgnorePointer(
-                              child: XCheckBox(
-                                key: ValueKey('skip_logo_${widget.skipLogo}'),
-                                value: widget.skipLogo,
-                                onChanged: (_) {
-                                  // Handled by parent InkWell
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'set_switch_image.skip_logo'.tr(),
-                              style: AppTextStyles.bodyMedium,
-                            ),
-                          ],
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          child: Text(
+                            'set_switch_image.skip_logo'.tr(),
+                            style: AppTextStyles.bodyMedium,
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                     const SizedBox(height: 32),
                     PrimaryOutlineButton(
@@ -267,11 +268,10 @@ class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
                       width: 260,
                       enabled:
                           !widget.isUploading &&
-                          (widget.selectedImageFile != null || widget.skipLogo),
+                          (widget.selectedImageFile != null || _skipLogo),
                       onPressed:
                           (widget.isUploading ||
-                              (widget.selectedImageFile == null &&
-                                  !widget.skipLogo))
+                              (widget.selectedImageFile == null && !_skipLogo))
                           ? null
                           : widget.onContinue,
                     ),

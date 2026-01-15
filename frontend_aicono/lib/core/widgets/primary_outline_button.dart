@@ -37,7 +37,7 @@ class PrimaryOutlineButton extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(
-          color: enabled ? Colors.black : Colors.grey.shade400,
+          color: enabled ? const Color(0xFF636F57) : Colors.grey.shade400,
           width: 4,
         ),
       ),

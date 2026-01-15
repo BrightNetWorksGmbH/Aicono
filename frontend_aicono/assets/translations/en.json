@@ -69,7 +69,7 @@
   },
   "set_switch_image": {
     "title": "Would you like to add a logo to your Bryteswitch?",
-    "change_verse": "+ Verse wechseln",
+    "change_verse": "+ Change verse",
     "tip": "Tip: Your organization's logo creates recognition and immediately clarifies who it's about.",
     "skip_logo": "Continue without logo",
     "button_text": "That's fine. Let's continue.",
@@ -78,6 +78,10 @@
   "set_switch_color": {
     "title": "Would you like to personalise the look of your Bryteswitch?",
     "change_color": "+ Change colour",
+    "pick_color_dialog_title": "Pick Brand Color",
+    "done": "Done",
+    "color_name_label": "Color name: ",
+    "color_name_hint": "Bright-NetWorks-Turquoise",
     "tip": "Tip: You can choose an accent colour to match your switchboard to your organisation or company's look.",
     "skip_link": "No thanks, maybe later.",
     "button_text": "That's the right look!"
@@ -88,7 +92,8 @@
     "option_2": "Save energy in dark mode",
     "option_3": "Choose and override an accessible colour set",
     "tip": "Tip: Colours are powerful. It costs more energy to light a display with a light background and dark text than a display with a dark background and light text. We also offer an accessible colour mode to take the greatest possible account of people with special requirements (e.g. red-green weakness) or neurodivergence.",
-    "button_text": "That's the right look!"
+    "button_text": "That's the right look!",
+    "invalid_invitation": "Invalid invitation. Please try again."
   },
   "structure_switch": {
     "title": "Would you like to structure your Bryteswitch already?",
@@ -139,16 +144,16 @@
     "progress_text": "Almost done, {name}!",
     "progress_text_fallback": "Almost done!",
     "title": "Does the property have additional buildings?",
-    "building_headquarters": "Hauptsitz in Münster",
+    "building_headquarters": "Headquarters in Münster",
     "building_address": "Hafenweg 11a, 48155 Münster",
-    "resources": "Strom, Wasser, Gas",
+    "resources": "Electricity, Water, Gas",
     "building_hint": "Building name",
-    "add_building_link": "+ Gebäude hinzufügen",
-    "add_details_link": "+ Details hinzufügen",
-    "yes": "ja",
-    "no": "nein",
-    "skip_link": "Schritt überspringen",
-    "button_text": "Das passt so"
+    "add_building_link": "+ Add building",
+    "add_details_link": "+ Add details",
+    "yes": "Yes",
+    "no": "No",
+    "skip_link": "Skip step",
+    "button_text": "That's fine"
   },
   "set_building_details": {
     "progress_text": "Almost done, {name}!",

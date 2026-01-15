@@ -78,6 +78,10 @@
   "set_switch_color": {
     "title": "Möchtest Du den Look Deines Bryteswitch personalisieren?",
     "change_color": "+ Farbe ändern",
+    "pick_color_dialog_title": "Markenfarbe auswählen",
+    "done": "Fertig",
+    "color_name_label": "Farbname: ",
+    "color_name_hint": "Bright-NetWorks-Türkis",
     "tip": "Tipp: Du kannst eine Akzentfarbe auswählen, um Dein Switchboard an den Look Deiner Organisation oder Deines Unternehmens anzupassen.",
     "skip_link": "Nein danke, vielleicht später.",
     "button_text": "Das ist das richtige Bild!"
@@ -88,7 +92,8 @@
     "option_2": "Energie sparen im Dark-Mode",
     "option_3": "Farb-Set barrierefrei wählen und überschreiben",
     "tip": "Tipp: Farben sind Macht. Es kostet mehr Energie, ein Display mit hellem Grundton und dunkler Schrift zu beleuchten, als ein Display mit dunklem Grundton und heller Schrift. Wir bieten außerdem einen barrierefreien Farb-Modus an, um größtmögliche Rücksicht auf Menschen mit besonderen Anforderungen (z.B. Rot-Grün-Schwäche) oder Neurodivergenz zu nehmen.",
-    "button_text": "Das ist das richtige Bild!"
+    "button_text": "Das ist das richtige Bild!",
+    "invalid_invitation": "Ungültige Einladung. Bitte versuche es erneut."
   },
   "structure_switch": {
     "title": "Möchtest Du Dein Bryteswitch bereits etwas strukturieren?",
