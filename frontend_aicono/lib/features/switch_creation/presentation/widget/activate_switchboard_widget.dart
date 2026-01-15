@@ -63,7 +63,7 @@ class ActivateSwitchboardWidget extends StatelessWidget {
                   children: [
                     Text(
                       _buildGreeting(),
-                      style: AppTextStyles.headlineSmall.copyWith(
+                      style: AppTextStyles.headlineLarge.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -82,8 +82,8 @@ class ActivateSwitchboardWidget extends StatelessWidget {
                     const SizedBox(height: 36),
                     Text(
                       'activate_switchboard.title'.tr(),
-                      style: AppTextStyles.headlineSmall.copyWith(
-                        fontWeight: FontWeight.w700,
+                      style: AppTextStyles.headlineMedium.copyWith(
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 16),

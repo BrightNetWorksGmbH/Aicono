@@ -96,7 +96,11 @@ class _SetOrganizationNameWidgetState extends State<SetOrganizationNameWidget> {
                     borderRadius: BorderRadius.circular(8),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      child: Icon(Icons.arrow_back, color: Colors.black87, size: 24),
+                      child: Icon(
+                        Icons.arrow_back,
+                        color: Colors.black87,
+                        size: 24,
+                      ),
                     ),
                   ),
                 ),
@@ -115,7 +119,7 @@ class _SetOrganizationNameWidgetState extends State<SetOrganizationNameWidget> {
                     Text(
                       _buildTitle(),
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.headlineSmall.copyWith(
+                      style: AppTextStyles.headlineLarge.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -126,14 +130,14 @@ class _SetOrganizationNameWidgetState extends State<SetOrganizationNameWidget> {
                       decoration: InputDecoration(
                         hintText: 'set_organization_name.hint'.tr(),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.zero,
                           borderSide: const BorderSide(
                             color: Colors.black54,
                             width: 2,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.zero,
                           borderSide: BorderSide(
                             color: AppTheme.primary,
                             width: 2,

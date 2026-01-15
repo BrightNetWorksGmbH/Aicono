@@ -37,11 +37,20 @@ class SetSwitchColorWidget extends StatefulWidget {
 
 class _SetSwitchColorWidgetState extends State<SetSwitchColorWidget> {
   late TextEditingController _colorNameController;
+  final FocusNode _colorNameFocusNode = FocusNode();
+  bool _isColorNameFocused = false;
+  bool _isColorNameEmpty = true;
 
   @override
   void initState() {
     super.initState();
     _colorNameController = TextEditingController(text: widget.colorName);
+    _isColorNameEmpty = widget.colorName.trim().isEmpty;
+    _colorNameFocusNode.addListener(() {
+      setState(() {
+        _isColorNameFocused = _colorNameFocusNode.hasFocus;
+      });
+    });
   }
 
   @override
@@ -54,12 +63,16 @@ class _SetSwitchColorWidgetState extends State<SetSwitchColorWidget> {
         text: widget.colorName,
         selection: TextSelection.collapsed(offset: widget.colorName.length),
       );
+      setState(() {
+        _isColorNameEmpty = widget.colorName.trim().isEmpty;
+      });
     }
   }
 
   @override
   void dispose() {
     _colorNameController.dispose();
+    _colorNameFocusNode.dispose();
     super.dispose();
   }
 
@@ -72,7 +85,7 @@ class _SetSwitchColorWidgetState extends State<SetSwitchColorWidget> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text("Pick Brand Color"),
+          title: Text('set_switch_color.pick_color_dialog_title'.tr()),
           content: SingleChildScrollView(
             child: StatefulBuilder(
               builder: (context, setStateDialog) {
@@ -88,11 +101,11 @@ class _SetSwitchColorWidgetState extends State<SetSwitchColorWidget> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogCtx).pop(),
-              child: const Text('Cancel'),
+              child: Text('common.cancel'.tr()),
             ),
             TextButton(
               onPressed: () => Navigator.of(dialogCtx).pop(tempColor),
-              child: const Text('Done'),
+              child: Text('set_switch_color.done'.tr()),
             ),
           ],
         );
@@ -164,7 +177,7 @@ class _SetSwitchColorWidgetState extends State<SetSwitchColorWidget> {
                     Text(
                       'set_switch_color.title'.tr(),
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.headlineSmall.copyWith(
+                      style: AppTextStyles.headlineLarge.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -195,61 +208,64 @@ class _SetSwitchColorWidgetState extends State<SetSwitchColorWidget> {
                         style: AppTextStyles.bodySmall.copyWith(
                           decoration: TextDecoration.underline,
                           color: Colors.black87,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                     const SizedBox(height: 24),
                     // Color Name Input Field
-                    Row(
-                      children: [
-                        Text(
-                          'Color name: ',
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: Colors.black,
-                          ),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(
+                          color: _isColorNameFocused
+                              ? widget.primaryColor
+                              : Colors.grey[300]!,
+                          width: _isColorNameFocused ? 2 : 1,
                         ),
-                        Expanded(
-                          child: TextField(
-                            controller: _colorNameController,
-                            onChanged: (value) {
-                              widget.onColorNameChanged?.call(value);
-                            },
-                            decoration: InputDecoration(
-                              hintText: "Bright-NetWorks-Turquoise",
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.zero,
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                  width: 1,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.zero,
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                  width: 1,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.zero,
-                                borderSide: BorderSide(
-                                  color: widget.primaryColor,
-                                  width: 2,
-                                ),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12),
+                            child: Text(
+                              'set_switch_color.color_name_label'.tr(),
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: Colors.black,
                               ),
                             ),
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: Colors.black,
+                          ),
+                          Expanded(
+                            child: TextField(
+                              controller: _colorNameController,
+                              focusNode: _colorNameFocusNode,
+                              onChanged: (value) {
+                                setState(() {
+                                  _isColorNameEmpty = value.trim().isEmpty;
+                                });
+                                widget.onColorNameChanged?.call(value);
+                              },
+                              decoration: InputDecoration(
+                                hintText: 'set_switch_color.color_name_hint'
+                                    .tr(),
+                                hintStyle: AppTextStyles.bodyMedium.copyWith(
+                                  color: Colors.grey[400],
+                                ),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                              ),
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: Colors.black,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 24),
                     Text.rich(
@@ -280,7 +296,8 @@ class _SetSwitchColorWidgetState extends State<SetSwitchColorWidget> {
                     PrimaryOutlineButton(
                       label: 'set_switch_color.button_text'.tr(),
                       width: 260,
-                      onPressed: widget.onContinue,
+                      enabled: !_isColorNameEmpty,
+                      onPressed: _isColorNameEmpty ? null : widget.onContinue,
                     ),
                   ],
                 ),

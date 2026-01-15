@@ -105,7 +105,7 @@ class _SetPersonalizeLookWidgetState extends State<SetPersonalizeLookWidget> {
                       child: Text(
                         'set_personalized_look.title'.tr(),
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.headlineSmall.copyWith(
+                        style: AppTextStyles.headlineLarge.copyWith(
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -163,16 +163,20 @@ class _SetPersonalizeLookWidgetState extends State<SetPersonalizeLookWidget> {
                                   ),
                                 )
                               : PrimaryOutlineButton(
-                                  label: 'set_personalized_look.button_text'.tr(),
+                                  label: 'set_personalized_look.button_text'
+                                      .tr(),
                                   width: 260,
                                   onPressed: () {
                                     // Get switch ID from invitation
                                     if (widget.invitation == null ||
                                         widget.invitation!.verseId.isEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
                                           content: Text(
-                                            'Invalid invitation. Please try again.',
+                                            'set_personalized_look.invalid_invitation'
+                                                .tr(),
                                           ),
                                           backgroundColor: Colors.red,
                                         ),
