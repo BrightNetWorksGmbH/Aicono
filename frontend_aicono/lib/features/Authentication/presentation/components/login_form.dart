@@ -154,7 +154,7 @@ class _LoginFormState extends State<LoginForm> {
                 return;
               }
               // Already member of the invited verse → dashboard
-              context.goNamed(Routelists.dashboard);
+              // context.goNamed(Routelists.dashboard);
               return;
             }
 

@@ -41,10 +41,16 @@ import 'package:frontend_aicono/features/switch_creation/presentation/bloc/creat
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_site_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/create_buildings_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_buildings_bloc.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/connect_loxone_bloc.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_loxone_rooms_bloc.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/save_floor_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/create_site_usecase.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/get_site_usecase.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/create_buildings_usecase.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/get_buildings_usecase.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/usecases/connect_loxone_usecase.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/usecases/get_loxone_rooms_usecase.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/usecases/save_floor_usecase.dart';
 import 'package:frontend_aicono/features/upload/data/datasources/upload_remote_data_source.dart';
 import 'package:frontend_aicono/features/upload/data/repositories/upload_repository_impl.dart';
 import 'package:frontend_aicono/features/upload/domain/repositories/upload_repository.dart';
@@ -156,6 +162,11 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetSiteUseCase(repository: sl()));
   sl.registerLazySingleton(() => CreateBuildingsUseCase(repository: sl()));
   sl.registerLazySingleton(() => GetBuildingsUseCase(repository: sl()));
+  sl.registerLazySingleton(() => ConnectLoxoneUseCase(repository: sl()));
+
+  sl.registerLazySingleton(() => GetLoxoneRoomsUseCase(repository: sl()));
+
+  sl.registerLazySingleton(() => SaveFloorUseCase(repository: sl()));
 
   // Superadmin use cases
   sl.registerLazySingleton(() => CreateVerseUseCase(repository: sl()));
@@ -199,6 +210,15 @@ Future<void> init() async {
 
   // Get Buildings Bloc
   sl.registerFactory(() => GetBuildingsBloc(getBuildingsUseCase: sl()));
+
+  // Connect Loxone Bloc
+  sl.registerFactory(() => ConnectLoxoneBloc(connectLoxoneUseCase: sl()));
+
+  // Get Loxone Rooms Bloc
+  sl.registerFactory(() => GetLoxoneRoomsBloc(getLoxoneRoomsUseCase: sl()));
+
+  // Save Floor Bloc
+  sl.registerFactory(() => SaveFloorBloc(saveFloorUseCase: sl()));
 
   // Upload dependencies
   sl.registerLazySingleton<UploadRemoteDataSource>(

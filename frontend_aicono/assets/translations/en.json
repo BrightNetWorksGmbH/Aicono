@@ -160,7 +160,7 @@
     "progress_text_fallback": "Almost done!",
     "title": "Great, what does the building look like?",
     "size_hint": "How big is the building?",
-    "rooms_hint": "How many rooms does the building have?",
+    "rooms_hint": "How many floors does the building have?",
     "year_hint": "What is the year of construction of the building?",
     "edit_link": "adjust",
     "skip_link": "Skip step",

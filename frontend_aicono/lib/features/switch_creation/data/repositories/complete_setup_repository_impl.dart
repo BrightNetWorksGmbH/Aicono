@@ -6,6 +6,9 @@ import 'package:frontend_aicono/features/switch_creation/domain/entities/create_
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_site_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/create_buildings_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_buildings_entity.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/entities/loxone_connection_entity.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/entities/loxone_room_entity.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/entities/save_floor_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/repositories/complete_setup_repository.dart';
 
 class CompleteSetupRepositoryImpl implements CompleteSetupRepository {
@@ -45,5 +48,28 @@ class CompleteSetupRepositoryImpl implements CompleteSetupRepository {
   @override
   Future<Either<Failure, GetBuildingsResponse>> getBuildings(String siteId) async {
     return await remoteDataSource.getBuildings(siteId);
+  }
+
+  @override
+  Future<Either<Failure, LoxoneConnectionResponse>> connectLoxone(
+    String buildingId,
+    LoxoneConnectionRequest request,
+  ) async {
+    return await remoteDataSource.connectLoxone(buildingId, request);
+  }
+
+  @override
+  Future<Either<Failure, LoxoneRoomsResponse>> getLoxoneRooms(
+    String buildingId,
+  ) async {
+    return await remoteDataSource.getLoxoneRooms(buildingId);
+  }
+
+  @override
+  Future<Either<Failure, SaveFloorResponse>> saveFloor(
+    String buildingId,
+    SaveFloorRequest request,
+  ) async {
+    return await remoteDataSource.saveFloor(buildingId, request);
   }
 }

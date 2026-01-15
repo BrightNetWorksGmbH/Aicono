@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
@@ -25,7 +26,11 @@ import 'package:frontend_aicono/features/switch_creation/presentation/pages/sele
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_additional_buildings_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/additional_building_list_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/set_building_details_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/loxone_connection_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_floor_management_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_summary_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/room_assignment_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/data_source_selection_page.dart';
 import 'package:frontend_aicono/features/superadmin/presentation/pages/add_verse_super_page.dart';
 import 'package:frontend_aicono/features/Building/presentation/pages/building_list_page.dart';
 import 'package:frontend_aicono/features/Building/presentation/pages/building_onboarding_page.dart';
@@ -533,6 +538,19 @@ class AppRouter {
       },
     ),
     GoRoute(
+      path: '/${Routelists.loxoneConnection}',
+      name: Routelists.loxoneConnection,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+        return _buildPage(
+          context,
+          state,
+          LoxoneConnectionPage(userName: userName, buildingId: buildingId),
+        );
+      },
+    ),
+    GoRoute(
       path: '/${Routelists.buildingFloorManagement}',
       name: Routelists.buildingFloorManagement,
       pageBuilder: (context, state) {
@@ -591,10 +609,26 @@ class AppRouter {
       name: Routelists.floorPlanActivation,
       pageBuilder: (context, state) {
         final imageBytes = state.extra as Uint8List?;
+        final userName = state.uri.queryParameters['userName'];
+        final buildingAddress = state.uri.queryParameters['buildingAddress'];
+        final buildingName = state.uri.queryParameters['buildingName'];
+        final buildingSize = state.uri.queryParameters['buildingSize'];
+        final numberOfRooms = int.tryParse(
+          state.uri.queryParameters['numberOfRooms'] ?? '',
+        );
+        final constructionYear = state.uri.queryParameters['constructionYear'];
         return _buildPage(
           context,
           state,
-          FloorPlanActivationPage(initialImageBytes: imageBytes),
+          FloorPlanActivationPage(
+            initialImageBytes: imageBytes,
+            userName: userName,
+            buildingAddress: buildingAddress,
+            buildingName: buildingName,
+            buildingSize: buildingSize,
+            numberOfRooms: numberOfRooms,
+            constructionYear: constructionYear,
+          ),
         );
       },
     ),
@@ -622,10 +656,143 @@ class AppRouter {
       name: Routelists.dashboard,
       pageBuilder: (context, state) {
         final verseId = state.uri.queryParameters['verseId'];
+        return _buildPage(context, state, DashboardPage(verseId: verseId));
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.buildingSummary}',
+      name: Routelists.buildingSummary,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        final buildingAddress = state.uri.queryParameters['buildingAddress'];
+        final buildingName = state.uri.queryParameters['buildingName'];
+        final buildingSize = state.uri.queryParameters['buildingSize'];
+        final numberOfRooms = int.tryParse(
+          state.uri.queryParameters['numberOfRooms'] ?? '',
+        );
+        final constructionYear = state.uri.queryParameters['constructionYear'];
+        final floorPlanUrl = state.uri.queryParameters['floorPlanUrl'];
+        final roomsJson = state.uri.queryParameters['rooms'];
+
+        List<Map<String, dynamic>>? rooms;
+        if (roomsJson != null) {
+          try {
+            final decoded = Uri.decodeComponent(roomsJson);
+            final List<dynamic> roomsList = jsonDecode(decoded);
+            rooms = roomsList
+                .map((r) => Map<String, dynamic>.from(r as Map))
+                .toList();
+          } catch (e) {
+            rooms = null;
+          }
+        }
+
         return _buildPage(
           context,
           state,
-          DashboardPage(verseId: verseId),
+          BuildingSummaryPage(
+            userName: userName,
+            buildingAddress: buildingAddress,
+            buildingName: buildingName,
+            buildingSize: buildingSize,
+            numberOfRooms: numberOfRooms,
+            constructionYear: constructionYear,
+            floorPlanUrl: floorPlanUrl,
+            rooms: rooms,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.roomAssignment}',
+      name: Routelists.roomAssignment,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        final buildingAddress = state.uri.queryParameters['buildingAddress'];
+        final buildingName = state.uri.queryParameters['buildingName'];
+        final floorPlanUrl = state.uri.queryParameters['floorPlanUrl'];
+        final buildingId =
+            state.uri.queryParameters['buildingId'] ??
+            '6948dcd113537bff98eb7338'; // Default buildingId if not provided
+        final floorName =
+            state.uri.queryParameters['floorName'] ?? 'Ground Floor';
+        final roomsJson = state.uri.queryParameters['rooms'];
+
+        List<Map<String, dynamic>>? rooms;
+        if (roomsJson != null) {
+          try {
+            final decoded = Uri.decodeComponent(roomsJson);
+            final List<dynamic> roomsList = jsonDecode(decoded);
+            rooms = roomsList
+                .map((r) => Map<String, dynamic>.from(r as Map))
+                .toList();
+          } catch (e) {
+            rooms = null;
+          }
+        }
+
+        final numberOfFloors = int.tryParse(
+          state.uri.queryParameters['numberOfFloors'] ?? '1',
+        );
+        final totalArea = double.tryParse(
+          state.uri.queryParameters['totalArea'] ?? '',
+        );
+        final constructionYear = state.uri.queryParameters['constructionYear'];
+
+        return _buildPage(
+          context,
+          state,
+          RoomAssignmentPage(
+            userName: userName,
+            buildingAddress: buildingAddress,
+            buildingName: buildingName,
+            floorPlanUrl: floorPlanUrl,
+            rooms: rooms,
+            buildingId: buildingId,
+            floorName: floorName,
+            numberOfFloors: numberOfFloors,
+            totalArea: totalArea,
+            constructionYear: constructionYear,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.dataSourceSelection}',
+      name: Routelists.dataSourceSelection,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        final buildingAddress = state.uri.queryParameters['buildingAddress'];
+        final buildingName = state.uri.queryParameters['buildingName'];
+        final floorPlanUrl = state.uri.queryParameters['floorPlanUrl'];
+        final selectedRoom = state.uri.queryParameters['selectedRoom'];
+        final roomColorStr = state.uri.queryParameters['roomColor'];
+        final buildingId =
+            state.uri.queryParameters['buildingId'] ??
+            '6948dcd113537bff98eb7338'; // Default buildingId if not provided
+
+        Color? roomColor;
+        if (roomColorStr != null) {
+          try {
+            final colorValue = int.tryParse(roomColorStr);
+            roomColor = colorValue != null ? Color(colorValue) : null;
+          } catch (e) {
+            roomColor = null;
+          }
+        }
+
+        return _buildPage(
+          context,
+          state,
+          DataSourceSelectionPage(
+            userName: userName,
+            buildingAddress: buildingAddress,
+            buildingName: buildingName,
+            floorPlanUrl: floorPlanUrl,
+            selectedRoom: selectedRoom,
+            roomColor: roomColor,
+            buildingId: buildingId,
+          ),
         );
       },
     ),

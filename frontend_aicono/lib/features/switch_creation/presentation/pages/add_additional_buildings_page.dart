@@ -53,12 +53,18 @@ class _AddAdditionalBuildingsPageState
   }
 
   void _handleAddBuildingDetails(BuildingItem building) {
-    // Navigate to building details page with building information
+    // Generate a temporary buildingId for Loxone connection
+    final buildingId = 'building_${DateTime.now().millisecondsSinceEpoch}';
+
+    // // Navigate to Loxone connection page first
     context.pushNamed(
-      Routelists.setBuildingDetails,
+      Routelists.loxoneConnection,
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
+        'buildingId': building.id,
         'buildingAddress': building.name,
+        'redirectTo':
+            'setBuildingDetails', // Flag to redirect to setBuildingDetails after connection
       },
     );
   }
@@ -101,11 +107,8 @@ class _AddAdditionalBuildingsPageState
 
     // Dispatch event to create buildings
     blocContext.read<CreateBuildingsBloc>().add(
-          CreateBuildingsSubmitted(
-            siteId: widget.siteId!,
-            request: request,
-          ),
-        );
+      CreateBuildingsSubmitted(siteId: widget.siteId!, request: request),
+    );
   }
 
   @override
