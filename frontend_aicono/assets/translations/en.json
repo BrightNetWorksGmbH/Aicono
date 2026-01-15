@@ -167,10 +167,43 @@
     "button_text": "That's fine"
   },
   "dashboard": {
+    "error": {
+      "failed_to_load_user": "Failed to load user: {error}",
+      "loading_dashboard": "Error loading dashboard: {error}",
+      "no_verses_available": "No verses available"
+    },
     "sidebar": {
       "change_language": "Change language",
       "english": "English",
-      "deutsch": "Deutsch"
+      "deutsch": "Deutsch",
+      "properties": "Your Properties:",
+      "reportings": "Your Reportings:",
+      "companies": "Your Companies:",
+      "settings": "Settings",
+      "links": "Links",
+      "statistics": "Statistics",
+      "add_user": "+ Add User",
+      "add_location": "+ Add Location",
+      "add_reporting": "+ Add Reporting",
+      "profile": "Profile",
+      "language": "Language",
+      "logout": "Logout",
+      "no_entries": "No entries available"
+    },
+    "main_content": {
+      "greeting": "Hello, {name}!",
+      "greeting_fallback": "Hello, User!",
+      "welcome_back": "Nice to have you back. Let's make your company a bit greener and more resilient together.",
+      "reporting_preview": "Reporting Preview",
+      "what_do_you_need": "What do you need right now?",
+      "enter_measurement_data": "+ Enter measurement data",
+      "add_building": "+ Add building",
+      "add_room": "+ Add room",
+      "add_branding": "+ Branding",
+      "coming_soon": "– coming soon"
+    },
+    "tree_view": {
+      "no_entries": "No entries available"
     }
   },
   "common": {

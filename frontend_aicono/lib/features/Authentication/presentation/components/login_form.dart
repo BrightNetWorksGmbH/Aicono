@@ -153,14 +153,14 @@ class _LoginFormState extends State<LoginForm> {
                 await _checkVerseSetupAndRedirect();
                 return;
               }
-              // Already member of the invited verse → floor plan editor
-              context.goNamed(Routelists.floorPlanEditor);
+              // Already member of the invited verse → dashboard
+              context.goNamed(Routelists.dashboard);
               return;
             }
 
-            // 2) No invitation param: if already in any verse → floor plan editor
+            // 2) No invitation param: if already in any verse → dashboard
             if (user.joinedVerse.isNotEmpty) {
-              context.goNamed(Routelists.floorPlanEditor);
+              context.goNamed(Routelists.dashboard);
               return;
             }
 
@@ -185,9 +185,8 @@ class _LoginFormState extends State<LoginForm> {
             print('Post-login routing check failed: $e');
           }
 
-          // Login successful
-
-          context.goNamed(Routelists.floorPlanEditor);
+          // Login successful - navigate to dashboard
+          context.goNamed(Routelists.dashboard);
         },
       );
     } catch (e) {
