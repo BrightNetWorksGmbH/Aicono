@@ -435,11 +435,11 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   spacing: 26,
                                   // runSpacing: 16,
-                                  children: [
-                                    InkWell(
+                            children: [
+                              InkWell(
                                       onTap:
                                           // widget.onBuildFloorPlan ??
-                                          () {
+                                    () {
                                             context.pushNamed(
                                               Routelists.floorPlanEditor,
                                             );
@@ -449,28 +449,28 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                                             //   context,
                                             //   'floor-plan-editor',
                                             // );
-                                          },
-                                      child: Row(
+                                    },
+                                  child: Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
-                                        children: [
+                                    children: [
                                           Icon(
                                             Icons.add,
                                             color: Colors.blue[700],
                                             size: 20,
                                           ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Grundriss bauen',
-                                            style: TextStyle(
-                                              color: Colors.blue[700],
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ],
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Grundriss bauen',
+                                        style: TextStyle(
+                                          color: Colors.blue[700],
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
-                                    ),
+                                    ],
+                                  ),
+                                ),
                                     // Container(
                                     //   height: 1,
                                     //   color: Colors.grey[300],
@@ -478,28 +478,28 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                                     //     vertical: 8,
                                     //   ),
                                     // ),
-                                    InkWell(
+                              InkWell(
                                       onTap: _uploadFloorPlan,
-                                      child: Row(
+                                  child: Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
-                                        children: [
+                                    children: [
                                           Icon(
                                             Icons.add,
                                             color: Colors.blue[700],
                                             size: 20,
                                           ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Grundriss hinzufügen',
-                                            style: TextStyle(
-                                              color: Colors.blue[700],
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ],
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Grundriss hinzufügen',
+                                        style: TextStyle(
+                                          color: Colors.blue[700],
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
+                                    ],
+                                  ),
                                     ),
                                   ],
                                 ),
@@ -526,8 +526,8 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                                     initialImageBytes: _uploadedImageBytes,
                                     onComplete: _handleActivationComplete,
                                     onSkip: _handleActivationSkip,
-                                  ),
                                 ),
+                              ),
                             ],
                           ),
                         ),
@@ -536,50 +536,50 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                       const SizedBox(height: 24),
                       // Skip step link (only show in initial state)
                       if (_currentState == _FloorPlanState.initial)
-                        InkWell(
+                      InkWell(
                           onTap: _handleSkip,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Center(
-                              child: Text(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Center(
+                            child: Text(
                                 _hasMoreFloors
                                     ? 'Diese Etage überspringen'
                                     : 'Schritt überspringen',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
-                                ),
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
                               ),
                             ),
                           ),
                         ),
+                      ),
                       if (_currentState == _FloorPlanState.initial)
-                        const SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       // Confirm/Next button
                       if (_currentState == _FloorPlanState.initial)
-                        OutlinedButton(
+                      OutlinedButton(
                           onPressed: _handleNext,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
                             side: BorderSide(
                               color: Colors.grey[400]!,
                               width: 1,
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text(
+                        ),
+                        child: Text(
                             _hasMoreFloors
                                 ? 'Weiter zur nächsten Etage'
                                 : 'Das passt so',
-                            style: TextStyle(
-                              color: Colors.grey[700],
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
+                      ),
                       // Next button for uploaded state (moves to activation state)
                       if (_currentState == _FloorPlanState.uploaded)
                         ElevatedButton(

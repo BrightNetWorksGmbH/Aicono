@@ -49,8 +49,12 @@ class Routelists {
   static const addAdditionalBuildings = 'add-additional-buildings';
   static const additionalBuildingList = 'additional-building-list';
   static const setBuildingDetails = 'set-building-details';
+  static const loxoneConnection = 'loxone-connection';
   static const buildingFloorManagement = 'building-floor-management';
   static const floorPlanActivation = 'floor-plan-activation';
   static const buildingList = 'building-list';
   static const buildingOnboarding = 'building-onboarding';
+  static const buildingSummary = 'building-summary';
+  static const roomAssignment = 'room-assignment';
+  static const dataSourceSelection = 'data-source-selection';
 }

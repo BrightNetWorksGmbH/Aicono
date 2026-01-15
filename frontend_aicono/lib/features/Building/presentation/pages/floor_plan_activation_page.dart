@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'dart:convert' show base64Encode, base64Decode, utf8;
+import 'dart:convert' show base64Encode, base64Decode, utf8, jsonEncode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -12,7 +13,12 @@ import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'dart:io' show File;
-import 'dart:js' as js;
+import 'package:image_picker/image_picker.dart';
+import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:frontend_aicono/core/storage/local_storage.dart';
+import 'package:frontend_aicono/features/upload/presentation/bloc/upload_bloc.dart';
+import 'package:frontend_aicono/features/upload/presentation/bloc/upload_event.dart';
+import 'package:frontend_aicono/features/upload/presentation/bloc/upload_state.dart';
 
 import '../../../../core/routing/routeLists.dart';
 
@@ -51,12 +57,24 @@ class FloorPlanActivationPage extends StatefulWidget {
   final VoidCallback? onComplete;
   final VoidCallback? onSkip;
   final Uint8List? initialImageBytes;
+  final String? userName;
+  final String? buildingAddress;
+  final String? buildingName;
+  final String? buildingSize;
+  final int? numberOfRooms;
+  final String? constructionYear;
 
   const FloorPlanActivationPage({
     super.key,
     this.onComplete,
     this.onSkip,
     this.initialImageBytes,
+    this.userName,
+    this.buildingAddress,
+    this.buildingName,
+    this.buildingSize,
+    this.numberOfRooms,
+    this.constructionYear,
   });
 
   @override
@@ -100,6 +118,9 @@ class _FloorPlanActivationPageState extends State<FloorPlanActivationPage> {
   bool _isResizing = false;
   int _resizeHandle = -1; // 0=topLeft, 1=topRight, 2=bottomRight, 3=bottomLeft
   Room? _roomAtPanStart; // Track which room was selected when pan started
+
+  // Upload subscription
+  StreamSubscription? _uploadSubscription;
 
   // Color palette matching the design
   static const List<Color> colorPalette = [
@@ -878,32 +899,82 @@ class _FloorPlanActivationPageState extends State<FloorPlanActivationPage> {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'floor_plan_$timestamp.svg';
 
+      // Get verseId from LocalStorage, use default if not available
+      final localStorage = sl<LocalStorage>();
+      final verseId = localStorage.getSelectedVerseId() ?? 'default-verse-id';
+
+      // Convert SVG string to XFile
+      XFile svgFile;
       if (kIsWeb) {
-        // For web, convert SVG string to bytes and download
-        try {
-          final svgBytes = utf8.encode(svgContent);
-          await _downloadFileWeb(svgBytes, fileName, 'image/svg+xml');
-          _showSuccess('SVG downloaded successfully');
-        } catch (e) {
-          _showError('Error downloading SVG: ${e.toString()}');
-        }
+        // For web, use XFile.fromData() to create from bytes directly
+        final svgBytes = utf8.encode(svgContent);
+        svgFile = XFile.fromData(
+          svgBytes,
+          mimeType: 'image/svg+xml',
+          name: fileName,
+        );
       } else {
-        // For mobile/desktop, save to downloads folder
-        try {
-          final directory = await getDownloadsDirectory();
-          final filePath = path.join(directory?.path ?? '', fileName);
-          final file = File(filePath);
-          await file.writeAsString(svgContent);
-          _showSuccess('SVG saved to: $filePath');
-        } catch (e) {
-          _showError('Error saving SVG: ${e.toString()}');
-        }
+        // For mobile/desktop, save to temp file first
+        final directory = await getTemporaryDirectory();
+        final filePath = path.join(directory.path, fileName);
+        final file = File(filePath);
+        await file.writeAsString(svgContent);
+        svgFile = XFile(filePath, mimeType: 'image/svg+xml');
       }
 
-      // Call onComplete callback
-      if (widget.onComplete != null) {
-        widget.onComplete!();
-      }
+      // Cancel any existing subscription
+      await _uploadSubscription?.cancel();
+
+      // Upload using UploadBloc
+      final uploadBloc = sl<UploadBloc>();
+      uploadBloc.add(
+        UploadImageEvent(
+          svgFile,
+          verseId,
+          'floor_plans', // folder path
+        ),
+      );
+
+      // Listen to upload state and store subscription
+      _uploadSubscription = uploadBloc.stream.listen((state) {
+        if (state is UploadSuccess) {
+          _showSuccess('SVG uploaded successfully');
+
+          // Prepare rooms data for navigation
+          final roomsData = rooms.map((room) {
+            return {
+              'id': room.id,
+              'name': room.name,
+              'color': room.fillColor.value.toString(),
+              'area': room.area,
+            };
+          }).toList();
+
+          // Navigate to building summary page
+          if (mounted) {
+            context.pushNamed(
+              Routelists.buildingSummary,
+              queryParameters: {
+                if (widget.userName != null) 'userName': widget.userName!,
+                if (widget.buildingAddress != null)
+                  'buildingAddress': widget.buildingAddress!,
+                if (widget.buildingName != null)
+                  'buildingName': widget.buildingName!,
+                if (widget.buildingSize != null)
+                  'buildingSize': widget.buildingSize!,
+                if (widget.numberOfRooms != null)
+                  'numberOfRooms': widget.numberOfRooms.toString(),
+                if (widget.constructionYear != null)
+                  'constructionYear': widget.constructionYear!,
+                'floorPlanUrl': state.url,
+                'rooms': Uri.encodeComponent(jsonEncode(roomsData)),
+              },
+            );
+          }
+        } else if (state is UploadFailure) {
+          _showError('Upload failed: ${state.message}');
+        }
+      });
     } catch (e) {
       _showError('Error generating SVG: ${e.toString()}');
     }
@@ -1083,15 +1154,6 @@ class _FloorPlanActivationPageState extends State<FloorPlanActivationPage> {
     }
   }
 
-  // Helper to normalize a rect (ensure width/height are positive)
-  Rect _normalizeRect(Rect rect) {
-    final left = math.min(rect.left, rect.right);
-    final top = math.min(rect.top, rect.bottom);
-    final right = math.max(rect.left, rect.right);
-    final bottom = math.max(rect.top, rect.bottom);
-    return Rect.fromLTRB(left, top, right, bottom);
-  }
-
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -1110,79 +1172,6 @@ class _FloorPlanActivationPageState extends State<FloorPlanActivationPage> {
         duration: const Duration(seconds: 3),
       ),
     );
-  }
-
-  Future<void> _downloadFileWeb(
-    dynamic data,
-    String fileName, [
-    String mimeType = 'image/png',
-  ]) async {
-    if (kIsWeb) {
-      // Escape single quotes in fileName if any
-      final safeFileName = fileName.replaceAll("'", "\\'");
-
-      if (data is String) {
-        // For SVG strings
-        js.context.callMethod('eval', [
-          '''
-          (function() {
-            var blob = new Blob(['$data'], {type: '$mimeType'});
-            var url = URL.createObjectURL(blob);
-            var link = document.createElement('a');
-            link.href = url;
-            link.download = '$safeFileName';
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(function() { URL.revokeObjectURL(url); }, 100);
-          })();
-          ''',
-        ]);
-      } else if (data is Uint8List) {
-        // For binary data (images)
-        final bytesArray = data.join(',');
-        js.context.callMethod('eval', [
-          '''
-          (function() {
-            var uint8Array = new Uint8Array([$bytesArray]);
-            var blob = new Blob([uint8Array], {type: '$mimeType'});
-            var url = URL.createObjectURL(blob);
-            var link = document.createElement('a');
-            link.href = url;
-            link.download = '$safeFileName';
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(function() { URL.revokeObjectURL(url); }, 100);
-          })();
-          ''',
-        ]);
-      } else if (data is List<int>) {
-        // For List<int> (codeUnits)
-        final bytesArray = data.join(',');
-        js.context.callMethod('eval', [
-          '''
-          (function() {
-            var uint8Array = new Uint8Array([$bytesArray]);
-            var blob = new Blob([uint8Array], {type: '$mimeType'});
-            var url = URL.createObjectURL(blob);
-            var link = document.createElement('a');
-            link.href = url;
-            link.download = '$safeFileName';
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(function() { URL.revokeObjectURL(url); }, 100);
-          })();
-          ''',
-        ]);
-      }
-    } else {
-      throw Exception('This method is only for web');
-    }
   }
 
   @override
@@ -2129,6 +2118,8 @@ class _FloorPlanActivationPageState extends State<FloorPlanActivationPage> {
 
   @override
   void dispose() {
+    // Cancel upload subscription
+    _uploadSubscription?.cancel();
     // Dispose all room controllers
     for (final controller in _roomControllers.values) {
       controller.dispose();

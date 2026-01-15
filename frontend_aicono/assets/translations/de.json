@@ -160,7 +160,7 @@
     "progress_text_fallback": "Fast geschafft!",
     "title": "Prima, wie sieht das Gebäude aus?",
     "size_hint": "Wie groß ist das Gebäude?",
-    "rooms_hint": "Wieviele Räume hat das Gebäude?",
+    "rooms_hint": "Wieviele Flächen hat das Gebäude?",
     "year_hint": "Was ist das Baujahr des Gebäudes?",
     "edit_link": "anpassen",
     "skip_link": "Schritt überspringen",

@@ -5,6 +5,9 @@ import 'package:frontend_aicono/features/switch_creation/domain/entities/create_
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_site_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/create_buildings_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_buildings_entity.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/entities/loxone_connection_entity.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/entities/loxone_room_entity.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/entities/save_floor_entity.dart';
 
 abstract class CompleteSetupRepository {
   Future<Either<Failure, CompleteSetupResponse>> completeSetup(
@@ -25,4 +28,18 @@ abstract class CompleteSetupRepository {
   );
 
   Future<Either<Failure, GetBuildingsResponse>> getBuildings(String siteId);
+
+  Future<Either<Failure, LoxoneConnectionResponse>> connectLoxone(
+    String buildingId,
+    LoxoneConnectionRequest request,
+  );
+
+  Future<Either<Failure, LoxoneRoomsResponse>> getLoxoneRooms(
+    String buildingId,
+  );
+
+  Future<Either<Failure, SaveFloorResponse>> saveFloor(
+    String buildingId,
+    SaveFloorRequest request,
+  );
 }

@@ -36,12 +36,23 @@ class _AdditionalBuildingListPageState
 
   void _handleAddBuildingDetails(BuildingData building) {
     // Navigate to building details page with building information
+    // context.pushNamed(
+    //   Routelists.setBuildingDetails,
+    //   queryParameters: {
+    //     if (widget.userName != null) 'userName': widget.userName!,
+    //     'buildingId': building.id,
+    //     'buildingName': building.name,
+    //   },
+    // );
+    // // Navigate to Loxone connection page first
     context.pushNamed(
-      Routelists.setBuildingDetails,
+      Routelists.loxoneConnection,
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
         'buildingId': building.id,
-        'buildingName': building.name,
+        'buildingAddress': building.name,
+        'redirectTo':
+            'setBuildingDetails', // Flag to redirect to setBuildingDetails after connection
       },
     );
   }
