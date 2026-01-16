@@ -16,6 +16,7 @@ module.exports = {
   CostData: require('./CostData'),
   AlarmRule: require('./AlarmRule'),
   AlarmLog: require('./AlarmLog'),
+  ReportingRecipient: require('./ReportingRecipient'),
   Comment: require('./Comment'),
   RenovationProject: require('./RenovationProject'),
   Benchmark: require('./Benchmark'),

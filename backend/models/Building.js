@@ -65,6 +65,24 @@ const buildingSchema = new mongoose.Schema({
   miniserver_auth_token: {
     type: String, // JWT token after authentication
   },
+  // Building Contact - Operational contact for immediate alert reports
+  buildingContact: {
+    name: {
+      type: String,
+    },
+    email: {
+      type: String,
+      lowercase: true,
+    },
+    phone: {
+      type: String,
+    },
+  },
+  // Reporting Recipients - C-level contacts for scheduled reports
+  reportingRecipients: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ReportingRecipient',
+  }],
 }, {
   timestamps: true,
 });
