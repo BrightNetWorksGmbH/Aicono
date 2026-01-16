@@ -17,7 +17,7 @@ const sensorSchema = new mongoose.Schema({
   loxone_control_uuid: {
     type: String,
     required: true,
-    unique: true,
+    // Note: Not unique globally - same control UUID can exist for different buildings
     // Note: M1: Loxone mapping - Control UUID from LoxAPP3.json
   },
   // Category information from Loxone for measurement type inference

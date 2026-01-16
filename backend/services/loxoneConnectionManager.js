@@ -551,15 +551,23 @@ class LoxoneConnectionManager {
                 await loxoneStorageService.initializeForBuilding(buildingId);
                 const uuidMap = await loxoneStorageService.loadStructureMapping(buildingId, json);
                 state.sensorUuidMap = uuidMap;
-                //console.log(`[LOXONE] [${buildingId}] ✓ Structure imported and mapping loaded`);
+                
+                // Verify structure import completed successfully
+                if (!uuidMap || uuidMap.size === 0) {
+                    console.warn(`[LOXONE] [${buildingId}] ⚠️  Structure import completed but UUID mapping is empty! Measurements will be skipped until structure is properly imported.`);
+                } else {
+                    console.log(`[LOXONE] [${buildingId}] ✓ Structure imported and mapping loaded (${uuidMap.size} UUID mappings ready)`);
+                }
             } catch (error) {
-                //console.error(`[LOXONE] [${buildingId}] Error initializing storage:`, error.message);
+                console.error(`[LOXONE] [${buildingId}] Error initializing storage:`, error.message);
+                // Don't enable live updates if structure import failed
+                return;
             }
 
-            // Enable live updates
-            //console.log(`[LOXONE] [${buildingId}] Enabling live status updates...`);
+            // Enable live updates only after structure import is complete
+            console.log(`[LOXONE] [${buildingId}] Enabling live status updates...`);
             this.send(buildingId, 'jdev/sps/enablebinstatusupdate');
-            //console.log(`[LOXONE] [${buildingId}] ✓ Connection ready`);
+            console.log(`[LOXONE] [${buildingId}] ✓ Connection ready - receiving measurements`);
         } catch (error) {
             //console.error(`[LOXONE] [${buildingId}] Error handling structure file:`, error);
         }

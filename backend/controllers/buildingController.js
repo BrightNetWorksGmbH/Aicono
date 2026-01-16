@@ -69,7 +69,9 @@ exports.updateBuilding = asyncHandler(async (req, res) => {
     'year_of_construction',
     'heated_building_area',
     'type_of_use',
-    'num_students_employees'
+    'num_students_employees',
+    'buildingContact',
+    'reportingRecipients'
   ];
 
   // Filter only allowed fields
@@ -77,6 +79,35 @@ exports.updateBuilding = asyncHandler(async (req, res) => {
   for (const field of allowedFields) {
     if (updateData[field] !== undefined) {
       filteredData[field] = updateData[field];
+    }
+  }
+
+  // Validate buildingContact structure if provided
+  if (filteredData.buildingContact) {
+    const contact = filteredData.buildingContact;
+    if (typeof contact !== 'object' || contact === null) {
+      return res.status(400).json({
+        success: false,
+        error: 'buildingContact must be an object with name, email, and phone fields'
+      });
+    }
+    
+    // Validate email format if provided
+    if (contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid email format in buildingContact'
+      });
+    }
+  }
+
+  // Validate reportingRecipients if provided
+  if (filteredData.reportingRecipients !== undefined) {
+    if (!Array.isArray(filteredData.reportingRecipients)) {
+      return res.status(400).json({
+        success: false,
+        error: 'reportingRecipients must be an array of ReportingRecipient IDs'
+      });
     }
   }
 
