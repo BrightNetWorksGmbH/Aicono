@@ -10,6 +10,82 @@ const User = require('../models/User');
 const measurementQueryService = require('./measurementQueryService');
 
 /**
+ * Unit normalization helper functions
+ * Convert all units to a standard base unit for aggregation
+ */
+const unitNormalizers = {
+    // Energy units: convert to kWh
+    'Wh': (value) => value / 1000,  // Wh → kWh
+    'kWh': (value) => value,         // kWh (base unit)
+    'MWh': (value) => value * 1000,  // MWh → kWh
+    
+    // Power units: convert to kW
+    'W': (value) => value / 1000,    // W → kW
+    'kW': (value) => value,          // kW (base unit)
+    'MW': (value) => value * 1000,   // MW → kW
+    
+    // Volume units: convert to m³ (for gas/water)
+    'L': (value) => value / 1000,    // L → m³
+    'l': (value) => value / 1000,    // l → m³
+    'm³': (value) => value,          // m³ (base unit)
+    'm^3': (value) => value,         // m^3 → m³
+    
+    // Temperature: no conversion needed (use as-is)
+    '°C': (value) => value,
+    '°F': (value) => (value - 32) * 5/9,  // °F → °C
+    
+    // Default: return as-is
+    '': (value) => value
+};
+
+/**
+ * Normalize value to base unit
+ * @param {Number} value - Value to normalize
+ * @param {String} unit - Source unit
+ * @returns {Number} Normalized value
+ */
+function normalizeToBaseUnit(value, unit) {
+    if (value === null || value === undefined || isNaN(value)) {
+        return 0;
+    }
+    
+    const unitKey = (unit || '').trim();
+    const normalizer = unitNormalizers[unitKey];
+    
+    if (normalizer) {
+        return normalizer(value);
+    }
+    
+    // Try case-insensitive match
+    const unitLower = unitKey.toLowerCase();
+    for (const [key, fn] of Object.entries(unitNormalizers)) {
+        if (key.toLowerCase() === unitLower) {
+            return fn(value);
+        }
+    }
+    
+    // Unknown unit - return as-is
+    return value;
+}
+
+/**
+ * Get base unit for measurement type
+ * @param {String} measurementType - Measurement type (Energy, Power, Temperature, etc.)
+ * @returns {String} Base unit
+ */
+function getBaseUnit(measurementType) {
+    const baseUnits = {
+        'Energy': 'kWh',
+        'Power': 'kW',
+        'Temperature': '°C',
+        'Water': 'm³',
+        'Heating': 'm³',
+        'Gas': 'm³'
+    };
+    return baseUnits[measurementType] || '';
+}
+
+/**
  * Dashboard Discovery Service
  * 
  * Provides hierarchical data retrieval for the dashboard with nested structures:
@@ -284,6 +360,7 @@ class DashboardDiscoveryService {
      * @returns {Promise<Object>} Building with nested data and KPIs
      */
     async getBuildingDetails(buildingId, userId, options = {}) {
+        console.log('getBuildingDetails', buildingId, userId, options);
         // Verify access
         const building = await Building.findById(buildingId).populate('site_id');
         if (!building) {
@@ -424,6 +501,7 @@ class DashboardDiscoveryService {
      * @returns {Promise<Object>} Floor with nested data and KPIs
      */
     async getFloorDetails(floorId, userId, options = {}) {
+        console.log('getFloorDetails', floorId, userId, options);
         const floor = await Floor.findById(floorId).populate('building_id');
         if (!floor) {
             throw new Error('Floor not found');
@@ -727,6 +805,112 @@ class DashboardDiscoveryService {
     }
 
     /**
+     * Calculate KPIs from raw aggregation results with unit normalization
+     * @param {Array} rawResults - Raw aggregation results from MongoDB
+     * @returns {Object} KPIs object with normalized units
+     */
+    calculateKPIsFromResults(rawResults) {
+        // Process results: normalize units and aggregate by measurementType
+        const processedResults = new Map();
+        
+        for (const result of rawResults) {
+            const measurementType = result._id.measurementType;
+            const unit = result.units || '';
+            const baseUnit = getBaseUnit(measurementType);
+            
+            if (!processedResults.has(measurementType)) {
+                processedResults.set(measurementType, {
+                    measurementType: measurementType,
+                    values: [],
+                    baseUnit: baseUnit,
+                    avgQuality: [],
+                    count: 0
+                });
+            }
+            
+            const processed = processedResults.get(measurementType);
+            
+            // Normalize all values to base unit
+            const normalizedValues = result.values.map(v => normalizeToBaseUnit(v, unit));
+            processed.values.push(...normalizedValues);
+            processed.avgQuality.push(result.avgQuality || 100);
+            processed.count += result.count;
+        }
+        
+        // Calculate statistics for each measurement type
+        const breakdown = [];
+        let totalConsumption = 0;
+        let peak = 0;
+        let base = 0;
+        let average = 0;
+        let avgQuality = 100;
+        let mainUnit = 'kWh';
+        
+        // Find Energy data for total_consumption, base, average
+        const energyData = processedResults.get('Energy');
+        if (energyData && energyData.values.length > 0) {
+            const energyValues = energyData.values;
+            totalConsumption = energyValues.reduce((sum, v) => sum + v, 0);
+            base = Math.min(...energyValues);
+            average = totalConsumption / energyValues.length;
+            mainUnit = energyData.baseUnit || 'kWh';
+            
+            // Calculate quality from Energy measurements
+            const qualitySum = energyData.avgQuality.reduce((sum, q) => sum + q, 0);
+            avgQuality = qualitySum / energyData.avgQuality.length;
+        }
+        
+        // Find Power data for peak power (instantaneous maximum)
+        // Peak should be maximum instantaneous power (from Power measurements), not from Energy
+        const powerData = processedResults.get('Power');
+        if (powerData && powerData.values.length > 0) {
+            const powerValues = powerData.values;
+            peak = Math.max(...powerValues);
+            // If we have Power data, update unit to kW for peak
+            if (!mainUnit || mainUnit === 'kWh') {
+                mainUnit = 'kW'; // Peak is in kW (power), not kWh (energy)
+            }
+        } else if (energyData && energyData.values.length > 0) {
+            // Fallback: use Energy max if no Power data available
+            peak = Math.max(...energyData.values);
+        }
+        
+        // Build breakdown for all measurement types
+        for (const [measurementType, data] of processedResults.entries()) {
+            const values = data.values;
+            if (values.length === 0) continue;
+            
+            const total = values.reduce((sum, v) => sum + v, 0);
+            const avg = total / values.length;
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const qualitySum = data.avgQuality.reduce((sum, q) => sum + q, 0);
+            const avgQ = qualitySum / data.avgQuality.length;
+            
+            breakdown.push({
+                measurement_type: measurementType,
+                total: Math.round(total * 1000) / 1000,  // Round to 3 decimals
+                average: Math.round(avg * 1000) / 1000,
+                min: Math.round(min * 1000) / 1000,
+                max: Math.round(max * 1000) / 1000,
+                count: data.count,
+                unit: data.baseUnit
+            });
+        }
+        
+        return {
+            total_consumption: Math.round(totalConsumption * 1000) / 1000,
+            peak: Math.round(peak * 1000) / 1000,
+            base: Math.round(base * 1000) / 1000,
+            average: Math.round(average * 1000) / 1000,
+            average_quality: Math.round(avgQuality * 100) / 100,
+            unit: mainUnit,
+            data_quality_warning: avgQuality < 100,
+            breakdown: breakdown
+        };
+    }
+
+    /**
      * Get site-level KPIs (aggregate all buildings in site)
      * @param {String} siteId - Site ID
      * @param {Date} startDate - Start date
@@ -735,6 +919,7 @@ class DashboardDiscoveryService {
      * @returns {Promise<Object>} KPIs object
      */
     async getSiteKPIs(siteId, startDate, endDate, options = {}) {
+        console.log('getSiteKPIs', siteId, startDate, endDate, options);
         const buildings = await Building.find({ site_id: siteId }).select('_id').lean();
         const buildingIds = buildings.map(b => b._id);
         
@@ -777,55 +962,20 @@ class DashboardDiscoveryService {
             { $match: matchStage },
             {
                 $group: {
-                    _id: '$meta.measurementType',
-                    total: { $sum: '$value' },
-                    avg: { $avg: '$value' },
-                    min: { $min: '$value' },
-                    max: { $max: '$value' },
+                    _id: {
+                        measurementType: '$meta.measurementType',
+                        unit: '$unit'
+                    },
+                    values: { $push: '$value' },
+                    units: { $first: '$unit' },
                     avgQuality: { $avg: '$quality' },
-                    count: { $sum: 1 },
-                    unit: { $first: '$unit' }
+                    count: { $sum: 1 }
                 }
             }
         ];
         
-        const results = await db.collection('measurements').aggregate(pipeline).toArray();
-        
-        // Find Energy consumption
-        const energyData = results.find(r => r._id === 'Energy') || {};
-        
-        // Calculate base (minimum)
-        const base = energyData.min !== undefined ? energyData.min : 0;
-        
-        // Calculate peak (maximum)
-        const peak = energyData.max !== undefined ? energyData.max : 0;
-        
-        // Calculate total consumption
-        const totalConsumption = energyData.total !== undefined ? energyData.total : 0;
-        
-        // Average quality
-        const avgQuality = results.length > 0 
-            ? results.reduce((sum, r) => sum + (r.avgQuality || 0), 0) / results.length 
-            : 100;
-        
-        return {
-            total_consumption: totalConsumption,
-            peak: peak,
-            base: base,
-            average: energyData.avg !== undefined ? energyData.avg : 0,
-            average_quality: Math.round(avgQuality * 100) / 100,
-            unit: energyData.unit || 'kWh',
-            data_quality_warning: avgQuality < 100,
-            breakdown: results.map(r => ({
-                measurement_type: r._id,
-                total: r.total,
-                average: r.avg,
-                min: r.min,
-                max: r.max,
-                count: r.count,
-                unit: r.unit
-            }))
-        };
+        const rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        return this.calculateKPIsFromResults(rawResults);
     }
 
     /**
@@ -877,48 +1027,20 @@ class DashboardDiscoveryService {
             { $match: matchStage },
             {
                 $group: {
-                    _id: '$meta.measurementType',
-                    total: { $sum: '$value' },
-                    avg: { $avg: '$value' },
-                    min: { $min: '$value' },
-                    max: { $max: '$value' },
+                    _id: {
+                        measurementType: '$meta.measurementType',
+                        unit: '$unit'
+                    },
+                    values: { $push: '$value' },
+                    units: { $first: '$unit' },
                     avgQuality: { $avg: '$quality' },
-                    count: { $sum: 1 },
-                    unit: { $first: '$unit' }
+                    count: { $sum: 1 }
                 }
             }
         ];
         
-        const results = await db.collection('measurements').aggregate(pipeline).toArray();
-        
-        // Find Energy consumption
-        const energyData = results.find(r => r._id === 'Energy') || {};
-        
-        const base = energyData.min !== undefined ? energyData.min : 0;
-        const peak = energyData.max !== undefined ? energyData.max : 0;
-        const totalConsumption = energyData.total !== undefined ? energyData.total : 0;
-        const avgQuality = results.length > 0 
-            ? results.reduce((sum, r) => sum + (r.avgQuality || 0), 0) / results.length 
-            : 100;
-        
-        return {
-            total_consumption: totalConsumption,
-            peak: peak,
-            base: base,
-            average: energyData.avg !== undefined ? energyData.avg : 0,
-            average_quality: Math.round(avgQuality * 100) / 100,
-            unit: energyData.unit || 'kWh',
-            data_quality_warning: avgQuality < 100,
-            breakdown: results.map(r => ({
-                measurement_type: r._id,
-                total: r.total,
-                average: r.avg,
-                min: r.min,
-                max: r.max,
-                count: r.count,
-                unit: r.unit
-            }))
-        };
+        const rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        return this.calculateKPIsFromResults(rawResults);
     }
 
     /**
@@ -972,46 +1094,20 @@ class DashboardDiscoveryService {
             { $match: matchStage },
             {
                 $group: {
-                    _id: '$meta.measurementType',
-                    total: { $sum: '$value' },
-                    avg: { $avg: '$value' },
-                    min: { $min: '$value' },
-                    max: { $max: '$value' },
+                    _id: {
+                        measurementType: '$meta.measurementType',
+                        unit: '$unit'
+                    },
+                    values: { $push: '$value' },
+                    units: { $first: '$unit' },
                     avgQuality: { $avg: '$quality' },
-                    count: { $sum: 1 },
-                    unit: { $first: '$unit' }
+                    count: { $sum: 1 }
                 }
             }
         ];
         
-        const results = await db.collection('measurements').aggregate(pipeline).toArray();
-        
-        const energyData = results.find(r => r._id === 'Energy') || {};
-        const base = energyData.min !== undefined ? energyData.min : 0;
-        const peak = energyData.max !== undefined ? energyData.max : 0;
-        const totalConsumption = energyData.total !== undefined ? energyData.total : 0;
-        const avgQuality = results.length > 0 
-            ? results.reduce((sum, r) => sum + (r.avgQuality || 0), 0) / results.length 
-            : 100;
-        
-        return {
-            total_consumption: totalConsumption,
-            peak: peak,
-            base: base,
-            average: energyData.avg !== undefined ? energyData.avg : 0,
-            average_quality: Math.round(avgQuality * 100) / 100,
-            unit: energyData.unit || 'kWh',
-            data_quality_warning: avgQuality < 100,
-            breakdown: results.map(r => ({
-                measurement_type: r._id,
-                total: r.total,
-                average: r.avg,
-                min: r.min,
-                max: r.max,
-                count: r.count,
-                unit: r.unit
-            }))
-        };
+        const rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        return this.calculateKPIsFromResults(rawResults);
     }
 
     /**
@@ -1061,46 +1157,20 @@ class DashboardDiscoveryService {
             { $match: matchStage },
             {
                 $group: {
-                    _id: '$meta.measurementType',
-                    total: { $sum: '$value' },
-                    avg: { $avg: '$value' },
-                    min: { $min: '$value' },
-                    max: { $max: '$value' },
+                    _id: {
+                        measurementType: '$meta.measurementType',
+                        unit: '$unit'
+                    },
+                    values: { $push: '$value' },
+                    units: { $first: '$unit' },
                     avgQuality: { $avg: '$quality' },
-                    count: { $sum: 1 },
-                    unit: { $first: '$unit' }
+                    count: { $sum: 1 }
                 }
             }
         ];
         
-        const results = await db.collection('measurements').aggregate(pipeline).toArray();
-        
-        const energyData = results.find(r => r._id === 'Energy') || {};
-        const base = energyData.min !== undefined ? energyData.min : 0;
-        const peak = energyData.max !== undefined ? energyData.max : 0;
-        const totalConsumption = energyData.total !== undefined ? energyData.total : 0;
-        const avgQuality = results.length > 0 
-            ? results.reduce((sum, r) => sum + (r.avgQuality || 0), 0) / results.length 
-            : 100;
-        
-        return {
-            total_consumption: totalConsumption,
-            peak: peak,
-            base: base,
-            average: energyData.avg !== undefined ? energyData.avg : 0,
-            average_quality: Math.round(avgQuality * 100) / 100,
-            unit: energyData.unit || 'kWh',
-            data_quality_warning: avgQuality < 100,
-            breakdown: results.map(r => ({
-                measurement_type: r._id,
-                total: r.total,
-                average: r.avg,
-                min: r.min,
-                max: r.max,
-                count: r.count,
-                unit: r.unit
-            }))
-        };
+        const rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        return this.calculateKPIsFromResults(rawResults);
     }
 
     /**
