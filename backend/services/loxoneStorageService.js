@@ -798,7 +798,7 @@ class LoxoneStorageService {
             if (measurementType === 'Temperature' && 
                 (mapping.stateType.startsWith('total') || mapping.stateType.startsWith('totalNeg'))) {
                 // Skip storing cumulative temperature values as temperature measurements
-                console.warn(`[LOXONE-STORAGE] [${buildingId}] Skipping temperature total state: ${mapping.stateType} for sensor ${sensor.name} (value: ${measurement.value})`);
+                // console.warn(`[LOXONE-STORAGE] [${buildingId}] Skipping temperature total state: ${mapping.stateType} for sensor ${sensor.name} (value: ${measurement.value})`);
                 skippedCount++;
                 continue;
             }
@@ -914,7 +914,7 @@ class LoxoneStorageService {
                             batchError.message.includes('pool')
                         ) {
                             // Timeout/connection error for this batch - skip it, continue with next
-                            console.warn(`[LOXONE-STORAGE] [${buildingId}] Batch timeout/error (${batch.length} docs), continuing with next batch:`, batchError.message);
+                            // console.warn(`[LOXONE-STORAGE] [${buildingId}] Batch timeout/error (${batch.length} docs), continuing with next batch:`, batchError.message);
                         } else {
                             // Unexpected error - log but continue
                             console.error(`[LOXONE-STORAGE] [${buildingId}] Batch insert error:`, batchError.message);
