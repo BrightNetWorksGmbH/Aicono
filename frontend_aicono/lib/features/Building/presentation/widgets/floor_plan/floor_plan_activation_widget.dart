@@ -1563,7 +1563,9 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                                 );
                               } else {
                                 // No background image - use full available space
-                                return Positioned.fill(
+                                return SizedBox(
+                                  width: constraints.maxWidth,
+                                  height: constraints.maxHeight,
                                   child: CustomPaint(
                                     painter: _FloorPlanPainter(
                                       rooms: rooms,
@@ -2312,22 +2314,23 @@ class _FloorPlanPainter extends CustomPainter {
       );
 
       // Room area
-      final areaPainter = TextPainter(
-        text: TextSpan(
-          text: '${room.area.toStringAsFixed(2)} m²',
-          style: const TextStyle(
-            color: Colors.black87,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      areaPainter.layout();
-      areaPainter.paint(
-        canvas,
-        center - Offset(areaPainter.width / 2, areaPainter.height / 2 + 8),
-      );
+      // final areaPainter = TextPainter(
+      //   text: TextSpan(
+      //     text: '${room.area.toStringAsFixed(2)} m²',
+      //     style: const TextStyle(
+      //       color: Colors.black87,
+      //       fontSize: 12,
+      //       fontWeight: FontWeight.w500,
+      //     ),
+      //   ),
+      //   textDirection: TextDirection.ltr,
+      // );
+
+      // areaPainter.layout();
+      // areaPainter.paint(
+      //   canvas,
+      //   center - Offset(areaPainter.width / 2, areaPainter.height / 2 + 8),
+      // );
     }
 
     // Restore canvas after scaling (only if we saved it)

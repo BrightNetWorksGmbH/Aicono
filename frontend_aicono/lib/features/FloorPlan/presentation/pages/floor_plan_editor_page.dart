@@ -1,17 +1,25 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:convert' show base64Encode;
+import 'dart:convert' show base64Encode, utf8, jsonEncode;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/services.dart';
 import 'package:vector_math/vector_math_64.dart' show Matrix4;
 import 'package:file_picker/file_picker.dart';
 import 'package:xml/xml.dart' as xml;
 import 'dart:io' show File;
-
-// Web-specific imports
-import 'dart:html' as html show AnchorElement, Blob, Url;
+import 'dart:async';
+import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import 'package:image_picker/image_picker.dart';
+import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:frontend_aicono/core/storage/local_storage.dart';
+import 'package:frontend_aicono/features/upload/presentation/bloc/upload_bloc.dart';
+import 'package:frontend_aicono/features/upload/presentation/bloc/upload_event.dart';
+import 'package:frontend_aicono/features/upload/presentation/bloc/upload_state.dart';
+import 'package:frontend_aicono/core/routing/routeLists.dart';
 
 class Room {
   final String id;
@@ -144,11 +152,20 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
   int _historyIndex = -1;
   static const int _maxHistorySize = 50;
 
+  // Upload subscription
+  StreamSubscription? _uploadSubscription;
+
   @override
   void initState() {
     super.initState();
     // Initialize history with empty state
     _saveState();
+  }
+
+  @override
+  void dispose() {
+    _uploadSubscription?.cancel();
+    super.dispose();
   }
 
   // Color palette
@@ -2387,7 +2404,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
     return buffer.toString();
   }
 
-  // Download SVG file
+  // Upload SVG file and navigate to next page
   Future<void> _downloadSVG() async {
     if (rooms.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2401,36 +2418,108 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
 
     try {
       final svgContent = await _generateSVG();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'floor_plan_$timestamp.svg';
 
+      // Get verseId from LocalStorage, use default if not available
+      final localStorage = sl<LocalStorage>();
+      final verseId = localStorage.getSelectedVerseId() ?? 'default-verse-id';
+
+      // Convert SVG string to XFile
+      XFile svgFile;
       if (kIsWeb) {
-        // Web: Use browser download
-        final blob = html.Blob([svgContent], 'image/svg+xml');
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        html.AnchorElement(href: url)
-          ..setAttribute('download', 'floor_plan.svg')
-          ..click();
-        html.Url.revokeObjectUrl(url);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Floor plan downloaded as SVG'),
-            duration: Duration(seconds: 2),
-          ),
+        // For web, use XFile.fromData() to create from bytes directly
+        final svgBytes = utf8.encode(svgContent);
+        svgFile = XFile.fromData(
+          svgBytes,
+          mimeType: 'image/svg+xml',
+          name: fileName,
         );
       } else {
-        // For non-web platforms, you would use file_picker or path_provider
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('SVG export is currently only available on web'),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        // For mobile/desktop, save to temp file first
+        final directory = await getTemporaryDirectory();
+        final filePath = path.join(directory.path, fileName);
+        final file = File(filePath);
+        await file.writeAsString(svgContent);
+        svgFile = XFile(filePath, mimeType: 'image/svg+xml');
       }
+
+      // Cancel any existing subscription
+      await _uploadSubscription?.cancel();
+
+      // Upload using UploadBloc
+      final uploadBloc = sl<UploadBloc>();
+      uploadBloc.add(
+        UploadImageEvent(
+          svgFile,
+          verseId,
+          'floor_plans', // folder path
+        ),
+      );
+
+      // Listen to upload state and store subscription
+      _uploadSubscription = uploadBloc.stream.listen((state) {
+        if (state is UploadSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('SVG uploaded successfully'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+
+          // Prepare rooms data for navigation
+          final roomsData = rooms.map((room) {
+            return {
+              'id': room.id,
+              'name': room.name,
+              'color': room.fillColor.value.toString(),
+              'area': _calculateArea(room.path),
+            };
+          }).toList();
+
+          // Get query parameters from current route
+          final routeState = GoRouterState.of(context);
+          final queryParams = routeState.uri.queryParameters;
+
+          // Navigate to building summary page
+          if (mounted) {
+            context.pushNamed(
+              Routelists.buildingSummary,
+              queryParameters: {
+                if (queryParams['userName'] != null)
+                  'userName': queryParams['userName']!,
+                if (queryParams['buildingAddress'] != null)
+                  'buildingAddress': queryParams['buildingAddress']!,
+                if (queryParams['buildingName'] != null)
+                  'buildingName': queryParams['buildingName']!,
+                if (queryParams['buildingSize'] != null)
+                  'buildingSize': queryParams['buildingSize']!,
+                if (queryParams['numberOfRooms'] != null)
+                  'numberOfRooms': queryParams['numberOfRooms']!,
+                if (queryParams['constructionYear'] != null)
+                  'constructionYear': queryParams['constructionYear']!,
+                'floorPlanUrl': state.url,
+                'rooms': Uri.encodeComponent(jsonEncode(roomsData)),
+              },
+            );
+          }
+        } else if (state is UploadFailure) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Upload failed: ${state.message}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      });
     } catch (e) {
       debugPrint('Error generating SVG: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error exporting SVG: ${e.toString()}'),
+          backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
       );
