@@ -388,6 +388,8 @@ class _BuildingSummaryPageState extends State<BuildingSummaryPage> {
     }
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+
       children: widget.rooms!.asMap().entries.map((entry) {
         final index = entry.key;
         final room = entry.value;

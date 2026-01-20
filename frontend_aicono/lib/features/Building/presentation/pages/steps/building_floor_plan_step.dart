@@ -522,17 +522,15 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                         ),
                       ],
                       if (isActivationBuildingActive)
-                        Expanded(
-                          child: FloorPlanActivationWidget(
-                            initialImageBytes: _uploadedImageBytes,
-                            onComplete: _handleActivationComplete,
-                            onSkip: _handleActivationSkip,
-                            buildingName: widget.building.name,
-                            buildingAddress: widget.building.address,
-                            buildingSize: widget.building.totalArea?.toString(),
-                            numberOfRooms: widget.building.numberOfRooms,
-                            constructionYear: widget.building.constructionYear,
-                          ),
+                        FloorPlanActivationWidget(
+                          initialImageBytes: _uploadedImageBytes,
+                          onComplete: _handleActivationComplete,
+                          onSkip: _handleActivationSkip,
+                          buildingName: widget.building.name,
+                          buildingAddress: widget.building.address,
+                          buildingSize: widget.building.totalArea?.toString(),
+                          numberOfRooms: widget.building.numberOfRooms,
+                          constructionYear: widget.building.constructionYear,
                         ),
                       const SizedBox(height: 24),
 
