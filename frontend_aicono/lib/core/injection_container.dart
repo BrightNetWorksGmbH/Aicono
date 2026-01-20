@@ -44,6 +44,7 @@ import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_b
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/connect_loxone_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_loxone_rooms_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/save_floor_bloc.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_floors_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/create_site_usecase.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/get_site_usecase.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/create_buildings_usecase.dart';
@@ -51,6 +52,7 @@ import 'package:frontend_aicono/features/switch_creation/domain/usecases/get_bui
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/connect_loxone_usecase.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/get_loxone_rooms_usecase.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/save_floor_usecase.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/usecases/get_floors_usecase.dart';
 import 'package:frontend_aicono/features/upload/data/datasources/upload_remote_data_source.dart';
 import 'package:frontend_aicono/features/upload/data/repositories/upload_repository_impl.dart';
 import 'package:frontend_aicono/features/upload/domain/repositories/upload_repository.dart';
@@ -167,6 +169,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetLoxoneRoomsUseCase(repository: sl()));
 
   sl.registerLazySingleton(() => SaveFloorUseCase(repository: sl()));
+  sl.registerLazySingleton(() => GetFloorsUseCase(sl()));
 
   // Superadmin use cases
   sl.registerLazySingleton(() => CreateVerseUseCase(repository: sl()));
@@ -219,6 +222,9 @@ Future<void> init() async {
 
   // Save Floor Bloc
   sl.registerFactory(() => SaveFloorBloc(saveFloorUseCase: sl()));
+
+  // Get Floors Bloc
+  sl.registerFactory(() => GetFloorsBloc(getFloorsUseCase: sl()));
 
   // Upload dependencies
   sl.registerLazySingleton<UploadRemoteDataSource>(

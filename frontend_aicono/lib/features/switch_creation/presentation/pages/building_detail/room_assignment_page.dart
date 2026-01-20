@@ -175,6 +175,7 @@ class _RoomAssignmentPageState extends State<RoomAssignmentPage> {
               ),
             );
             // Navigate back to building floor management page (floor list step)
+            // Pass buildingId to fetch floors from backend
             context.goNamed(
               Routelists.buildingFloorManagement,
               queryParameters: {
@@ -187,6 +188,8 @@ class _RoomAssignmentPageState extends State<RoomAssignmentPage> {
                   'totalArea': widget.totalArea!.toString(),
                 if (widget.constructionYear != null)
                   'constructionYear': widget.constructionYear!,
+                if (widget.buildingId != null && widget.buildingId!.isNotEmpty)
+                  'buildingId': widget.buildingId!,
               },
             );
           } else if (state is SaveFloorFailure) {

@@ -13,6 +13,7 @@ import 'package:frontend_aicono/features/switch_creation/domain/entities/get_bui
 import 'package:frontend_aicono/features/switch_creation/domain/entities/loxone_connection_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/loxone_room_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/save_floor_entity.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/entities/get_floors_entity.dart';
 
 abstract class CompleteSetupRemoteDataSource {
   Future<Either<Failure, CompleteSetupResponse>> completeSetup(
@@ -47,6 +48,8 @@ abstract class CompleteSetupRemoteDataSource {
     String buildingId,
     SaveFloorRequest request,
   );
+
+  Future<Either<Failure, GetFloorsResponse>> getFloors(String buildingId);
 }
 
 class CompleteSetupRemoteDataSourceImpl
@@ -662,6 +665,60 @@ class CompleteSetupRemoteDataSourceImpl
         print('❌ Unexpected Error: $e');
       }
       return Left(ServerFailure('Unexpected error: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, GetFloorsResponse>> getFloors(
+    String buildingId,
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('📤 Get Floors Request:');
+        print('Building ID: $buildingId');
+      }
+
+      final response = await dioClient.get(
+        '/api/v1/dashboard/floors/$buildingId',
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+
+        if (kDebugMode) {
+          print('📥 Get Floors Response:');
+          print(responseData);
+        }
+
+        // Handle both array response and wrapped response
+        final getFloorsResponse = GetFloorsResponse.fromJson(
+          responseData is List
+              ? responseData
+              : (responseData is Map<String, dynamic>
+                    ? responseData
+                    : {'data': responseData}),
+        );
+
+        return Right(getFloorsResponse);
+      } else {
+        return Left(
+          ServerFailure(
+            'Failed to get floors with status ${response.statusCode}',
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return Left(ServerFailure('Building not found'));
+      } else if (e.type == DioExceptionType.connectionError) {
+        return Left(
+          ServerFailure('Connection error. Please check your internet.'),
+        );
+      } else {
+        return Left(ServerFailure(ErrorExtractor.extractServerMessage(e)));
+      }
+    } catch (e) {
+      return Left(ServerFailure('Failed to get floors: ${e.toString()}'));
     }
   }
 }

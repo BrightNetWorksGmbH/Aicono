@@ -37,9 +37,33 @@ class DataSourceSelectionPage extends StatefulWidget {
 class _DataSourceSelectionPageState extends State<DataSourceSelectionPage> {
   String? _selectedSource; // Only one selection allowed
   bool _hasFetched = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _handleLanguageChanged() {
     setState(() {});
+  }
+
+  void _onSearchChanged(String query) {
+    setState(() {
+      _searchQuery = query.toLowerCase();
+    });
+  }
+
+  List<dynamic> _filterRooms(List<dynamic> rooms, String query) {
+    if (query.isEmpty) {
+      return rooms;
+    }
+    return rooms.where((room) {
+      final roomName = room.name?.toString().toLowerCase() ?? '';
+      return roomName.contains(query);
+    }).toList();
   }
 
   void _handleContinue() {
@@ -251,6 +275,85 @@ class _DataSourceSelectionPageState extends State<DataSourceSelectionPage> {
                                                 child: SingleChildScrollView(
                                                   child: Column(
                                                     children: [
+                                                      // Search Field - only show when rooms are loaded
+                                                      if (state
+                                                              is GetLoxoneRoomsSuccess &&
+                                                          state
+                                                              .rooms
+                                                              .isNotEmpty)
+                                                        Container(
+                                                          margin:
+                                                              const EdgeInsets.only(
+                                                                bottom: 16,
+                                                              ),
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 16,
+                                                                vertical: 4,
+                                                              ),
+                                                          decoration: BoxDecoration(
+                                                            border: Border.all(
+                                                              color: Colors
+                                                                  .black54,
+                                                              width: 1,
+                                                            ),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  4,
+                                                                ),
+                                                          ),
+                                                          child: TextField(
+                                                            controller:
+                                                                _searchController,
+                                                            onChanged:
+                                                                _onSearchChanged,
+                                                            decoration: InputDecoration(
+                                                              hintText:
+                                                                  'Suchen...',
+                                                              hintStyle: AppTextStyles
+                                                                  .bodyMedium
+                                                                  .copyWith(
+                                                                    color: Colors
+                                                                        .grey,
+                                                                  ),
+                                                              border:
+                                                                  InputBorder
+                                                                      .none,
+                                                              prefixIcon:
+                                                                  const Icon(
+                                                                    Icons
+                                                                        .search,
+                                                                    color: Colors
+                                                                        .black54,
+                                                                  ),
+                                                              suffixIcon:
+                                                                  _searchQuery
+                                                                      .isNotEmpty
+                                                                  ? IconButton(
+                                                                      icon: const Icon(
+                                                                        Icons
+                                                                            .clear,
+                                                                        color: Colors
+                                                                            .black54,
+                                                                      ),
+                                                                      onPressed: () {
+                                                                        _searchController
+                                                                            .clear();
+                                                                        _onSearchChanged(
+                                                                          '',
+                                                                        );
+                                                                      },
+                                                                    )
+                                                                  : null,
+                                                            ),
+                                                            style: AppTextStyles
+                                                                .bodyMedium
+                                                                .copyWith(
+                                                                  color: Colors
+                                                                      .black87,
+                                                                ),
+                                                          ),
+                                                        ),
                                                       if (state
                                                           is GetLoxoneRoomsLoading)
                                                         const Padding(
@@ -262,23 +365,47 @@ class _DataSourceSelectionPageState extends State<DataSourceSelectionPage> {
                                                               CircularProgressIndicator(),
                                                         )
                                                       else if (state
-                                                          is GetLoxoneRoomsSuccess)
-                                                        ...state.rooms.map((
-                                                          room,
-                                                        ) {
-                                                          return Padding(
+                                                          is GetLoxoneRoomsSuccess) ...[
+                                                        if (_filterRooms(
+                                                          state.rooms,
+                                                          _searchQuery,
+                                                        ).isEmpty)
+                                                          Padding(
                                                             padding:
-                                                                const EdgeInsets.only(
-                                                                  bottom: 16,
+                                                                const EdgeInsets.all(
+                                                                  16.0,
                                                                 ),
-                                                            child:
-                                                                _buildCheckboxOption(
-                                                                  room.id,
-                                                                  room.name,
-                                                                ),
-                                                          );
-                                                        }).toList()
-                                                      else if (state
+                                                            child: Text(
+                                                              'Keine Ergebnisse gefunden',
+                                                              style: AppTextStyles
+                                                                  .bodyMedium
+                                                                  .copyWith(
+                                                                    color: Colors
+                                                                        .grey,
+                                                                  ),
+                                                              textAlign:
+                                                                  TextAlign
+                                                                      .center,
+                                                            ),
+                                                          )
+                                                        else
+                                                          ..._filterRooms(
+                                                            state.rooms,
+                                                            _searchQuery,
+                                                          ).map((room) {
+                                                            return Padding(
+                                                              padding:
+                                                                  const EdgeInsets.only(
+                                                                    bottom: 16,
+                                                                  ),
+                                                              child:
+                                                                  _buildCheckboxOption(
+                                                                    room.id,
+                                                                    room.name,
+                                                                  ),
+                                                            );
+                                                          }).toList(),
+                                                      ] else if (state
                                                           is GetLoxoneRoomsFailure)
                                                         Padding(
                                                           padding:
