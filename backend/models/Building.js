@@ -66,23 +66,10 @@ const buildingSchema = new mongoose.Schema({
     type: String, // JWT token after authentication
   },
   // Building Contact - Operational contact for immediate alert reports
-  buildingContact: {
-    name: {
-      type: String,
-    },
-    email: {
-      type: String,
-      lowercase: true,
-    },
-    phone: {
-      type: String,
-    },
-  },
-  // Reporting Recipients - C-level contacts for scheduled reports
-  reportingRecipients: [{
+  buildingContact_id: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'ReportingRecipient',
-  }],
+    ref: 'BuildingContact',
+  },
 }, {
   timestamps: true,
 });
@@ -91,6 +78,7 @@ const buildingSchema = new mongoose.Schema({
 buildingSchema.index({ site_id: 1 });
 buildingSchema.index({ type_of_use: 1 });
 buildingSchema.index({ name: 1, site_id: 1 }, { unique: true }); // Ensure unique building names per site
+buildingSchema.index({ buildingContact_id: 1 });
 
 module.exports = mongoose.model('Building', buildingSchema);
 

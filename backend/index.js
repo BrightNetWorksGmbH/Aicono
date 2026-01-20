@@ -22,6 +22,7 @@ const floorRouter = require('./routes/floors');
 const dashboardRouter = require('./routes/dashboard');
 const uploadRouter = require('./routes/upload');
 const sensorRouter = require('./routes/sensors');
+const reportingRouter = require('./routes/reporting');
 
 // CORS configuration
 const corsOptions = {
@@ -52,6 +53,7 @@ app.use('/api/v1/floors', floorRouter);
 app.use('/api/v1/dashboard', dashboardRouter);
 app.use('/api/v1/upload', uploadRouter);
 app.use('/api/v1/sensors', sensorRouter);
+app.use('/api/v1/reporting', reportingRouter);
 
 // Handle 404 - Not Found routes
 app.use(notFoundHandler);

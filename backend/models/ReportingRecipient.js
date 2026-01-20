@@ -11,10 +11,9 @@ const reportingRecipientSchema = new mongoose.Schema({
   name: {
     type: String,
   },
-  buildings: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Building',
-  }],
+  phone: {
+    type: String,
+  },
   is_active: {
     type: Boolean,
     default: true,
@@ -25,7 +24,6 @@ const reportingRecipientSchema = new mongoose.Schema({
 
 // Indexes
 reportingRecipientSchema.index({ email: 1 });
-reportingRecipientSchema.index({ buildings: 1 });
 reportingRecipientSchema.index({ is_active: 1 });
 
 module.exports = mongoose.model('ReportingRecipient', reportingRecipientSchema);

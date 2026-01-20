@@ -1,4 +1,6 @@
 const Building = require('../models/Building');
+const buildingContactService = require('./buildingContactService');
+const reportingService = require('./reportingService');
 
 class BuildingService {
   /**
@@ -83,6 +85,63 @@ class BuildingService {
       if (existing) {
         throw new Error(`A building with the name "${updateData.name}" already exists in this site`);
       }
+    }
+
+    // Handle buildingContact separately
+    let buildingContactId = null;
+    if (updateData.buildingContact !== undefined) {
+      buildingContactId = await buildingContactService.resolveContact(updateData.buildingContact);
+      delete updateData.buildingContact; // Remove from updateData as we'll set buildingContact_id
+      updateData.buildingContact_id = buildingContactId;
+    }
+
+    // Handle reportingRecipients and reportConfigs
+    if (updateData.reportingRecipients !== undefined || updateData.reportConfigs !== undefined) {
+      const { reportingRecipients, reportConfigs } = updateData;
+      
+      // Both must be provided together
+      if (reportingRecipients === undefined || reportConfigs === undefined) {
+        throw new Error('reportingRecipients and reportConfigs must be provided together');
+      }
+      
+      // Validate that both are arrays
+      if (!Array.isArray(reportingRecipients)) {
+        throw new Error('reportingRecipients must be an array');
+      }
+      
+      if (!Array.isArray(reportConfigs)) {
+        throw new Error('reportConfigs must be an array');
+      }
+
+      // Validate arrays have same length
+      if (reportingRecipients.length !== reportConfigs.length) {
+        throw new Error('reportingRecipients and reportConfigs arrays must have the same length');
+      }
+
+      // Process each recipient with its corresponding config
+      if (reportingRecipients && reportConfigs) {
+        for (let i = 0; i < reportingRecipients.length; i++) {
+          const recipientInput = reportingRecipients[i];
+          const config = reportConfigs[i];
+
+          // Resolve recipient (create or get existing)
+          const recipientId = await reportingService.resolveRecipient(recipientInput);
+
+          // Create reporting config
+          const reporting = await reportingService.createReporting(config);
+
+          // Create assignment
+          await reportingService.createOrUpdateAssignment(
+            buildingId,
+            recipientId,
+            reporting._id.toString()
+          );
+        }
+      }
+
+      // Remove from updateData as they're handled separately
+      delete updateData.reportingRecipients;
+      delete updateData.reportConfigs;
     }
 
     // Update building
