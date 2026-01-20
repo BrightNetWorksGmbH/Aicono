@@ -19,6 +19,8 @@ import 'package:frontend_aicono/features/upload/presentation/bloc/upload_bloc.da
 import 'package:frontend_aicono/features/upload/presentation/bloc/upload_event.dart';
 import 'package:frontend_aicono/features/upload/presentation/bloc/upload_state.dart';
 import '../../../../../core/routing/routeLists.dart';
+import '../../../../../core/widgets/primary_outline_button.dart';
+import '../../pages/steps/building_floor_plan_step.dart';
 
 enum DrawingMode { none, rectangle, polygon }
 
@@ -1183,752 +1185,753 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Title
-          const Text(
-            'Grundriss aktivieren',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-            textAlign: TextAlign.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Title
+        const Text(
+          'Grundriss aktivieren',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
           ),
-          const SizedBox(height: 16),
-          // Rectangle mode toggle and color selector (show when image is loaded)
-          if (_imageBytes != null)
-            Container(
-              padding: const EdgeInsets.all(12),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 16),
+        // Rectangle mode toggle and color selector (show when image is loaded)
+        if (_imageBytes != null && _showDrawingMode)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: Column(
+              children: [
+                // Drawing mode instructions
+                if (_showDrawingMode) ...[
+                  if (_drawingMode == DrawingMode.rectangle)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Ziehen Sie auf dem Bild, um Rechtecke zu erstellen',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue[700],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  if (_drawingMode == DrawingMode.polygon)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Klicken Sie auf Punkte, um ein Polygon zu erstellen',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue[700],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+        const SizedBox(height: 16),
+        // Upload button (show if no rooms and no image)
+        if (rooms.isEmpty && _imageBytes == null)
+          InkWell(
+            onTap: _uploadFloorPlan,
+            child: Container(
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey[50],
+                border: Border.all(
+                  color: Colors.grey[300]!,
+                  style: BorderStyle.solid,
+                  width: 2,
+                  strokeAlign: BorderSide.strokeAlignInside,
+                ),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[300]!),
               ),
-              child: Column(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Drawing mode instructions
-                  if (_showDrawingMode) ...[
-                    if (_drawingMode == DrawingMode.rectangle)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Ziehen Sie auf dem Bild, um Rechtecke zu erstellen',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue[700],
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ),
-                    if (_drawingMode == DrawingMode.polygon)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Klicken Sie auf Punkte, um ein Polygon zu erstellen',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue[700],
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ),
-                  ],
+                  Icon(Icons.add, color: Colors.blue[700], size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Grundriss hochladen',
+                    style: TextStyle(
+                      color: Colors.blue[700],
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ],
               ),
             ),
-          const SizedBox(height: 16),
-          // Upload button (show if no rooms and no image)
-          if (rooms.isEmpty && _imageBytes == null)
-            InkWell(
-              onTap: _uploadFloorPlan,
+          ),
+        // Re-upload button (show if image or rooms exist)
+        // if ((rooms.isNotEmpty || _imageBytes != null))
+        //   Padding(
+        //     padding: const EdgeInsets.only(bottom: 8),
+        //     child: InkWell(
+        //       onTap: _uploadFloorPlan,
+        //       child: Container(
+        //         padding: const EdgeInsets.symmetric(
+        //           horizontal: 12,
+        //           vertical: 8,
+        //         ),
+        //         decoration: BoxDecoration(
+        //           border: Border.all(
+        //             color: Colors.grey[300]!,
+        //             style: BorderStyle.solid,
+        //             width: 1,
+        //           ),
+        //           borderRadius: BorderRadius.circular(6),
+        //         ),
+        //         child: Row(
+        //           mainAxisSize: MainAxisSize.min,
+        //           children: [
+        //             Icon(Icons.refresh, color: Colors.grey[700], size: 16),
+        //             const SizedBox(width: 4),
+        //             Text(
+        //               'Neu hochladen',
+        //               style: TextStyle(color: Colors.grey[700], fontSize: 12),
+        //             ),
+        //           ],
+        //         ),
+        //       ),
+        //     ),
+        //   ),
+
+        // const SizedBox(height: 16),
+        // // Floor plan display area (expanded height)
+        DottedBorderContainer(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: 250, // Reduced height to prevent overflow
+              minHeight: 250,
+            ),
+            child: Center(
               child: Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Colors.grey[300]!,
-                    style: BorderStyle.solid,
-                    width: 2,
-                    strokeAlign: BorderSide.strokeAlignInside,
-                  ),
+
+                child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add, color: Colors.blue[700], size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Grundriss hochladen',
-                      style: TextStyle(
-                        color: Colors.blue[700],
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                  child: (rooms.isEmpty && _imageBytes == null)
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.image_outlined,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Kein Grundriss geladen',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : GestureDetector(
+                          onTapDown: (details) {
+                            // Convert touch coordinates to image coordinates
+                            final scaledPosition = Offset(
+                              details.localPosition.dx / _currentScaleX,
+                              details.localPosition.dy / _currentScaleY,
+                            );
+                            // Handle immediate selection on click (not drag)
+                            if (_drawingMode == DrawingMode.none) {
+                              _selectRoom(scaledPosition);
+                            } else if (_drawingMode == DrawingMode.polygon) {
+                              _handlePolygonClick(scaledPosition);
+                            }
+                          },
+                          onPanStart: (details) {
+                            // Convert touch coordinates to image coordinates
+                            final scaledPosition = Offset(
+                              details.localPosition.dx / _currentScaleX,
+                              details.localPosition.dy / _currentScaleY,
+                            );
+                            if (_drawingMode == DrawingMode.rectangle) {
+                              setState(() {
+                                _rectangleStart = scaledPosition;
+                                _currentRectangle = Rect.fromPoints(
+                                  scaledPosition,
+                                  scaledPosition,
+                                );
+                              });
+                            } else if (_drawingMode == DrawingMode.polygon) {
+                              // Polygon points are handled in onTapDown
+                              setState(() {
+                                _polygonPreviewPosition = scaledPosition;
+                              });
+                            } else {
+                              // Select the room at this position (handles selection and deselection)
+                              // Note: onTapDown may have already selected, but we do it here too for drag cases
+                              _selectRoom(scaledPosition);
+
+                              // Store which room was selected after selection (for move/resize tracking)
+                              _roomAtPanStart = selectedRoom;
+
+                              // Store initial position for move/resize (in image coordinates)
+                              _dragStart = scaledPosition;
+
+                              // If we have a selected room, check if we clicked on resize handle
+                              if (selectedRoom != null) {
+                                final bounds = selectedRoom!.path.getBounds();
+                                final handleIndex = _getResizeHandle(
+                                  scaledPosition,
+                                  bounds,
+                                );
+
+                                if (handleIndex != null) {
+                                  // We'll start resize on drag
+                                  _resizeHandle = handleIndex;
+                                  _startBounds = bounds;
+                                } else {
+                                  // We'll start move on drag (if clicking inside the room)
+                                  _startBounds = bounds;
+                                }
+                              }
+                            }
+                          },
+                          onPanUpdate: (details) {
+                            // Convert touch coordinates to image coordinates
+                            final scaledPosition = Offset(
+                              details.localPosition.dx / _currentScaleX,
+                              details.localPosition.dy / _currentScaleY,
+                            );
+                            if (_drawingMode == DrawingMode.rectangle &&
+                                _rectangleStart != null) {
+                              setState(() {
+                                _currentRectangle = Rect.fromPoints(
+                                  _rectangleStart!,
+                                  scaledPosition,
+                                );
+                              });
+                            } else if (_drawingMode == DrawingMode.polygon) {
+                              // Update preview position
+                              setState(() {
+                                _polygonPreviewPosition = scaledPosition;
+                              });
+                            } else if (_roomAtPanStart != null &&
+                                _dragStart != null &&
+                                selectedRoom == _roomAtPanStart) {
+                              // Only move/resize if we're still on the same room we started with
+                              final delta = scaledPosition - _dragStart!;
+
+                              // Check if we moved enough to start an operation (threshold to distinguish click from drag)
+                              if (delta.distance > 5.0) {
+                                if (!_isMoving && !_isResizing) {
+                                  // Determine if we should move or resize
+                                  if (_resizeHandle != -1 &&
+                                      _startBounds != null) {
+                                    // Start resize
+                                    setState(() {
+                                      _isResizing = true;
+                                    });
+                                  } else if (_startBounds != null &&
+                                      _startBounds!.contains(_dragStart!)) {
+                                    // Start move
+                                    setState(() {
+                                      _isMoving = true;
+                                    });
+                                  }
+                                }
+
+                                // Perform the operation
+                                if (_isResizing &&
+                                    _resizeHandle != -1 &&
+                                    _startBounds != null) {
+                                  // Resize room
+                                  _resizeRoom(
+                                    delta,
+                                    _resizeHandle,
+                                    _startBounds!,
+                                  );
+                                  setState(() {
+                                    _dragStart = details.localPosition;
+                                    _startBounds = selectedRoom?.path
+                                        .getBounds();
+                                  });
+                                } else if (_isMoving) {
+                                  // Move room
+                                  _moveRoom(delta);
+                                  setState(() {
+                                    _dragStart = details.localPosition;
+                                  });
+                                }
+                              }
+                            }
+                          },
+                          onPanEnd: (details) {
+                            if (_drawingMode == DrawingMode.rectangle &&
+                                _currentRectangle != null) {
+                              _createRoomFromRectangle(_currentRectangle!);
+                            }
+                            // Reset move/resize state
+                            setState(() {
+                              _isMoving = false;
+                              _isResizing = false;
+                              _dragStart = null;
+                              _startBounds = null;
+                              _resizeHandle = -1;
+                              _roomAtPanStart = null;
+                            });
+                          },
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              // If we have background image dimensions, use them
+                              if (_imageBytes != null &&
+                                  _backgroundImageWidth != null &&
+                                  _backgroundImageHeight != null) {
+                                // Calculate scale to fit within constraints
+                                final imageAspectRatio =
+                                    _backgroundImageWidth! /
+                                    _backgroundImageHeight!;
+                                final displayAspectRatio =
+                                    constraints.maxWidth /
+                                    constraints.maxHeight;
+
+                                double displayWidth, displayHeight;
+                                double scaleX = 1.0, scaleY = 1.0;
+
+                                if (imageAspectRatio > displayAspectRatio) {
+                                  displayWidth = constraints.maxWidth;
+                                  displayHeight =
+                                      constraints.maxWidth / imageAspectRatio;
+                                  scaleX =
+                                      displayWidth / _backgroundImageWidth!;
+                                  scaleY = scaleX;
+                                } else {
+                                  displayHeight = constraints.maxHeight;
+                                  displayWidth =
+                                      constraints.maxHeight * imageAspectRatio;
+                                  scaleY =
+                                      displayHeight / _backgroundImageHeight!;
+                                  scaleX = scaleY;
+                                }
+
+                                // Store scale in state for touch coordinate conversion
+                                _currentScaleX = scaleX;
+                                _currentScaleY = scaleY;
+
+                                return SizedBox(
+                                  width: displayWidth,
+                                  height: displayHeight,
+                                  child: Stack(
+                                    children: [
+                                      // Show image background
+                                      Positioned.fill(
+                                        child: Image.memory(
+                                          _imageBytes!,
+                                          fit: BoxFit.contain,
+                                          alignment: Alignment.topLeft,
+                                        ),
+                                      ),
+                                      // Show rooms overlay
+                                      Positioned.fill(
+                                        child: CustomPaint(
+                                          painter: _FloorPlanPainter(
+                                            rooms: rooms,
+                                            selectedRoom: selectedRoom,
+                                            imageBackground: true,
+                                            currentRectangle: _currentRectangle,
+                                            rectangleColor: _roomColor,
+                                            polygonPoints: _polygonPoints,
+                                            polygonPreviewPosition:
+                                                _polygonPreviewPosition,
+                                            polygonColor: _roomColor,
+                                            scaleX: scaleX,
+                                            scaleY: scaleY,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              } else {
+                                // No background image - use full available space
+                                return Positioned.fill(
+                                  child: CustomPaint(
+                                    painter: _FloorPlanPainter(
+                                      rooms: rooms,
+                                      selectedRoom: selectedRoom,
+                                      imageBackground: false,
+                                      currentRectangle: _currentRectangle,
+                                      rectangleColor: _roomColor,
+                                      polygonPoints: _polygonPoints,
+                                      polygonPreviewPosition:
+                                          _polygonPreviewPosition,
+                                      polygonColor: _roomColor,
+                                      scaleX: 1.0,
+                                      scaleY: 1.0,
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ),
                 ),
               ),
             ),
-          // Re-upload button (show if image or rooms exist)
-          if ((rooms.isNotEmpty || _imageBytes != null))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: InkWell(
-                onTap: _uploadFloorPlan,
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Polygon completion buttons (show only if in polygon mode with points)
+        if (_drawingMode == DrawingMode.polygon && _polygonPoints.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_polygonPoints.length >= 3)
+                  ElevatedButton.icon(
+                    onPressed: _createRoomFromPolygon,
+                    icon: const Icon(Icons.check),
+                    label: const Text('Polygon abschließen'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                const SizedBox(width: 16),
+                ElevatedButton.icon(
+                  onPressed: _cancelPolygon,
+                  icon: const Icon(Icons.close),
+                  label: const Text('Abbrechen'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            // Drawing mode buttons (shown only after "Add room" is clicked)
+            if (_showDrawingMode) ...[
+              // Rectangle mode button
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    if (_drawingMode == DrawingMode.rectangle) {
+                      _drawingMode = DrawingMode.none;
+                    } else {
+                      _drawingMode = DrawingMode.rectangle;
+                      _polygonPoints.clear();
+                      _polygonPreviewPosition = null;
+                    }
+                    _rectangleStart = null;
+                    _currentRectangle = null;
+                    selectedRoom = null;
+                  });
+                },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                    horizontal: 16,
+                    vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Colors.grey[300]!,
-                      style: BorderStyle.solid,
-                      width: 1,
-                    ),
+                    color: _drawingMode == DrawingMode.rectangle
+                        ? Colors.blue[700]
+                        : Colors.grey[200],
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.refresh, color: Colors.grey[700], size: 16),
-                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.crop_square,
+                        color: _drawingMode == DrawingMode.rectangle
+                            ? Colors.white
+                            : Colors.grey[700],
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
                       Text(
-                        'Neu hochladen',
-                        style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                        'Rechteck',
+                        style: TextStyle(
+                          color: _drawingMode == DrawingMode.rectangle
+                              ? Colors.white
+                              : Colors.grey[700],
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-          const SizedBox(height: 16),
-          // Floor plan display area (expanded height)
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: 400, // Reduced height to prevent overflow
-              minHeight: 300,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: Colors.grey[300]!,
-                  style: BorderStyle.solid,
-                  width: 1,
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: (rooms.isEmpty && _imageBytes == null)
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.image_outlined,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Kein Grundriss geladen',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : GestureDetector(
-                        onTapDown: (details) {
-                          // Convert touch coordinates to image coordinates
-                          final scaledPosition = Offset(
-                            details.localPosition.dx / _currentScaleX,
-                            details.localPosition.dy / _currentScaleY,
-                          );
-                          // Handle immediate selection on click (not drag)
-                          if (_drawingMode == DrawingMode.none) {
-                            _selectRoom(scaledPosition);
-                          } else if (_drawingMode == DrawingMode.polygon) {
-                            _handlePolygonClick(scaledPosition);
-                          }
-                        },
-                        onPanStart: (details) {
-                          // Convert touch coordinates to image coordinates
-                          final scaledPosition = Offset(
-                            details.localPosition.dx / _currentScaleX,
-                            details.localPosition.dy / _currentScaleY,
-                          );
-                          if (_drawingMode == DrawingMode.rectangle) {
-                            setState(() {
-                              _rectangleStart = scaledPosition;
-                              _currentRectangle = Rect.fromPoints(
-                                scaledPosition,
-                                scaledPosition,
-                              );
-                            });
-                          } else if (_drawingMode == DrawingMode.polygon) {
-                            // Polygon points are handled in onTapDown
-                            setState(() {
-                              _polygonPreviewPosition = scaledPosition;
-                            });
-                          } else {
-                            // Select the room at this position (handles selection and deselection)
-                            // Note: onTapDown may have already selected, but we do it here too for drag cases
-                            _selectRoom(scaledPosition);
-
-                            // Store which room was selected after selection (for move/resize tracking)
-                            _roomAtPanStart = selectedRoom;
-
-                            // Store initial position for move/resize (in image coordinates)
-                            _dragStart = scaledPosition;
-
-                            // If we have a selected room, check if we clicked on resize handle
-                            if (selectedRoom != null) {
-                              final bounds = selectedRoom!.path.getBounds();
-                              final handleIndex = _getResizeHandle(
-                                scaledPosition,
-                                bounds,
-                              );
-
-                              if (handleIndex != null) {
-                                // We'll start resize on drag
-                                _resizeHandle = handleIndex;
-                                _startBounds = bounds;
-                              } else {
-                                // We'll start move on drag (if clicking inside the room)
-                                _startBounds = bounds;
-                              }
-                            }
-                          }
-                        },
-                        onPanUpdate: (details) {
-                          // Convert touch coordinates to image coordinates
-                          final scaledPosition = Offset(
-                            details.localPosition.dx / _currentScaleX,
-                            details.localPosition.dy / _currentScaleY,
-                          );
-                          if (_drawingMode == DrawingMode.rectangle &&
-                              _rectangleStart != null) {
-                            setState(() {
-                              _currentRectangle = Rect.fromPoints(
-                                _rectangleStart!,
-                                scaledPosition,
-                              );
-                            });
-                          } else if (_drawingMode == DrawingMode.polygon) {
-                            // Update preview position
-                            setState(() {
-                              _polygonPreviewPosition = scaledPosition;
-                            });
-                          } else if (_roomAtPanStart != null &&
-                              _dragStart != null &&
-                              selectedRoom == _roomAtPanStart) {
-                            // Only move/resize if we're still on the same room we started with
-                            final delta = scaledPosition - _dragStart!;
-
-                            // Check if we moved enough to start an operation (threshold to distinguish click from drag)
-                            if (delta.distance > 5.0) {
-                              if (!_isMoving && !_isResizing) {
-                                // Determine if we should move or resize
-                                if (_resizeHandle != -1 &&
-                                    _startBounds != null) {
-                                  // Start resize
-                                  setState(() {
-                                    _isResizing = true;
-                                  });
-                                } else if (_startBounds != null &&
-                                    _startBounds!.contains(_dragStart!)) {
-                                  // Start move
-                                  setState(() {
-                                    _isMoving = true;
-                                  });
-                                }
-                              }
-
-                              // Perform the operation
-                              if (_isResizing &&
-                                  _resizeHandle != -1 &&
-                                  _startBounds != null) {
-                                // Resize room
-                                _resizeRoom(
-                                  delta,
-                                  _resizeHandle,
-                                  _startBounds!,
-                                );
-                                setState(() {
-                                  _dragStart = details.localPosition;
-                                  _startBounds = selectedRoom?.path.getBounds();
-                                });
-                              } else if (_isMoving) {
-                                // Move room
-                                _moveRoom(delta);
-                                setState(() {
-                                  _dragStart = details.localPosition;
-                                });
-                              }
-                            }
-                          }
-                        },
-                        onPanEnd: (details) {
-                          if (_drawingMode == DrawingMode.rectangle &&
-                              _currentRectangle != null) {
-                            _createRoomFromRectangle(_currentRectangle!);
-                          }
-                          // Reset move/resize state
-                          setState(() {
-                            _isMoving = false;
-                            _isResizing = false;
-                            _dragStart = null;
-                            _startBounds = null;
-                            _resizeHandle = -1;
-                            _roomAtPanStart = null;
-                          });
-                        },
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            // If we have background image dimensions, use them
-                            if (_imageBytes != null &&
-                                _backgroundImageWidth != null &&
-                                _backgroundImageHeight != null) {
-                              // Calculate scale to fit within constraints
-                              final imageAspectRatio =
-                                  _backgroundImageWidth! /
-                                  _backgroundImageHeight!;
-                              final displayAspectRatio =
-                                  constraints.maxWidth / constraints.maxHeight;
-
-                              double displayWidth, displayHeight;
-                              double scaleX = 1.0, scaleY = 1.0;
-
-                              if (imageAspectRatio > displayAspectRatio) {
-                                displayWidth = constraints.maxWidth;
-                                displayHeight =
-                                    constraints.maxWidth / imageAspectRatio;
-                                scaleX = displayWidth / _backgroundImageWidth!;
-                                scaleY = scaleX;
-                              } else {
-                                displayHeight = constraints.maxHeight;
-                                displayWidth =
-                                    constraints.maxHeight * imageAspectRatio;
-                                scaleY =
-                                    displayHeight / _backgroundImageHeight!;
-                                scaleX = scaleY;
-                              }
-
-                              // Store scale in state for touch coordinate conversion
-                              _currentScaleX = scaleX;
-                              _currentScaleY = scaleY;
-
-                              return SizedBox(
-                                width: displayWidth,
-                                height: displayHeight,
-                                child: Stack(
-                                  children: [
-                                    // Show image background
-                                    Positioned.fill(
-                                      child: Image.memory(
-                                        _imageBytes!,
-                                        fit: BoxFit.contain,
-                                        alignment: Alignment.topLeft,
-                                      ),
-                                    ),
-                                    // Show rooms overlay
-                                    Positioned.fill(
-                                      child: CustomPaint(
-                                        painter: _FloorPlanPainter(
-                                          rooms: rooms,
-                                          selectedRoom: selectedRoom,
-                                          imageBackground: true,
-                                          currentRectangle: _currentRectangle,
-                                          rectangleColor: _roomColor,
-                                          polygonPoints: _polygonPoints,
-                                          polygonPreviewPosition:
-                                              _polygonPreviewPosition,
-                                          polygonColor: _roomColor,
-                                          scaleX: scaleX,
-                                          scaleY: scaleY,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            } else {
-                              // No background image - use full available space
-                              return Positioned.fill(
-                                child: CustomPaint(
-                                  painter: _FloorPlanPainter(
-                                    rooms: rooms,
-                                    selectedRoom: selectedRoom,
-                                    imageBackground: false,
-                                    currentRectangle: _currentRectangle,
-                                    rectangleColor: _roomColor,
-                                    polygonPoints: _polygonPoints,
-                                    polygonPreviewPosition:
-                                        _polygonPreviewPosition,
-                                    polygonColor: _roomColor,
-                                    scaleX: 1.0,
-                                    scaleY: 1.0,
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Polygon completion buttons (show only if in polygon mode with points)
-          if (_drawingMode == DrawingMode.polygon && _polygonPoints.isNotEmpty)
-            Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_polygonPoints.length >= 3)
-                    ElevatedButton.icon(
-                      onPressed: _createRoomFromPolygon,
-                      icon: const Icon(Icons.check),
-                      label: const Text('Polygon abschließen'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    onPressed: _cancelPolygon,
-                    icon: const Icon(Icons.close),
-                    label: const Text('Abbrechen'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              // Drawing mode buttons (shown only after "Add room" is clicked)
-              if (_showDrawingMode) ...[
-                // Rectangle mode button
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      if (_drawingMode == DrawingMode.rectangle) {
-                        _drawingMode = DrawingMode.none;
-                      } else {
-                        _drawingMode = DrawingMode.rectangle;
-                        _polygonPoints.clear();
-                        _polygonPreviewPosition = null;
-                      }
+              const SizedBox(width: 8),
+              // Polygon mode button
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    if (_drawingMode == DrawingMode.polygon) {
+                      _drawingMode = DrawingMode.none;
+                      _polygonPoints.clear();
+                      _polygonPreviewPosition = null;
+                    } else {
+                      _drawingMode = DrawingMode.polygon;
                       _rectangleStart = null;
                       _currentRectangle = null;
-                      selectedRoom = null;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _drawingMode == DrawingMode.rectangle
-                          ? Colors.blue[700]
-                          : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.crop_square,
-                          color: _drawingMode == DrawingMode.rectangle
-                              ? Colors.white
-                              : Colors.grey[700],
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Rechteck',
-                          style: TextStyle(
-                            color: _drawingMode == DrawingMode.rectangle
-                                ? Colors.white
-                                : Colors.grey[700],
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+                    }
+                    selectedRoom = null;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
                   ),
-                ),
-                const SizedBox(width: 8),
-                // Polygon mode button
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      if (_drawingMode == DrawingMode.polygon) {
-                        _drawingMode = DrawingMode.none;
-                        _polygonPoints.clear();
-                        _polygonPreviewPosition = null;
-                      } else {
-                        _drawingMode = DrawingMode.polygon;
-                        _rectangleStart = null;
-                        _currentRectangle = null;
-                      }
-                      selectedRoom = null;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _drawingMode == DrawingMode.polygon
-                          ? Colors.blue[700]
-                          : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.hexagon,
+                  decoration: BoxDecoration(
+                    color: _drawingMode == DrawingMode.polygon
+                        ? Colors.blue[700]
+                        : Colors.grey[200],
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.hexagon,
+                        color: _drawingMode == DrawingMode.polygon
+                            ? Colors.white
+                            : Colors.grey[700],
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Polygon',
+                        style: TextStyle(
                           color: _drawingMode == DrawingMode.polygon
                               ? Colors.white
                               : Colors.grey[700],
-                          size: 20,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Polygon',
-                          style: TextStyle(
-                            color: _drawingMode == DrawingMode.polygon
-                                ? Colors.white
-                                : Colors.grey[700],
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-
-              // const Spacer(),
-              // // Room color selector (shown only when drawing mode is active)
-              // if (_showDrawingMode)
-              //   Row(
-              //     children: [
-              //       const Text(
-              //         'Farbe:',
-              //         style: TextStyle(
-              //           fontSize: 14,
-              //           color: Colors.grey,
-              //         ),
-              //       ),
-              //       const SizedBox(width: 8),
-              //       ...colorPalette.map((color) {
-              //         final isSelected = _roomColor == color;
-              //         return GestureDetector(
-              //           onTap: () {
-              //             setState(() {
-              //               _roomColor = color;
-              //             });
-              //           },
-              //           child: Container(
-              //             margin: const EdgeInsets.only(left: 6),
-              //             width: 28,
-              //             height: 28,
-              //             decoration: BoxDecoration(
-              //               color: color,
-              //               shape: BoxShape.circle,
-              //               border: Border.all(
-              //                 color: isSelected
-              //                     ? Colors.black
-              //                     : Colors.grey[400]!,
-              //                 width: isSelected ? 2 : 1,
-              //               ),
-              //             ),
-              //           ),
-              //         );
-              //       }).toList(),
-              //     ],
-              //   ),
+              ),
             ],
-          ),
-          const SizedBox(height: 16),
 
-          // List of all rooms with TextField and color selection in one row
-          if (rooms.isNotEmpty)
-            ...rooms.map((room) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: selectedRoom == room
-                        ? Colors.blue
-                        : Colors.grey[300]!,
-                    width: selectedRoom == room ? 2 : 1,
-                  ),
+            // const Spacer(),
+            // // Room color selector (shown only when drawing mode is active)
+            // if (_showDrawingMode)
+            //   Row(
+            //     children: [
+            //       const Text(
+            //         'Farbe:',
+            //         style: TextStyle(
+            //           fontSize: 14,
+            //           color: Colors.grey,
+            //         ),
+            //       ),
+            //       const SizedBox(width: 8),
+            //       ...colorPalette.map((color) {
+            //         final isSelected = _roomColor == color;
+            //         return GestureDetector(
+            //           onTap: () {
+            //             setState(() {
+            //               _roomColor = color;
+            //             });
+            //           },
+            //           child: Container(
+            //             margin: const EdgeInsets.only(left: 6),
+            //             width: 28,
+            //             height: 28,
+            //             decoration: BoxDecoration(
+            //               color: color,
+            //               shape: BoxShape.circle,
+            //               border: Border.all(
+            //                 color: isSelected
+            //                     ? Colors.black
+            //                     : Colors.grey[400]!,
+            //                 width: isSelected ? 2 : 1,
+            //               ),
+            //             ),
+            //           ),
+            //         );
+            //       }).toList(),
+            //     ],
+            //   ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // List of all rooms with TextField and color selection in one row
+        if (rooms.isNotEmpty)
+          ...rooms.map((room) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: selectedRoom == room ? Colors.blue : Colors.grey[300]!,
+                  width: selectedRoom == room ? 2 : 1,
                 ),
-                child: Row(
-                  children: [
-                    // TextField for room name
-                    Expanded(
-                      child: TextField(
-                        key: ValueKey(room.id),
-                        controller: _roomControllers[room.id] ??=
-                            TextEditingController(text: room.name),
-                        decoration: InputDecoration(
-                          hintText: 'Raumname / Label',
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          isDense: true,
-                        ),
-                        onChanged: (value) {
-                          setState(() {
-                            room.name = value;
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Color palette
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: colorPalette.map((color) {
-                        final isSelected = room.fillColor == color;
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              room.fillColor = color;
-                            });
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(left: 6),
-                            width: 15,
-                            height: 15,
-                            decoration: BoxDecoration(
-                              color: color,
-                              // shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isSelected
-                                    ? Colors.black
-                                    : Colors.grey[400]!,
-                                width: isSelected ? 2 : 1,
-                              ),
-                            ),
-                            child: isSelected
-                                ? Icon(
-                                    Icons.clear,
-                                    size: 12,
-                                    color: Colors.black,
-                                  )
-                                : null,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(width: 8),
-                    // Delete button
-                    IconButton(
-                      icon: Icon(
-                        Icons.delete_outline,
-                        color: Colors.red[600],
-                        size: 20,
-                      ),
-                      tooltip: 'Löschen',
-                      onPressed: () => _deleteRoom(room),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          // Add room button (always visible)
-          InkWell(
-            onTap: _showCreateRoomDialog,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.add_box_outlined,
-                    color: Colors.grey[700],
-                    size: 20,
+                  // TextField for room name
+                  Expanded(
+                    child: TextField(
+                      key: ValueKey(room.id),
+                      controller: _roomControllers[room.id] ??=
+                          TextEditingController(text: room.name),
+                      decoration: InputDecoration(
+                        hintText: 'Raumname / Label',
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        isDense: true,
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          room.name = value;
+                        });
+                      },
+                    ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    '+ Raum anlegen',
-                    style: TextStyle(color: Colors.grey[700], fontSize: 16),
+                  // Color palette
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: colorPalette.map((color) {
+                      final isSelected = room.fillColor == color;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            room.fillColor = color;
+                          });
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(left: 6),
+                          width: 15,
+                          height: 15,
+                          decoration: BoxDecoration(
+                            color: color,
+                            // shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected
+                                  ? Colors.black
+                                  : Colors.grey[400]!,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: isSelected
+                              ? Icon(Icons.clear, size: 12, color: Colors.black)
+                              : null,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(width: 8),
+                  // Delete button
+                  IconButton(
+                    icon: Icon(
+                      Icons.delete_outline,
+                      color: Colors.red[600],
+                      size: 20,
+                    ),
+                    tooltip: 'Löschen',
+                    onPressed: () => _deleteRoom(room),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),
+            );
+          }).toList(),
+        // Add room button (always visible)
+        InkWell(
+          onTap: _showCreateRoomDialog,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.add_box_outlined, color: Colors.grey[700], size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  '+ Raum anlegen',
+                  style: TextStyle(color: Colors.grey[700], fontSize: 16),
+                ),
+              ],
             ),
           ),
+        ),
 
-          const SizedBox(height: 12),
-          // Skip step link
-          InkWell(
-            onTap: widget.onSkip,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Center(
-                child: Text(
-                  'Schritt überspringen',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                ),
+        const SizedBox(height: 12),
+        // Skip step link
+        InkWell(
+          onTap: widget.onSkip,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Center(
+              child: Text(
+                'Schritt überspringen',
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
               ),
             ),
           ),
-          // Save and Next button
-          ElevatedButton(
+        ),
+        // Save and Next button
+        Material(
+          color: Colors.transparent,
+          child: PrimaryOutlineButton(
+            label: _imageBytes != null ? 'Speichern & Weiter' : 'Das passt so',
+
+            width: 260,
             onPressed: _imageBytes != null
                 ? _saveAndDownloadSVG
                 : widget.onComplete,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              backgroundColor: Colors.blue[700],
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: Text(
-              _imageBytes != null ? 'Speichern & Weiter' : 'Das passt so',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
           ),
-          const SizedBox(height: 8), // Reduced from 16 to 8
-        ],
-      ),
+        ),
+
+        // ElevatedButton(
+        //   onPressed: _imageBytes != null
+        //       ? _saveAndDownloadSVG
+        //       : widget.onComplete,
+        //   style: ElevatedButton.styleFrom(
+        //     padding: const EdgeInsets.symmetric(vertical: 14),
+        //     backgroundColor: Colors.blue[700],
+        //     shape: RoundedRectangleBorder(
+        //       borderRadius: BorderRadius.circular(8),
+        //     ),
+        //   ),
+        //   child: Text(
+        //     _imageBytes != null ? 'Speichern & Weiter' : 'Das passt so',
+        //     style: const TextStyle(
+        //       color: Colors.white,
+        //       fontSize: 16,
+        //       fontWeight: FontWeight.w500,
+        //     ),
+        //   ),
+        // ),
+        const SizedBox(height: 8), // Reduced from 16 to 8
+      ],
     );
   }
 

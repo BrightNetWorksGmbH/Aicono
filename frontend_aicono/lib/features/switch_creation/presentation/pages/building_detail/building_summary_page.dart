@@ -9,6 +9,8 @@ import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 
+import '../../../../Building/presentation/pages/steps/building_floor_plan_step.dart';
+
 class BuildingSummaryPage extends StatefulWidget {
   final String? userName;
   final String? buildingAddress;
@@ -234,82 +236,88 @@ class _BuildingSummaryPageState extends State<BuildingSummaryPage> {
                                     ),
                                     const SizedBox(height: 24),
                                     // Floor Plan Section
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: Colors.black54,
-                                          width: 2,
-                                          style: BorderStyle.solid,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.check_circle,
-                                                color: Color(0xFF238636),
-                                                size: 24,
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Text(
-                                                'Grundriss aktiviert',
-                                                style: AppTextStyles.titleMedium
-                                                    .copyWith(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: Colors.black87,
+                                    DottedBorderContainer(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16.0),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.check_circle,
+                                                  color: Color(0xFF238636),
+                                                  size: 24,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Text(
+                                                  'Grundriss aktiviert',
+                                                  style: AppTextStyles
+                                                      .titleMedium
+                                                      .copyWith(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Colors.black87,
+                                                      ),
+                                                ),
+                                              ],
+                                            ),
+                                            if (widget.rooms != null &&
+                                                widget.rooms!.isNotEmpty) ...[
+                                              const SizedBox(height: 16),
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8.0,
                                                     ),
+                                                child: Wrap(
+                                                  direction: Axis.horizontal,
+                                                  spacing: 100,
+                                                  runSpacing: 28,
+                                                  children: [
+                                                    _buildRoomLegend(),
+
+                                                    if (widget.floorPlanUrl !=
+                                                        null)
+                                                      Container(
+                                                        height: 200,
+                                                        width: 350,
+
+                                                        child: ClipRRect(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                4,
+                                                              ),
+                                                          child: SvgPicture.network(
+                                                            widget
+                                                                .floorPlanUrl!,
+                                                            fit: BoxFit.contain,
+                                                            errorBuilder:
+                                                                (
+                                                                  context,
+                                                                  error,
+                                                                  stackTrace,
+                                                                ) {
+                                                                  return const Center(
+                                                                    child: Icon(
+                                                                      Icons
+                                                                          .image_not_supported,
+                                                                      size: 48,
+                                                                      color: Colors
+                                                                          .grey,
+                                                                    ),
+                                                                  );
+                                                                },
+                                                          ),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
                                               ),
                                             ],
-                                          ),
-                                          if (widget.rooms != null &&
-                                              widget.rooms!.isNotEmpty) ...[
-                                            const SizedBox(height: 16),
-                                            _buildRoomLegend(),
-                                            const SizedBox(height: 16),
-                                            if (widget.floorPlanUrl != null)
-                                              Container(
-                                                height: 200,
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(
-                                                    color: Colors.grey.shade300,
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                ),
-                                                child: ClipRRect(
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                  child: SvgPicture.network(
-                                                    widget.floorPlanUrl!,
-                                                    fit: BoxFit.contain,
-                                                    errorBuilder:
-                                                        (
-                                                          context,
-                                                          error,
-                                                          stackTrace,
-                                                        ) {
-                                                          return const Center(
-                                                            child: Icon(
-                                                              Icons
-                                                                  .image_not_supported,
-                                                              size: 48,
-                                                              color:
-                                                                  Colors.grey,
-                                                            ),
-                                                          );
-                                                        },
-                                                  ),
-                                                ),
-                                              ),
                                           ],
-                                        ],
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(height: 32),
@@ -379,6 +387,56 @@ class _BuildingSummaryPageState extends State<BuildingSummaryPage> {
       return const SizedBox.shrink();
     }
 
+    return Column(
+      children: widget.rooms!.asMap().entries.map((entry) {
+        final index = entry.key;
+        final room = entry.value;
+
+        // Parse color from room data
+        Color roomColor;
+        if (room['color'] != null) {
+          try {
+            final colorValue = int.tryParse(room['color'].toString());
+            roomColor = colorValue != null
+                ? Color(colorValue)
+                : _getDefaultRoomColor(index);
+          } catch (e) {
+            roomColor = _getDefaultRoomColor(index);
+          }
+        } else {
+          roomColor = _getDefaultRoomColor(index);
+        }
+
+        return Column(
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: roomColor,
+                    border: Border.all(color: Colors.black54, width: 1),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  room['name'] ?? 'Room ${index + 1}',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+          ],
+        );
+      }).toList(),
+    );
+  }
+
+  Color _getDefaultRoomColor(int index) {
     final roomColors = [
       const Color(0xFFFFEB3B), // Yellow
       const Color(0xFF9C27B0), // Purple
@@ -386,33 +444,6 @@ class _BuildingSummaryPageState extends State<BuildingSummaryPage> {
       const Color(0xFF4CAF50), // Green
       const Color(0xFFFF9800), // Orange
     ];
-
-    return Wrap(
-      spacing: 16,
-      runSpacing: 8,
-      children: widget.rooms!.asMap().entries.map((entry) {
-        final index = entry.key;
-        final room = entry.value;
-        final color = roomColors[index % roomColors.length];
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: color,
-                border: Border.all(color: Colors.black54, width: 1),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              room['name'] ?? 'Room ${index + 1}',
-              style: AppTextStyles.bodySmall.copyWith(color: Colors.black87),
-            ),
-          ],
-        );
-      }).toList(),
-    );
+    return roomColors[index % roomColors.length];
   }
 }

@@ -57,4 +57,5 @@ class Routelists {
   static const buildingSummary = 'building-summary';
   static const roomAssignment = 'room-assignment';
   static const dataSourceSelection = 'data-source-selection';
+  static const buildingResponsiblePersons = 'building-responsible-persons';
 }

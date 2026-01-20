@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 
+import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/widgets/primary_outline_button.dart';
+
 class BuildingFloorListStep extends StatefulWidget {
   final BuildingEntity building;
   final VoidCallback onNext;
@@ -48,15 +51,29 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
 
   @override
   Widget build(BuildContext context) {
+    final Size screenSize = MediaQuery.of(context).size;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Padding(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight,
+              minWidth: screenSize.width < 600
+                  ? screenSize.width * 0.95
+                  : screenSize.width < 1200
+                  ? screenSize.width * 0.5
+                  : screenSize.width * 0.6,
+            ),
+            child: Container(
+              width: screenSize.width < 600
+                  ? screenSize.width * 0.95
+                  : screenSize.width < 1200
+                  ? screenSize.width * 0.5
+                  : screenSize.width * 0.6,
               padding: const EdgeInsets.all(24.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                // crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Back button
@@ -100,6 +117,11 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
                         floorNumber,
                       );
                       return Container(
+                        width: screenSize.width < 600
+                            ? screenSize.width * 0.95
+                            : screenSize.width < 1200
+                            ? screenSize.width * 0.5
+                            : screenSize.width * 0.6,
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -203,45 +225,71 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
                       ),
                     ),
                   const SizedBox(height: 24),
-                  // Skip step link
                   if (widget.onSkip != null)
-                    InkWell(
-                      onTap: widget.onSkip,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Center(
-                          child: Text(
-                            'Schritt überspringen',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
+                    // Skip step link
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: widget.onSkip,
+                        child: Text(
+                          'Schritt überspringen',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            decoration: TextDecoration.underline,
+                            color: Colors.black87,
                           ),
                         ),
                       ),
                     ),
-                  const SizedBox(height: 8),
-                  // Next button (only show if all floors are completed)
+                  const SizedBox(height: 16),
                   if (_completedFloors.length == _totalFloors &&
                       _totalFloors > 0)
-                    ElevatedButton(
-                      onPressed: widget.onNext,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: Colors.blue[700],
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Weiter',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
+                    Material(
+                      color: Colors.transparent,
+                      child: PrimaryOutlineButton(
+                        label: 'Das passt so',
+                        width: 260,
+                        onPressed: widget.onNext,
                       ),
                     ),
+
+                  // if (widget.onSkip != null)
+                  //   InkWell(
+                  //     onTap: widget.onSkip,
+                  //     child: Padding(
+                  //       padding: const EdgeInsets.symmetric(vertical: 12),
+                  //       child: Center(
+                  //         child: Text(
+                  //           'Schritt überspringen',
+                  //           style: TextStyle(
+                  //             color: Colors.grey[600],
+                  //             fontSize: 14,
+                  //           ),
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ),
+                  // const SizedBox(height: 8),
+                  // // Next button (only show if all floors are completed)
+                  // if (_completedFloors.length == _totalFloors &&
+                  //     _totalFloors > 0)
+                  //   ElevatedButton(
+                  //     onPressed: widget.onNext,
+                  //     style: ElevatedButton.styleFrom(
+                  //       padding: const EdgeInsets.symmetric(vertical: 16),
+                  //       backgroundColor: Colors.blue[700],
+                  //       shape: RoundedRectangleBorder(
+                  //         borderRadius: BorderRadius.circular(8),
+                  //       ),
+                  //     ),
+                  //     child: const Text(
+                  //       'Weiter',
+                  //       style: TextStyle(
+                  //         color: Colors.white,
+                  //         fontSize: 16,
+                  //         fontWeight: FontWeight.w500,
+                  //       ),
+                  //     ),
+                  //   ),
                 ],
               ),
             ),

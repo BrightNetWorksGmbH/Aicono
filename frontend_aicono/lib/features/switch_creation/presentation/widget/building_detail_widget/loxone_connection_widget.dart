@@ -264,19 +264,7 @@ class _LoxoneConnectionWidgetState extends State<LoxoneConnectionWidget> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        if (widget.onSkip != null)
-                          InkWell(
-                            onTap: widget.onSkip,
-                            child: Text(
-                              'Schritt überspringen',
-                              style: AppTextStyles.bodyMedium.copyWith(
-                                decoration: TextDecoration.underline,
-                                color: Colors.black87,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
+
                         const SizedBox(height: 24),
                         if (widget.onSkip != null)
                           InkWell(

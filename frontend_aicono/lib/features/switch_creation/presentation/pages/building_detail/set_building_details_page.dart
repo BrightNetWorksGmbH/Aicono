@@ -49,6 +49,10 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
         ? double.tryParse(_buildingDetails['size']!)
         : null;
 
+    final numberOfRooms = _buildingDetails['rooms'] != null
+        ? int.tryParse(_buildingDetails['rooms']!)
+        : null;
+
     context.pushNamed(
       Routelists.buildingFloorManagement,
       queryParameters: {
@@ -56,6 +60,7 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
         if (widget.buildingAddress != null)
           'buildingAddress': widget.buildingAddress!,
         'numberOfFloors': (numberOfFloors ?? 1).toString(),
+        if (numberOfRooms != null) 'numberOfRooms': numberOfRooms.toString(),
         if (totalArea != null) 'totalArea': totalArea.toString(),
         if (_buildingDetails['year'] != null)
           'constructionYear': _buildingDetails['year']!,

@@ -28,6 +28,7 @@ import 'package:frontend_aicono/features/switch_creation/presentation/pages/addi
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/set_building_details_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/loxone_connection_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_floor_management_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_responsible_persons_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_summary_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/room_assignment_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/data_source_selection_page.dart';
@@ -565,10 +566,18 @@ class AppRouter {
         );
         final constructionYear = state.uri.queryParameters['constructionYear'];
 
+        final numberOfRooms = int.tryParse(
+          state.uri.queryParameters['numberOfRooms'] ?? '',
+        );
+        final siteId = state.uri.queryParameters['siteId'];
+        final buildingId = state.uri.queryParameters['buildingId'] ??
+            '6948dcd113537bff98eb7338'; // Default buildingId if not provided
+
         final building = BuildingEntity(
           name: buildingName,
           address: buildingAddress,
           numberOfFloors: numberOfFloors,
+          numberOfRooms: numberOfRooms,
           totalArea: totalArea,
           constructionYear: constructionYear,
         );
@@ -576,7 +585,11 @@ class AppRouter {
         return _buildPage(
           context,
           state,
-          BuildingFloorManagementPage(building: building),
+          BuildingFloorManagementPage(
+            building: building,
+            siteId: siteId,
+            buildingId: buildingId,
+          ),
         );
       },
     ),
@@ -792,6 +805,31 @@ class AppRouter {
             selectedRoom: selectedRoom,
             roomColor: roomColor,
             buildingId: buildingId,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.buildingResponsiblePersons}',
+      name: Routelists.buildingResponsiblePersons,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        final buildingAddress = state.uri.queryParameters['buildingAddress'];
+        final buildingName = state.uri.queryParameters['buildingName'];
+        final buildingId =
+            state.uri.queryParameters['buildingId'] ??
+            '6948dcd113537bff98eb7338'; // Default buildingId if not provided
+        final siteId = state.uri.queryParameters['siteId'];
+
+        return _buildPage(
+          context,
+          state,
+          BuildingResponsiblePersonsPage(
+            userName: userName,
+            buildingAddress: buildingAddress,
+            buildingName: buildingName,
+            buildingId: buildingId,
+            siteId: siteId,
           ),
         );
       },
