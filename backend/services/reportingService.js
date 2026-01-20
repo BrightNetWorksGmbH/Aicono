@@ -77,11 +77,11 @@ class ReportingService {
 
   /**
    * Create a reporting configuration
-   * @param {Object} config - Reporting config {name, interval}
+   * @param {Object} config - Reporting config {name, interval, reportContents?}
    * @returns {Promise<Object>} Created Reporting document
    */
   async createReporting(config) {
-    const { name, interval } = config;
+    const { name, interval, reportContents } = config;
 
     if (!name) {
       throw new Error('Reporting name is required');
@@ -97,9 +97,24 @@ class ReportingService {
       throw new Error(`Invalid interval. Must be one of: ${validIntervals.join(', ')}`);
     }
 
+    // Validate reportContents if provided
+    if (reportContents !== undefined) {
+      if (!Array.isArray(reportContents)) {
+        throw new Error('reportContents must be an array');
+      }
+
+      const validReportContents = ['TotalConsumption', 'ConsumptionByRoom', 'PeakLoads', 'Anomalies', 'InefficientUsage'];
+      for (const content of reportContents) {
+        if (!validReportContents.includes(content)) {
+          throw new Error(`Invalid reportContent: ${content}. Must be one of: ${validReportContents.join(', ')}`);
+        }
+      }
+    }
+
     const reporting = await Reporting.create({
       name,
       interval,
+      reportContents: reportContents || [],
     });
 
     return reporting;

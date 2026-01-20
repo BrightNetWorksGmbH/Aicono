@@ -10,6 +10,10 @@ const reportingSchema = new mongoose.Schema({
     required: true,
     enum: ['Daily', 'Weekly', 'Monthly', 'Yearly'],
   },
+  reportContents: [{
+    type: String,
+    enum: ['TotalConsumption', 'ConsumptionByRoom', 'PeakLoads', 'Anomalies', 'InefficientUsage'],
+  }],
 }, {
   timestamps: true,
 });

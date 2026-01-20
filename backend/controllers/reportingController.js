@@ -34,11 +34,33 @@ exports.handleReportSetup = asyncHandler(async (req, res) => {
   }
 
   const validIntervals = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
+  const validReportContents = ['TotalConsumption', 'ConsumptionByRoom', 'PeakLoads', 'Anomalies', 'InefficientUsage'];
+  
   if (!reportConfig.interval || !validIntervals.includes(reportConfig.interval)) {
     return res.status(400).json({
       success: false,
       error: `reportConfig.interval is required and must be one of: ${validIntervals.join(', ')}`
     });
+  }
+
+  // Validate reportContents if provided
+  if (reportConfig.reportContents !== undefined) {
+    if (!Array.isArray(reportConfig.reportContents)) {
+      return res.status(400).json({
+        success: false,
+        error: 'reportConfig.reportContents must be an array'
+      });
+    }
+
+    // Validate each content type
+    for (const content of reportConfig.reportContents) {
+      if (!validReportContents.includes(content)) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid reportContent: ${content}. Must be one of: ${validReportContents.join(', ')}`
+        });
+      }
+    }
   }
 
   // Validate buildingIds

@@ -148,11 +148,13 @@ exports.updateBuilding = asyncHandler(async (req, res) => {
 
     // Validate each config
     const validIntervals = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
+    const validReportContents = ['TotalConsumption', 'ConsumptionByRoom', 'PeakLoads', 'Anomalies', 'InefficientUsage'];
+    
     for (const config of filteredData.reportConfigs) {
       if (typeof config !== 'object' || config === null) {
         return res.status(400).json({
           success: false,
-          error: 'Each item in reportConfigs must be an object with name and interval'
+          error: 'Each item in reportConfigs must be an object with name, interval, and optional reportContents'
         });
       }
 
@@ -168,6 +170,26 @@ exports.updateBuilding = asyncHandler(async (req, res) => {
           success: false,
           error: `Each reportConfig must have a valid interval. Must be one of: ${validIntervals.join(', ')}`
         });
+      }
+
+      // Validate reportContents if provided
+      if (config.reportContents !== undefined) {
+        if (!Array.isArray(config.reportContents)) {
+          return res.status(400).json({
+            success: false,
+            error: 'reportContents must be an array'
+          });
+        }
+
+        // Validate each content type
+        for (const content of config.reportContents) {
+          if (!validReportContents.includes(content)) {
+            return res.status(400).json({
+              success: false,
+              error: `Invalid reportContent: ${content}. Must be one of: ${validReportContents.join(', ')}`
+            });
+          }
+        }
       }
     }
 
