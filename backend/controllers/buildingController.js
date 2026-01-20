@@ -58,6 +58,7 @@ exports.getBuildingById = asyncHandler(async (req, res) => {
  * Update building details
  */
 exports.updateBuilding = asyncHandler(async (req, res) => {
+  console.log('updateBuilding', req.body);
   const { buildingId } = req.params;
   const updateData = req.body;
 
@@ -71,7 +72,8 @@ exports.updateBuilding = asyncHandler(async (req, res) => {
     'type_of_use',
     'num_students_employees',
     'buildingContact',
-    'reportingRecipients'
+    'reportingRecipients',
+    'reportConfigs'
   ];
 
   // Filter only allowed fields
@@ -83,32 +85,114 @@ exports.updateBuilding = asyncHandler(async (req, res) => {
   }
 
   // Validate buildingContact structure if provided
-  if (filteredData.buildingContact) {
+  // Can be either a string ID or an object with name, email, and optional phone
+  if (filteredData.buildingContact !== undefined) {
     const contact = filteredData.buildingContact;
-    if (typeof contact !== 'object' || contact === null) {
+    if (typeof contact === 'string') {
+      // Valid - it's an ID reference
+    } else if (typeof contact === 'object' && contact !== null) {
+      // Validate object structure
+      if (contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid email format in buildingContact'
+        });
+      }
+    } else {
       return res.status(400).json({
         success: false,
-        error: 'buildingContact must be an object with name, email, and phone fields'
-      });
-    }
-    
-    // Validate email format if provided
-    if (contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid email format in buildingContact'
+        error: 'buildingContact must be either a string ID or an object with name, email, and optional phone'
       });
     }
   }
 
   // Validate reportingRecipients if provided
+  // Can be array of objects or array of string IDs
   if (filteredData.reportingRecipients !== undefined) {
     if (!Array.isArray(filteredData.reportingRecipients)) {
       return res.status(400).json({
         success: false,
-        error: 'reportingRecipients must be an array of ReportingRecipient IDs'
+        error: 'reportingRecipients must be an array'
       });
     }
+    
+    // Validate each item in array
+    for (const recipient of filteredData.reportingRecipients) {
+      if (typeof recipient === 'string') {
+        // Valid - it's an ID reference
+      } else if (typeof recipient === 'object' && recipient !== null) {
+        // Validate object structure
+        if (recipient.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.email)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid email format in reportingRecipients'
+          });
+        }
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: 'Each item in reportingRecipients must be either a string ID or an object with name, email, and optional phone'
+        });
+      }
+    }
+  }
+
+  // Validate reportConfigs if provided
+  if (filteredData.reportConfigs !== undefined) {
+    if (!Array.isArray(filteredData.reportConfigs)) {
+      return res.status(400).json({
+        success: false,
+        error: 'reportConfigs must be an array'
+      });
+    }
+
+    // Validate each config
+    const validIntervals = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
+    for (const config of filteredData.reportConfigs) {
+      if (typeof config !== 'object' || config === null) {
+        return res.status(400).json({
+          success: false,
+          error: 'Each item in reportConfigs must be an object with name and interval'
+        });
+      }
+
+      if (!config.name || typeof config.name !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: 'Each reportConfig must have a name (string)'
+        });
+      }
+
+      if (!config.interval || !validIntervals.includes(config.interval)) {
+        return res.status(400).json({
+          success: false,
+          error: `Each reportConfig must have a valid interval. Must be one of: ${validIntervals.join(', ')}`
+        });
+      }
+    }
+
+    // Validate that reportingRecipients and reportConfigs are provided together and have same length
+    if (filteredData.reportingRecipients === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'reportingRecipients must be provided when reportConfigs is provided'
+      });
+    }
+
+    if (filteredData.reportingRecipients.length !== filteredData.reportConfigs.length) {
+      return res.status(400).json({
+        success: false,
+        error: 'reportingRecipients and reportConfigs arrays must have the same length'
+      });
+    }
+  }
+
+  // Validate that if reportingRecipients is provided, reportConfigs must also be provided
+  if (filteredData.reportingRecipients !== undefined && filteredData.reportConfigs === undefined) {
+    return res.status(400).json({
+      success: false,
+      error: 'reportConfigs must be provided when reportingRecipients is provided'
+    });
   }
 
   const building = await buildingService.updateBuilding(buildingId, filteredData);
