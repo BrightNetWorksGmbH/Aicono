@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
@@ -30,62 +31,81 @@ class BuildingResponsiblePersonsPage extends StatefulWidget {
 
 class _BuildingResponsiblePersonsPageState
     extends State<BuildingResponsiblePersonsPage> {
-  final List<Map<String, dynamic>> _contacts = [];
-  final List<Map<String, dynamic>> _properties = [];
+  final TextEditingController _reportingNameController =
+      TextEditingController();
+  String _selectedFrequencyKey = 'monthly';
+  final Map<String, bool> _reportOptions = {
+    'total_consumption': true,
+    'peak_loads': false,
+    'anomalies': false,
+    'rooms_by_consumption': true,
+    'underutilization': true,
+  };
+
+  String get _selectedFrequency =>
+      'building_responsible_persons.$_selectedFrequencyKey'.tr();
 
   @override
-  void initState() {
-    super.initState();
-    // Initialize with default properties
-    _properties.addAll([
-      {'name': 'Liegenschaft, gesamt', 'selected': true},
-      {'name': 'Büroräume, Vorderhaus', 'selected': true},
-      {'name': 'Lagergebäude', 'selected': true},
-    ]);
+  void dispose() {
+    _reportingNameController.dispose();
+    super.dispose();
   }
 
   void _handleLanguageChanged() {
     setState(() {});
   }
 
-  void _handleAddContact() {
+  void _handleFrequencyChange() {
+    // Show frequency selection dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('building_responsible_persons.select_frequency'.tr()),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildFrequencyOption(
+              'building_responsible_persons.daily'.tr(),
+              'daily',
+            ),
+            _buildFrequencyOption(
+              'building_responsible_persons.weekly'.tr(),
+              'weekly',
+            ),
+            _buildFrequencyOption(
+              'building_responsible_persons.monthly'.tr(),
+              'monthly',
+            ),
+            _buildFrequencyOption(
+              'building_responsible_persons.yearly'.tr(),
+              'yearly',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFrequencyOption(String frequency, String key) {
+    return ListTile(
+      title: Text(frequency),
+      onTap: () {
+        setState(() {
+          _selectedFrequencyKey = key;
+        });
+        Navigator.of(context).pop();
+      },
+    );
+  }
+
+  void _handleReportOptionToggle(String option) {
     setState(() {
-      _contacts.add({
-        'name': '',
-        'email': '',
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      });
+      _reportOptions[option] = !(_reportOptions[option] ?? false);
     });
   }
 
-  void _handleRemoveContact(String id) {
-    setState(() {
-      _contacts.removeWhere((contact) => contact['id'] == id);
-    });
-  }
-
-  void _handleContactNameChanged(String id, String name) {
-    setState(() {
-      final index = _contacts.indexWhere((contact) => contact['id'] == id);
-      if (index != -1) {
-        _contacts[index]['name'] = name;
-      }
-    });
-  }
-
-  void _handleContactEmailChanged(String id, String email) {
-    setState(() {
-      final index = _contacts.indexWhere((contact) => contact['id'] == id);
-      if (index != -1) {
-        _contacts[index]['email'] = email;
-      }
-    });
-  }
-
-  void _handlePropertyToggle(int index) {
-    setState(() {
-      _properties[index]['selected'] = !_properties[index]['selected'];
-    });
+  String _getReportOptionLabel(String key) {
+    return 'building_responsible_persons.$key'.tr();
   }
 
   void _handleContinue() {
@@ -120,6 +140,7 @@ class _BuildingResponsiblePersonsPageState
             width: screenSize.width,
             decoration: BoxDecoration(
               color: AppTheme.surface,
+              border: Border.all(color: Colors.black, width: 2),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.5),
@@ -158,7 +179,9 @@ class _BuildingResponsiblePersonsPageState
                           if (widget.userName != null) ...[
                             const SizedBox(height: 16),
                             Text(
-                              'Fast geschafft, ${widget.userName}!',
+                              'building_responsible_persons.progress_text'.tr(
+                                namedArgs: {'name': widget.userName!},
+                              ),
                               style: AppTextStyles.bodyMedium.copyWith(
                                 color: Colors.black87,
                               ),
@@ -190,7 +213,15 @@ class _BuildingResponsiblePersonsPageState
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-                                      'Wer soll automatische Reportings erhalten?',
+                                      widget.userName != null
+                                          ? 'building_responsible_persons.title'
+                                                .tr(
+                                                  namedArgs: {
+                                                    'name': widget.userName!,
+                                                  },
+                                                )
+                                          : 'building_responsible_persons.title_fallback'
+                                                .tr(),
                                       textAlign: TextAlign.center,
                                       style: AppTextStyles.headlineSmall
                                           .copyWith(
@@ -199,106 +230,136 @@ class _BuildingResponsiblePersonsPageState
                                           ),
                                     ),
                                     const SizedBox(height: 32),
-                                    // Contact Fields
-                                    if (_contacts.isEmpty)
-                                      _buildAddContactButton()
-                                    else
-                                      ..._contacts.map((contact) {
-                                        return Column(
-                                          children: [
-                                            _buildContactField(
-                                              contact['id'],
-                                              contact['name'],
-                                              contact['email'],
+                                    // Reporting Name Field
+                                    Container(
+                                      height: 50,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: const Color(0xFF8B9A5B),
+                                          width: 1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: TextFormField(
+                                        controller: _reportingNameController,
+                                        decoration: InputDecoration(
+                                          hintText:
+                                              'building_responsible_persons.reporting_name_hint'
+                                                  .tr(),
+                                          border: InputBorder.none,
+                                          hintStyle: AppTextStyles.bodyMedium
+                                              .copyWith(
+                                                color: Colors.grey[600],
+                                              ),
+                                        ),
+                                        style: AppTextStyles.bodyMedium
+                                            .copyWith(color: Colors.black87),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    // Frequency Field
+                                    Container(
+                                      height: 50,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: const Color(0xFF8B9A5B),
+                                          width: 1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              _selectedFrequency,
+                                              style: AppTextStyles.bodyMedium
+                                                  .copyWith(
+                                                    color: Colors.black87,
+                                                  ),
                                             ),
-                                            const SizedBox(height: 16),
-                                          ],
-                                        );
-                                      }),
-                                    if (_contacts.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          onTap: _handleAddContact,
-                                          child: Text(
-                                            '+ Weiteren Kontakt hinzufügen',
-                                            style: AppTextStyles.bodyMedium
-                                                .copyWith(
-                                                  decoration:
-                                                      TextDecoration.underline,
-                                                  color: Colors.black87,
-                                                ),
                                           ),
+                                          Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              onTap: _handleFrequencyChange,
+                                              child: Text(
+                                                '+ ${'building_responsible_persons.change_frequency'.tr()}',
+                                                style: AppTextStyles.bodyMedium
+                                                    .copyWith(
+                                                      decoration: TextDecoration
+                                                          .underline,
+                                                      color: Colors.black,
+                                                    ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 32),
+                                    // Report Options Checkboxes - Row 1
+                                    Wrap(
+                                      spacing: 16,
+                                      runSpacing: 16,
+                                      alignment: WrapAlignment.center,
+                                      children: [
+                                        _buildReportOptionCheckbox(
+                                          'total_consumption',
+                                        ),
+                                        _buildReportOptionCheckbox(
+                                          'peak_loads',
+                                        ),
+                                        _buildReportOptionCheckbox('anomalies'),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    // Report Options Checkboxes - Row 2
+                                    Wrap(
+                                      spacing: 16,
+                                      runSpacing: 16,
+                                      alignment: WrapAlignment.center,
+                                      children: [
+                                        _buildReportOptionCheckbox(
+                                          'rooms_by_consumption',
+                                        ),
+                                        _buildReportOptionCheckbox(
+                                          'underutilization',
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 32),
+                                    // Additional Options
+                                    Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: () {
+                                          // TODO: Handle create own routines
+                                        },
+                                        child: Text(
+                                          '+ ${'building_responsible_persons.create_own_routines'.tr()}',
+                                          style: AppTextStyles.bodyMedium
+                                              .copyWith(
+                                                decoration:
+                                                    TextDecoration.underline,
+                                                color: Colors.black87,
+                                              ),
                                         ),
                                       ),
-                                    ],
+                                    ),
                                     const SizedBox(height: 16),
-                                    // Property Selection Checkboxes
-                                    // ..._properties.asMap().entries.map((entry) {
-                                    //   final index = entry.key;
-                                    //   final property = entry.value;
-                                    //   return Padding(
-                                    //     padding: const EdgeInsets.only(
-                                    //       bottom: 12,
-                                    //     ),
-                                    //     child: Material(
-                                    //       color: Colors.transparent,
-                                    //       child: InkWell(
-                                    //         onTap: () =>
-                                    //             _handlePropertyToggle(index),
-                                    //         borderRadius: BorderRadius.circular(
-                                    //           4,
-                                    //         ),
-                                    //         child: Container(
-                                    //           padding:
-                                    //               const EdgeInsets.symmetric(
-                                    //                 horizontal: 16,
-                                    //                 vertical: 12,
-                                    //               ),
-                                    //           decoration: BoxDecoration(
-                                    //             border: Border.all(
-                                    //               color: Colors.black54,
-                                    //               width: 1,
-                                    //             ),
-                                    //             borderRadius:
-                                    //                 BorderRadius.circular(4),
-                                    //           ),
-                                    //           child: Row(
-                                    //             children: [
-                                    //               Checkbox(
-                                    //                 value: property['selected'],
-                                    //                 onChanged: null,
-                                    //                 activeColor: const Color(
-                                    //                   0xFF8B9A5B,
-                                    //                 ),
-                                    //               ),
-                                    //               const SizedBox(width: 8),
-                                    //               Expanded(
-                                    //                 child: Text(
-                                    //                   property['name'],
-                                    //                   style: AppTextStyles
-                                    //                       .bodyMedium
-                                    //                       .copyWith(
-                                    //                         color:
-                                    //                             Colors.black87,
-                                    //                       ),
-                                    //                 ),
-                                    //               ),
-                                    //             ],
-                                    //           ),
-                                    //         ),
-                                    //       ),
-                                    //     ),
-                                    //   );
-                                    // }),
-                                    // const SizedBox(height: 32),
                                     Material(
                                       color: Colors.transparent,
                                       child: InkWell(
                                         onTap: _handleSkip,
                                         child: Text(
-                                          'Schritt überspringen',
+                                          'building_responsible_persons.skip_step'
+                                              .tr(),
                                           style: AppTextStyles.bodyMedium
                                               .copyWith(
                                                 decoration:
@@ -312,7 +373,9 @@ class _BuildingResponsiblePersonsPageState
                                     Material(
                                       color: Colors.transparent,
                                       child: PrimaryOutlineButton(
-                                        label: 'Reportings festlegen',
+                                        label:
+                                            'building_responsible_persons.button_text'
+                                                .tr(),
                                         width: 260,
                                         onPressed: _handleContinue,
                                       ),
@@ -339,133 +402,43 @@ class _BuildingResponsiblePersonsPageState
     );
   }
 
-  Widget _buildAddContactButton() {
-    return Column(
-      children: [
-        _buildContactField(null, '', ''),
-        const SizedBox(height: 8),
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: _handleAddContact,
-            child: Text(
-              '+ Kontakt hinzufügen',
-              style: AppTextStyles.bodyMedium.copyWith(
-                decoration: TextDecoration.underline,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildContactField(String? id, String name, String email) {
-    final contactId = id ?? DateTime.now().millisecondsSinceEpoch.toString();
-    final isNew = id == null;
-
-    return Column(
-      children: [
-        // Name Field
-        Container(
-          height: 50,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+  Widget _buildReportOptionCheckbox(String option) {
+    final isSelected = _reportOptions[option] ?? false;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _handleReportOptionToggle(option),
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.black54, width: 2),
-            borderRadius: BorderRadius.circular(4),
+            // border: Border.all(color: Colors.black54, width: 1),
+            // borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: TextFormField(
-                  initialValue: name,
-                  decoration: InputDecoration(
-                    hintText: 'Name',
-                    border: InputBorder.none,
-                    hintStyle: AppTextStyles.bodyMedium.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: Colors.black87,
-                  ),
-                  onChanged: (value) {
-                    if (!isNew) {
-                      _handleContactNameChanged(contactId, value);
-                    }
-                  },
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black54, width: 1),
+                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.white,
                 ),
+                child: isSelected
+                    ? const Icon(Icons.close, size: 16, color: Colors.black)
+                    : null,
               ),
-              if (!isNew)
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => _handleRemoveContact(contactId),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Icon(
-                        Icons.close,
-                        color: Colors.grey[600],
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
+              const SizedBox(width: 8),
+              Text(
+                _getReportOptionLabel(option),
+                style: AppTextStyles.bodyMedium.copyWith(color: Colors.black87),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        // Email Field
-        Container(
-          height: 50,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black54, width: 2),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  initialValue: email,
-                  decoration: InputDecoration(
-                    hintText: 'Mailadresse',
-                    border: InputBorder.none,
-                    hintStyle: AppTextStyles.bodyMedium.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: Colors.black87,
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  onChanged: (value) {
-                    if (!isNew) {
-                      _handleContactEmailChanged(contactId, value);
-                    }
-                  },
-                ),
-              ),
-              if (!isNew)
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => _handleRemoveContact(contactId),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Icon(
-                        Icons.close,
-                        color: Colors.grey[600],
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

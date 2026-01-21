@@ -58,4 +58,5 @@ class Routelists {
   static const roomAssignment = 'room-assignment';
   static const dataSourceSelection = 'data-source-selection';
   static const buildingResponsiblePersons = 'building-responsible-persons';
+  static const buildingContactPerson = 'building-contact-person';
 }

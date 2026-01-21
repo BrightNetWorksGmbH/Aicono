@@ -124,9 +124,9 @@ class _BuildingFloorManagementPageState
   }
 
   void _handleComplete() {
-    // All floors completed, navigate to responsible persons page
+    // All floors completed, navigate to contact person step first
     context.pushNamed(
-      Routelists.buildingResponsiblePersons,
+      Routelists.buildingContactPerson,
       queryParameters: {
         'buildingName': widget.building.name,
         if (widget.building.address != null &&
@@ -135,6 +135,12 @@ class _BuildingFloorManagementPageState
         'buildingId': widget.buildingId ?? '6948dcd113537bff98eb7338',
         if (widget.siteId != null && widget.siteId!.isNotEmpty)
           'siteId': widget.siteId!,
+        if (widget.building.totalArea != null)
+          'totalArea': widget.building.totalArea!.toString(),
+        if (widget.building.numberOfRooms != null)
+          'numberOfRooms': widget.building.numberOfRooms!.toString(),
+        if (widget.building.constructionYear != null)
+          'constructionYear': widget.building.constructionYear!,
       },
     );
   }
