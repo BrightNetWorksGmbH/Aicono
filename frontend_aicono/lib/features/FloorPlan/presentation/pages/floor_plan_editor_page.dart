@@ -1093,91 +1093,91 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
                                       ),
                                     // Canvas with rooms and doors
                                     GestureDetector(
-                                      onTapDown: (d) {
-                                        if (!pencilMode) {
-                                          selectRoom(d.localPosition);
-                                        } else {
-                                          // Cancel door placement mode if clicking elsewhere
-                                          if (doorPlacementMode) {
-                                            setState(() {
-                                              doorPlacementMode = false;
-                                            });
-                                          }
-                                        }
-                                      },
-                                      onPanStart: (d) {
-                                        lastPanPosition = d.localPosition;
-                                        if (pencilMode) {
-                                          drawingPath = Path()
-                                            ..moveTo(
-                                              d.localPosition.dx,
-                                              d.localPosition.dy,
-                                            );
-                                        }
-                                      },
-                                      onPanUpdate: (d) {
-                                        if (pencilMode) {
-                                          setState(() {
-                                            drawingPath!.lineTo(
-                                              d.localPosition.dx,
-                                              d.localPosition.dy,
-                                            );
-                                          });
-                                        } else if (activeHandle != null) {
-                                          resizeRoom(d.delta);
-                                        } else if (selectedRoom != null ||
-                                            selectedDoor != null) {
-                                          moveSelected(d.delta);
-                                        }
-                                      },
-                                      onPanEnd: (d) {
-                                        // Save state after move or resize operations
-                                        final hadActiveOperation =
-                                            activeHandle != null ||
-                                            (selectedRoom != null &&
-                                                lastPanPosition != null) ||
-                                            (selectedDoor != null &&
-                                                lastPanPosition != null);
-                                        if (!pencilMode && hadActiveOperation) {
-                                          _saveState();
-                                        }
-                                        activeHandle = null;
-                                        startBounds = null;
-                                        lastPanPosition = null;
-                                        if (pencilMode && drawingPath != null) {
-                                          setState(() {
-                                            // Close the path to create a complete room shape
-                                            final closedPath = Path.from(
-                                              drawingPath!,
-                                            )..close();
-                                            rooms.add(
-                                              Room(
-                                                id: UniqueKey().toString(),
-                                                path: closedPath,
-                                                fillColor:
-                                                    selectedColor ??
-                                                    const Color(0xFFF5F5DC),
-                                                name: 'Room $_roomCounter',
-                                              ),
-                                            );
-                                            _roomCounter++;
-                                            drawingPath = null;
-                                            _updateCanvasSize();
-                                          });
-                                        }
-                                      },
-                                      child: CustomPaint(
-                                        size: _canvasSize,
-                                        painter: FloorPainter(
-                                          rooms: rooms,
-                                          doors: doors,
-                                          selectedRoom: selectedRoom,
-                                          selectedDoor: selectedDoor,
-                                          previewPath: drawingPath,
+                                  onTapDown: (d) {
+                                    if (!pencilMode) {
+                                      selectRoom(d.localPosition);
+                                    } else {
+                                      // Cancel door placement mode if clicking elsewhere
+                                      if (doorPlacementMode) {
+                                        setState(() {
+                                          doorPlacementMode = false;
+                                        });
+                                      }
+                                    }
+                                  },
+                                  onPanStart: (d) {
+                                    lastPanPosition = d.localPosition;
+                                    if (pencilMode) {
+                                      drawingPath = Path()
+                                        ..moveTo(
+                                          d.localPosition.dx,
+                                          d.localPosition.dy,
+                                        );
+                                    }
+                                  },
+                                  onPanUpdate: (d) {
+                                    if (pencilMode) {
+                                      setState(() {
+                                        drawingPath!.lineTo(
+                                          d.localPosition.dx,
+                                          d.localPosition.dy,
+                                        );
+                                      });
+                                    } else if (activeHandle != null) {
+                                      resizeRoom(d.delta);
+                                    } else if (selectedRoom != null ||
+                                        selectedDoor != null) {
+                                      moveSelected(d.delta);
+                                    }
+                                  },
+                                  onPanEnd: (d) {
+                                    // Save state after move or resize operations
+                                    final hadActiveOperation =
+                                        activeHandle != null ||
+                                        (selectedRoom != null &&
+                                            lastPanPosition != null) ||
+                                        (selectedDoor != null &&
+                                            lastPanPosition != null);
+                                    if (!pencilMode && hadActiveOperation) {
+                                      _saveState();
+                                    }
+                                    activeHandle = null;
+                                    startBounds = null;
+                                    lastPanPosition = null;
+                                    if (pencilMode && drawingPath != null) {
+                                      setState(() {
+                                        // Close the path to create a complete room shape
+                                        final closedPath = Path.from(
+                                          drawingPath!,
+                                        )..close();
+                                        rooms.add(
+                                          Room(
+                                            id: UniqueKey().toString(),
+                                            path: closedPath,
+                                            fillColor:
+                                                selectedColor ??
+                                                const Color(0xFFF5F5DC),
+                                            name: 'Room $_roomCounter',
+                                          ),
+                                        );
+                                        _roomCounter++;
+                                        drawingPath = null;
+                                        _updateCanvasSize();
+                                      });
+                                    }
+                                  },
+                                  child: CustomPaint(
+                                    size: _canvasSize,
+                                    painter: FloorPainter(
+                                      rooms: rooms,
+                                      doors: doors,
+                                      selectedRoom: selectedRoom,
+                                      selectedDoor: selectedDoor,
+                                      previewPath: drawingPath,
                                           hasBackgroundImage:
                                               _backgroundImageBytes != null,
-                                        ),
-                                      ),
+                                    ),
+                                  ),
                                     ),
                                   ],
                                 ),
@@ -2260,20 +2260,20 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
       // viewBox starts at (0,0) to match the image exactly
     } else {
       // Calculate overall bounds from rooms
-      Rect? overallBounds;
-      for (final room in rooms) {
-        final bounds = room.path.getBounds();
-        overallBounds = overallBounds == null
-            ? bounds
-            : overallBounds.expandToInclude(bounds);
-      }
+    Rect? overallBounds;
+    for (final room in rooms) {
+      final bounds = room.path.getBounds();
+      overallBounds = overallBounds == null
+          ? bounds
+          : overallBounds.expandToInclude(bounds);
+    }
 
-      if (overallBounds == null) {
-        overallBounds = const Rect.fromLTWH(0, 0, 2000, 2000);
-      }
+    if (overallBounds == null) {
+      overallBounds = const Rect.fromLTWH(0, 0, 2000, 2000);
+    }
 
-      // Add padding
-      final padding = 50.0;
+    // Add padding
+    final padding = 50.0;
       width = overallBounds.width + (padding * 2);
       height = overallBounds.height + (padding * 2);
     }
@@ -2306,7 +2306,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
       }
 
       // Add background image - positioned at (0,0) with exact dimensions
-      buffer.writeln(
+    buffer.writeln(
         '  <image x="0" y="0" width="$width" height="$height" '
         'xlink:href="data:image/$imageType;base64,$base64Image" '
         'preserveAspectRatio="none"/>',
@@ -2315,7 +2315,7 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
       // Default background color
       buffer.writeln(
         '  <rect x="0" y="0" width="$width" height="$height" fill="#E3F2FD"/>',
-      );
+    );
     }
 
     // Draw rooms (using original coordinates, viewBox handles the viewport)
@@ -2460,13 +2460,13 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
       // Listen to upload state and store subscription
       _uploadSubscription = uploadBloc.stream.listen((state) {
         if (state is UploadSuccess) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
               content: Text('SVG uploaded successfully'),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
+            duration: Duration(seconds: 2),
+          ),
+        );
 
           // Prepare rooms data for navigation
           final roomsData = rooms.map((room) {
@@ -2505,14 +2505,14 @@ class _FloorPlanPageState extends State<FloorPlanPage> {
             );
           }
         } else if (state is UploadFailure) {
-          ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Upload failed: ${state.message}'),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 3),
-            ),
-          );
-        }
+          ),
+        );
+      }
       });
     } catch (e) {
       debugPrint('Error generating SVG: $e');

@@ -36,6 +36,7 @@ import 'package:frontend_aicono/features/superadmin/presentation/pages/add_verse
 import 'package:frontend_aicono/features/Building/presentation/pages/building_list_page.dart';
 import 'package:frontend_aicono/features/Building/presentation/pages/building_onboarding_page.dart';
 import 'package:frontend_aicono/features/Building/presentation/pages/floor_plan_activation_page.dart';
+import 'package:frontend_aicono/features/Building/presentation/pages/steps/building_contact_person_step.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/page/dashboard_page.dart';
 
@@ -805,6 +806,35 @@ class AppRouter {
             selectedRoom: selectedRoom,
             roomColor: roomColor,
             buildingId: buildingId,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.buildingContactPerson}',
+      name: Routelists.buildingContactPerson,
+      pageBuilder: (context, state) {
+        final buildingName = state.uri.queryParameters['buildingName'];
+        final buildingAddress = state.uri.queryParameters['buildingAddress'];
+        final buildingId = state.uri.queryParameters['buildingId'];
+        final siteId = state.uri.queryParameters['siteId'];
+        final userName = state.uri.queryParameters['userName'];
+        final totalArea = state.uri.queryParameters['totalArea'];
+        final numberOfRooms = state.uri.queryParameters['numberOfRooms'];
+        final constructionYear = state.uri.queryParameters['constructionYear'];
+
+        return _buildPage(
+          context,
+          state,
+          BuildingContactPersonStep(
+            buildingName: buildingName,
+            buildingAddress: buildingAddress,
+            buildingId: buildingId,
+            siteId: siteId,
+            userName: userName,
+            totalArea: totalArea,
+            numberOfRooms: numberOfRooms,
+            constructionYear: constructionYear,
           ),
         );
       },
