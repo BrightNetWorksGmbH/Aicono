@@ -62,6 +62,13 @@ import 'package:frontend_aicono/features/switch_creation/data/datasources/comple
 import 'package:frontend_aicono/features/switch_creation/data/repositories/complete_setup_repository_impl.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/repositories/complete_setup_repository.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/complete_setup_usecase.dart';
+import 'package:frontend_aicono/features/dashboard/data/datasources/dashboard_remote_datasource.dart';
+import 'package:frontend_aicono/features/dashboard/data/repositories/dashboard_repository_impl.dart';
+import 'package:frontend_aicono/features/dashboard/domain/repositories/dashboard_repository.dart';
+import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_site_details_usecase.dart';
+import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_sites_usecase.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_sites_bloc.dart';
 import 'package:frontend_aicono/features/superadmin/data/datasources/verse_remote_datasource.dart';
 import 'package:frontend_aicono/features/superadmin/data/repositories/verse_repository_impl.dart';
 import 'package:frontend_aicono/features/superadmin/domain/repositories/verse_repository.dart';
@@ -119,6 +126,11 @@ Future<void> init() async {
     () => VerseRemoteDataSourceImpl(dioClient: sl()),
   );
 
+  // Dashboard data source
+  sl.registerLazySingleton<DashboardRemoteDataSource>(
+    () => DashboardRemoteDataSourceImpl(dioClient: sl()),
+  );
+
   // Repositories - Auth is online-only, Verse is offline-first
   sl.registerLazySingleton<InvitationRepository>(
     () => InvitationRepositoryImpl(remoteDataSource: sl()),
@@ -152,6 +164,11 @@ Future<void> init() async {
     () => VerseRepositoryImpl(remoteDataSource: sl()),
   );
 
+  // Dashboard repository
+  sl.registerLazySingleton<DashboardRepository>(
+    () => DashboardRepositoryImpl(remoteDataSource: sl()),
+  );
+
   // Use cases
   sl.registerLazySingleton(() => InvitationUseCase(sl()));
   sl.registerLazySingleton(() => RegisterUserUseCase(repository: sl()));
@@ -170,6 +187,10 @@ Future<void> init() async {
 
   sl.registerLazySingleton(() => SaveFloorUseCase(repository: sl()));
   sl.registerLazySingleton(() => GetFloorsUseCase(sl()));
+  sl.registerLazySingleton(() => GetDashboardSitesUseCase(repository: sl()));
+  sl.registerLazySingleton(
+    () => GetDashboardSiteDetailsUseCase(repository: sl()),
+  );
 
   // Superadmin use cases
   sl.registerLazySingleton(() => CreateVerseUseCase(repository: sl()));
@@ -225,6 +246,12 @@ Future<void> init() async {
 
   // Get Floors Bloc
   sl.registerFactory(() => GetFloorsBloc(getFloorsUseCase: sl()));
+
+  // Dashboard blocs
+  sl.registerFactory(() => DashboardSitesBloc(getDashboardSitesUseCase: sl()));
+  sl.registerFactory(
+    () => DashboardSiteDetailsBloc(getDashboardSiteDetailsUseCase: sl()),
+  );
 
   // Upload dependencies
   sl.registerLazySingleton<UploadRemoteDataSource>(

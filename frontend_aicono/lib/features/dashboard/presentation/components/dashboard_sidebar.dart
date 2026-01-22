@@ -5,11 +5,13 @@ import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
-import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
 import 'package:frontend_aicono/core/services/auth_service.dart';
 import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/tree_item_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/tree_view_widget.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_sites_bloc.dart';
 
 class DashboardSidebar extends StatefulWidget {
   const DashboardSidebar({
@@ -30,14 +32,13 @@ class DashboardSidebar extends StatefulWidget {
 
 class _DashboardSidebarState extends State<DashboardSidebar> {
   String? currentVerseId;
-  List<TreeItemEntity> _properties = [];
   List<TreeItemEntity> _reportings = [];
 
   @override
   void initState() {
     super.initState();
     _loadVerseId();
-    _loadSampleData();
+    _loadSampleReportings();
   }
 
   void _loadVerseId() {
@@ -48,82 +49,17 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
     });
   }
 
-  void _loadSampleData() {
-    // Dummy hierarchical data for properties
+  void _loadSampleReportings() {
+    // Keep dummy reportings for now (backend endpoints not provided yet)
     setState(() {
-      _properties = [
-        TreeItemEntity(
-          id: 'prop1',
-          name: 'Hauptsitz Münster',
-          type: 'property',
-          children: [
-            TreeItemEntity(
-              id: 'prop1_building1',
-              name: 'Gebäude A',
-              type: 'property',
-              children: [
-                TreeItemEntity(
-                  id: 'prop1_building1_floor1',
-                  name: 'Erdgeschoss',
-                  type: 'property',
-                ),
-                TreeItemEntity(
-                  id: 'prop1_building1_floor2',
-                  name: '1. Obergeschoss',
-                  type: 'property',
-                ),
-              ],
-            ),
-            TreeItemEntity(
-              id: 'prop1_building2',
-              name: 'Gebäude B',
-              type: 'property',
-            ),
-          ],
-        ),
-        TreeItemEntity(
-          id: 'prop2',
-          name: 'Zweigstelle Regensburg',
-          type: 'property',
-          children: [
-            TreeItemEntity(
-              id: 'prop2_building1',
-              name: 'Hauptgebäude',
-              type: 'property',
-            ),
-          ],
-        ),
-      ];
-
-      // Dummy hierarchical data for reportings
       _reportings = [
         TreeItemEntity(
           id: 'rep1',
           name: 'CFO Reporting Münster',
           type: 'reporting',
           children: [
-            TreeItemEntity(
-              id: 'rep1_q1',
-              name: 'Q1 2024',
-              type: 'reporting',
-            ),
-            TreeItemEntity(
-              id: 'rep1_q2',
-              name: 'Q2 2024',
-              type: 'reporting',
-            ),
-          ],
-        ),
-        TreeItemEntity(
-          id: 'rep2',
-          name: 'CFO Reporting Regensburg',
-          type: 'reporting',
-          children: [
-            TreeItemEntity(
-              id: 'rep2_q1',
-              name: 'Q1 2024',
-              type: 'reporting',
-            ),
+            TreeItemEntity(id: 'rep1_q1', name: 'Q1 2024', type: 'reporting'),
+            TreeItemEntity(id: 'rep1_q2', name: 'Q2 2024', type: 'reporting'),
           ],
         ),
       ];
@@ -199,25 +135,100 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
           thickness: 1,
           color: Color(0x40000000),
         ),
-        TreeViewWidget(
-          items: _properties,
-          onItemTap: (item) {
-            // Handle item tap
-            print('Property tapped: ${item.name}');
-          },
-          onAddItem: () {
-            // TODO: Navigate to add location page
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'dashboard.sidebar.add_location'.tr() +
-                      ' ' +
-                      'dashboard.main_content.coming_soon'.tr(),
+        BlocBuilder<DashboardSitesBloc, DashboardSitesState>(
+          builder: (context, sitesState) {
+            if (sitesState is DashboardSitesLoading ||
+                sitesState is DashboardSitesInitial) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'Loading sites...',
+                  style: AppTextStyles.titleSmall.copyWith(
+                    color: Colors.grey[600],
+                  ),
                 ),
-              ),
-            );
+              );
+            }
+
+            if (sitesState is DashboardSitesFailure) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  sitesState.message,
+                  style: AppTextStyles.titleSmall.copyWith(
+                    color: Colors.red[600],
+                  ),
+                ),
+              );
+            }
+
+            if (sitesState is DashboardSitesSuccess) {
+              final detailsState = context.watch<DashboardSiteDetailsBloc>().state;
+              String? selectedSiteId;
+              if (detailsState is DashboardSiteDetailsLoading) {
+                selectedSiteId = detailsState.siteId;
+              } else if (detailsState is DashboardSiteDetailsSuccess) {
+                selectedSiteId = detailsState.siteId;
+              } else if (detailsState is DashboardSiteDetailsFailure) {
+                selectedSiteId = detailsState.siteId;
+              }
+
+              final selectedBuildings = (detailsState
+                      is DashboardSiteDetailsSuccess)
+                  ? detailsState.details.buildings
+                  : const [];
+
+              final items = sitesState.sites.map((site) {
+                final children = (selectedSiteId != null &&
+                        selectedSiteId == site.id)
+                    ? selectedBuildings
+                        .map(
+                          (b) => TreeItemEntity(
+                            id: b.id,
+                            name: b.name,
+                            type: 'property',
+                          ),
+                        )
+                        .toList()
+                    : const <TreeItemEntity>[];
+
+                return TreeItemEntity(
+                  id: site.id,
+                  name: site.name,
+                  type: 'property',
+                  children: children,
+                );
+              }).toList();
+
+              return TreeViewWidget(
+                items: items,
+                onItemTap: (item) {
+                  // If tapped item id matches a site, load its details
+                  final isSite = sitesState.sites.any((s) => s.id == item.id);
+                  if (isSite) {
+                    context.read<DashboardSiteDetailsBloc>().add(
+                          DashboardSiteDetailsRequested(siteId: item.id),
+                        );
+                  }
+                },
+                onAddItem: () {
+                  // TODO: Navigate to add location page
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'dashboard.sidebar.add_location'.tr() +
+                            ' ' +
+                            'dashboard.main_content.coming_soon'.tr(),
+                      ),
+                    ),
+                  );
+                },
+                addItemLabel: 'dashboard.sidebar.add_location'.tr(),
+              );
+            }
+
+            return const SizedBox.shrink();
           },
-          addItemLabel: 'dashboard.sidebar.add_location'.tr(),
         ),
       ],
     );
@@ -251,7 +262,6 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
           items: _reportings,
           onItemTap: (item) {
             // Handle item tap
-            print('Reporting tapped: ${item.name}');
           },
           onAddItem: () {
             // TODO: Navigate to add reporting page

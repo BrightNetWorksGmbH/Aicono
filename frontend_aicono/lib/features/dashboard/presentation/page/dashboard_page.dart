@@ -11,8 +11,9 @@ import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/dashboard_sidebar.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/dashboard_main_content.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_sites_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/user.dart';
 
@@ -28,7 +29,6 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   String? currentVerseId;
   late DynamicThemeService _themeService;
-  User? _user;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -107,8 +107,6 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   void _processUserData(User? user, LocalStorage localStorage) {
-    _user = user;
-
     if (user == null) {
       // No user - should not happen but handle gracefully
       if (mounted) {
@@ -182,138 +180,179 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     final Size screenSize = MediaQuery.of(context).size;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      drawer: Drawer(
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.grey[50]!, Colors.grey[100]!],
-            ),
-          ),
-          child: SafeArea(
-            child: SingleChildScrollView(
-              child: DashboardSidebar(
-                isInDrawer: true,
-                onLanguageChanged: _handleLanguageChanged,
-              ),
-            ),
-          ),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) {
+            final bloc = sl<DashboardSitesBloc>();
+            bloc.add(DashboardSitesRequested());
+            return bloc;
+          },
         ),
-      ),
-      backgroundColor: AppTheme.primary,
-      body: Center(
-        child: Container(
-          width: screenSize.width,
-          color: AppTheme.primary,
-          child: ListView(
-            children: [
-              // White background container - full width
-              Container(
-                margin: const EdgeInsets.all(8),
-                height: screenSize.height,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+        BlocProvider(create: (context) => sl<DashboardSiteDetailsBloc>()),
+      ],
+      child: MultiBlocListener(
+        listeners: [
+          BlocListener<DashboardSitesBloc, DashboardSitesState>(
+            listener: (context, state) {
+              if (state is DashboardSitesSuccess && state.sites.isNotEmpty) {
+                final detailsState = context
+                    .read<DashboardSiteDetailsBloc>()
+                    .state;
+                String? selectedSiteId;
+                if (detailsState is DashboardSiteDetailsLoading) {
+                  selectedSiteId = detailsState.siteId;
+                } else if (detailsState is DashboardSiteDetailsSuccess) {
+                  selectedSiteId = detailsState.siteId;
+                } else if (detailsState is DashboardSiteDetailsFailure) {
+                  selectedSiteId = detailsState.siteId;
+                }
+
+                if (selectedSiteId == null) {
+                  context.read<DashboardSiteDetailsBloc>().add(
+                    DashboardSiteDetailsRequested(siteId: state.sites.first.id),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+        child: Scaffold(
+          key: _scaffoldKey,
+          drawer: Drawer(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.grey[50]!, Colors.grey[100]!],
                 ),
-                child: Builder(
-                  builder: (context) {
-                    final isNarrow = screenSize.width < 800;
-                    final isMobile = screenSize.width < 600;
-                    final mainFlex = isNarrow ? 1 : 7;
+              ),
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  child: DashboardSidebar(
+                    isInDrawer: true,
+                    onLanguageChanged: _handleLanguageChanged,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          backgroundColor: AppTheme.primary,
+          body: Center(
+            child: Container(
+              width: screenSize.width,
+              color: AppTheme.primary,
+              child: ListView(
+                children: [
+                  // White background container - full width
+                  Container(
+                    margin: const EdgeInsets.all(8),
+                    height: screenSize.height,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Builder(
+                      builder: (context) {
+                        final isNarrow = screenSize.width < 800;
+                        final isMobile = screenSize.width < 600;
+                        final mainFlex = isNarrow ? 1 : 7;
 
-                    return Column(
-                      children: [
-                        // Top Header
-                        Padding(
-                          padding: const EdgeInsets.only(top: 24.0),
-                          child: TopHeader(
-                            onLanguageChanged: () {
-                              setState(() {});
-                            },
-                            containerWidth: screenSize.width,
-                            // Only provide onMenuTap on narrow screens to open drawer
-                            // On wide screens, leave it null so the menu shows popup
-                            onMenuTap: screenSize.width < 800
-                                ? () {
-                                    _scaffoldKey.currentState?.openDrawer();
-                                  }
-                                : null,
-                          ),
-                        ),
-                        Expanded(
-                          child: Container(
-                            constraints: const BoxConstraints(maxWidth: 1920),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Sidebar shown inline on wide screens, hidden on narrow
-                                // Fixed sidebar - scrollable internally if content is long
-                                if (!isNarrow)
-                                  SizedBox(
-                                    width:
-                                        (screenSize.width > 1920
-                                            ? 1920
-                                            : screenSize.width) *
-                                        0.25,
-                                    child: SingleChildScrollView(
-                                      child: DashboardSidebar(
-                                        onLanguageChanged:
-                                            _handleLanguageChanged,
-                                      ),
-                                    ),
-                                  ),
-
-                                // Main content with improved styling - scrollable
-                                Expanded(
-                                  flex: mainFlex,
-                                  child: SingleChildScrollView(
-                                    child: Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: isNarrow
-                                            ? (screenSize.width < 800
-                                                  ? 8.0
-                                                  : 24.0)
-                                            : 0,
-                                      ),
-                                      child: Container(
-                                        constraints: const BoxConstraints(
-                                          maxWidth: 1920,
-                                        ),
-                                        padding: EdgeInsets.all(
-                                          isMobile ? 8 : 16,
-                                        ),
-                                        child: DashboardMainContent(
-                                          verseId: currentVerseId,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        return Column(
+                          children: [
+                            // Top Header
+                            Padding(
+                              padding: const EdgeInsets.only(top: 24.0),
+                              child: TopHeader(
+                                onLanguageChanged: () {
+                                  setState(() {});
+                                },
+                                containerWidth: screenSize.width,
+                                // Only provide onMenuTap on narrow screens to open drawer
+                                // On wide screens, leave it null so the menu shows popup
+                                onMenuTap: screenSize.width < 800
+                                    ? () {
+                                        _scaffoldKey.currentState?.openDrawer();
+                                      }
+                                    : null,
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                            Expanded(
+                              child: Container(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 1920,
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Sidebar shown inline on wide screens, hidden on narrow
+                                    // Fixed sidebar - scrollable internally if content is long
+                                    if (!isNarrow)
+                                      SizedBox(
+                                        width:
+                                            (screenSize.width > 1920
+                                                ? 1920
+                                                : screenSize.width) *
+                                            0.25,
+                                        child: SingleChildScrollView(
+                                          child: DashboardSidebar(
+                                            onLanguageChanged:
+                                                _handleLanguageChanged,
+                                          ),
+                                        ),
+                                      ),
+
+                                    // Main content with improved styling - scrollable
+                                    Expanded(
+                                      flex: mainFlex,
+                                      child: SingleChildScrollView(
+                                        child: Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: isNarrow
+                                                ? (screenSize.width < 800
+                                                      ? 8.0
+                                                      : 24.0)
+                                                : 0,
+                                          ),
+                                          child: Container(
+                                            constraints: const BoxConstraints(
+                                              maxWidth: 1920,
+                                            ),
+                                            padding: EdgeInsets.all(
+                                              isMobile ? 8 : 16,
+                                            ),
+                                            child: DashboardMainContent(
+                                              verseId: currentVerseId,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  // Footer - centered with max width
+                  Container(
+                    color: AppTheme.primary,
+                    constraints: const BoxConstraints(maxWidth: 1920),
+                    child: AppFooter(
+                      onLanguageChanged: _handleLanguageChanged,
+                      containerWidth: screenSize.width > 1920
+                          ? 1920
+                          : screenSize.width,
+                    ),
+                  ),
+                ],
               ),
-              // Footer - centered with max width
-              Container(
-                color: AppTheme.primary,
-                constraints: const BoxConstraints(maxWidth: 1920),
-                child: AppFooter(
-                  onLanguageChanged: _handleLanguageChanged,
-                  containerWidth: screenSize.width > 1920
-                      ? 1920
-                      : screenSize.width,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
