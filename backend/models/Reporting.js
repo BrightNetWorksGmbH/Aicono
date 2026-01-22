@@ -12,7 +12,22 @@ const reportingSchema = new mongoose.Schema({
   },
   reportContents: [{
     type: String,
-    enum: ['TotalConsumption', 'ConsumptionByRoom', 'PeakLoads', 'Anomalies', 'InefficientUsage'],
+    enum: [
+      'TotalConsumption',
+      'ConsumptionByRoom',
+      'PeakLoads',
+      'MeasurementTypeBreakdown',
+      'EUI',
+      'PerCapitaConsumption',
+      'BenchmarkComparison',
+      'InefficientUsage',
+      'Anomalies',
+      'PeriodComparison',
+      'TimeBasedAnalysis',
+      'BuildingComparison',
+      'TemperatureAnalysis',
+      'DataQualityReport'
+    ],
   }],
 }, {
   timestamps: true,

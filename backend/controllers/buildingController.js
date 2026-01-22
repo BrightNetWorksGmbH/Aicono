@@ -148,7 +148,22 @@ exports.updateBuilding = asyncHandler(async (req, res) => {
 
     // Validate each config
     const validIntervals = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
-    const validReportContents = ['TotalConsumption', 'ConsumptionByRoom', 'PeakLoads', 'Anomalies', 'InefficientUsage'];
+    const validReportContents = [
+      'TotalConsumption',
+      'ConsumptionByRoom',
+      'PeakLoads',
+      'MeasurementTypeBreakdown',
+      'EUI',
+      'PerCapitaConsumption',
+      'BenchmarkComparison',
+      'InefficientUsage',
+      'Anomalies',
+      'PeriodComparison',
+      'TimeBasedAnalysis',
+      'BuildingComparison',
+      'TemperatureAnalysis',
+      'DataQualityReport'
+    ];
     
     for (const config of filteredData.reportConfigs) {
       if (typeof config !== 'object' || config === null) {

@@ -63,6 +63,8 @@ app.use(errorHandler);
 
 // Import aggregation scheduler
 const aggregationScheduler = require('./services/aggregationScheduler');
+// Import reporting scheduler
+const reportingScheduler = require('./services/reportingScheduler');
 // Import Loxone connection manager
 const loxoneConnectionManager = require('./services/loxoneConnectionManager');
 
@@ -71,6 +73,9 @@ connectToDatabase()
   .then(async () => {
     // Start aggregation scheduler after DB connection
     aggregationScheduler.start();
+    
+    // Start reporting scheduler after aggregation scheduler (to ensure clean data)
+    reportingScheduler.start();
     
     // Restore Loxone connections from database (non-blocking)
     // This ensures connections persist across server restarts/deployments

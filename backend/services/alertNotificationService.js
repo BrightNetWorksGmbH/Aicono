@@ -1,5 +1,6 @@
 const AlarmLog = require('../models/AlarmLog');
 const Building = require('../models/Building');
+const BuildingContact = require('../models/BuildingContact');
 const Sensor = require('../models/Sensor');
 const Room = require('../models/Room');
 const { sendAlertReportEmail } = require('./emailService');
@@ -41,14 +42,23 @@ class AlertNotificationService {
                 return { ok: false, error: 'Room not found' };
             }
 
-            const building = await Building.findById(room.building_id);
+            // Fetch building with populated buildingContact_id
+            const building = await Building.findById(room.building_id)
+                .populate('buildingContact_id');
+            
             if (!building) {
                 console.error(`[ALERT] Building not found for room: ${room._id}`);
                 return { ok: false, error: 'Building not found' };
             }
 
             // Check if building has a contact person
-            if (!building.buildingContact || !building.buildingContact.email) {
+            if (!building.buildingContact_id) {
+                console.warn(`[ALERT] Building ${building._id} has no contact person configured. Skipping alert.`);
+                return { ok: false, error: 'No building contact person configured' };
+            }
+
+            const buildingContact = building.buildingContact_id;
+            if (!buildingContact || !buildingContact.email) {
                 console.warn(`[ALERT] Building ${building._id} has no contact email configured. Skipping alert.`);
                 return { ok: false, error: 'No building contact email configured' };
             }
@@ -71,13 +81,13 @@ class AlertNotificationService {
 
             // Send email
             const emailResult = await sendAlertReportEmail({
-                to: building.buildingContact.email,
-                toName: building.buildingContact.name || building.buildingContact.email.split('@')[0],
+                to: buildingContact.email,
+                toName: buildingContact.name || buildingContact.email.split('@')[0],
                 alarmDetails: alarmDetails,
             });
 
             if (emailResult.ok) {
-                console.log(`[ALERT] Alert report sent successfully to ${building.buildingContact.email} for alarm ${alarmLogId}`);
+                console.log(`[ALERT] Alert report sent successfully to ${buildingContact.email} for alarm ${alarmLogId}`);
             } else {
                 console.error(`[ALERT] Failed to send alert report: ${emailResult.error}`);
             }

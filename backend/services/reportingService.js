@@ -103,7 +103,22 @@ class ReportingService {
         throw new Error('reportContents must be an array');
       }
 
-      const validReportContents = ['TotalConsumption', 'ConsumptionByRoom', 'PeakLoads', 'Anomalies', 'InefficientUsage'];
+      const validReportContents = [
+        'TotalConsumption',
+        'ConsumptionByRoom',
+        'PeakLoads',
+        'MeasurementTypeBreakdown',
+        'EUI',
+        'PerCapitaConsumption',
+        'BenchmarkComparison',
+        'InefficientUsage',
+        'Anomalies',
+        'PeriodComparison',
+        'TimeBasedAnalysis',
+        'BuildingComparison',
+        'TemperatureAnalysis',
+        'DataQualityReport'
+      ];
       for (const content of reportContents) {
         if (!validReportContents.includes(content)) {
           throw new Error(`Invalid reportContent: ${content}. Must be one of: ${validReportContents.join(', ')}`);

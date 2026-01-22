@@ -1,4 +1,5 @@
 const reportingService = require('../services/reportingService');
+const reportingScheduler = require('../services/reportingScheduler');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 /**
@@ -34,7 +35,22 @@ exports.handleReportSetup = asyncHandler(async (req, res) => {
   }
 
   const validIntervals = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
-  const validReportContents = ['TotalConsumption', 'ConsumptionByRoom', 'PeakLoads', 'Anomalies', 'InefficientUsage'];
+  const validReportContents = [
+    'TotalConsumption',
+    'ConsumptionByRoom',
+    'PeakLoads',
+    'MeasurementTypeBreakdown',
+    'EUI',
+    'PerCapitaConsumption',
+    'BenchmarkComparison',
+    'InefficientUsage',
+    'Anomalies',
+    'PeriodComparison',
+    'TimeBasedAnalysis',
+    'BuildingComparison',
+    'TemperatureAnalysis',
+    'DataQualityReport'
+  ];
   
   if (!reportConfig.interval || !validIntervals.includes(reportConfig.interval)) {
     return res.status(400).json({
@@ -136,5 +152,45 @@ exports.handleReportSetup = asyncHandler(async (req, res) => {
       recipientIds,
       buildingIds
     }
+  });
+});
+
+/**
+ * POST /api/v1/reporting/trigger/:interval
+ * Manually trigger report generation for a specific interval (for testing)
+ * @param {String} interval - 'Daily', 'Weekly', 'Monthly', 'Yearly'
+ */
+exports.triggerReportGeneration = asyncHandler(async (req, res) => {
+  const { interval } = req.params;
+  console.log("triggerReportGeneration", req.params);
+  
+  const validIntervals = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
+  if (!validIntervals.includes(interval)) {
+    return res.status(400).json({
+      success: false,
+      error: `Invalid interval. Must be one of: ${validIntervals.join(', ')}`
+    });
+  }
+
+  const result = await reportingScheduler.triggerReportGeneration(interval);
+  console.log("the result of the triggered generation is ", result);
+
+  res.json({
+    success: true,
+    message: `Triggered ${interval} report generation`,
+    data: result
+  });
+});
+
+/**
+ * GET /api/v1/reporting/scheduler/status
+ * Get reporting scheduler status
+ */
+exports.getSchedulerStatus = asyncHandler(async (req, res) => {
+  const status = reportingScheduler.getStatus();
+
+  res.json({
+    success: true,
+    data: status
   });
 });
