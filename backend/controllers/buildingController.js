@@ -2,6 +2,100 @@ const buildingService = require('../services/buildingService');
 const buildingContactService = require('../services/buildingContactService');
 const { asyncHandler } = require('../middleware/errorHandler');
 
+// Constants for report configuration validation
+const VALID_INTERVALS = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
+const VALID_REPORT_CONTENTS = [
+  'TotalConsumption',
+  'ConsumptionByRoom',
+  'PeakLoads',
+  'MeasurementTypeBreakdown',
+  'EUI',
+  'PerCapitaConsumption',
+  'BenchmarkComparison',
+  'InefficientUsage',
+  'Anomalies',
+  'PeriodComparison',
+  'TimeBasedAnalysis',
+  'BuildingComparison',
+  'TemperatureAnalysis',
+  'DataQualityReport'
+];
+
+/**
+ * Validate a single report configuration object
+ * @param {Object} config - Report configuration object
+ * @param {String} context - Context for error messages (e.g., 'recipient reportConfig' or 'reportConfigs')
+ * @returns {Object|null} Error object if validation fails, null if valid
+ */
+function validateReportConfig(config, context = 'reportConfig') {
+  if (typeof config !== 'object' || config === null) {
+    return {
+      success: false,
+      error: `Each item in ${context} must be an object with name, interval, and optional reportContents`
+    };
+  }
+
+  if (!config.name || typeof config.name !== 'string') {
+    return {
+      success: false,
+      error: 'Each reportConfig must have a name (string)'
+    };
+  }
+
+  if (!config.interval || !VALID_INTERVALS.includes(config.interval)) {
+    return {
+      success: false,
+      error: `Each reportConfig must have a valid interval. Must be one of: ${VALID_INTERVALS.join(', ')}`
+    };
+  }
+
+  // Validate reportContents if provided
+  if (config.reportContents !== undefined) {
+    if (!Array.isArray(config.reportContents)) {
+      return {
+        success: false,
+        error: 'reportContents must be an array'
+      };
+    }
+
+    // Validate each content type
+    for (const content of config.reportContents) {
+      if (!VALID_REPORT_CONTENTS.includes(content)) {
+        return {
+          success: false,
+          error: `Invalid reportContent: ${content}. Must be one of: ${VALID_REPORT_CONTENTS.join(', ')}`
+        };
+      }
+    }
+  }
+
+  return null; // Valid
+}
+
+/**
+ * Validate an array of report configurations
+ * @param {Array} reportConfigs - Array of report configuration objects
+ * @param {String} context - Context for error messages
+ * @returns {Object|null} Error object if validation fails, null if valid
+ */
+function validateReportConfigsArray(reportConfigs, context = 'reportConfigs') {
+  if (!Array.isArray(reportConfigs)) {
+    return {
+      success: false,
+      error: `${context} must be an array`
+    };
+  }
+
+  for (const config of reportConfigs) {
+    const error = validateReportConfig(config, context);
+    if (error) {
+      return error;
+    }
+  }
+
+  return null; // Valid
+}
+
 /**
  * POST /api/buildings/site/:siteId
  * Create multiple buildings for a site
@@ -59,7 +153,7 @@ exports.getBuildingById = asyncHandler(async (req, res) => {
  * Update building details
  */
 exports.updateBuilding = asyncHandler(async (req, res) => {
-  console.log('updateBuilding', req.body);
+  // console.log('updateBuilding', req.body);
   const { buildingId } = req.params;
   const updateData = req.body;
 
@@ -108,7 +202,7 @@ exports.updateBuilding = asyncHandler(async (req, res) => {
   }
 
   // Validate reportingRecipients if provided
-  // Can be array of objects or array of string IDs
+  // Can be array of objects (with optional reportConfig) or array of string IDs
   if (filteredData.reportingRecipients !== undefined) {
     if (!Array.isArray(filteredData.reportingRecipients)) {
       return res.status(400).json({
@@ -122,115 +216,36 @@ exports.updateBuilding = asyncHandler(async (req, res) => {
       if (typeof recipient === 'string') {
         // Valid - it's an ID reference
       } else if (typeof recipient === 'object' && recipient !== null) {
-        // Validate object structure
+        // Validate email format if provided
         if (recipient.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.email)) {
           return res.status(400).json({
             success: false,
             error: 'Invalid email format in reportingRecipients'
           });
         }
+        
+        // Validate reportConfig if provided (recipient-specific configs)
+        if (recipient.reportConfig !== undefined) {
+          const error = validateReportConfigsArray(recipient.reportConfig, 'reportConfig in reportingRecipients');
+          if (error) {
+            return res.status(400).json(error);
+          }
+        }
       } else {
         return res.status(400).json({
           success: false,
-          error: 'Each item in reportingRecipients must be either a string ID or an object with name, email, and optional phone'
+          error: 'Each item in reportingRecipients must be either a string ID or an object with name, email, optional phone, and optional reportConfig array'
         });
       }
     }
   }
 
-  // Validate reportConfigs if provided
+  // Validate reportConfigs if provided (general templates that apply to all recipients)
   if (filteredData.reportConfigs !== undefined) {
-    if (!Array.isArray(filteredData.reportConfigs)) {
-      return res.status(400).json({
-        success: false,
-        error: 'reportConfigs must be an array'
-      });
+    const error = validateReportConfigsArray(filteredData.reportConfigs, 'reportConfigs');
+    if (error) {
+      return res.status(400).json(error);
     }
-
-    // Validate each config
-    const validIntervals = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
-    const validReportContents = [
-      'TotalConsumption',
-      'ConsumptionByRoom',
-      'PeakLoads',
-      'MeasurementTypeBreakdown',
-      'EUI',
-      'PerCapitaConsumption',
-      'BenchmarkComparison',
-      'InefficientUsage',
-      'Anomalies',
-      'PeriodComparison',
-      'TimeBasedAnalysis',
-      'BuildingComparison',
-      'TemperatureAnalysis',
-      'DataQualityReport'
-    ];
-    
-    for (const config of filteredData.reportConfigs) {
-      if (typeof config !== 'object' || config === null) {
-        return res.status(400).json({
-          success: false,
-          error: 'Each item in reportConfigs must be an object with name, interval, and optional reportContents'
-        });
-      }
-
-      if (!config.name || typeof config.name !== 'string') {
-        return res.status(400).json({
-          success: false,
-          error: 'Each reportConfig must have a name (string)'
-        });
-      }
-
-      if (!config.interval || !validIntervals.includes(config.interval)) {
-        return res.status(400).json({
-          success: false,
-          error: `Each reportConfig must have a valid interval. Must be one of: ${validIntervals.join(', ')}`
-        });
-      }
-
-      // Validate reportContents if provided
-      if (config.reportContents !== undefined) {
-        if (!Array.isArray(config.reportContents)) {
-          return res.status(400).json({
-            success: false,
-            error: 'reportContents must be an array'
-          });
-        }
-
-        // Validate each content type
-        for (const content of config.reportContents) {
-          if (!validReportContents.includes(content)) {
-            return res.status(400).json({
-              success: false,
-              error: `Invalid reportContent: ${content}. Must be one of: ${validReportContents.join(', ')}`
-            });
-          }
-        }
-      }
-    }
-
-    // Validate that reportingRecipients and reportConfigs are provided together and have same length
-    if (filteredData.reportingRecipients === undefined) {
-      return res.status(400).json({
-        success: false,
-        error: 'reportingRecipients must be provided when reportConfigs is provided'
-      });
-    }
-
-    if (filteredData.reportingRecipients.length !== filteredData.reportConfigs.length) {
-      return res.status(400).json({
-        success: false,
-        error: 'reportingRecipients and reportConfigs arrays must have the same length'
-      });
-    }
-  }
-
-  // Validate that if reportingRecipients is provided, reportConfigs must also be provided
-  if (filteredData.reportingRecipients !== undefined && filteredData.reportConfigs === undefined) {
-    return res.status(400).json({
-      success: false,
-      error: 'reportConfigs must be provided when reportingRecipients is provided'
-    });
   }
 
   const building = await buildingService.updateBuilding(buildingId, filteredData);

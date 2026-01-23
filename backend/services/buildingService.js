@@ -70,6 +70,7 @@ class BuildingService {
    * @returns {Promise<Object>} Updated building
    */
   async updateBuilding(buildingId, updateData) {
+    // console.log("updateBuilding's updateData is ", updateData);
     const building = await Building.findById(buildingId);
     if (!building) {
       throw new Error('Building not found');
@@ -96,46 +97,73 @@ class BuildingService {
     }
 
     // Handle reportingRecipients and reportConfigs
+    // New format:
+    // - Each recipient can have an optional reportConfig array (recipient-specific)
+    // - reportConfigs at root level applies to ALL recipients (general templates)
     if (updateData.reportingRecipients !== undefined || updateData.reportConfigs !== undefined) {
       const { reportingRecipients, reportConfigs } = updateData;
       
-      // Both must be provided together
-      if (reportingRecipients === undefined || reportConfigs === undefined) {
-        throw new Error('reportingRecipients and reportConfigs must be provided together');
+      // Validate reportingRecipients if provided
+      if (reportingRecipients !== undefined) {
+        if (!Array.isArray(reportingRecipients)) {
+          throw new Error('reportingRecipients must be an array');
+        }
       }
       
-      // Validate that both are arrays
-      if (!Array.isArray(reportingRecipients)) {
-        throw new Error('reportingRecipients must be an array');
-      }
-      
-      if (!Array.isArray(reportConfigs)) {
-        throw new Error('reportConfigs must be an array');
+      // Validate reportConfigs if provided (general templates)
+      if (reportConfigs !== undefined) {
+        if (!Array.isArray(reportConfigs)) {
+          throw new Error('reportConfigs must be an array');
+        }
       }
 
-      // Validate arrays have same length
-      if (reportingRecipients.length !== reportConfigs.length) {
-        throw new Error('reportingRecipients and reportConfigs arrays must have the same length');
-      }
-
-      // Process each recipient with its corresponding config
-      if (reportingRecipients && reportConfigs) {
-        for (let i = 0; i < reportingRecipients.length; i++) {
-          const recipientInput = reportingRecipients[i];
-          const config = reportConfigs[i];
-
+      // Process recipients if provided
+      if (reportingRecipients && Array.isArray(reportingRecipients)) {
+        for (const recipientInput of reportingRecipients) {
           // Resolve recipient (create or get existing)
-          const recipientId = await reportingService.resolveRecipient(recipientInput);
+          // Extract reportConfig from recipient if it exists
+          let recipientReportConfigs = [];
+          let recipientData = recipientInput;
+          
+          if (typeof recipientInput === 'object' && recipientInput !== null && recipientInput.reportConfig) {
+            // Extract reportConfig from recipient object
+            recipientReportConfigs = recipientInput.reportConfig;
+            // Create a copy without reportConfig for resolving recipient
+            recipientData = { ...recipientInput };
+            delete recipientData.reportConfig;
+          }
+          
+          const recipientId = await reportingService.resolveRecipient(recipientData);
 
-          // Create reporting config
-          const reporting = await reportingService.createReporting(config);
+          // Process recipient-specific report configs (if any)
+          if (Array.isArray(recipientReportConfigs) && recipientReportConfigs.length > 0) {
+            for (const config of recipientReportConfigs) {
+              // Create reporting config
+              const reporting = await reportingService.createReporting(config);
 
-          // Create assignment
-          await reportingService.createOrUpdateAssignment(
-            buildingId,
-            recipientId,
-            reporting._id.toString()
-          );
+              // Create assignment for this recipient with this specific config
+              await reportingService.createOrUpdateAssignment(
+                buildingId,
+                recipientId,
+                reporting._id.toString()
+              );
+            }
+          }
+
+          // Process general report configs (apply to all recipients)
+          if (Array.isArray(reportConfigs) && reportConfigs.length > 0) {
+            for (const config of reportConfigs) {
+              // Create reporting config
+              const reporting = await reportingService.createReporting(config);
+
+              // Create assignment for this recipient with general config
+              await reportingService.createOrUpdateAssignment(
+                buildingId,
+                recipientId,
+                reporting._id.toString()
+              );
+            }
+          }
         }
       }
 
@@ -143,6 +171,8 @@ class BuildingService {
       delete updateData.reportingRecipients;
       delete updateData.reportConfigs;
     }
+
+    // console.log("updateBuilding's updateData before assigning is ", updateData);
 
     // Update building
     Object.assign(building, updateData);
