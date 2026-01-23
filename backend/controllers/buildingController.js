@@ -1,4 +1,5 @@
 const buildingService = require('../services/buildingService');
+const buildingContactService = require('../services/buildingContactService');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 /**
@@ -241,3 +242,25 @@ exports.updateBuilding = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * GET /api/v1/buildings/contacts
+ * Get all building contacts with optional filtering
+ * Query parameters:
+ * - site_id (optional): Filter contacts by site ID
+ * - building_id (optional): Filter contacts by building ID
+ */
+exports.getContacts = asyncHandler(async (req, res) => {
+  const { site_id, building_id } = req.query;
+
+  const filters = {};
+  if (site_id) filters.site_id = site_id;
+  if (building_id) filters.building_id = building_id;
+
+  const contacts = await buildingContactService.getContacts(filters);
+
+  res.json({
+    success: true,
+    data: contacts,
+    count: contacts.length
+  });
+});

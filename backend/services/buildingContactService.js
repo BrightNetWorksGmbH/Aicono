@@ -1,4 +1,6 @@
 const BuildingContact = require('../models/BuildingContact');
+const Building = require('../models/Building');
+const mongoose = require('mongoose');
 
 class BuildingContactService {
   /**
@@ -83,6 +85,61 @@ class BuildingContactService {
       throw new Error('BuildingContact not found');
     }
     return contact;
+  }
+
+  /**
+   * Get all building contacts with optional filtering
+   * @param {Object} filters - Filter options
+   * @param {String} filters.site_id - Optional site ID to filter by
+   * @param {String} filters.building_id - Optional building ID to filter by
+   * @returns {Promise<Array>} Array of contact documents
+   */
+  async getContacts(filters = {}) {
+    const { site_id, building_id } = filters;
+
+    // If no filters, return all contacts
+    if (!site_id && !building_id) {
+      return await BuildingContact.find({}).sort({ email: 1 }).lean();
+    }
+
+    // Build query to find relevant building contact IDs
+    const buildingQuery = {};
+    
+    if (building_id) {
+      if (!mongoose.Types.ObjectId.isValid(building_id)) {
+        throw new Error(`Invalid building_id: ${building_id}`);
+      }
+      buildingQuery._id = new mongoose.Types.ObjectId(building_id);
+    }
+    
+    if (site_id) {
+      if (!mongoose.Types.ObjectId.isValid(site_id)) {
+        throw new Error(`Invalid site_id: ${site_id}`);
+      }
+      buildingQuery.site_id = new mongoose.Types.ObjectId(site_id);
+    }
+
+    // Find buildings matching the criteria
+    const buildings = await Building.find(buildingQuery)
+      .select('buildingContact_id')
+      .lean();
+
+    // Extract unique contact IDs (filter out null/undefined)
+    const contactIds = [...new Set(
+      buildings
+        .map(b => b.buildingContact_id)
+        .filter(id => id !== null && id !== undefined)
+    )];
+
+    // If no contacts found, return empty array
+    if (contactIds.length === 0) {
+      return [];
+    }
+
+    // Return contacts matching the IDs
+    return await BuildingContact.find({
+      _id: { $in: contactIds }
+    }).sort({ email: 1 }).lean();
   }
 }
 
