@@ -8,6 +8,9 @@ import 'package:frontend_aicono/features/Authentication/domain/repositories/logi
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_sites_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
 
 class DashboardMainContent extends StatefulWidget {
   final String? verseId;
@@ -73,8 +76,8 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
 
           const SizedBox(height: 24),
 
-          // Sites & Buildings (from dashboard endpoints)
-          _buildSitesAndBuildingsSection(),
+          // Selected Item Details (Site/Building/Floor/Room)
+          _buildSelectedItemDetails(),
 
           const SizedBox(height: 32),
 
@@ -90,89 +93,127 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     );
   }
 
-  Widget _buildSitesAndBuildingsSection() {
-    return BlocBuilder<DashboardSitesBloc, DashboardSitesState>(
-      builder: (context, sitesState) {
-        if (sitesState is DashboardSitesInitial || sitesState is DashboardSitesLoading) {
-          return _buildCard(
-            child: Row(
-              children: [
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Loading sites...',
-                  style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
-                ),
-              ],
-            ),
-          );
+  Widget _buildSelectedItemDetails() {
+    return BlocBuilder<DashboardRoomDetailsBloc, DashboardRoomDetailsState>(
+      builder: (context, roomState) {
+        // Priority 1: Room details
+        if (roomState is DashboardRoomDetailsLoading ||
+            roomState is DashboardRoomDetailsSuccess ||
+            roomState is DashboardRoomDetailsFailure) {
+          return _buildRoomDetails(roomState);
         }
 
-        if (sitesState is DashboardSitesFailure) {
-          return _buildCard(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.error_outline, color: Colors.red[600], size: 18),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    sitesState.message,
-                    style: AppTextStyles.titleSmall.copyWith(color: Colors.red[700]),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                TextButton(
-                  onPressed: () {
-                    context.read<DashboardSitesBloc>().add(DashboardSitesRequested());
+        // Check floor details
+        return BlocBuilder<DashboardFloorDetailsBloc, DashboardFloorDetailsState>(
+          builder: (context, floorState) {
+            // Priority 2: Floor details
+            if (floorState is DashboardFloorDetailsLoading ||
+                floorState is DashboardFloorDetailsSuccess ||
+                floorState is DashboardFloorDetailsFailure) {
+              return _buildFloorDetails(floorState);
+            }
+
+            // Check building details
+            return BlocBuilder<DashboardBuildingDetailsBloc, DashboardBuildingDetailsState>(
+              builder: (context, buildingState) {
+                // Priority 3: Building details
+                if (buildingState is DashboardBuildingDetailsLoading ||
+                    buildingState is DashboardBuildingDetailsSuccess ||
+                    buildingState is DashboardBuildingDetailsFailure) {
+                  return _buildBuildingDetails(buildingState);
+                }
+
+                // Check site details
+                return BlocBuilder<DashboardSiteDetailsBloc, DashboardSiteDetailsState>(
+                  builder: (context, siteState) {
+                    // Priority 4: Site details
+                    if (siteState is DashboardSiteDetailsLoading ||
+                        siteState is DashboardSiteDetailsSuccess ||
+                        siteState is DashboardSiteDetailsFailure) {
+                      return _buildSiteDetails();
+                    }
+
+                    // Default: show sites loading/error or empty state
+                    return BlocBuilder<DashboardSitesBloc, DashboardSitesState>(
+                      builder: (context, sitesState) {
+                        if (sitesState is DashboardSitesInitial ||
+                            sitesState is DashboardSitesLoading) {
+                          return _buildCard(
+                            child: Row(
+                              children: [
+                                const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Loading sites...',
+                                  style: AppTextStyles.titleSmall
+                                      .copyWith(color: Colors.grey[700]),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        if (sitesState is DashboardSitesFailure) {
+                          return _buildCard(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.error_outline, color: Colors.red[600], size: 18),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    sitesState.message,
+                                    style: AppTextStyles.titleSmall
+                                        .copyWith(color: Colors.red[700]),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                TextButton(
+                                  onPressed: () {
+                                    context
+                                        .read<DashboardSitesBloc>()
+                                        .add(DashboardSitesRequested());
+                                  },
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        if (sitesState is DashboardSitesSuccess) {
+                          if (sitesState.sites.isEmpty) {
+                            return _buildCard(
+                              child: Text(
+                                'No sites found.',
+                                style: AppTextStyles.titleSmall
+                                    .copyWith(color: Colors.grey[700]),
+                              ),
+                            );
+                          }
+
+                          return _buildCard(
+                            child: Text(
+                              'Select an item from the sidebar to view details.',
+                              style: AppTextStyles.titleSmall
+                                  .copyWith(color: Colors.grey[700]),
+                            ),
+                          );
+                        }
+
+                        return const SizedBox.shrink();
+                      },
+                    );
                   },
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          );
-        }
-
-        if (sitesState is DashboardSitesSuccess) {
-          if (sitesState.sites.isEmpty) {
-            return _buildCard(
-              child: Text(
-                'No sites found.',
-                style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
-              ),
+                );
+              },
             );
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Sites',
-                style: AppTextStyles.titleLarge.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _buildCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSiteDropdown(sitesState),
-                    const SizedBox(height: 16),
-                    _buildSiteDetails(),
-                  ],
-                ),
-              ),
-            ],
-          );
-        }
-
-        return const SizedBox.shrink();
+          },
+        );
       },
     );
   }
@@ -423,6 +464,541 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
         return const SizedBox.shrink();
       },
     );
+  }
+
+  Widget _buildRoomDetails(DashboardRoomDetailsState state) {
+    if (state is DashboardRoomDetailsLoading) {
+      return _buildCard(
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Loading room details...',
+              style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (state is DashboardRoomDetailsFailure) {
+      return _buildCard(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.error_outline, color: Colors.red[600], size: 18),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                state.message,
+                style: AppTextStyles.titleSmall.copyWith(color: Colors.red[700]),
+              ),
+            ),
+            const SizedBox(width: 12),
+            TextButton(
+              onPressed: () {
+                context.read<DashboardRoomDetailsBloc>().add(
+                      DashboardRoomDetailsRequested(roomId: state.roomId),
+                    );
+              },
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (state is DashboardRoomDetailsSuccess) {
+      final d = state.details;
+      final kpis = d.kpis;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Room Details',
+            style: AppTextStyles.titleLarge.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: Color(int.parse(d.color.replaceFirst('#', '0xFF'))),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            d.name,
+                            style: AppTextStyles.titleMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          if (d.loxoneRoomId != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Loxone: ${d.loxoneRoomId!.name}',
+                              style: AppTextStyles.titleSmall.copyWith(
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _kpiTile(label: 'Sensors', value: '${d.sensorCount}'),
+                  ],
+                ),
+                if (kpis != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'KPIs (${kpis.unit})',
+                    style: AppTextStyles.titleMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _kpiTile(
+                        label: 'Total',
+                        value: kpis.totalConsumption.toStringAsFixed(3),
+                      ),
+                      _kpiTile(
+                        label: 'Peak',
+                        value: kpis.peak.toStringAsFixed(3),
+                      ),
+                      _kpiTile(
+                        label: 'Base',
+                        value: kpis.base.toStringAsFixed(3),
+                      ),
+                      _kpiTile(
+                        label: 'Average',
+                        value: kpis.average.toStringAsFixed(3),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildFloorDetails(DashboardFloorDetailsState state) {
+    if (state is DashboardFloorDetailsLoading) {
+      return _buildCard(
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Loading floor details...',
+              style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (state is DashboardFloorDetailsFailure) {
+      return _buildCard(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.error_outline, color: Colors.red[600], size: 18),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                state.message,
+                style: AppTextStyles.titleSmall.copyWith(color: Colors.red[700]),
+              ),
+            ),
+            const SizedBox(width: 12),
+            TextButton(
+              onPressed: () {
+                context.read<DashboardFloorDetailsBloc>().add(
+                      DashboardFloorDetailsRequested(floorId: state.floorId),
+                    );
+              },
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (state is DashboardFloorDetailsSuccess) {
+      final d = state.details;
+      final kpis = d.kpis;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Floor Details',
+            style: AppTextStyles.titleLarge.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  d.name,
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _kpiTile(label: 'Rooms', value: '${d.roomCount}'),
+                    _kpiTile(label: 'Sensors', value: '${d.sensorCount}'),
+                  ],
+                ),
+                if (kpis != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'KPIs (${kpis.unit})',
+                    style: AppTextStyles.titleMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _kpiTile(
+                        label: 'Total',
+                        value: kpis.totalConsumption.toStringAsFixed(3),
+                      ),
+                      _kpiTile(
+                        label: 'Peak',
+                        value: kpis.peak.toStringAsFixed(3),
+                      ),
+                      _kpiTile(
+                        label: 'Base',
+                        value: kpis.base.toStringAsFixed(3),
+                      ),
+                      _kpiTile(
+                        label: 'Average',
+                        value: kpis.average.toStringAsFixed(3),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Text(
+                  'Rooms',
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (d.rooms.isEmpty)
+                  Text(
+                    'No rooms on this floor.',
+                    style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
+                  )
+                else
+                  Column(
+                    children: d.rooms.map((room) {
+                      return Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: Color(
+                                  int.parse(room.color.replaceFirst('#', '0xFF')),
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                room.name,
+                                style: AppTextStyles.titleSmall.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${room.sensorCount} sensors',
+                              style: AppTextStyles.labelSmall.copyWith(
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildBuildingDetails(DashboardBuildingDetailsState state) {
+    if (state is DashboardBuildingDetailsLoading) {
+      return _buildCard(
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Loading building details...',
+              style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (state is DashboardBuildingDetailsFailure) {
+      return _buildCard(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.error_outline, color: Colors.red[600], size: 18),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                state.message,
+                style: AppTextStyles.titleSmall.copyWith(color: Colors.red[700]),
+              ),
+            ),
+            const SizedBox(width: 12),
+            TextButton(
+              onPressed: () {
+                context.read<DashboardBuildingDetailsBloc>().add(
+                      DashboardBuildingDetailsRequested(
+                        buildingId: state.buildingId,
+                      ),
+                    );
+              },
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (state is DashboardBuildingDetailsSuccess) {
+      final d = state.details;
+      final kpis = d.kpis;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Building Details',
+            style: AppTextStyles.titleLarge.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  d.name,
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                if (d.typeOfUse != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Type: ${d.typeOfUse}',
+                    style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _kpiTile(label: 'Floors', value: '${d.floorCount}'),
+                    _kpiTile(label: 'Rooms', value: '${d.roomCount}'),
+                    _kpiTile(label: 'Sensors', value: '${d.sensorCount}'),
+                    if (d.buildingSize != null)
+                      _kpiTile(label: 'Size', value: '${d.buildingSize} m²'),
+                    if (d.yearOfConstruction != null)
+                      _kpiTile(
+                        label: 'Year',
+                        value: '${d.yearOfConstruction}',
+                      ),
+                  ],
+                ),
+                if (kpis != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'KPIs (${kpis.unit})',
+                    style: AppTextStyles.titleMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _kpiTile(
+                        label: 'Total',
+                        value: kpis.totalConsumption.toStringAsFixed(3),
+                      ),
+                      _kpiTile(
+                        label: 'Peak',
+                        value: kpis.peak.toStringAsFixed(3),
+                      ),
+                      _kpiTile(
+                        label: 'Base',
+                        value: kpis.base.toStringAsFixed(3),
+                      ),
+                      _kpiTile(
+                        label: 'Average',
+                        value: kpis.average.toStringAsFixed(3),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Text(
+                  'Floors',
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (d.floors.isEmpty)
+                  Text(
+                    'No floors in this building yet.',
+                    style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
+                  )
+                else
+                  Column(
+                    children: d.floors.map((floor) {
+                      return Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.layers, color: AppTheme.primary, size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    floor.name,
+                                    style: AppTextStyles.titleSmall.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${floor.roomCount} rooms',
+                                    style: AppTextStyles.labelSmall.copyWith(
+                                      color: Colors.grey[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _kpiTile({required String label, required String value}) {

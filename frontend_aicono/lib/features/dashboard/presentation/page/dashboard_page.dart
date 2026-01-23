@@ -13,6 +13,9 @@ import 'package:frontend_aicono/features/dashboard/presentation/components/dashb
 import 'package:frontend_aicono/features/dashboard/presentation/components/dashboard_main_content.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_sites_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/user.dart';
@@ -190,6 +193,9 @@ class _DashboardPageState extends State<DashboardPage> {
           },
         ),
         BlocProvider(create: (context) => sl<DashboardSiteDetailsBloc>()),
+        BlocProvider(create: (context) => sl<DashboardBuildingDetailsBloc>()),
+        BlocProvider(create: (context) => sl<DashboardFloorDetailsBloc>()),
+        BlocProvider(create: (context) => sl<DashboardRoomDetailsBloc>()),
       ],
       child: MultiBlocListener(
         listeners: [

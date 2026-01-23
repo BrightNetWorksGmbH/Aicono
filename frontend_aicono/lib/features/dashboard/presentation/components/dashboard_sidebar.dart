@@ -12,6 +12,9 @@ import 'package:frontend_aicono/features/dashboard/presentation/components/tree_
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_sites_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
 
 class DashboardSidebar extends StatefulWidget {
   const DashboardSidebar({
@@ -163,52 +166,258 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
             }
 
             if (sitesState is DashboardSitesSuccess) {
-              final detailsState = context.watch<DashboardSiteDetailsBloc>().state;
+              final siteDetailsState = context.watch<DashboardSiteDetailsBloc>().state;
+              final buildingDetailsState = context.watch<DashboardBuildingDetailsBloc>().state;
+              final floorDetailsState = context.watch<DashboardFloorDetailsBloc>().state;
+              final roomDetailsState = context.watch<DashboardRoomDetailsBloc>().state;
+
+              // Get selected IDs
               String? selectedSiteId;
-              if (detailsState is DashboardSiteDetailsLoading) {
-                selectedSiteId = detailsState.siteId;
-              } else if (detailsState is DashboardSiteDetailsSuccess) {
-                selectedSiteId = detailsState.siteId;
-              } else if (detailsState is DashboardSiteDetailsFailure) {
-                selectedSiteId = detailsState.siteId;
+              String? selectedBuildingId;
+              String? selectedFloorId;
+              String? selectedRoomId;
+
+              if (siteDetailsState is DashboardSiteDetailsLoading ||
+                  siteDetailsState is DashboardSiteDetailsSuccess ||
+                  siteDetailsState is DashboardSiteDetailsFailure) {
+                if (siteDetailsState is DashboardSiteDetailsLoading) {
+                  selectedSiteId = siteDetailsState.siteId;
+                } else if (siteDetailsState is DashboardSiteDetailsSuccess) {
+                  selectedSiteId = siteDetailsState.siteId;
+                } else if (siteDetailsState is DashboardSiteDetailsFailure) {
+                  selectedSiteId = siteDetailsState.siteId;
+                }
               }
 
-              final selectedBuildings = (detailsState
-                      is DashboardSiteDetailsSuccess)
-                  ? detailsState.details.buildings
-                  : const [];
+              if (buildingDetailsState is DashboardBuildingDetailsLoading ||
+                  buildingDetailsState is DashboardBuildingDetailsSuccess ||
+                  buildingDetailsState is DashboardBuildingDetailsFailure) {
+                if (buildingDetailsState is DashboardBuildingDetailsLoading) {
+                  selectedBuildingId = buildingDetailsState.buildingId;
+                } else if (buildingDetailsState is DashboardBuildingDetailsSuccess) {
+                  selectedBuildingId = buildingDetailsState.buildingId;
+                } else if (buildingDetailsState is DashboardBuildingDetailsFailure) {
+                  selectedBuildingId = buildingDetailsState.buildingId;
+                }
+              }
 
+              if (floorDetailsState is DashboardFloorDetailsLoading ||
+                  floorDetailsState is DashboardFloorDetailsSuccess ||
+                  floorDetailsState is DashboardFloorDetailsFailure) {
+                if (floorDetailsState is DashboardFloorDetailsLoading) {
+                  selectedFloorId = floorDetailsState.floorId;
+                } else if (floorDetailsState is DashboardFloorDetailsSuccess) {
+                  selectedFloorId = floorDetailsState.floorId;
+                } else if (floorDetailsState is DashboardFloorDetailsFailure) {
+                  selectedFloorId = floorDetailsState.floorId;
+                }
+              }
+
+              if (roomDetailsState is DashboardRoomDetailsLoading ||
+                  roomDetailsState is DashboardRoomDetailsSuccess ||
+                  roomDetailsState is DashboardRoomDetailsFailure) {
+                if (roomDetailsState is DashboardRoomDetailsLoading) {
+                  selectedRoomId = roomDetailsState.roomId;
+                } else if (roomDetailsState is DashboardRoomDetailsSuccess) {
+                  selectedRoomId = roomDetailsState.roomId;
+                } else if (roomDetailsState is DashboardRoomDetailsFailure) {
+                  selectedRoomId = roomDetailsState.roomId;
+                }
+              }
+
+              // Build tree items
               final items = sitesState.sites.map((site) {
-                final children = (selectedSiteId != null &&
-                        selectedSiteId == site.id)
-                    ? selectedBuildings
-                        .map(
-                          (b) => TreeItemEntity(
-                            id: b.id,
-                            name: b.name,
+                List<TreeItemEntity> buildingChildren = [];
+
+                if (selectedSiteId == site.id &&
+                    siteDetailsState is DashboardSiteDetailsSuccess) {
+                  final buildings = siteDetailsState.details.buildings;
+                  buildingChildren = buildings.map((building) {
+                    List<TreeItemEntity> floorChildren = [];
+
+                    // If this building is selected and we have building details, show floors
+                    if (selectedBuildingId == building.id &&
+                        buildingDetailsState is DashboardBuildingDetailsSuccess) {
+                      final floors = buildingDetailsState.details.floors;
+                      floorChildren = floors.map((floor) {
+                        List<TreeItemEntity> roomChildren = [];
+
+                        // If this floor is selected and we have floor details, show rooms
+                        if (selectedFloorId == floor.id &&
+                            floorDetailsState is DashboardFloorDetailsSuccess) {
+                          final rooms = floorDetailsState.details.rooms;
+                          roomChildren = rooms.map((room) {
+                            return TreeItemEntity(
+                              id: room.id,
+                              name: room.name,
+                              type: 'property',
+                            );
+                          }).toList();
+                        } else if (selectedFloorId == floor.id &&
+                            floorDetailsState is DashboardFloorDetailsLoading) {
+                          // Show loading indicator or empty for loading state
+                        } else if (floor.rooms.isNotEmpty) {
+                          // Show rooms from site details if available
+                          roomChildren = floor.rooms.map((room) {
+                            return TreeItemEntity(
+                              id: room.id,
+                              name: room.name,
+                              type: 'property',
+                            );
+                          }).toList();
+                        }
+
+                        return TreeItemEntity(
+                          id: floor.id,
+                          name: floor.name,
+                          type: 'property',
+                          children: roomChildren,
+                        );
+                      }).toList();
+                    } else if (selectedBuildingId == building.id &&
+                        buildingDetailsState is DashboardBuildingDetailsLoading) {
+                      // Show loading indicator or empty for loading state
+                    } else if (building.floors.isNotEmpty) {
+                      // Show floors from site details if available
+                      floorChildren = building.floors.map((floor) {
+                        final roomChildren = floor.rooms.map((room) {
+                          return TreeItemEntity(
+                            id: room.id,
+                            name: room.name,
                             type: 'property',
-                          ),
-                        )
-                        .toList()
-                    : const <TreeItemEntity>[];
+                          );
+                        }).toList();
+
+                        return TreeItemEntity(
+                          id: floor.id,
+                          name: floor.name,
+                          type: 'property',
+                          children: roomChildren,
+                        );
+                      }).toList();
+                    }
+
+                    return TreeItemEntity(
+                      id: building.id,
+                      name: building.name,
+                      type: 'property',
+                      children: floorChildren,
+                    );
+                  }).toList();
+                }
 
                 return TreeItemEntity(
                   id: site.id,
                   name: site.name,
                   type: 'property',
-                  children: children,
+                  children: buildingChildren,
                 );
               }).toList();
 
               return TreeViewWidget(
                 items: items,
                 onItemTap: (item) {
-                  // If tapped item id matches a site, load its details
+                  // Check if it's a site
                   final isSite = sitesState.sites.any((s) => s.id == item.id);
                   if (isSite) {
                     context.read<DashboardSiteDetailsBloc>().add(
                           DashboardSiteDetailsRequested(siteId: item.id),
                         );
+                    // Reset other selections
+                    context.read<DashboardBuildingDetailsBloc>().add(
+                          DashboardBuildingDetailsReset(),
+                        );
+                    context.read<DashboardFloorDetailsBloc>().add(
+                          DashboardFloorDetailsReset(),
+                        );
+                    context.read<DashboardRoomDetailsBloc>().add(
+                          DashboardRoomDetailsReset(),
+                        );
+                    return;
+                  }
+
+                  // Check if it's a building
+                  if (siteDetailsState is DashboardSiteDetailsSuccess) {
+                    final isBuilding = siteDetailsState.details.buildings
+                        .any((b) => b.id == item.id);
+                    if (isBuilding) {
+                      context.read<DashboardBuildingDetailsBloc>().add(
+                            DashboardBuildingDetailsRequested(buildingId: item.id),
+                          );
+                      // Reset floor and room selections
+                      context.read<DashboardFloorDetailsBloc>().add(
+                            DashboardFloorDetailsReset(),
+                          );
+                      context.read<DashboardRoomDetailsBloc>().add(
+                            DashboardRoomDetailsReset(),
+                          );
+                      return;
+                    }
+
+                    // Check if it's a floor
+                    for (final building in siteDetailsState.details.buildings) {
+                      final isFloor = building.floors.any((f) => f.id == item.id);
+                      if (isFloor) {
+                        context.read<DashboardFloorDetailsBloc>().add(
+                              DashboardFloorDetailsRequested(floorId: item.id),
+                            );
+                        // Reset room selection
+                        context.read<DashboardRoomDetailsBloc>().add(
+                              DashboardRoomDetailsReset(),
+                            );
+                        return;
+                      }
+                    }
+
+                    // Check if it's a room
+                    for (final building in siteDetailsState.details.buildings) {
+                      for (final floor in building.floors) {
+                        final isRoom = floor.rooms.any((r) => r.id == item.id);
+                        if (isRoom) {
+                          context.read<DashboardRoomDetailsBloc>().add(
+                                DashboardRoomDetailsRequested(roomId: item.id),
+                              );
+                          return;
+                        }
+                      }
+                    }
+                  }
+
+                  // Also check building details state for floors/rooms
+                  if (buildingDetailsState is DashboardBuildingDetailsSuccess) {
+                    final isFloor = buildingDetailsState.details.floors
+                        .any((f) => f.id == item.id);
+                    if (isFloor) {
+                      context.read<DashboardFloorDetailsBloc>().add(
+                            DashboardFloorDetailsRequested(floorId: item.id),
+                          );
+                      context.read<DashboardRoomDetailsBloc>().add(
+                            DashboardRoomDetailsReset(),
+                          );
+                      return;
+                    }
+
+                    for (final floor in buildingDetailsState.details.floors) {
+                      final isRoom = floor.rooms.any((r) => r.id == item.id);
+                      if (isRoom) {
+                        context.read<DashboardRoomDetailsBloc>().add(
+                              DashboardRoomDetailsRequested(roomId: item.id),
+                            );
+                        return;
+                      }
+                    }
+                  }
+
+                  // Check floor details state for rooms
+                  if (floorDetailsState is DashboardFloorDetailsSuccess) {
+                    final isRoom = floorDetailsState.details.rooms
+                        .any((r) => r.id == item.id);
+                    if (isRoom) {
+                      context.read<DashboardRoomDetailsBloc>().add(
+                            DashboardRoomDetailsRequested(roomId: item.id),
+                          );
+                      return;
+                    }
                   }
                 },
                 onAddItem: () {
