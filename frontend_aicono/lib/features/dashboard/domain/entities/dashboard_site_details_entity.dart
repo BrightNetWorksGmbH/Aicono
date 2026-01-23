@@ -2,10 +2,7 @@ class DashboardSiteDetailsResponse {
   final bool success;
   final DashboardSiteDetails? data;
 
-  DashboardSiteDetailsResponse({
-    required this.success,
-    required this.data,
-  });
+  DashboardSiteDetailsResponse({required this.success, required this.data});
 
   factory DashboardSiteDetailsResponse.fromJson(Map<String, dynamic> json) {
     return DashboardSiteDetailsResponse(
@@ -51,12 +48,13 @@ class DashboardSiteDetails {
   factory DashboardSiteDetails.fromJson(Map<String, dynamic> json) {
     final rawBuildings = json['buildings'];
     final buildings = (rawBuildings is List)
-        ? rawBuildings
-            .whereType<Map>()
-            .map((e) => DashboardBuilding.fromJson(
-                  e.map((k, v) => MapEntry(k.toString(), v),
-                )))
-            .toList()
+        ? rawBuildings.whereType<Map>().map((e) {
+            final map = <String, dynamic>{};
+            e.forEach((key, value) {
+              map[key.toString()] = value;
+            });
+            return DashboardBuilding.fromJson(map);
+          }).toList()
         : <DashboardBuilding>[];
 
     return DashboardSiteDetails(
@@ -86,7 +84,9 @@ class DashboardSiteDetails {
           ? DashboardKpis.fromJson(json['kpis'] as Map<String, dynamic>)
           : null,
       timeRange: (json['time_range'] is Map<String, dynamic>)
-          ? DashboardTimeRange.fromJson(json['time_range'] as Map<String, dynamic>)
+          ? DashboardTimeRange.fromJson(
+              json['time_range'] as Map<String, dynamic>,
+            )
           : null,
     );
   }
@@ -118,6 +118,7 @@ class DashboardBuilding {
   final int roomCount;
   final int sensorCount;
 
+  final List<DashboardFloor> floors;
   final DashboardKpis? kpis;
 
   DashboardBuilding({
@@ -127,10 +128,22 @@ class DashboardBuilding {
     required this.floorCount,
     required this.roomCount,
     required this.sensorCount,
+    required this.floors,
     required this.kpis,
   });
 
   factory DashboardBuilding.fromJson(Map<String, dynamic> json) {
+    final rawFloors = json['floors'];
+    final floors = (rawFloors is List)
+        ? rawFloors.whereType<Map>().map((e) {
+            final map = <String, dynamic>{};
+            e.forEach((key, value) {
+              map[key.toString()] = value;
+            });
+            return DashboardFloor.fromJson(map);
+          }).toList()
+        : <DashboardFloor>[];
+
     return DashboardBuilding(
       id: (json['_id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
@@ -144,9 +157,110 @@ class DashboardBuilding {
       sensorCount: (json['sensor_count'] is int)
           ? json['sensor_count'] as int
           : int.tryParse('${json['sensor_count']}') ?? 0,
+      floors: floors,
       kpis: (json['kpis'] is Map<String, dynamic>)
           ? DashboardKpis.fromJson(json['kpis'] as Map<String, dynamic>)
           : null,
+    );
+  }
+}
+
+class DashboardFloor {
+  final String id;
+  final String name;
+  final String buildingId;
+  final String? floorPlanLink;
+  final int roomCount;
+  final List<DashboardRoom> rooms;
+
+  DashboardFloor({
+    required this.id,
+    required this.name,
+    required this.buildingId,
+    required this.floorPlanLink,
+    required this.roomCount,
+    required this.rooms,
+  });
+
+  factory DashboardFloor.fromJson(Map<String, dynamic> json) {
+    final rawRooms = json['rooms'];
+    final rooms = (rawRooms is List)
+        ? rawRooms.whereType<Map>().map((e) {
+            final map = <String, dynamic>{};
+            e.forEach((key, value) {
+              map[key.toString()] = value;
+            });
+            return DashboardRoom.fromJson(map);
+          }).toList()
+        : <DashboardRoom>[];
+
+    return DashboardFloor(
+      id: (json['_id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      buildingId: (json['buildingId'] ?? '').toString(),
+      floorPlanLink: json['floor_plan_link']?.toString(),
+      roomCount: (json['room_count'] is int)
+          ? json['room_count'] as int
+          : int.tryParse('${json['room_count']}') ?? 0,
+      rooms: rooms,
+    );
+  }
+}
+
+class DashboardRoom {
+  final String id;
+  final String name;
+  final String color;
+  final String floorId;
+  final DashboardLoxoneRoomInfo? loxoneRoomId;
+  final int sensorCount;
+
+  DashboardRoom({
+    required this.id,
+    required this.name,
+    required this.color,
+    required this.floorId,
+    required this.loxoneRoomId,
+    required this.sensorCount,
+  });
+
+  factory DashboardRoom.fromJson(Map<String, dynamic> json) {
+    return DashboardRoom(
+      id: (json['_id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      color: (json['color'] ?? '#000000').toString(),
+      floorId: (json['floorId'] ?? '').toString(),
+      loxoneRoomId: (json['loxone_room_id'] is Map<String, dynamic>)
+          ? DashboardLoxoneRoomInfo.fromJson(
+              json['loxone_room_id'] as Map<String, dynamic>,
+            )
+          : null,
+      sensorCount: (json['sensor_count'] is int)
+          ? json['sensor_count'] as int
+          : int.tryParse('${json['sensor_count']}') ?? 0,
+    );
+  }
+}
+
+class DashboardLoxoneRoomInfo {
+  final String id;
+  final String name;
+  final String loxoneRoomUuid;
+  final String buildingId;
+
+  DashboardLoxoneRoomInfo({
+    required this.id,
+    required this.name,
+    required this.loxoneRoomUuid,
+    required this.buildingId,
+  });
+
+  factory DashboardLoxoneRoomInfo.fromJson(Map<String, dynamic> json) {
+    return DashboardLoxoneRoomInfo(
+      id: (json['_id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      loxoneRoomUuid: (json['loxone_room_uuid'] ?? '').toString(),
+      buildingId: (json['buildingId'] ?? '').toString(),
     );
   }
 }
@@ -176,11 +290,13 @@ class DashboardKpis {
     final rawBreakdown = json['breakdown'];
     final breakdown = (rawBreakdown is List)
         ? rawBreakdown
-            .whereType<Map>()
-            .map((e) => DashboardKpiBreakdownItem.fromJson(
-                  e.map((k, v) => MapEntry(k.toString(), v),
-                )))
-            .toList()
+              .whereType<Map>()
+              .map(
+                (e) => DashboardKpiBreakdownItem.fromJson(
+                  e.map((k, v) => MapEntry(k.toString(), v)),
+                ),
+              )
+              .toList()
         : <DashboardKpiBreakdownItem>[];
 
     return DashboardKpis(
@@ -246,10 +362,7 @@ class DashboardTimeRange {
   final String start;
   final String end;
 
-  DashboardTimeRange({
-    required this.start,
-    required this.end,
-  });
+  DashboardTimeRange({required this.start, required this.end});
 
   factory DashboardTimeRange.fromJson(Map<String, dynamic> json) {
     return DashboardTimeRange(
@@ -258,4 +371,3 @@ class DashboardTimeRange {
     );
   }
 }
-

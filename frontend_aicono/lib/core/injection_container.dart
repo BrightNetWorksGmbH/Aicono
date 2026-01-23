@@ -67,8 +67,14 @@ import 'package:frontend_aicono/features/dashboard/data/repositories/dashboard_r
 import 'package:frontend_aicono/features/dashboard/domain/repositories/dashboard_repository.dart';
 import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_site_details_usecase.dart';
 import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_sites_usecase.dart';
+import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_building_details_usecase.dart';
+import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_floor_details_usecase.dart';
+import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_room_details_usecase.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_sites_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
 import 'package:frontend_aicono/features/superadmin/data/datasources/verse_remote_datasource.dart';
 import 'package:frontend_aicono/features/superadmin/data/repositories/verse_repository_impl.dart';
 import 'package:frontend_aicono/features/superadmin/domain/repositories/verse_repository.dart';
@@ -191,6 +197,15 @@ Future<void> init() async {
   sl.registerLazySingleton(
     () => GetDashboardSiteDetailsUseCase(repository: sl()),
   );
+  sl.registerLazySingleton(
+    () => GetDashboardBuildingDetailsUseCase(repository: sl()),
+  );
+  sl.registerLazySingleton(
+    () => GetDashboardFloorDetailsUseCase(repository: sl()),
+  );
+  sl.registerLazySingleton(
+    () => GetDashboardRoomDetailsUseCase(repository: sl()),
+  );
 
   // Superadmin use cases
   sl.registerLazySingleton(() => CreateVerseUseCase(repository: sl()));
@@ -251,6 +266,21 @@ Future<void> init() async {
   sl.registerFactory(() => DashboardSitesBloc(getDashboardSitesUseCase: sl()));
   sl.registerFactory(
     () => DashboardSiteDetailsBloc(getDashboardSiteDetailsUseCase: sl()),
+  );
+  sl.registerFactory(
+    () => DashboardBuildingDetailsBloc(
+      getDashboardBuildingDetailsUseCase: sl(),
+    ),
+  );
+  sl.registerFactory(
+    () => DashboardFloorDetailsBloc(
+      getDashboardFloorDetailsUseCase: sl(),
+    ),
+  );
+  sl.registerFactory(
+    () => DashboardRoomDetailsBloc(
+      getDashboardRoomDetailsUseCase: sl(),
+    ),
   );
 
   // Upload dependencies
