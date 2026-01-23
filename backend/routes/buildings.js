@@ -9,6 +9,10 @@ router.post('/site/:siteId', requireAuth, buildingController.createBuildings);
 // Get all buildings for a site
 router.get('/site/:siteId', requireAuth, buildingController.getBuildingsBySite);
 
+// Get all building contacts (with optional filtering)
+// Must be before /:buildingId to avoid route conflicts
+router.get('/contacts', requireAuth, buildingController.getContacts);
+
 // Get a building by ID
 router.get('/:buildingId', requireAuth, buildingController.getBuildingById);
 

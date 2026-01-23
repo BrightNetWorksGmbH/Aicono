@@ -12,4 +12,7 @@ router.post('/trigger/:interval', requireAuth, reportingController.triggerReport
 // Get scheduler status
 router.get('/scheduler/status', requireAuth, reportingController.getSchedulerStatus);
 
+// Get all reporting recipients (with optional filtering)
+router.get('/recipients', requireAuth, reportingController.getRecipients);
+
 module.exports = router;

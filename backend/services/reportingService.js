@@ -2,6 +2,7 @@ const ReportingRecipient = require('../models/ReportingRecipient');
 const Reporting = require('../models/Reporting');
 const BuildingReportingAssignment = require('../models/BuildingReportingAssignment');
 const Building = require('../models/Building');
+const mongoose = require('mongoose');
 
 class ReportingService {
   /**
@@ -205,6 +206,78 @@ class ReportingService {
       .populate('building_id')
       .populate('reporting_id')
       .exec();
+  }
+
+  /**
+   * Get all reporting recipients with optional filtering
+   * @param {Object} filters - Filter options
+   * @param {String} filters.site_id - Optional site ID to filter by
+   * @param {String} filters.building_id - Optional building ID to filter by
+   * @returns {Promise<Array>} Array of recipient documents
+   */
+  async getRecipients(filters = {}) {
+    const { site_id, building_id } = filters;
+
+    // If no filters, return all active recipients by default
+    if (!site_id && !building_id) {
+      return await ReportingRecipient.find({ is_active: true })
+        .sort({ email: 1 })
+        .lean();
+    }
+
+    // Build query to find relevant buildings
+    const buildingQuery = {};
+    
+    if (building_id) {
+      if (!mongoose.Types.ObjectId.isValid(building_id)) {
+        throw new Error(`Invalid building_id: ${building_id}`);
+      }
+      buildingQuery._id = new mongoose.Types.ObjectId(building_id);
+    }
+    
+    if (site_id) {
+      if (!mongoose.Types.ObjectId.isValid(site_id)) {
+        throw new Error(`Invalid site_id: ${site_id}`);
+      }
+      buildingQuery.site_id = new mongoose.Types.ObjectId(site_id);
+    }
+
+    // Find buildings matching the criteria
+    const buildings = await Building.find(buildingQuery)
+      .select('_id')
+      .lean();
+
+    const buildingIds = buildings.map(b => b._id);
+
+    // If no buildings found, return empty array
+    if (buildingIds.length === 0) {
+      return [];
+    }
+
+    // Find assignments for these buildings
+    const assignments = await BuildingReportingAssignment.find({
+      building_id: { $in: buildingIds }
+    })
+      .select('recipient_id')
+      .lean();
+
+    // Extract unique recipient IDs
+    const recipientIds = [...new Set(
+      assignments
+        .map(a => a.recipient_id)
+        .filter(id => id !== null && id !== undefined)
+    )];
+
+    // If no recipients found, return empty array
+    if (recipientIds.length === 0) {
+      return [];
+    }
+
+    // Return recipients matching the IDs (only active ones)
+    return await ReportingRecipient.find({
+      _id: { $in: recipientIds },
+      is_active: true
+    }).sort({ email: 1 }).lean();
   }
 }
 

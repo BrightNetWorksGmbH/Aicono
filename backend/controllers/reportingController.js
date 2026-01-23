@@ -206,3 +206,26 @@ exports.getSchedulerStatus = asyncHandler(async (req, res) => {
     data: status
   });
 });
+
+/**
+ * GET /api/v1/reporting/recipients
+ * Get all reporting recipients with optional filtering
+ * Query parameters:
+ * - site_id (optional): Filter recipients by site ID
+ * - building_id (optional): Filter recipients by building ID
+ */
+exports.getRecipients = asyncHandler(async (req, res) => {
+  const { site_id, building_id } = req.query;
+
+  const filters = {};
+  if (site_id) filters.site_id = site_id;
+  if (building_id) filters.building_id = building_id;
+
+  const recipients = await reportingService.getRecipients(filters);
+
+  res.json({
+    success: true,
+    data: recipients,
+    count: recipients.length
+  });
+});
