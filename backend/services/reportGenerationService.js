@@ -26,11 +26,21 @@ class ReportGenerationService {
     switch (interval) {
       case 'Daily':
         // Previous day (00:00 to 23:59)
-        startDate = new Date(now);
-        startDate.setUTCDate(startDate.getUTCDate() - 1);
-        startDate.setUTCHours(0, 0, 0, 0);
-        endDate = new Date(startDate);
-        endDate.setUTCHours(23, 59, 59, 999);
+        // Use UTC to avoid timezone issues
+        const yesterday = new Date(Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate() - 1,
+          0, 0, 0, 0
+        ));
+        startDate = yesterday;
+        endDate = new Date(Date.UTC(
+          yesterday.getUTCFullYear(),
+          yesterday.getUTCMonth(),
+          yesterday.getUTCDate(),
+          23, 59, 59, 999
+        ));
+        console.log(`[DEBUG] calculateTimeRange Daily: now=${now.toISOString()}, yesterday=${yesterday.toISOString()}, startDate=${startDate.toISOString()}, endDate=${endDate.toISOString()}`);
         break;
 
       case 'Weekly':
@@ -88,6 +98,7 @@ class ReportGenerationService {
    * @returns {Promise<Object>} Complete report data
    */
   async generateFullReport(buildingId, reportConfig, timeRange) {
+    console.log("generateFullReport's buildingId is ", buildingId);
     const { startDate, endDate } = timeRange;
     const { reportContents = [] } = reportConfig;
 
@@ -98,7 +109,29 @@ class ReportGenerationService {
     }
 
     // Generate base KPIs (used by multiple content types)
-    const kpis = await dashboardDiscoveryService.getBuildingKPIs(buildingId, startDate, endDate);
+    // For reports, force appropriate resolution based on interval and data age
+    const interval = reportConfig.interval; // Get interval from reportConfig
+    const daysSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60 * 24);
+    const resolutionOptions = {};
+    
+    // Determine resolution based on interval and data age
+    // Daily reports: previous day → always use hourly (60) aggregates (15-min may not exist yet)
+    // Weekly reports: previous week (7+ days old) → use hourly (60) or daily (1440) aggregates
+    // Monthly/Yearly: very old data → use daily (1440) aggregates
+    if (daysSinceEndDate > 7 || interval === 'Monthly' || interval === 'Yearly') {
+        resolutionOptions.resolution = 1440; // daily for old data
+    } else if (daysSinceEndDate >= 1 || interval === 'Weekly' || interval === 'Daily') {
+        // For Daily reports, always use hourly (60) since 15-minute aggregates may not exist for yesterday
+        // For Weekly reports, use hourly for week-old data
+        resolutionOptions.resolution = 60; // hourly for daily/weekly reports
+    } else {
+        resolutionOptions.resolution = 15; // 15-minute for recent data (today)
+    }
+    
+    console.log(`[REPORT] Generating ${interval} report for building ${buildingId}: timeRange=${startDate.toISOString()} to ${endDate.toISOString()}, daysSinceEndDate=${daysSinceEndDate.toFixed(1)}, preferredResolution=${resolutionOptions.resolution || 'auto'} minutes`);
+    
+    // Pass preferred resolution, but getBuildingKPIs will fallback to other resolutions if no data found
+    const kpis = await dashboardDiscoveryService.getBuildingKPIs(buildingId, startDate, endDate, resolutionOptions);
 
     // Generate each selected content
     const reportData = {

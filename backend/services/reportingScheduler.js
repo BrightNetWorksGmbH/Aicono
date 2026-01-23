@@ -210,17 +210,30 @@ class ReportingScheduler {
   async processReportsForInterval(interval) {
     try {
       // Find all assignments with reports matching this interval
+      // Use select to ensure we get the interval field
       const assignments = await BuildingReportingAssignment.find()
         .populate({
           path: 'reporting_id',
-          match: { interval: interval }
+          match: { interval: interval },
+          select: 'name interval reportContents' // Explicitly select required fields
         })
         .populate('recipient_id')
         .populate('building_id')
         .exec();
 
       // Filter out assignments where reporting_id is null (populate didn't match)
-      const validAssignments = assignments.filter(a => a.reporting_id !== null && a.recipient_id !== null && a.building_id !== null);
+      // Also validate that reporting_id has the interval field
+      const validAssignments = assignments.filter(a => {
+        if (!a.reporting_id || !a.recipient_id || !a.building_id) {
+          return false;
+        }
+        // Check if reporting_id is populated (object) and has interval field
+        if (typeof a.reporting_id === 'object' && !a.reporting_id.interval) {
+          console.warn(`[REPORTING-SCHEDULER] Assignment ${a._id} has reporting_id but missing interval field`);
+          return false;
+        }
+        return true;
+      });
 
       if (validAssignments.length === 0) {
         console.log(`[REPORTING-SCHEDULER] No ${interval} reports to process`);
@@ -229,16 +242,32 @@ class ReportingScheduler {
 
       console.log(`[REPORTING-SCHEDULER] Processing ${validAssignments.length} ${interval} report(s)...`);
 
+      // Debug: Log assignment details
+      for (const assignment of validAssignments) {
+        const reportingType = typeof assignment.reporting_id;
+        const hasInterval = assignment.reporting_id && assignment.reporting_id.interval;
+        console.log(`[REPORTING-SCHEDULER] Assignment ${assignment._id}: reporting_id type=${reportingType}, hasInterval=${hasInterval}, interval=${assignment.reporting_id?.interval || 'N/A'}`);
+      }
+
       let successCount = 0;
       let failCount = 0;
 
       // Process each assignment
       for (const assignment of validAssignments) {
         try {
+          console.log("generating and sending report for assignment", assignment);
           await this.generateAndSendReport(assignment, interval);
           successCount++;
         } catch (error) {
           console.error(`[REPORTING-SCHEDULER] Failed to process report for assignment ${assignment._id}:`, error.message);
+          console.error(`[REPORTING-SCHEDULER] Error details:`, {
+            assignmentId: assignment._id,
+            reportingId: assignment.reporting_id?._id || assignment.reporting_id,
+            reportingType: typeof assignment.reporting_id,
+            hasInterval: assignment.reporting_id?.interval ? true : false,
+            error: error.message,
+            stack: error.stack
+          });
           failCount++;
           // Continue with next assignment even if one fails
         }
@@ -260,30 +289,59 @@ class ReportingScheduler {
    */
   async generateAndSendReport(assignment, interval) {
     const { building_id, recipient_id, reporting_id } = assignment;
+    console.log("generateAndSendReport's building_id is ", building_id);
+    console.log("generateAndSendReport's recipient_id is ", recipient_id);
+    console.log("generateAndSendReport's reporting_id is ", reporting_id);  
+    // Validate that reporting_id is populated and has required fields
+    if (!reporting_id) {
+      throw new Error(`Reporting ID is null or not populated for assignment ${assignment._id}`);
+    }
+
+    // If reporting_id is just an ObjectId string, we need to populate it
+    let reporting;
+    if (typeof reporting_id === 'string' || reporting_id instanceof require('mongoose').Types.ObjectId) {
+      const Reporting = require('../models/Reporting');
+      reporting = await Reporting.findById(reporting_id);
+      if (!reporting) {
+        throw new Error(`Reporting with ID ${reporting_id} not found`);
+      }
+    } else {
+      reporting = reporting_id;
+    }
+
+    // Validate required fields
+    if (!reporting.interval) {
+      throw new Error(`Reporting ${reporting._id} is missing 'interval' field. Expected: ${interval}`);
+    }
+
+    if (reporting.interval !== interval) {
+      throw new Error(`Reporting interval mismatch: expected ${interval}, got ${reporting.interval}`);
+    }
 
     // Calculate time range for this interval
     const timeRange = reportGenerationService.calculateTimeRange(interval);
+    console.log("generateAndSendReport's timeRange is ", timeRange);
 
     // Generate report data
     const reportData = await reportGenerationService.generateFullReport(
       building_id._id.toString(),
       {
-        interval: reporting_id.interval,
-        reportContents: reporting_id.reportContents || [],
-        name: reporting_id.name,
+        interval: reporting.interval,
+        reportContents: reporting.reportContents || [],
+        name: reporting.name,
       },
       timeRange
     );
-
+    console.log("generateAndSendReport's reportData is ", reportData);
     // Send email
     const emailResult = await reportEmailService.sendScheduledReport(
       recipient_id,
       building_id,
       reportData,
       {
-        name: reporting_id.name,
-        interval: reporting_id.interval,
-        reportContents: reporting_id.reportContents || [],
+        name: reporting.name,
+        interval: reporting.interval,
+        reportContents: reporting.reportContents || [],
       }
     );
 

@@ -848,16 +848,38 @@ class DashboardDiscoveryService {
         
         // Find Energy data for total_consumption, base, average
         const energyData = processedResults.get('Energy');
+        // console.log(`[DEBUG] calculateKPIsFromResults:`, {
+        //     hasEnergyData: !!energyData,
+        //     energyValuesCount: energyData?.values?.length || 0,
+        //     allMeasurementTypes: Array.from(processedResults.keys()),
+        //     rawResultsCount: rawResults.length
+        // });
         if (energyData && energyData.values.length > 0) {
-            const energyValues = energyData.values;
-            totalConsumption = energyValues.reduce((sum, v) => sum + v, 0);
-            base = Math.min(...energyValues);
-            average = totalConsumption / energyValues.length;
-            mainUnit = energyData.baseUnit || 'kWh';
+            // Filter out negative values (meter resets or data issues)
+            // Consumption cannot be negative - negative values indicate meter resets
+            const validEnergyValues = energyData.values.filter(v => v >= 0);
             
-            // Calculate quality from Energy measurements
-            const qualitySum = energyData.avgQuality.reduce((sum, q) => sum + q, 0);
-            avgQuality = qualitySum / energyData.avgQuality.length;
+            if (validEnergyValues.length > 0) {
+                const energyValues = validEnergyValues;
+                totalConsumption = energyValues.reduce((sum, v) => sum + v, 0);
+                base = Math.min(...energyValues);
+                average = totalConsumption / energyValues.length;
+                mainUnit = energyData.baseUnit || 'kWh';
+                
+                // Calculate quality from Energy measurements
+                const qualitySum = energyData.avgQuality.reduce((sum, q) => sum + q, 0);
+                avgQuality = qualitySum / energyData.avgQuality.length;
+            } else {
+                // All values were negative - log warning but set to 0
+                console.warn(`[KPI] All Energy values were negative (meter resets detected), setting consumption to 0`);
+                totalConsumption = 0;
+                base = 0;
+                average = 0;
+                mainUnit = energyData.baseUnit || 'kWh';
+                avgQuality = energyData.avgQuality.length > 0 
+                    ? energyData.avgQuality.reduce((sum, q) => sum + q, 0) / energyData.avgQuality.length 
+                    : 100;
+            }
         }
         
         // Find Power data for peak power (instantaneous maximum)
@@ -975,6 +997,7 @@ class DashboardDiscoveryService {
         ];
         
         const rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+       
         return this.calculateKPIsFromResults(rawResults);
     }
 
@@ -999,15 +1022,25 @@ class DashboardDiscoveryService {
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
         
-        // Determine resolution
+        // Determine resolution based on time range AND data age
+        // For week-old data, we need to use hourly/daily aggregates (15-min may be deleted)
         let resolution = 15;
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            if (days > 90) {
+            // Check how old the data is (days since endDate)
+            const daysSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60 * 24);
+            
+            if (days > 90 || daysSinceEndDate > 7) {
+                // Very old data or long periods: use daily aggregates
                 resolution = 1440; // daily
-            } else if (days > 7) {
+            } else if (days > 7 || daysSinceEndDate > 1) {
+                // Week-old data or periods > 7 days: use hourly aggregates
+                // (15-minute aggregates may have been deleted for old data)
                 resolution = 60; // hourly
+            } else {
+                // Recent data (last 7 days): use 15-minute aggregates
+                resolution = 15; // 15-minute
             }
         }
         
@@ -1039,7 +1072,63 @@ class DashboardDiscoveryService {
             }
         ];
         
-        const rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        // console.log(`[DEBUG] getBuildingKPIs query:`, {
+        //     buildingId,
+        //     resolution,
+        //     startDate: startDate.toISOString(),
+        //     endDate: endDate.toISOString(),
+        //     matchStage,
+        //     resultCount: rawResults.length,
+        //     resultTypes: rawResults.map(r => r._id.measurementType)
+        // });
+        
+        // If no results found, try fallback resolutions
+        // This handles cases where aggregates at the preferred resolution don't exist yet
+        // Always try fallback, even if resolution was explicitly set (for reports)
+        if (rawResults.length === 0) {
+            const fallbackResolutions = [];
+            
+            // Determine fallback resolutions based on current resolution
+            if (resolution === 15) {
+                // Try hourly, then daily
+                fallbackResolutions.push(60, 1440);
+            } else if (resolution === 60) {
+                // Try daily
+                fallbackResolutions.push(1440);
+            }
+            
+            // Try each fallback resolution
+            for (const fallbackResolution of fallbackResolutions) {
+                const fallbackMatchStage = {
+                    ...matchStage,
+                    resolution_minutes: fallbackResolution
+                };
+                
+                const fallbackPipeline = [
+                    { $match: fallbackMatchStage },
+                    {
+                        $group: {
+                            _id: {
+                                measurementType: '$meta.measurementType',
+                                unit: '$unit'
+                            },
+                            values: { $push: '$value' },
+                            units: { $first: '$unit' },
+                            avgQuality: { $avg: '$quality' },
+                            count: { $sum: 1 }
+                        }
+                    }
+                ];
+                
+                rawResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                if (rawResults.length > 0) {
+                    console.log(`[DEBUG] getBuildingKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                    break; // Found data, stop trying fallbacks
+                }
+            }
+        }
+        
         return this.calculateKPIsFromResults(rawResults);
     }
 
@@ -1068,15 +1157,20 @@ class DashboardDiscoveryService {
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
         
-        // Determine resolution
+        // Determine resolution based on time range AND data age
         let resolution = 15;
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            if (days > 90) {
-                resolution = 1440;
-            } else if (days > 7) {
-                resolution = 60;
+            // Check how old the data is (days since endDate)
+            const daysSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60 * 24);
+            
+            if (days > 90 || daysSinceEndDate > 7) {
+                resolution = 1440; // daily
+            } else if (days > 7 || daysSinceEndDate > 1) {
+                resolution = 60; // hourly
+            } else {
+                resolution = 15; // 15-minute
             }
         }
         

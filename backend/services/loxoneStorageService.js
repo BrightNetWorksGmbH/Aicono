@@ -640,7 +640,7 @@ class LoxoneStorageService {
      * Store measurements for a building
      * Optimized to avoid N+1 queries by batching sensor lookups
      */
-    async storeMeasurements(buildingId, measurements) {
+    async storeMeasurements(buildingId, measurements, options = {}) {
         // Check connection health
         if (mongoose.connection.readyState !== 1) {
             console.warn(`[LOXONE-STORAGE] [${buildingId}] MongoDB not connected (readyState: ${mongoose.connection.readyState})`);
@@ -656,33 +656,37 @@ class LoxoneStorageService {
         if (!uuidToSensorMap || uuidToSensorMap.size === 0) {
             console.log(`[LOXONE-STORAGE] [${buildingId}] UUID map is empty, reloading...`);
             // Try to reload from structure file
-            const fs = require('fs');
+            const fsPromises = require('fs').promises;
             const path = require('path');
             const structureFilesDir = path.join(__dirname, '../../data/loxone-structure');
             const structureFilePath = path.join(structureFilesDir, `LoxAPP3_${buildingId}.json`);
-            if (fs.existsSync(structureFilePath)) {
-                try {
-                    const loxAPP3Data = JSON.parse(fs.readFileSync(structureFilePath, 'utf8'));
-                    await this.loadStructureMapping(buildingId, loxAPP3Data);
-                    // Verify the map was loaded
-                    const reloadedMap = uuidMaps.get(buildingId);
-                    if (!reloadedMap || reloadedMap.size === 0) {
-                        console.warn(`[LOXONE-STORAGE] [${buildingId}] Structure mapping still empty after reload, skipping measurements`);
-                        return { stored: 0, skipped: measurements.length };
-                    }
-                } catch (reloadError) {
-                    console.error(`[LOXONE-STORAGE] [${buildingId}] Error reloading structure mapping:`, reloadError.message);
-                    // Check if it's a duplicate key error (index issue)
-                    if (reloadError.message.includes('E11000') || reloadError.message.includes('duplicate key')) {
-                        console.error(`[LOXONE-STORAGE] [${buildingId}] ⚠️  Duplicate key error detected!`);
-                        console.error(`[LOXONE-STORAGE] [${buildingId}] This indicates the old unique indexes still exist in MongoDB.`);
-                        console.error(`[LOXONE-STORAGE] [${buildingId}] Please run: node scripts/fixRoomSensorIndexes.js`);
-                    }
-                    return { stored: 0, skipped: measurements.length, error: 'reload_failed' };
+            try {
+                // Check if file exists by trying to access it
+                await fsPromises.access(structureFilePath);
+                // File exists, read it
+                const fileContent = await fsPromises.readFile(structureFilePath, 'utf8');
+                const loxAPP3Data = JSON.parse(fileContent);
+                await this.loadStructureMapping(buildingId, loxAPP3Data);
+                // Verify the map was loaded
+                const reloadedMap = uuidMaps.get(buildingId);
+                if (!reloadedMap || reloadedMap.size === 0) {
+                    console.warn(`[LOXONE-STORAGE] [${buildingId}] Structure mapping still empty after reload, skipping measurements`);
+                    return { stored: 0, skipped: measurements.length };
                 }
-            } else {
-                console.warn(`[LOXONE-STORAGE] [${buildingId}] No structure file found at ${structureFilePath}, skipping measurements`);
-                return { stored: 0, skipped: measurements.length };
+            } catch (reloadError) {
+                // File doesn't exist or other error
+                if (reloadError.code === 'ENOENT') {
+                    console.warn(`[LOXONE-STORAGE] [${buildingId}] No structure file found at ${structureFilePath}, skipping measurements`);
+                    return { stored: 0, skipped: measurements.length };
+                }
+                console.error(`[LOXONE-STORAGE] [${buildingId}] Error reloading structure mapping:`, reloadError.message);
+                // Check if it's a duplicate key error (index issue)
+                if (reloadError.message.includes('E11000') || reloadError.message.includes('duplicate key')) {
+                    console.error(`[LOXONE-STORAGE] [${buildingId}] ⚠️  Duplicate key error detected!`);
+                    console.error(`[LOXONE-STORAGE] [${buildingId}] This indicates the old unique indexes still exist in MongoDB.`);
+                    console.error(`[LOXONE-STORAGE] [${buildingId}] Please run: node scripts/fixRoomSensorIndexes.js`);
+                }
+                return { stored: 0, skipped: measurements.length, error: 'reload_failed' };
             }
         }
 
@@ -815,14 +819,17 @@ class LoxoneStorageService {
             
             const measurementTimestamp = measurement.timestamp || new Date();
             
-            // Perform plausibility check before storing
-            try {
-                const validation = await plausibilityCheckService.validateMeasurement(
-                    sensor._id,
-                    measurement.value,
-                    measurementType,
-                    measurementTimestamp
-                );
+            // Perform plausibility check before storing (skip if queue is critically full)
+            // Pass pre-fetched sensor to avoid N+1 query problem
+            if (!options.skipPlausibilityCheck) {
+                try {
+                    const validation = await plausibilityCheckService.validateMeasurement(
+                        sensor._id,
+                        measurement.value,
+                        measurementType,
+                        measurementTimestamp,
+                        sensor // Pass pre-fetched sensor to avoid database query
+                    );
                 
                 // If validation fails, create alarm log entries
                 if (!validation.isValid && validation.violations.length > 0) {
@@ -845,9 +852,10 @@ class LoxoneStorageService {
                         }
                     }
                 }
-            } catch (validationError) {
-                // Log validation error but don't block storage
-                console.error(`[LOXONE-STORAGE] [${buildingId}] Error during plausibility check:`, validationError.message);
+                } catch (validationError) {
+                    // Log validation error but don't block storage
+                    console.error(`[LOXONE-STORAGE] [${buildingId}] Error during plausibility check:`, validationError.message);
+                }
             }
             
             // Store measurement regardless of validation result (to maintain data integrity)

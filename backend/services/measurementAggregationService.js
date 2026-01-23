@@ -190,11 +190,22 @@ class MeasurementAggregationService {
                         stateType: '$_id.stateType'
                     },
                     // For energy meters: consumption = last - first
+                    // Handle meter resets: if lastValue < firstValue (meter reset detected), set to 0
+                    // This occurs when cumulative meters (totalMonth, totalWeek, totalDay) reset at period boundaries
+                    // Consumption cannot be negative - negative values indicate meter resets, not actual negative consumption
                     // For other types: use average
                     value: {
                         $cond: {
                             if: { $eq: ['$_id.measurementType', 'Energy'] },
-                            then: { $subtract: ['$lastValue', '$firstValue'] },
+                            then: {
+                                // Ensure consumption is never negative (handles meter resets)
+                                // When a cumulative meter resets, lastValue < firstValue, resulting in negative consumption
+                                // We set it to 0 because the reset means no consumption in that period
+                                $max: [
+                                    0, // Minimum consumption is 0
+                                    { $subtract: ['$lastValue', '$firstValue'] }
+                                ]
+                            },
                             else: '$avgValue'
                         }
                     },
@@ -455,6 +466,7 @@ class MeasurementAggregationService {
             console.log(`   Building: ${buildingId || 'all buildings'}`);
             console.log(`   Window: ${bucketStart.toISOString()} to ${safeAggregationEnd.toISOString()}`);
             console.log(`   Raw data points processed: ${dataCount}`);
+            console.log(`   Note: Meter resets (negative consumption) are automatically set to 0`);
             console.log(`========================================\n`);
             
             let deletedCount = 0;
@@ -605,7 +617,10 @@ class MeasurementAggregationService {
                     value: {
                         $cond: {
                             if: { $eq: ['$_id.measurementType', 'Energy'] },
-                            then: '$value',
+                            then: {
+                                // Ensure Energy consumption is never negative (safety check)
+                                $max: [0, '$value']
+                            },
                             else: '$avgValue'
                         }
                     },
@@ -776,7 +791,10 @@ class MeasurementAggregationService {
                     value: {
                         $cond: {
                             if: { $eq: ['$_id.measurementType', 'Energy'] },
-                            then: '$value',
+                            then: {
+                                // Ensure Energy consumption is never negative (safety check)
+                                $max: [0, '$value']
+                            },
                             else: '$avgValue'
                         }
                     },

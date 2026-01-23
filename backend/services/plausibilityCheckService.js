@@ -16,15 +16,19 @@ class PlausibilityCheckService {
      * @param {number} value - Measurement value
      * @param {string} measurementType - Type of measurement (e.g., 'Energy', 'Temperature', 'Power')
      * @param {Date} timestamp - Measurement timestamp
+     * @param {Object} sensor - Optional pre-fetched sensor object (avoids N+1 query)
      * @returns {Promise<Object>} Validation result with isValid, violations, and severity
      */
-    async validateMeasurement(sensorId, value, measurementType, timestamp) {
+    async validateMeasurement(sensorId, value, measurementType, timestamp, sensor = null) {
         const violations = [];
         let maxSeverity = 'Low';
         // console.log('validateMeasurement', sensorId, value, measurementType, timestamp);
 
-        // Fetch sensor with thresholds
-        const sensor = await Sensor.findById(sensorId);
+        // Use provided sensor or fetch if not provided
+        if (!sensor) {
+            sensor = await Sensor.findById(sensorId);
+        }
+        
         if (!sensor) {
             // Sensor not found - can't validate, but don't block storage
             return {

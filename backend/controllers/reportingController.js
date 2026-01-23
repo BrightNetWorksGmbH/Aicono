@@ -162,7 +162,7 @@ exports.handleReportSetup = asyncHandler(async (req, res) => {
  */
 exports.triggerReportGeneration = asyncHandler(async (req, res) => {
   const { interval } = req.params;
-  console.log("triggerReportGeneration", req.params);
+  console.log("triggerReportGeneration body for testing", req.params);
   
   const validIntervals = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
   if (!validIntervals.includes(interval)) {
@@ -172,13 +172,25 @@ exports.triggerReportGeneration = asyncHandler(async (req, res) => {
     });
   }
 
-  const result = await reportingScheduler.triggerReportGeneration(interval);
-  console.log("the result of the triggered generation is ", result);
+  // Start report generation asynchronously to prevent timeout
+  // Return immediately, report generation continues in background
+  reportingScheduler.triggerReportGeneration(interval)
+    .then(result => {
+      console.log("the result of the triggered generation is ", result);
+    })
+    .catch(error => {
+      console.error(`[REPORTING] Error generating ${interval} reports:`, error.message);
+    });
 
+  // Return immediately with processing status
   res.json({
     success: true,
-    message: `Triggered ${interval} report generation`,
-    data: result
+    message: `${interval} report generation started in background`,
+    data: {
+      status: 'processing',
+      interval: interval,
+      note: 'Report generation is running asynchronously. Check email for results.'
+    }
   });
 });
 

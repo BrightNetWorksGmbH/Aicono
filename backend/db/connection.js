@@ -70,18 +70,25 @@ async function connectToDatabase() {
 
   try {
     // Improved connection options for better reliability
+    // Connection pool size is configurable via env var, default to 100 for high-throughput scenarios
+    // With 10 buildings processing in parallel + aggregation + API requests, we need more connections
+    const maxPoolSize = parseInt(process.env.MONGODB_MAX_POOL_SIZE || '100', 10);
+    const minPoolSize = parseInt(process.env.MONGODB_MIN_POOL_SIZE || '10', 10);
+    
     await mongoose.connect(MONGODB_URI, {
       autoIndex: true,
       serverSelectionTimeoutMS: 30000, // Increased from 10s to 30s
       socketTimeoutMS: 60000, // Increased from 45s to 60s
-      maxPoolSize: 10,
-      minPoolSize: 2, // Keep minimum connections alive
-      maxIdleTimeMS: 30000, // Close idle connections after 30s
+      maxPoolSize: maxPoolSize,
+      minPoolSize: minPoolSize, // Keep minimum connections alive
+      maxIdleTimeMS: 60000, // Close idle connections after 60s (increased from 30s)
       retryWrites: true,
       retryReads: true,
       // Connection pool options
       heartbeatFrequencyMS: 10000, // Check connection health every 10s
     });
+    
+    console.log(`[MONGODB] Connection pool configured: min=${minPoolSize}, max=${maxPoolSize}`);
 
     // Verify connection is actually ready
     await mongoose.connection.db.admin().ping();
@@ -111,9 +118,72 @@ function getConnectionStatus() {
   };
 }
 
+/**
+ * Get connection pool statistics
+ * @returns {Object} Pool statistics
+ */
+async function getPoolStatistics() {
+  try {
+    if (!mongoose.connection.readyState === 1) {
+      return {
+        available: false,
+        message: 'Database not connected'
+      };
+    }
+
+    const db = mongoose.connection.db;
+    const admin = db.admin();
+    
+    // Get server status (includes connection info)
+    const serverStatus = await admin.serverStatus();
+    
+    // Get connection pool info from mongoose
+    const pool = mongoose.connection.getClient().topology?.s?.connectionPool;
+    
+    let poolStats = {
+      available: true,
+      maxPoolSize: parseInt(process.env.MONGODB_MAX_POOL_SIZE || '100', 10),
+      minPoolSize: parseInt(process.env.MONGODB_MIN_POOL_SIZE || '10', 10),
+    };
+
+    if (pool) {
+      poolStats.currentConnections = pool.totalConnectionCount || 0;
+      poolStats.availableConnections = pool.availableConnectionCount || 0;
+      poolStats.inUseConnections = poolStats.currentConnections - poolStats.availableConnections;
+      poolStats.usagePercent = poolStats.maxPoolSize > 0 
+        ? Math.round((poolStats.inUseConnections / poolStats.maxPoolSize) * 100) 
+        : 0;
+    } else {
+      // Fallback: estimate from server status
+      poolStats.currentConnections = serverStatus.connections?.current || 0;
+      poolStats.availableConnections = poolStats.maxPoolSize - poolStats.currentConnections;
+      poolStats.inUseConnections = poolStats.currentConnections;
+      poolStats.usagePercent = poolStats.maxPoolSize > 0 
+        ? Math.round((poolStats.currentConnections / poolStats.maxPoolSize) * 100) 
+        : 0;
+    }
+
+    // Log warning if usage is high (80%+) or critical (95%+)
+    if (poolStats.usagePercent >= 95) {
+      console.error(`[MONGODB] 🔴 Connection pool usage is CRITICAL: ${poolStats.usagePercent}% (${poolStats.inUseConnections}/${poolStats.maxPoolSize} connections in use)`);
+    } else if (poolStats.usagePercent >= 80) {
+      console.warn(`[MONGODB] ⚠️  Connection pool usage is high: ${poolStats.usagePercent}% (${poolStats.inUseConnections}/${poolStats.maxPoolSize} connections in use)`);
+    }
+
+    return poolStats;
+  } catch (error) {
+    console.error('[MONGODB] Error getting pool statistics:', error.message);
+    return {
+      available: false,
+      error: error.message
+    };
+  }
+}
+
 module.exports = {
   connectToDatabase,
   isConnectionHealthy,
   getConnectionStatus,
+  getPoolStatistics,
 };
 
