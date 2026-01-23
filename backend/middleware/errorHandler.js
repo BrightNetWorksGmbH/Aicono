@@ -8,6 +8,15 @@ const { isOperationalError } = require("../utils/errors");
  * app.use(errorHandler);
  */
 const errorHandler = (err, req, res, next) => {
+  // Handle timeout errors
+  if (err.code === 'ETIMEDOUT' || err.message === 'Request timeout') {
+    return res.status(504).json({
+      success: false,
+      message: 'Request timeout - the server took too long to respond',
+      code: 'REQUEST_TIMEOUT'
+    });
+  }
+  
   // Determine status code
   const statusCode = err.status || err.statusCode || 500;
 

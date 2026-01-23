@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const measurementAggregationService = require('./measurementAggregationService');
+const { isConnectionHealthy, getPoolStatistics } = require('../db/connection');
 
 /**
  * Aggregation Scheduler
@@ -68,7 +69,38 @@ class AggregationScheduler {
             const timestamp = new Date().toISOString();
             this.lastRun['15-minute'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running 15-minute aggregation (cron triggered)...`);
+            
+            // Check connection health and pool availability before starting
+            if (!isConnectionHealthy()) {
+                console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Database connection not healthy`);
+                return;
+            }
+            
             try {
+                // Check pool statistics - only skip if pool is truly exhausted (95%+)
+                // Aggregation is critical for storage efficiency, so we should run it even if pool is high
+                const poolStats = await getPoolStatistics();
+                if (poolStats.available && poolStats.usagePercent >= 95) {
+                    console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Connection pool usage is critical (${poolStats.usagePercent}%)`);
+                    return;
+                }
+                
+                // If pool is high (80-95%), wait a bit for connections to free up, then proceed
+                if (poolStats.available && poolStats.usagePercent >= 80) {
+                    console.log(`[SCHEDULER] [${timestamp}] ⚠️  Pool usage is high (${poolStats.usagePercent}%), waiting 2 seconds before aggregation...`);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    // Re-check pool after wait
+                    const recheckStats = await getPoolStatistics();
+                    if (recheckStats.available && recheckStats.usagePercent >= 95) {
+                        console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Pool still critical after wait (${recheckStats.usagePercent}%)`);
+                        return;
+                    }
+                }
+                
+                // Yield to event loop before starting heavy operation
+                await new Promise(resolve => setImmediate(resolve));
+                
                 const result = await measurementAggregationService.aggregate15Minutes(
                     null, // buildingId (null = all buildings)
                     this.config.deleteAfterAggregation,
@@ -93,7 +125,17 @@ class AggregationScheduler {
             const timestamp = new Date().toISOString();
             this.lastRun['hourly'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running hourly aggregation (cron triggered)...`);
+            
+            // Check connection health before starting
+            if (!isConnectionHealthy()) {
+                console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Database connection not healthy`);
+                return;
+            }
+            
             try {
+                // Yield to event loop before starting
+                await new Promise(resolve => setImmediate(resolve));
+                
                 const result = await measurementAggregationService.aggregateHourly();
                 console.log(`[SCHEDULER] [${timestamp}] ✅ Hourly aggregation completed: ${result.count} aggregates created`);
             } catch (error) {
@@ -110,7 +152,17 @@ class AggregationScheduler {
             const timestamp = new Date().toISOString();
             this.lastRun['daily'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running daily aggregation (cron triggered)...`);
+            
+            // Check connection health before starting
+            if (!isConnectionHealthy()) {
+                console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Database connection not healthy`);
+                return;
+            }
+            
             try {
+                // Yield to event loop before starting
+                await new Promise(resolve => setImmediate(resolve));
+                
                 const result = await measurementAggregationService.aggregateDaily();
                 console.log(`[SCHEDULER] [${timestamp}] ✅ Daily aggregation completed: ${result.count} aggregates created, ${result.deleted || 0} old 15-minute aggregates deleted`);
             } catch (error) {
@@ -127,7 +179,17 @@ class AggregationScheduler {
             const timestamp = new Date().toISOString();
             this.lastRun['weekly'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running weekly aggregation (cron triggered)...`);
+            
+            // Check connection health before starting
+            if (!isConnectionHealthy()) {
+                console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Database connection not healthy`);
+                return;
+            }
+            
             try {
+                // Yield to event loop before starting
+                await new Promise(resolve => setImmediate(resolve));
+                
                 const result = await measurementAggregationService.aggregateWeekly();
                 console.log(`[SCHEDULER] [${timestamp}] ✅ Weekly aggregation completed: ${result.count} aggregates created, ${result.deleted || 0} old hourly aggregates deleted`);
             } catch (error) {
@@ -143,7 +205,17 @@ class AggregationScheduler {
             const timestamp = new Date().toISOString();
             this.lastRun['monthly'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running monthly aggregation (cron triggered)...`);
+            
+            // Check connection health before starting
+            if (!isConnectionHealthy()) {
+                console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Database connection not healthy`);
+                return;
+            }
+            
             try {
+                // Yield to event loop before starting
+                await new Promise(resolve => setImmediate(resolve));
+                
                 const result = await measurementAggregationService.aggregateMonthly();
                 console.log(`[SCHEDULER] [${timestamp}] ✅ Monthly aggregation completed: ${result.count} aggregates created`);
             } catch (error) {
@@ -161,7 +233,17 @@ class AggregationScheduler {
             const timestamp = new Date().toISOString();
             this.lastRun['cleanup'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running safety cleanup (cron triggered, retention: ${this.config.oldDataRetentionDays} days)...`);
+            
+            // Check connection health before starting
+            if (!isConnectionHealthy()) {
+                console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping cleanup: Database connection not healthy`);
+                return;
+            }
+            
             try {
+                // Yield to event loop before starting
+                await new Promise(resolve => setImmediate(resolve));
+                
                 // Only delete data older than retention period (default: 1 day)
                 // This acts as a safety net, but most data should already be deleted by immediate cleanup
                 const deletedCount = await measurementAggregationService.cleanupRawData(

@@ -37,9 +37,92 @@ const corsOptions = {
 // Apply CORS middleware
 app.use(cors(corsOptions));
 
+// Rate limiting middleware - protect against resource exhaustion
+const rateLimit = require('express-rate-limit');
+
+// General API rate limiter (100 requests per 15 minutes per IP)
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10), // Limit each IP to 100 requests per windowMs
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again later.',
+    code: 'RATE_LIMIT_EXCEEDED'
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
+// Stricter rate limiter for write operations (POST, PUT, PATCH, DELETE)
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_WRITE_MAX || '30', 10), // Limit write operations more strictly
+  message: {
+    success: false,
+    message: 'Too many write requests from this IP, please try again later.',
+    code: 'RATE_LIMIT_WRITE_EXCEEDED'
+  },
+  skip: (req) => {
+    // Skip rate limiting for GET, HEAD, OPTIONS requests
+    return ['GET', 'HEAD', 'OPTIONS'].includes(req.method);
+  }
+});
+
+// Apply general rate limiting to all API routes
+app.use('/api/', apiLimiter);
+
+// Apply stricter rate limiting to write operations
+app.use('/api/', writeLimiter);
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Priority system: Track API requests for measurement queue throttling
+const measurementQueueService = require('./services/measurementQueueService');
+app.use((req, res, next) => {
+  // Increment API request counter
+  measurementQueueService.incrementApiRequests();
+  
+  // Decrement when response finishes
+  res.on('finish', () => {
+    measurementQueueService.decrementApiRequests();
+  });
+  
+  next();
+});
+
+// Request timeout middleware - prevents requests from hanging indefinitely
+const requestTimeout = parseInt(process.env.REQUEST_TIMEOUT_MS || '30000', 10); // Default 30 seconds
+app.use((req, res, next) => {
+  // Set timeout for this request
+  req.setTimeout(requestTimeout, () => {
+    if (!res.headersSent) {
+      res.status(504).json({
+        success: false,
+        message: 'Request timeout - the server took too long to respond',
+        code: 'REQUEST_TIMEOUT',
+        timeout: requestTimeout
+      });
+    }
+  });
+  
+  // Also set a timer to log timeout occurrences
+  const timeoutId = setTimeout(() => {
+    if (!res.headersSent) {
+      console.warn(`[TIMEOUT] Request ${req.method} ${req.path} exceeded ${requestTimeout}ms timeout`);
+    }
+  }, requestTimeout);
+  
+  // Clear timeout when response is sent
+  const originalEnd = res.end;
+  res.end = function(...args) {
+    clearTimeout(timeoutId);
+    originalEnd.apply(this, args);
+  };
+  
+  next();
+});
 
 // Routes
 app.use('/', indexRouter);
@@ -63,6 +146,8 @@ app.use(errorHandler);
 
 // Import aggregation scheduler
 const aggregationScheduler = require('./services/aggregationScheduler');
+// Import reporting scheduler
+const reportingScheduler = require('./services/reportingScheduler');
 // Import Loxone connection manager
 const loxoneConnectionManager = require('./services/loxoneConnectionManager');
 
@@ -71,6 +156,9 @@ connectToDatabase()
   .then(async () => {
     // Start aggregation scheduler after DB connection
     aggregationScheduler.start();
+    
+    // Start reporting scheduler after aggregation scheduler (to ensure clean data)
+    reportingScheduler.start();
     
     // Restore Loxone connections from database (non-blocking)
     // This ensures connections persist across server restarts/deployments

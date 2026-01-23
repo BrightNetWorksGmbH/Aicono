@@ -103,7 +103,22 @@ class ReportingService {
         throw new Error('reportContents must be an array');
       }
 
-      const validReportContents = ['TotalConsumption', 'ConsumptionByRoom', 'PeakLoads', 'Anomalies', 'InefficientUsage'];
+      const validReportContents = [
+        'TotalConsumption',
+        'ConsumptionByRoom',
+        'PeakLoads',
+        'MeasurementTypeBreakdown',
+        'EUI',
+        'PerCapitaConsumption',
+        'BenchmarkComparison',
+        'InefficientUsage',
+        'Anomalies',
+        'PeriodComparison',
+        'TimeBasedAnalysis',
+        'BuildingComparison',
+        'TemperatureAnalysis',
+        'DataQualityReport'
+      ];
       for (const content of reportContents) {
         if (!validReportContents.includes(content)) {
           throw new Error(`Invalid reportContent: ${content}. Must be one of: ${validReportContents.join(', ')}`);
@@ -128,56 +143,44 @@ class ReportingService {
    * @returns {Promise<Object>} Assignment document
    */
   async createOrUpdateAssignment(buildingId, recipientId, reportingId) {
-    // Validate building exists
-    const building = await Building.findById(buildingId);
+    // Validate all entities in parallel (optimized)
+    const [building, recipient, reporting] = await Promise.all([
+      Building.findById(buildingId),
+      ReportingRecipient.findById(recipientId),
+      Reporting.findById(reportingId),
+    ]);
+
     if (!building) {
       throw new Error(`Building with ID ${buildingId} not found`);
     }
-
-    // Validate recipient exists
-    const recipient = await ReportingRecipient.findById(recipientId);
     if (!recipient) {
       throw new Error(`ReportingRecipient with ID ${recipientId} not found`);
     }
-
-    // Validate reporting exists
-    const reporting = await Reporting.findById(reportingId);
     if (!reporting) {
       throw new Error(`Reporting with ID ${reportingId} not found`);
     }
 
-    // Try to find existing assignment
-    let assignment = await BuildingReportingAssignment.findOne({
-      building_id: buildingId,
-      recipient_id: recipientId,
-      reporting_id: reportingId,
-    });
-
-    if (assignment) {
-      // Assignment already exists, return it
-      return assignment;
-    }
-
-    // Create new assignment
-    try {
-      assignment = await BuildingReportingAssignment.create({
+    // Use findOneAndUpdate with upsert for atomic operation (optimized)
+    // This avoids race conditions and reduces database round-trips
+    const assignment = await BuildingReportingAssignment.findOneAndUpdate(
+      {
         building_id: buildingId,
         recipient_id: recipientId,
         reporting_id: reportingId,
-      });
-      return assignment;
-    } catch (error) {
-      if (error.code === 11000) {
-        // Duplicate key error - assignment already exists
-        assignment = await BuildingReportingAssignment.findOne({
-          building_id: buildingId,
-          recipient_id: recipientId,
-          reporting_id: reportingId,
-        });
-        return assignment;
+      },
+      {
+        building_id: buildingId,
+        recipient_id: recipientId,
+        reporting_id: reportingId,
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
       }
-      throw error;
-    }
+    );
+
+    return assignment;
   }
 
   /**

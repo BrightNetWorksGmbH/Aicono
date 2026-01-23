@@ -6,4 +6,10 @@ const { requireAuth } = require('../middleware/auth');
 // Setup reporting for multiple buildings
 router.post('/setup', requireAuth, reportingController.handleReportSetup);
 
+// Manual trigger for testing (admin only - consider adding admin check)
+router.post('/trigger/:interval', requireAuth, reportingController.triggerReportGeneration);
+
+// Get scheduler status
+router.get('/scheduler/status', requireAuth, reportingController.getSchedulerStatus);
+
 module.exports = router;

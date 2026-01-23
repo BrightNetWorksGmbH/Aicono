@@ -1,6 +1,7 @@
 const WebSocket = require('ws');
 const crypto = require('crypto');
 const fs = require('fs');
+const fsPromises = require('fs').promises;
 const path = require('path');
 const mongoose = require('mongoose');
 const loxoneStorageService = require('./loxoneStorageService');
@@ -15,10 +16,8 @@ class LoxoneConnectionManager {
         // Keep inside backend folder for deployment compatibility
         this.structureFilesDir = path.join(__dirname, '../data/loxone-structure');
         
-        // Ensure directory exists
-        if (!fs.existsSync(this.structureFilesDir)) {
-            fs.mkdirSync(this.structureFilesDir, { recursive: true });
-        }
+        // Ensure directory exists (async, but don't await in constructor)
+        this.ensureDirectoryExists();
 
         // Design Decision: One connection per building
         // Even if two buildings use the same Loxone server (same credentials),
@@ -30,6 +29,18 @@ class LoxoneConnectionManager {
         // 
         // Future optimization: Could detect matching credentials and reuse connections,
         // but would need to handle structure file routing and state management per building.
+    }
+
+    /**
+     * Ensure structure files directory exists (async)
+     */
+    async ensureDirectoryExists() {
+        try {
+            await fsPromises.access(this.structureFilesDir);
+        } catch (error) {
+            // Directory doesn't exist, create it
+            await fsPromises.mkdir(this.structureFilesDir, { recursive: true });
+        }
     }
 
     /**
@@ -155,6 +166,9 @@ class LoxoneConnectionManager {
         };
 
         this.connections.set(buildingId, state);
+        
+        // Ensure directory exists before connecting
+        await this.ensureDirectoryExists();
         
         try {
             await this.establishConnection(buildingId);
@@ -377,15 +391,22 @@ class LoxoneConnectionManager {
                     // Accumulate binary file data
                     binaryFileBuffer = Buffer.concat([binaryFileBuffer, data]);
                     if (binaryFileBuffer.length >= expectedFileLength) {
-                        // Complete file received, parse as JSON
-                        try {
-                            const json = JSON.parse(binaryFileBuffer.toString('utf8'));
-                            this.handleStructureFile(buildingId, json);
-                        } catch (error) {
-                            //console.error(`[LOXONE] [${buildingId}] Error parsing structure file:`, error);
-                        }
+                        // Complete file received, parse as JSON (async to avoid blocking)
+                        const fileData = binaryFileBuffer.toString('utf8');
                         binaryFileBuffer = null;
                         expectedFileLength = 0;
+                        
+                        // Use setImmediate to yield to event loop before parsing large JSON
+                        setImmediate(() => {
+                            try {
+                                const json = JSON.parse(fileData);
+                                this.handleStructureFile(buildingId, json).catch(err => {
+                                    console.error(`[LOXONE] [${buildingId}] Error handling structure file:`, err.message);
+                                });
+                            } catch (error) {
+                                console.error(`[LOXONE] [${buildingId}] Error parsing structure file:`, error.message);
+                            }
+                        });
                     }
                 } else {
                     // Complete message (header + payload in one frame)
@@ -394,18 +415,24 @@ class LoxoneConnectionManager {
             } else {
                 // Text message - could be structure file JSON
                 const text = data.toString();
-                try {
-                    const json = JSON.parse(text);
-                    // Check if it's a structure file (has lastModified or rooms/controls)
-                    if (json.lastModified || json.rooms || json.controls) {
-                        this.handleStructureFile(buildingId, json);
-                    } else {
+                
+                // Use setImmediate for JSON parsing to avoid blocking event loop
+                setImmediate(() => {
+                    try {
+                        const json = JSON.parse(text);
+                        // Check if it's a structure file (has lastModified or rooms/controls)
+                        if (json.lastModified || json.rooms || json.controls) {
+                            this.handleStructureFile(buildingId, json).catch(err => {
+                                console.error(`[LOXONE] [${buildingId}] Error handling structure file:`, err.message);
+                            });
+                        } else {
+                            this.handleTextMessage(buildingId, text);
+                        }
+                    } catch (error) {
+                        // Not JSON, handle as plain text
                         this.handleTextMessage(buildingId, text);
                     }
-                } catch (error) {
-                    // Not JSON, handle as plain text
-                    this.handleTextMessage(buildingId, text);
-                }
+                });
             }
         });
     }
@@ -538,9 +565,9 @@ class LoxoneConnectionManager {
         try {
             //console.log(`[LOXONE] [${buildingId}] Structure file received`);
 
-            // Save structure file per building
+            // Save structure file per building (async to avoid blocking)
             const structureFilePath = this.getStructureFilePath(buildingId);
-            fs.writeFileSync(structureFilePath, JSON.stringify(json, null, 2));
+            await fsPromises.writeFile(structureFilePath, JSON.stringify(json, null, 2), 'utf8');
             //console.log(`[LOXONE] [${buildingId}] Structure file saved: ${structureFilePath}`);
 
             state.structureLoaded = true;
@@ -647,15 +674,17 @@ class LoxoneConnectionManager {
             });
         }
 
-        // Store measurements
+        // Store measurements via queue (non-blocking)
         if (measurements.length > 0) {
             try {
-                const result = await loxoneStorageService.storeMeasurements(buildingId, measurements);
-                // if (result) {
-                //     //console.log(`[LOXONE] [${buildingId}] Stored ${result.stored} measurements, skipped ${result.skipped}`);
-                // }
+                const measurementQueueService = require('./measurementQueueService');
+                // Enqueue measurements for background processing
+                // This allows WebSocket handler to return immediately
+                measurementQueueService.enqueue(buildingId, measurements).catch(err => {
+                    console.error(`[LOXONE] [${buildingId}] Error enqueueing measurements:`, err.message);
+                });
             } catch (err) {
-                //console.error(`[LOXONE] [${buildingId}] Error storing measurements:`, err.message);
+                console.error(`[LOXONE] [${buildingId}] Error enqueueing measurements:`, err.message);
             }
         }
     }
