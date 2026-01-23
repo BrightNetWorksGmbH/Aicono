@@ -29,6 +29,7 @@ import 'package:frontend_aicono/features/switch_creation/presentation/pages/buil
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/loxone_connection_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_floor_management_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_responsible_persons_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_recipient_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_summary_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/room_assignment_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/data_source_selection_page.dart';
@@ -840,6 +841,37 @@ class AppRouter {
       },
     ),
     GoRoute(
+      path: '/${Routelists.buildingRecipient}',
+      name: Routelists.buildingRecipient,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        final buildingAddress = state.uri.queryParameters['buildingAddress'];
+        final buildingName = state.uri.queryParameters['buildingName'];
+        final buildingId = state.uri.queryParameters['buildingId'];
+        final siteId = state.uri.queryParameters['siteId'];
+        final contactPerson = state.uri.queryParameters['contactPerson'];
+        final totalArea = state.uri.queryParameters['totalArea'];
+        final numberOfRooms = state.uri.queryParameters['numberOfRooms'];
+        final constructionYear = state.uri.queryParameters['constructionYear'];
+
+        return _buildPage(
+          context,
+          state,
+          BuildingRecipientPage(
+            userName: userName,
+            buildingAddress: buildingAddress,
+            buildingName: buildingName,
+            buildingId: buildingId,
+            siteId: siteId,
+            contactPerson: contactPerson,
+            totalArea: totalArea,
+            numberOfRooms: numberOfRooms,
+            constructionYear: constructionYear,
+          ),
+        );
+      },
+    ),
+    GoRoute(
       path: '/${Routelists.buildingResponsiblePersons}',
       name: Routelists.buildingResponsiblePersons,
       pageBuilder: (context, state) {
@@ -850,6 +882,11 @@ class AppRouter {
             state.uri.queryParameters['buildingId'] ??
             '6948dcd113537bff98eb7338'; // Default buildingId if not provided
         final siteId = state.uri.queryParameters['siteId'];
+        final recipientsJson = state.uri.queryParameters['recipients'];
+        final recipient = state.uri.queryParameters['recipient'];
+        final allRecipients = state.uri.queryParameters['allRecipients'];
+        final recipientConfigs = state.uri.queryParameters['recipientConfigs'];
+        final createForAll = state.uri.queryParameters['createForAll'];
 
         return _buildPage(
           context,
@@ -860,6 +897,11 @@ class AppRouter {
             buildingName: buildingName,
             buildingId: buildingId,
             siteId: siteId,
+            recipientsJson: recipientsJson,
+            recipient: recipient,
+            allRecipients: allRecipients,
+            recipientConfigs: recipientConfigs,
+            createForAll: createForAll,
           ),
         );
       },

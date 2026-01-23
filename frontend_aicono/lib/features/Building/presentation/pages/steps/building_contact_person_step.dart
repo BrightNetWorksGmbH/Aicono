@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -48,8 +49,10 @@ class BuildingContactPersonStep extends StatefulWidget {
 }
 
 class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
-  final List<Map<String, dynamic>> _contacts = [];
+  Map<String, dynamic>? _selectedContact;
+  bool _isEditingContact = false;
   final DioClient _dioClient = sl<DioClient>();
+  bool _isSaving = false;
 
   BuildingEntity get _building {
     if (widget.building != null) {
@@ -108,7 +111,7 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
       // Assuming endpoint: /api/v1/contacts or /api/v1/buildings/{buildingId}/contacts
       final buildingId = widget.buildingId ?? _building.id ?? '';
       final response = await _dioClient.dio.get(
-        '/api/v1/contacts',
+        '/api/v1/buildings/contacts',
         queryParameters: buildingId.isNotEmpty
             ? {'buildingId': buildingId}
             : null,
@@ -122,14 +125,37 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
       // Parse response
       List<Map<String, dynamic>> contactsList = [];
       if (response.data != null) {
+        // Handle different response structures
         if (response.data is List) {
+          // Direct array response
           contactsList = List<Map<String, dynamic>>.from(response.data);
-        } else if (response.data['contacts'] != null) {
-          contactsList = List<Map<String, dynamic>>.from(
-            response.data['contacts'],
-          );
-        } else if (response.data['data'] != null) {
-          contactsList = List<Map<String, dynamic>>.from(response.data['data']);
+        } else if (response.data is Map<String, dynamic>) {
+          final responseMap = response.data as Map<String, dynamic>;
+
+          // Check for 'data' field first (most common structure)
+          if (responseMap['data'] != null) {
+            if (responseMap['data'] is List) {
+              contactsList = List<Map<String, dynamic>>.from(
+                responseMap['data'],
+              );
+            }
+          }
+          // Check for 'contacts' field
+          else if (responseMap['contacts'] != null) {
+            if (responseMap['contacts'] is List) {
+              contactsList = List<Map<String, dynamic>>.from(
+                responseMap['contacts'],
+              );
+            }
+          }
+          // Check for 'results' field (alternative structure)
+          else if (responseMap['results'] != null) {
+            if (responseMap['results'] is List) {
+              contactsList = List<Map<String, dynamic>>.from(
+                responseMap['results'],
+              );
+            }
+          }
         }
       }
 
@@ -151,12 +177,19 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
   }
 
   void _showContactsDialog(List<Map<String, dynamic>> contactsList) {
+    final Size screenSize = MediaQuery.of(context).size;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+        backgroundColor: Colors.white,
         title: Text('building_contact_person.contacts_from_domain'.tr()),
         content: SizedBox(
-          width: double.maxFinite,
+          width: screenSize.width < 600
+              ? screenSize.width
+              : screenSize.width < 1200
+              ? screenSize.width * 0.5
+              : screenSize.width * 0.5,
           child: contactsList.isEmpty
               ? Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -170,7 +203,10 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                     final name = contact['name'] ?? contact['fullName'] ?? '';
                     final email =
                         contact['email'] ?? contact['emailAddress'] ?? '';
-                    final contactId = contact['id'] ?? contact['_id'] ?? '';
+                    final contactId =
+                        contact['_id'] ??
+                        contact['id'] ??
+                        ''; // Prioritize _id from MongoDB
 
                     return ListTile(
                       title: Text(name.isNotEmpty ? name : 'Unbekannt'),
@@ -178,17 +214,20 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                       trailing: IconButton(
                         icon: const Icon(Icons.add),
                         onPressed: () {
-                          // Add selected contact to the list
+                          // Set selected contact as completed (already selected)
                           setState(() {
-                            _contacts.add({
+                            _selectedContact = {
                               'name': name,
                               'email': email,
+                              'phone': contact['phone'] ?? '',
                               'id': contactId.isNotEmpty
                                   ? contactId
                                   : DateTime.now().millisecondsSinceEpoch
                                         .toString(),
                               'method': 'domain',
-                            });
+                            };
+                            _isEditingContact =
+                                false; // Mark as completed immediately
                           });
                           Navigator.of(context).pop();
                         },
@@ -209,36 +248,42 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
 
   void _handleUploadContact() {
     setState(() {
-      _contacts.add({
+      _selectedContact = {
         'name': '',
         'email': '',
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
         'method': 'upload',
-      });
+      };
+      _isEditingContact = true;
     });
   }
 
-  void _handleRemoveContact(String id) {
+  void _handleContactNameChanged(String name) {
     setState(() {
-      _contacts.removeWhere((contact) => contact['id'] == id);
-    });
-  }
-
-  void _handleContactNameChanged(String id, String name) {
-    setState(() {
-      final index = _contacts.indexWhere((contact) => contact['id'] == id);
-      if (index != -1) {
-        _contacts[index]['name'] = name;
+      if (_selectedContact != null) {
+        _selectedContact!['name'] = name;
       }
     });
   }
 
-  void _handleContactEmailChanged(String id, String email) {
+  void _handleContactEmailChanged(String email) {
     setState(() {
-      final index = _contacts.indexWhere((contact) => contact['id'] == id);
-      if (index != -1) {
-        _contacts[index]['email'] = email;
+      if (_selectedContact != null) {
+        _selectedContact!['email'] = email;
       }
+    });
+  }
+
+  void _handleConfirmContact() {
+    setState(() {
+      _isEditingContact = false;
+    });
+  }
+
+  void _handleRemoveContact() {
+    setState(() {
+      _selectedContact = null;
+      _isEditingContact = false;
     });
   }
 
@@ -255,18 +300,131 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
     }
   }
 
-  void _handleNext() {
-    if (widget.onNext != null) {
-      widget.onNext!();
+  Future<void> _handleNext() async {
+    if (_isSaving) return;
+
+    // Get building ID
+    final buildingId = widget.buildingId ?? _building.id;
+    if (buildingId == null || buildingId.isEmpty) {
+      // If no building ID, just navigate
+      if (widget.onNext != null) {
+        widget.onNext!();
+      } else {
+        _navigateToResponsiblePersons();
+      }
+      return;
+    }
+
+    // If there's a selected contact, save it first
+    if (_selectedContact != null &&
+        _selectedContact!['name'] != null &&
+        _selectedContact!['name'].toString().isNotEmpty) {
+      setState(() {
+        _isSaving = true;
+      });
+
+      try {
+        // Build request body based on whether contact is from dialog (has ID) or manually entered
+        final Map<String, dynamic> requestBody;
+
+        // Check if contact was selected from dialog (has an ID from backend)
+        final contactId = _selectedContact!['id'];
+        final method = _selectedContact!['method'];
+
+        // Check if it's from dialog: method is 'domain' and ID is a MongoDB ObjectId (24 hex characters)
+        final idString = contactId?.toString() ?? '';
+        final isMongoObjectId =
+            idString.length == 24 &&
+            RegExp(r'^[0-9a-fA-F]{24}$').hasMatch(idString);
+        final isFromDialog =
+            method == 'domain' &&
+            contactId != null &&
+            idString.isNotEmpty &&
+            isMongoObjectId; // MongoDB ObjectId format
+
+        if (isFromDialog) {
+          // If from dialog, send only the ID
+          requestBody = {'buildingContact': contactId.toString()};
+        } else {
+          // If manually entered, send the full object
+          requestBody = {
+            'buildingContact': {
+              'name': _selectedContact!['name'] ?? '',
+              'email': _selectedContact!['email'] ?? '',
+              'phone': _selectedContact!['phone'] ?? '',
+            },
+          };
+        }
+
+        // Make API call
+        final response = await _dioClient.dio.patch(
+          '/api/v1/buildings/$buildingId',
+          data: requestBody,
+        );
+
+        // Check if response is successful
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          // Navigate after successful save
+          if (mounted) {
+            if (widget.onNext != null) {
+              widget.onNext!();
+            } else {
+              _navigateToResponsiblePersons();
+            }
+          }
+        } else {
+          // Show error message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to save contact person'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        // Show error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isSaving = false;
+          });
+        }
+      }
     } else {
-      // Navigate to responsible persons page
-      _navigateToResponsiblePersons();
+      // No contact to save, just navigate
+      if (widget.onNext != null) {
+        widget.onNext!();
+      } else {
+        _navigateToResponsiblePersons();
+      }
     }
   }
 
   void _navigateToResponsiblePersons() {
+    // Encode contact person data if available
+    String? contactPersonJson;
+    if (_selectedContact != null &&
+        _selectedContact!['name'] != null &&
+        _selectedContact!['name'].toString().isNotEmpty) {
+      contactPersonJson = jsonEncode({
+        'name': _selectedContact!['name'] ?? '',
+        'email': _selectedContact!['email'] ?? '',
+        'phone': _selectedContact!['phone'] ?? '',
+      });
+    }
+
     context.pushNamed(
-      Routelists.buildingResponsiblePersons,
+      Routelists.buildingRecipient,
       queryParameters: {
         if (widget.buildingName != null) 'buildingName': widget.buildingName!,
         if (widget.buildingAddress != null &&
@@ -276,6 +434,12 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
         if (widget.siteId != null && widget.siteId!.isNotEmpty)
           'siteId': widget.siteId!,
         if (widget.userName != null) 'userName': widget.userName!,
+        if (contactPersonJson != null) 'contactPerson': contactPersonJson,
+        if (widget.totalArea != null) 'totalArea': widget.totalArea!,
+        if (widget.numberOfRooms != null)
+          'numberOfRooms': widget.numberOfRooms!,
+        if (widget.constructionYear != null)
+          'constructionYear': widget.constructionYear!,
       },
     );
   }
@@ -531,14 +695,15 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(height: 24),
-                                    // Contact Cards
-                                    if (_contacts.isNotEmpty)
-                                      ..._contacts.map((contact) {
-                                        return Container(
-                                          margin: const EdgeInsets.only(
-                                            bottom: 12,
-                                          ),
+                                    // const SizedBox(height: 12),
+                                    // Contact Fields or Confirmation Box
+                                    if (_selectedContact != null) ...[
+                                      if (_isEditingContact)
+                                        // Show text fields when editing
+                                        Container(
+                                          // margin: const EdgeInsets.only(
+                                          //   bottom: 12,
+                                          // ),
                                           decoration: BoxDecoration(
                                             border: Border.all(
                                               color: Colors.grey[300]!,
@@ -552,7 +717,7 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                             children: [
                                               Padding(
                                                 padding: const EdgeInsets.all(
-                                                  16,
+                                                  30,
                                                 ),
                                                 child: Column(
                                                   crossAxisAlignment:
@@ -578,7 +743,8 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                                       ),
                                                       child: TextFormField(
                                                         initialValue:
-                                                            contact['name'],
+                                                            _selectedContact!['name'] ??
+                                                            '',
                                                         decoration: InputDecoration(
                                                           hintText:
                                                               'building_contact_person.name_hint'
@@ -605,7 +771,6 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                                             ),
                                                         onChanged: (value) {
                                                           _handleContactNameChanged(
-                                                            contact['id'],
                                                             value,
                                                           );
                                                         },
@@ -632,7 +797,8 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                                       ),
                                                       child: TextFormField(
                                                         initialValue:
-                                                            contact['email'],
+                                                            _selectedContact!['email'] ??
+                                                            '',
                                                         decoration: InputDecoration(
                                                           hintText:
                                                               'building_contact_person.email_hint'
@@ -659,10 +825,25 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                                                 .emailAddress,
                                                         onChanged: (value) {
                                                           _handleContactEmailChanged(
-                                                            contact['id'],
                                                             value,
                                                           );
                                                         },
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 12),
+                                                    // Confirm Button
+                                                    Center(
+                                                      child: Material(
+                                                        color:
+                                                            Colors.transparent,
+                                                        child: PrimaryOutlineButton(
+                                                          label:
+                                                              'building_contact_person.confirm_contact'
+                                                                  .tr(),
+                                                          width: 200,
+                                                          onPressed:
+                                                              _handleConfirmContact,
+                                                        ),
                                                       ),
                                                     ),
                                                   ],
@@ -670,15 +851,12 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                               ),
                                               // Cancel button at top right corner
                                               Positioned(
-                                                top: 8,
-                                                right: 8,
+                                                top: 3,
+                                                right: 3,
                                                 child: Material(
                                                   color: Colors.transparent,
                                                   child: InkWell(
-                                                    onTap: () =>
-                                                        _handleRemoveContact(
-                                                          contact['id'],
-                                                        ),
+                                                    onTap: _handleRemoveContact,
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           20,
@@ -703,10 +881,60 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                               ),
                                             ],
                                           ),
-                                        );
-                                      }),
-                                    // Action links - side by side (only show if no contacts or allow adding more)
-                                    if (_contacts.isEmpty)
+                                        )
+                                      else
+                                        // Show confirmation box when confirmed
+                                        Container(
+                                          // margin: const EdgeInsets.only(
+                                          //   bottom: 12,
+                                          // ),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: Colors.grey[300]!,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(16),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.check_circle,
+                                                  color: Colors.green[600],
+                                                  size: 24,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Text(
+                                                    _selectedContact!['name'] !=
+                                                                null &&
+                                                            _selectedContact!['name']
+                                                                .toString()
+                                                                .isNotEmpty
+                                                        ? '${_selectedContact!['name']}              ${_selectedContact!['email'] != null && _selectedContact!['email'].toString().isNotEmpty ? _selectedContact!['email'] : ''}'
+                                                        : _selectedContact!['email'] !=
+                                                                  null &&
+                                                              _selectedContact!['email']
+                                                                  .toString()
+                                                                  .isNotEmpty
+                                                        ? _selectedContact!['email']
+                                                        : '',
+                                                    style: const TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                    // Action links - side by side (only show if no contact selected)
+                                    if (_selectedContact == null)
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
@@ -797,55 +1025,6 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                             ),
                                           ),
                                         ],
-                                      )
-                                    else
-                                      // Show option to add more contacts
-                                      Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          onTap: () {
-                                            setState(() {
-                                              _contacts.add({
-                                                'name': '',
-                                                'email': '',
-                                                'id': DateTime.now()
-                                                    .millisecondsSinceEpoch
-                                                    .toString(),
-                                                'method': 'manual',
-                                              });
-                                            });
-                                          },
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 8,
-                                              horizontal: 4,
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  '+',
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.black,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  'building_contact_person.add_more_contact'
-                                                      .tr(),
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    color: Colors.black,
-                                                    decoration: TextDecoration
-                                                        .underline,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
                                       ),
                                     const SizedBox(height: 32),
                                     // Skip step link
@@ -877,13 +1056,15 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                     Center(
                                       child: Material(
                                         color: Colors.transparent,
-                                        child: PrimaryOutlineButton(
-                                          label:
-                                              'building_contact_person.button_text'
-                                                  .tr(),
-                                          width: 260,
-                                          onPressed: _handleNext,
-                                        ),
+                                        child: _isSaving
+                                            ? const CircularProgressIndicator()
+                                            : PrimaryOutlineButton(
+                                                label:
+                                                    'building_contact_person.button_text'
+                                                        .tr(),
+                                                width: 260,
+                                                onPressed: _handleNext,
+                                              ),
                                       ),
                                     ),
                                   ],
