@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
@@ -735,6 +736,31 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                   ),
                 ],
                 const SizedBox(height: 16),
+                // Floor Plan Image
+                if (d.floorPlanLink != null && d.floorPlanLink!.isNotEmpty) ...[
+                  Text(
+                    'Floor Plan',
+                    style: AppTextStyles.titleMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxHeight: 400),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: _buildFloorPlanImage(d.floorPlanLink!),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 Text(
                   'Rooms',
                   style: AppTextStyles.titleMedium.copyWith(
@@ -1200,5 +1226,67 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
         ),
       ),
     );
+  }
+
+  Widget _buildFloorPlanImage(String imageUrl) {
+    // Check if the image is SVG by file extension
+    final lowerUrl = imageUrl.toLowerCase();
+    final isSvg = lowerUrl.endsWith('.svg');
+
+    if (isSvg) {
+      // Render SVG image
+      return SvgPicture.network(
+        imageUrl,
+        fit: BoxFit.contain,
+        placeholderBuilder: (context) => Container(
+          height: 200,
+          alignment: Alignment.center,
+          child: const CircularProgressIndicator(),
+        ),
+      );
+    } else {
+      // Render raster image (PNG, JPG, etc.)
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.contain,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            height: 200,
+            alignment: Alignment.center,
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            height: 200,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.broken_image,
+                  color: Colors.grey[400],
+                  size: 48,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Failed to load floor plan',
+                  style: AppTextStyles.titleSmall.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
   }
 }

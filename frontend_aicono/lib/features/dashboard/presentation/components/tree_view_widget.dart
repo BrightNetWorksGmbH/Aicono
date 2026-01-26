@@ -10,6 +10,7 @@ class TreeViewWidget extends StatefulWidget {
   final Function(TreeItemEntity)? onItemTap;
   final VoidCallback? onAddItem;
   final String addItemLabel;
+  final String? autoExpandItemId;
 
   const TreeViewWidget({
     super.key,
@@ -17,6 +18,7 @@ class TreeViewWidget extends StatefulWidget {
     this.onItemTap,
     this.onAddItem,
     required this.addItemLabel,
+    this.autoExpandItemId,
   });
 
   @override
@@ -26,6 +28,29 @@ class TreeViewWidget extends StatefulWidget {
 class _TreeViewWidgetState extends State<TreeViewWidget> {
   final Set<String> _expandedItems = <String>{};
   String? _selectedItemId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-expand item if autoExpandItemId is set on initial build
+    if (widget.autoExpandItemId != null) {
+      _expandedItems.add(widget.autoExpandItemId!);
+    }
+  }
+
+  @override
+  void didUpdateWidget(TreeViewWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Auto-expand item when autoExpandItemId changes
+    if (widget.autoExpandItemId != null &&
+        widget.autoExpandItemId != oldWidget.autoExpandItemId) {
+      if (!_expandedItems.contains(widget.autoExpandItemId)) {
+        setState(() {
+          _expandedItems.add(widget.autoExpandItemId!);
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,9 +105,11 @@ class _TreeViewWidgetState extends State<TreeViewWidget> {
         );
       }
 
-      // Add children if expanded
-      if (isExpanded && item.hasChildren) {
-        widgets.addAll(_buildRecursiveTreeItems(item.children, level + 1));
+      // Add children if expanded (show children even if empty to allow for loading states)
+      if (isExpanded) {
+        if (item.hasChildren) {
+          widgets.addAll(_buildRecursiveTreeItems(item.children, level + 1));
+        }
       }
     }
 
@@ -102,13 +129,12 @@ class _TreeViewWidgetState extends State<TreeViewWidget> {
   void _handleItemTap(TreeItemEntity item) {
     setState(() {
       _selectedItemId = item.id;
-      // Toggle expansion on tap when there are children
-      if (item.hasChildren) {
-        if (_expandedItems.contains(item.id)) {
-          _expandedItems.remove(item.id);
-        } else {
-          _expandedItems.add(item.id);
-        }
+      // Always expand on tap (even if children aren't loaded yet)
+      // This ensures sites expand on first click
+      if (_expandedItems.contains(item.id)) {
+        _expandedItems.remove(item.id);
+      } else {
+        _expandedItems.add(item.id);
       }
     });
 

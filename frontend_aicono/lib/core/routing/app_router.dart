@@ -40,6 +40,7 @@ import 'package:frontend_aicono/features/Building/presentation/pages/floor_plan_
 import 'package:frontend_aicono/features/Building/presentation/pages/steps/building_contact_person_step.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/page/dashboard_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/switch_settings_page.dart';
 
 /// App router configuration using go_router
 class AppRouter {
@@ -672,6 +673,17 @@ class AppRouter {
       pageBuilder: (context, state) {
         final verseId = state.uri.queryParameters['verseId'];
         return _buildPage(context, state, DashboardPage(verseId: verseId));
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.switchSettings}',
+      name: Routelists.switchSettings,
+      pageBuilder: (context, state) {
+        return _buildPage(
+          context,
+          state,
+          const SwitchSettingsScreen(),
+        );
       },
     ),
     GoRoute(
