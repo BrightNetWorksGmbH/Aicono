@@ -18,6 +18,7 @@ class Routelists {
   static const inviteUser = 'inviteUser';
   static const completeUserInvite = 'completeUserInvite';
   static const verseSettings = 'verseSettings';
+  static const switchSettings = 'switchSettings';
   static const assetUpload = 'assetUpload';
   static const assetInheritUpload = 'assetInheritUpload';
   static const assetDetail = 'assetDetail';

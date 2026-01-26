@@ -19,9 +19,17 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_r
 class DashboardSidebar extends StatefulWidget {
   const DashboardSidebar({
     super.key,
+    this.showBackToDashboard = false,
+    this.activeSection,
     this.isInDrawer = false,
     this.onLanguageChanged,
   });
+
+  /// Show a "back to dashboard" link at the top when used outside the dashboard page
+  final bool showBackToDashboard;
+
+  /// Bold the active page in settings section: 'settings' | 'links' | 'statistics'
+  final String? activeSection;
 
   /// Whether the sidebar is being used in a drawer (affects width)
   final bool isInDrawer;
@@ -78,6 +86,31 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Back to Dashboard button (when showBackToDashboard is true)
+            if (widget.showBackToDashboard) ...[
+              InkWell(
+                onTap: () => context.pushNamed(Routelists.dashboard),
+                hoverColor: Colors.transparent,
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Back to Dashboard',
+                    style: AppTextStyles.titleSmall.copyWith(
+                      decoration: TextDecoration.underline,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const Divider(
+                height: 20,
+                thickness: 1,
+                color: Color(0x40000000),
+              ),
+              const SizedBox(height: 8),
+            ],
             // Deine Liegenschaften (Your Properties)
             _buildPropertiesSection(),
 
@@ -229,11 +262,12 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
               final items = sitesState.sites.map((site) {
                 List<TreeItemEntity> buildingChildren = [];
 
-                if (selectedSiteId == site.id &&
-                    siteDetailsState is DashboardSiteDetailsSuccess) {
-                  final buildings = siteDetailsState.details.buildings;
-                  buildingChildren = buildings.map((building) {
-                    List<TreeItemEntity> floorChildren = [];
+                // If site is selected (even if loading), show buildings when available
+                if (selectedSiteId == site.id) {
+                  if (siteDetailsState is DashboardSiteDetailsSuccess) {
+                    final buildings = siteDetailsState.details.buildings;
+                    buildingChildren = buildings.map((building) {
+                      List<TreeItemEntity> floorChildren = [];
 
                     // If this building is selected and we have building details, show floors
                     if (selectedBuildingId == building.id &&
@@ -304,18 +338,36 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                       children: floorChildren,
                     );
                   }).toList();
+                  } else if (siteDetailsState is DashboardSiteDetailsLoading) {
+                    // While loading, show empty children so the site appears expandable
+                    // This ensures the tree expands on first click
+                    buildingChildren = [];
+                  }
                 }
 
+                // Make site appear expandable if it has buildings
+                // If site is selected and loading, show loading placeholder
+                // This ensures it expands on first click
+                final hasBuildings = site.buildingCount > 0;
+                final isSelectedAndLoading = selectedSiteId == site.id &&
+                    siteDetailsState is DashboardSiteDetailsLoading;
+                
                 return TreeItemEntity(
                   id: site.id,
                   name: site.name,
                   type: 'property',
-                  children: buildingChildren,
+                  // If site has buildings and is selected/loading, show loading placeholder
+                  // This makes it expandable on first click
+                  // When details load, buildingChildren will be populated
+                  children: hasBuildings && buildingChildren.isEmpty && isSelectedAndLoading
+                      ? [TreeItemEntity(id: '${site.id}_loading', name: 'Loading...', type: 'property')]
+                      : buildingChildren,
                 );
               }).toList();
 
               return TreeViewWidget(
                 items: items,
+                autoExpandItemId: selectedSiteId,
                 onItemTap: (item) {
                   // Check if it's a site
                   final isSite = sitesState.sites.any((s) => s.id == item.id);
@@ -532,18 +584,15 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
       children: [
         InkWell(
           onTap: () {
-            if (currentVerseId != null) {
-              context.pushNamed(
-                Routelists.verseSettings,
-                extra: {'verseId': currentVerseId},
-              );
-            }
+            context.pushNamed(Routelists.switchSettings);
           },
           child: Text(
             'dashboard.sidebar.settings'.tr(),
             style: AppTextStyles.titleSmall.copyWith(
               color: Colors.black87,
-              fontWeight: FontWeight.w400,
+              fontWeight: widget.activeSection == 'settings'
+                  ? FontWeight.w700
+                  : FontWeight.w400,
             ),
           ),
         ),
