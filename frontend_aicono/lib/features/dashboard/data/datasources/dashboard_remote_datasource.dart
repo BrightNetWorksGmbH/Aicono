@@ -9,25 +9,30 @@ import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_sit
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_building_details_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_floor_details_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_room_details_entity.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_details_filter.dart';
 
 abstract class DashboardRemoteDataSource {
   Future<Either<Failure, DashboardSitesResponse>> getSites();
 
   Future<Either<Failure, DashboardSiteDetailsResponse>> getSiteDetails(
-    String siteId,
-  );
+    String siteId, {
+    DashboardDetailsFilter? filter,
+  });
 
   Future<Either<Failure, DashboardBuildingDetailsResponse>> getBuildingDetails(
-    String buildingId,
-  );
+    String buildingId, {
+    DashboardDetailsFilter? filter,
+  });
 
   Future<Either<Failure, DashboardFloorDetailsResponse>> getFloorDetails(
-    String floorId,
-  );
+    String floorId, {
+    DashboardDetailsFilter? filter,
+  });
 
   Future<Either<Failure, DashboardRoomDetailsResponse>> getRoomDetails(
-    String roomId,
-  );
+    String roomId, {
+    DashboardDetailsFilter? filter,
+  });
 }
 
 class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
@@ -96,14 +101,22 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
   @override
   Future<Either<Failure, DashboardSiteDetailsResponse>> getSiteDetails(
-    String siteId,
-  ) async {
+    String siteId, {
+    DashboardDetailsFilter? filter,
+  }) async {
     try {
       if (kDebugMode) {
         print('📤 Dashboard getSiteDetails request: siteId=$siteId');
       }
 
-      final response = await dioClient.get('/api/v1/dashboard/sites/$siteId');
+      final queryParams =
+          (filter != null && filter.toQueryMap().isNotEmpty)
+              ? filter.toQueryMap()
+              : null;
+      final response = await dioClient.get(
+        '/api/v1/dashboard/sites/$siteId',
+        queryParameters: queryParams,
+      );
 
       if (response.statusCode == 200) {
         final data = response.data;
@@ -160,14 +173,22 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
   @override
   Future<Either<Failure, DashboardBuildingDetailsResponse>> getBuildingDetails(
-    String buildingId,
-  ) async {
+    String buildingId, {
+    DashboardDetailsFilter? filter,
+  }) async {
     try {
       if (kDebugMode) {
         print('📤 Dashboard getBuildingDetails request: buildingId=$buildingId');
       }
 
-      final response = await dioClient.get('/api/v1/dashboard/buildings/$buildingId');
+      final queryParams =
+          (filter != null && filter.toQueryMap().isNotEmpty)
+              ? filter.toQueryMap()
+              : null;
+      final response = await dioClient.get(
+        '/api/v1/dashboard/buildings/$buildingId',
+        queryParameters: queryParams,
+      );
 
       if (response.statusCode == 200) {
         final data = response.data;
@@ -216,14 +237,22 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
   @override
   Future<Either<Failure, DashboardFloorDetailsResponse>> getFloorDetails(
-    String floorId,
-  ) async {
+    String floorId, {
+    DashboardDetailsFilter? filter,
+  }) async {
     try {
       if (kDebugMode) {
         print('📤 Dashboard getFloorDetails request: floorId=$floorId');
       }
 
-      final response = await dioClient.get('/api/v1/dashboard/floors/$floorId');
+      final queryParams =
+          (filter != null && filter.toQueryMap().isNotEmpty)
+              ? filter.toQueryMap()
+              : null;
+      final response = await dioClient.get(
+        '/api/v1/dashboard/floors/$floorId',
+        queryParameters: queryParams,
+      );
 
       if (response.statusCode == 200) {
         final data = response.data;
@@ -272,14 +301,22 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
   @override
   Future<Either<Failure, DashboardRoomDetailsResponse>> getRoomDetails(
-    String roomId,
-  ) async {
+    String roomId, {
+    DashboardDetailsFilter? filter,
+  }) async {
     try {
       if (kDebugMode) {
         print('📤 Dashboard getRoomDetails request: roomId=$roomId');
       }
 
-      final response = await dioClient.get('/api/v1/dashboard/rooms/$roomId');
+      final queryParams =
+          (filter != null && filter.toQueryMap().isNotEmpty)
+              ? filter.toQueryMap()
+              : null;
+      final response = await dioClient.get(
+        '/api/v1/dashboard/rooms/$roomId',
+        queryParameters: queryParams,
+      );
 
       if (response.statusCode == 200) {
         final data = response.data;

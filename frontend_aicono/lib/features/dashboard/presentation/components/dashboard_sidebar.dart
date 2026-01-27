@@ -154,6 +154,10 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
         InkWell(
           onTap: () {
             // Clear selection when clicking on section title
+            context.read<DashboardSiteDetailsBloc>().add(DashboardSiteDetailsReset());
+            context.read<DashboardBuildingDetailsBloc>().add(DashboardBuildingDetailsReset());
+            context.read<DashboardFloorDetailsBloc>().add(DashboardFloorDetailsReset());
+            context.read<DashboardRoomDetailsBloc>().add(DashboardRoomDetailsReset());
           },
           hoverColor: Colors.transparent,
           splashColor: Colors.transparent,
@@ -256,6 +260,18 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                 } else if (roomDetailsState is DashboardRoomDetailsFailure) {
                   selectedRoomId = roomDetailsState.roomId;
                 }
+              }
+
+              // Compute add-button label from selection: nothing → Add site; site → Add building; building → Add floor; floor → Add room
+              String propertyAddLabel;
+              if (selectedFloorId != null) {
+                propertyAddLabel = 'dashboard.sidebar.add_room'.tr();
+              } else if (selectedBuildingId != null) {
+                propertyAddLabel = 'dashboard.sidebar.add_floor'.tr();
+              } else if (selectedSiteId != null) {
+                propertyAddLabel = 'dashboard.sidebar.add_building'.tr();
+              } else {
+                propertyAddLabel = 'dashboard.sidebar.add_site'.tr();
               }
 
               // Build tree items
@@ -473,18 +489,18 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                   }
                 },
                 onAddItem: () {
-                  // TODO: Navigate to add location page
+                  // TODO: Navigate to add site/building/floor/room based on selection
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'dashboard.sidebar.add_location'.tr() +
+                        propertyAddLabel +
                             ' ' +
                             'dashboard.main_content.coming_soon'.tr(),
                       ),
                     ),
                   );
                 },
-                addItemLabel: 'dashboard.sidebar.add_location'.tr(),
+                addItemLabel: propertyAddLabel,
               );
             }
 
@@ -650,14 +666,8 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
         ),
         InkWell(
           onTap: () {
-            if (currentVerseId != null) {
-              context.pushNamed(
-                Routelists.inviteUser,
-                extra: {
-                  'verseId': currentVerseId,
-                },
-              );
-            }
+            // UI-only: just navigate to invite user page
+            context.pushNamed(Routelists.inviteUser);
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),

@@ -6,6 +6,7 @@ import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_sit
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_building_details_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_floor_details_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_room_details_entity.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_details_filter.dart';
 import 'package:frontend_aicono/features/dashboard/domain/repositories/dashboard_repository.dart';
 
 class DashboardRepositoryImpl implements DashboardRepository {
@@ -20,30 +21,34 @@ class DashboardRepositoryImpl implements DashboardRepository {
 
   @override
   Future<Either<Failure, DashboardSiteDetailsResponse>> getSiteDetails(
-    String siteId,
-  ) async {
-    return remoteDataSource.getSiteDetails(siteId);
+    String siteId, {
+    DashboardDetailsFilter? filter,
+  }) async {
+    return remoteDataSource.getSiteDetails(siteId, filter: filter);
   }
 
   @override
   Future<Either<Failure, DashboardBuildingDetailsResponse>> getBuildingDetails(
-    String buildingId,
-  ) async {
-    return remoteDataSource.getBuildingDetails(buildingId);
+    String buildingId, {
+    DashboardDetailsFilter? filter,
+  }) async {
+    return remoteDataSource.getBuildingDetails(buildingId, filter: filter);
   }
 
   @override
   Future<Either<Failure, DashboardFloorDetailsResponse>> getFloorDetails(
-    String floorId,
-  ) async {
-    return remoteDataSource.getFloorDetails(floorId);
+    String floorId, {
+    DashboardDetailsFilter? filter,
+  }) async {
+    return remoteDataSource.getFloorDetails(floorId, filter: filter);
   }
 
   @override
   Future<Either<Failure, DashboardRoomDetailsResponse>> getRoomDetails(
-    String roomId,
-  ) async {
-    return remoteDataSource.getRoomDetails(roomId);
+    String roomId, {
+    DashboardDetailsFilter? filter,
+  }) async {
+    return remoteDataSource.getRoomDetails(roomId, filter: filter);
   }
 }
 

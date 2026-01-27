@@ -41,6 +41,8 @@ import 'package:frontend_aicono/features/Building/presentation/pages/steps/build
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/page/dashboard_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/switch_settings_page.dart';
+import 'package:frontend_aicono/features/user_invite/presentation/pages/invite_user_page.dart';
+import 'package:frontend_aicono/features/user_invite/presentation/pages/complete_user_invite_page.dart';
 
 /// App router configuration using go_router
 class AppRouter {
@@ -265,6 +267,38 @@ class AppRouter {
           context,
           state,
           InvitationValidationPage(token: token),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.inviteUser}',
+      name: Routelists.inviteUser,
+      pageBuilder: (context, state) {
+        return _buildPage(
+          context,
+          state,
+          const InviteUserPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.completeUserInvite}',
+      name: Routelists.completeUserInvite,
+      pageBuilder: (context, state) {
+        final extra = state.extra;
+        String? invitedUserName;
+        String? inviterName;
+        if (extra is Map) {
+          invitedUserName = extra['invitedUserName'] as String?;
+          inviterName = extra['inviterName'] as String?;
+        }
+        return _buildPage(
+          context,
+          state,
+          CompleteUserInvitePage(
+            invitedUserName: invitedUserName,
+            inviterName: inviterName,
+          ),
         );
       },
     ),
