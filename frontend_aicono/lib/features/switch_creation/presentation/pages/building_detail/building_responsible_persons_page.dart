@@ -22,6 +22,7 @@ class BuildingResponsiblePersonsPage extends StatefulWidget {
   final String? allRecipients; // All recipients list
   final String? recipientConfigs; // Existing configurations
   final String? createForAll; // Flag to indicate "create for all" mode
+  final String? reportConfigs; // Report configs from "create for all" dialog
 
   const BuildingResponsiblePersonsPage({
     super.key,
@@ -35,6 +36,7 @@ class BuildingResponsiblePersonsPage extends StatefulWidget {
     this.allRecipients,
     this.recipientConfigs,
     this.createForAll,
+    this.reportConfigs,
   });
 
   @override
@@ -63,6 +65,7 @@ class _BuildingResponsiblePersonsPageState
   Map<String, Map<String, dynamic>> _completedConfigs = {};
   List<Map<String, dynamic>> _savedReportConfigs =
       []; // Store multiple saved report configs
+  int? _editingConfigIndex; // Track which config is being edited
 
   String get _selectedFrequency =>
       'building_responsible_persons.$_selectedFrequencyKey'.tr();
@@ -114,6 +117,17 @@ class _BuildingResponsiblePersonsPageState
           jsonDecode(widget.recipientConfigs!),
         );
         _completedConfigs = Map.from(_allRecipientConfigs);
+      } catch (e) {
+        // If parsing fails, ignore
+      }
+    }
+    // Parse reportConfigs from "create for all" dialog if provided
+    if (widget.reportConfigs != null && widget.reportConfigs!.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(widget.reportConfigs!) as List;
+        _savedReportConfigs = decoded.map<Map<String, dynamic>>((config) {
+          return Map<String, dynamic>.from(config);
+        }).toList();
       } catch (e) {
         // If parsing fails, ignore
       }
@@ -180,6 +194,12 @@ class _BuildingResponsiblePersonsPageState
   }
 
   bool _validateCurrentForm() {
+    // If there's at least one saved config, validation passes
+    if (_savedReportConfigs.isNotEmpty) {
+      return true;
+    }
+
+    // Otherwise, validate the current form
     // Check if reporting name is filled
     if (_reportingNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -254,15 +274,26 @@ class _BuildingResponsiblePersonsPageState
     }
 
     // Save current config to the list
+    final wasEditing = _editingConfigIndex != null;
+
     setState(() {
-      _savedReportConfigs.add({
+      final configData = {
         'name': _reportingNameController.text.trim(),
         'interval': interval,
         'intervalKey': _selectedFrequencyKey,
         'reportContents': reportContents,
         'reportOptions': Map<String, bool>.from(_reportOptions),
         'completed': true,
-      });
+      };
+
+      if (_editingConfigIndex != null) {
+        // Update existing config
+        _savedReportConfigs[_editingConfigIndex!] = configData;
+        _editingConfigIndex = null;
+      } else {
+        // Add new config
+        _savedReportConfigs.add(configData);
+      }
 
       // Reset form for new entry
       _reportingNameController.clear();
@@ -279,7 +310,11 @@ class _BuildingResponsiblePersonsPageState
     // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('building_responsible_persons.routine_saved'.tr()),
+        content: Text(
+          wasEditing
+              ? 'building_responsible_persons.routine_updated'.tr()
+              : 'building_responsible_persons.routine_saved'.tr(),
+        ),
         backgroundColor: Colors.green,
       ),
     );
@@ -367,7 +402,7 @@ class _BuildingResponsiblePersonsPageState
     if (_currentRecipient != null) {
       final recipientId = _currentRecipient!['id']?.toString();
       if (recipientId != null) {
-        _completedConfigs[recipientId] = {
+        final config = {
           'name': _reportingNameController.text.isNotEmpty
               ? _reportingNameController.text
               : 'Executive Weekly Report',
@@ -376,6 +411,8 @@ class _BuildingResponsiblePersonsPageState
           'reportContents': reportContents,
           'reportOptions': Map<String, bool>.from(_reportOptions),
         };
+        _completedConfigs[recipientId] = config;
+        _allRecipientConfigs[recipientId] = config;
       }
     }
   }
@@ -396,107 +433,167 @@ class _BuildingResponsiblePersonsPageState
   Future<void> _handleCreateForAll() async {
     if (_isLoading) return;
 
+    // Validate form before proceeding
+    if (!_validateCurrentForm()) {
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Get recipients from widget property
-      List<Map<String, dynamic>> recipients = [];
+      // PART 1: Build reportingRecipients from building_recipient_page.dart
+      // Each recipient should include their individual reportConfig array
+      List<Map<String, dynamic>> reportingRecipients = [];
+
       if (widget.recipientsJson != null && widget.recipientsJson!.isNotEmpty) {
         try {
           final decoded = jsonDecode(widget.recipientsJson!) as List;
-          recipients = decoded.map<Map<String, dynamic>>((r) {
-            return {
-              'name': (r['name'] ?? '').toString().trim(),
-              'email': (r['email'] ?? '').toString().trim(),
-              if (r['phone'] != null && (r['phone'] as String).isNotEmpty)
-                'phone': (r['phone'] ?? '').toString().trim(),
-            };
-          }).toList();
+          for (var r in decoded) {
+            final recipientData = <String, dynamic>{};
+
+            // Check if ID is from backend (MongoDB ObjectId - 24 hex characters)
+            final recipientId = r['id']?.toString() ?? '';
+            final isBackendId =
+                recipientId.length == 24 &&
+                RegExp(r'^[0-9a-fA-F]{24}$').hasMatch(recipientId);
+
+            if (isBackendId) {
+              // For recipients from backend (automatic domain), only send id and reportConfig
+              recipientData['id'] = recipientId;
+
+              // Include reportConfig if present (from individual recipient configuration)
+              // This comes from the "Edit" button dialog in building_recipient_page.dart
+              if (r['reportConfig'] != null && r['reportConfig'] is List) {
+                // Use reportConfig directly from the recipient page
+                recipientData['reportConfig'] = r['reportConfig'];
+              }
+            } else {
+              // For manually added recipients (frontend-generated ID), send name and email
+              recipientData['name'] = (r['name'] ?? '').toString().trim();
+              recipientData['email'] = (r['email'] ?? '').toString().trim();
+
+              // Include phone if present
+              if (r['phone'] != null && (r['phone'] as String).isNotEmpty) {
+                recipientData['phone'] = (r['phone'] ?? '').toString().trim();
+              }
+
+              // Include reportConfig if present (from individual recipient configuration)
+              // This comes from the "Edit" button dialog in building_recipient_page.dart
+              if (r['reportConfig'] != null && r['reportConfig'] is List) {
+                // Use reportConfig directly from the recipient page
+                recipientData['reportConfig'] = r['reportConfig'];
+              }
+            }
+
+            reportingRecipients.add(recipientData);
+          }
         } catch (e) {
           // If parsing fails, use empty list
-          recipients = [];
+          reportingRecipients = [];
         }
       }
 
-      // Build report contents from selected options
-      List<String> reportContents = [];
-      if (_reportOptions['total_consumption'] == true) {
-        reportContents.add('TotalConsumption');
-      }
-      if (_reportOptions['rooms_by_consumption'] == true) {
-        reportContents.add('ConsumptionByRoom');
-      }
-      if (_reportOptions['peak_loads'] == true) {
-        reportContents.add('PeakLoads');
-      }
-      if (_reportOptions['anomalies'] == true) {
-        reportContents.add('Anomalies');
-      }
-      if (_reportOptions['underutilization'] == true) {
-        reportContents.add('InefficientUsage');
+      // PART 2: Build reportConfigs from this page (building_responsible_persons_page.dart)
+      // These are created using "Create own routines" button
+      List<Map<String, dynamic>> reportConfigs = [];
+
+      // First, check if reportConfigs were passed from the "create for all" dialog
+      if (widget.reportConfigs != null && widget.reportConfigs!.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(widget.reportConfigs!) as List;
+          for (var config in decoded) {
+            reportConfigs.add({
+              'name': config['name'] ?? '',
+              'interval': config['interval'] ?? 'Monthly',
+              'reportContents': List<String>.from(
+                config['reportContents'] ?? [],
+              ),
+            });
+          }
+        } catch (e) {
+          // If parsing fails, continue with saved configs
+        }
       }
 
-      // Map frequency key to API format
-      String interval = 'Monthly';
-      switch (_selectedFrequencyKey) {
-        case 'daily':
-          interval = 'Daily';
-          break;
-        case 'weekly':
-          interval = 'Weekly';
-          break;
-        case 'monthly':
-          interval = 'Monthly';
-          break;
-        case 'yearly':
-          interval = 'Yearly';
-          break;
+      // Also include any configs created on this page using "Create own routines"
+      for (var savedConfig in _savedReportConfigs) {
+        reportConfigs.add({
+          'name': savedConfig['name'] ?? '',
+          'interval': savedConfig['interval'] ?? 'Monthly',
+          'reportContents': List<String>.from(
+            savedConfig['reportContents'] ?? [],
+          ),
+        });
       }
 
-      // Build report config - use current form if filled, otherwise use saved configs
-      Map<String, dynamic> reportConfig;
+      // Also check if current form has data (if user filled form but didn't click "Create own routines")
       if (_reportingNameController.text.trim().isNotEmpty ||
           _reportOptions.values.any((value) => value == true)) {
-        // Current form has data, use it
-        reportConfig = {
+        // Build report contents from current form
+        List<String> reportContents = [];
+        if (_reportOptions['total_consumption'] == true) {
+          reportContents.add('TotalConsumption');
+        }
+        if (_reportOptions['rooms_by_consumption'] == true) {
+          reportContents.add('ConsumptionByRoom');
+        }
+        if (_reportOptions['peak_loads'] == true) {
+          reportContents.add('PeakLoads');
+        }
+        if (_reportOptions['anomalies'] == true) {
+          reportContents.add('Anomalies');
+        }
+        if (_reportOptions['underutilization'] == true) {
+          reportContents.add('InefficientUsage');
+        }
+
+        // Map frequency key to API format
+        String interval = 'Monthly';
+        switch (_selectedFrequencyKey) {
+          case 'daily':
+            interval = 'Daily';
+            break;
+          case 'weekly':
+            interval = 'Weekly';
+            break;
+          case 'monthly':
+            interval = 'Monthly';
+            break;
+          case 'yearly':
+            interval = 'Yearly';
+            break;
+        }
+
+        // Add current form config to reportConfigs
+        reportConfigs.add({
           'name': _reportingNameController.text.isNotEmpty
-              ? _reportingNameController.text
+              ? _reportingNameController.text.trim()
               : 'Executive Weekly Report',
           'interval': interval,
-          if (reportContents.isNotEmpty) 'reportContents': reportContents,
-        };
-      } else if (_savedReportConfigs.isNotEmpty) {
-        // Use the first saved config (or combine all if needed)
-        final firstConfig = _savedReportConfigs.first;
-        reportConfig = {
-          'name': firstConfig['name'] ?? 'Executive Weekly Report',
-          'interval': firstConfig['interval'] ?? 'Monthly',
-          if (firstConfig['reportContents'] != null &&
-              (firstConfig['reportContents'] as List).isNotEmpty)
-            'reportContents': firstConfig['reportContents'],
-        };
-      } else {
-        // Default config
-        reportConfig = {
-          'name': 'Executive Weekly Report',
-          'interval': interval,
-        };
+          'reportContents': reportContents,
+        });
       }
 
-      // Build request body for "create for all" mode
+      // Build request body
       final requestBody = {
-        'recipients': recipients,
-        'reportConfig': reportConfig,
-        'buildingIds': widget.buildingId != null ? [widget.buildingId!] : [],
-        if (widget.siteId != null && widget.siteId!.isNotEmpty)
-          'siteId': widget.siteId!,
+        'reportingRecipients': reportingRecipients,
+        if (reportConfigs.isNotEmpty) 'reportConfigs': reportConfigs,
+        // if (widget.buildingId != null) 'buildingIds': [widget.buildingId!],
+        // if (widget.siteId != null && widget.siteId!.isNotEmpty)
+        //   'siteId': widget.siteId!,
       };
 
+      // Get building ID
+      final buildingId = widget.buildingId ?? '6948dcd113537bff98eb7338';
+      if (buildingId.isEmpty) {
+        throw Exception('Building ID is required');
+      }
+
       // Make API call
-      final response = await _dioClient.dio.post(
-        '/api/v1/reporting/setup',
+      final response = await _dioClient.dio.patch(
+        '/api/v1/buildings/$buildingId',
         data: requestBody,
       );
 
@@ -504,12 +601,16 @@ class _BuildingResponsiblePersonsPageState
       if (response.statusCode == 200 || response.statusCode == 201) {
         // Navigate to add additional buildings page
         if (mounted) {
+          // Get siteId from widget or route state
+          final siteId =
+              widget.siteId ??
+              GoRouterState.of(context).uri.queryParameters['siteId'];
+
           context.goNamed(
             Routelists.addAdditionalBuildings,
             queryParameters: {
               if (widget.userName != null) 'userName': widget.userName!,
-              if (widget.siteId != null && widget.siteId!.isNotEmpty)
-                'siteId': widget.siteId!,
+              if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
             },
           );
         }
@@ -546,13 +647,73 @@ class _BuildingResponsiblePersonsPageState
   Future<void> _handleCompleteSetup() async {
     if (_isLoading) return;
 
-    // Save current config before completing
-    _saveCurrentConfig();
+    // Save current config before completing (if editing a specific recipient)
+    if (_currentRecipient != null) {
+      _saveCurrentConfig();
+    } else if (widget.createForAll == 'true') {
+      // If in "create for all" mode and form has data, save it as a config for all recipients
+      if (_reportingNameController.text.trim().isNotEmpty ||
+          _reportOptions.values.any((value) => value == true)) {
+        // Build report contents from selected options
+        List<String> reportContents = [];
+        if (_reportOptions['total_consumption'] == true) {
+          reportContents.add('TotalConsumption');
+        }
+        if (_reportOptions['rooms_by_consumption'] == true) {
+          reportContents.add('ConsumptionByRoom');
+        }
+        if (_reportOptions['peak_loads'] == true) {
+          reportContents.add('PeakLoads');
+        }
+        if (_reportOptions['anomalies'] == true) {
+          reportContents.add('Anomalies');
+        }
+        if (_reportOptions['underutilization'] == true) {
+          reportContents.add('InefficientUsage');
+        }
+
+        // Map frequency key to API format
+        String interval = 'Monthly';
+        switch (_selectedFrequencyKey) {
+          case 'daily':
+            interval = 'Daily';
+            break;
+          case 'weekly':
+            interval = 'Weekly';
+            break;
+          case 'monthly':
+            interval = 'Monthly';
+            break;
+          case 'yearly':
+            interval = 'Yearly';
+            break;
+        }
+
+        // Apply current form config to all recipients that don't have configs
+        for (var recipient in _allRecipients) {
+          final id = recipient['id']?.toString();
+          if (id != null &&
+              !_allRecipientConfigs.containsKey(id) &&
+              _reportingNameController.text.isNotEmpty) {
+            _allRecipientConfigs[id] = {
+              'name': _reportingNameController.text.isNotEmpty
+                  ? _reportingNameController.text
+                  : 'Executive Weekly Report',
+              'interval': interval,
+              'reportContents': reportContents,
+            };
+          }
+        }
+      }
+    }
+
+    // Merge completed configs into all recipient configs
+    _allRecipientConfigs.addAll(_completedConfigs);
 
     // Check if all recipients have configurations
     final allRecipientsHaveConfig = _allRecipients.every((recipient) {
       final id = recipient['id']?.toString();
-      return id != null && _completedConfigs.containsKey(id);
+      return id != null && _allRecipientConfigs.containsKey(id);
     });
 
     if (!allRecipientsHaveConfig) {
@@ -579,6 +740,7 @@ class _BuildingResponsiblePersonsPageState
         if (id != null && _allRecipientConfigs.containsKey(id)) {
           final config = _allRecipientConfigs[id]!;
           reportingRecipients.add({
+            'id': id,
             'name': recipient['name'] ?? '',
             'email': recipient['email'] ?? '',
             'phone': recipient['phone'] ?? '',
@@ -601,9 +763,15 @@ class _BuildingResponsiblePersonsPageState
           'siteId': widget.siteId!,
       };
 
+      // Get building ID
+      final buildingId = widget.buildingId ?? '6948dcd113537bff98eb7338';
+      if (buildingId.isEmpty) {
+        throw Exception('Building ID is required');
+      }
+
       // Make API call
-      final response = await _dioClient.dio.post(
-        '/api/v1/reporting/setup',
+      final response = await _dioClient.dio.patch(
+        '/api/v1/buildings/$buildingId',
         data: requestBody,
       );
 
@@ -611,12 +779,16 @@ class _BuildingResponsiblePersonsPageState
       if (response.statusCode == 200 || response.statusCode == 201) {
         // Navigate to add additional buildings page
         if (mounted) {
+          // Get siteId from widget or route state
+          final siteId =
+              widget.siteId ??
+              GoRouterState.of(context).uri.queryParameters['siteId'];
+
           context.goNamed(
             Routelists.addAdditionalBuildings,
             queryParameters: {
               if (widget.userName != null) 'userName': widget.userName!,
-              if (widget.siteId != null && widget.siteId!.isNotEmpty)
-                'siteId': widget.siteId!,
+              if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
             },
           );
         }
@@ -657,7 +829,171 @@ class _BuildingResponsiblePersonsPageState
       return;
     }
 
-    // If "create for all" mode, use the new API structure
+    // If "create for all" mode, combine individual recipient configs with all-user configs
+    if (widget.createForAll == 'true' && _allRecipients.isNotEmpty) {
+      if (_isLoading) return;
+
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // Build reportingRecipients from recipient page (with individual report configs from edit button)
+        List<Map<String, dynamic>> reportingRecipients = [];
+        for (var recipient in _allRecipients) {
+          final id = recipient['id']?.toString();
+          final recipientData = {
+            'id': id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+            'name': recipient['name'] ?? '',
+            'email': recipient['email'] ?? '',
+            if (recipient['phone'] != null &&
+                (recipient['phone'] as String).isNotEmpty)
+              'phone': recipient['phone'] ?? '',
+          };
+
+          // If recipient has a config from edit button, add it to reportConfig array
+          if (id != null && _allRecipientConfigs.containsKey(id)) {
+            final config = _allRecipientConfigs[id]!;
+            recipientData['reportConfig'] = [
+              {
+                'name': config['name'] ?? 'Executive Weekly Report',
+                'interval': config['interval'] ?? 'Monthly',
+                'reportContents': config['reportContents'] ?? [],
+              },
+            ];
+          }
+
+          reportingRecipients.add(recipientData);
+        }
+
+        // Build reportConfigs from saved report configs (created with "Create own routines" for all users)
+        List<Map<String, dynamic>> reportConfigs = [];
+        for (var savedConfig in _savedReportConfigs) {
+          reportConfigs.add({
+            'name': savedConfig['name'] ?? 'Executive Weekly Report',
+            'interval': savedConfig['interval'] ?? 'Monthly',
+            'reportContents': savedConfig['reportContents'] ?? [],
+          });
+        }
+
+        // Also check if current form has data (if user filled form but didn't click "Create own routines")
+        if (_reportingNameController.text.trim().isNotEmpty ||
+            _reportOptions.values.any((value) => value == true)) {
+          // Build report contents from current form
+          List<String> reportContents = [];
+          if (_reportOptions['total_consumption'] == true) {
+            reportContents.add('TotalConsumption');
+          }
+          if (_reportOptions['rooms_by_consumption'] == true) {
+            reportContents.add('ConsumptionByRoom');
+          }
+          if (_reportOptions['peak_loads'] == true) {
+            reportContents.add('PeakLoads');
+          }
+          if (_reportOptions['anomalies'] == true) {
+            reportContents.add('Anomalies');
+          }
+          if (_reportOptions['underutilization'] == true) {
+            reportContents.add('InefficientUsage');
+          }
+
+          // Map frequency key to API format
+          String interval = 'Monthly';
+          switch (_selectedFrequencyKey) {
+            case 'daily':
+              interval = 'Daily';
+              break;
+            case 'weekly':
+              interval = 'Weekly';
+              break;
+            case 'monthly':
+              interval = 'Monthly';
+              break;
+            case 'yearly':
+              interval = 'Yearly';
+              break;
+          }
+
+          // Add current form config to reportConfigs
+          reportConfigs.add({
+            'name': _reportingNameController.text.isNotEmpty
+                ? _reportingNameController.text
+                : 'Executive Weekly Report',
+            'interval': interval,
+            'reportContents': reportContents,
+          });
+        }
+
+        // Build request body with both reportingRecipients and reportConfigs
+        final requestBody = {
+          'reportingRecipients': reportingRecipients,
+          if (reportConfigs.isNotEmpty) 'reportConfigs': reportConfigs,
+          'buildingIds': widget.buildingId != null ? [widget.buildingId!] : [],
+          if (widget.siteId != null && widget.siteId!.isNotEmpty)
+            'siteId': widget.siteId!,
+        };
+
+        // Get building ID
+        final buildingId = widget.buildingId ?? '6948dcd113537bff98eb7338';
+        if (buildingId.isEmpty) {
+          throw Exception('Building ID is required');
+        }
+
+        // Make API call with PATCH
+        final response = await _dioClient.dio.patch(
+          '/api/v1/buildings/$buildingId',
+          data: requestBody,
+        );
+
+        // Check if response is successful
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          // Navigate to add additional buildings page
+          if (mounted) {
+            // Get siteId from widget or route state
+            final siteId =
+                widget.siteId ??
+                GoRouterState.of(context).uri.queryParameters['siteId'];
+
+            context.goNamed(
+              Routelists.addAdditionalBuildings,
+              queryParameters: {
+                if (widget.userName != null) 'userName': widget.userName!,
+                if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
+              },
+            );
+          }
+        } else {
+          // Show error message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to save reporting setup'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        // Show error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+      return;
+    }
+
+    // If "create for all" mode without individual configs, use the old API structure
     if (widget.createForAll == 'true') {
       await _handleCreateForAll();
       return;
@@ -745,12 +1081,16 @@ class _BuildingResponsiblePersonsPageState
       if (response.statusCode == 200 || response.statusCode == 201) {
         // Navigate to add additional buildings page
         if (mounted) {
+          // Get siteId from widget or route state
+          final siteId =
+              widget.siteId ??
+              GoRouterState.of(context).uri.queryParameters['siteId'];
+
           context.goNamed(
             Routelists.addAdditionalBuildings,
             queryParameters: {
               if (widget.userName != null) 'userName': widget.userName!,
-              if (widget.siteId != null && widget.siteId!.isNotEmpty)
-                'siteId': widget.siteId!,
+              if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
             },
           );
         }
@@ -784,11 +1124,167 @@ class _BuildingResponsiblePersonsPageState
     }
   }
 
-  void _handleSkip() {
-    // Skip this step
-    if (context.canPop()) {
-      context.pop();
+  void _handleSkip() async {
+    // If in "create for all" mode, send data to backend before skipping
+    // Similar to _handleContinue but WITHOUT reportConfigs (all user configs)
+    // if (widget.createForAll == 'true' && _allRecipients.isNotEmpty) {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Build reportingRecipients from recipient page (with individual report configs)
+      // Similar to previous page but WITHOUT reportConfigs (all user configs)
+      List<Map<String, dynamic>> reportingRecipients = [];
+
+      // First, try to get recipients from recipientsJson (from "create for all" button)
+      if (widget.recipientsJson != null && widget.recipientsJson!.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(widget.recipientsJson!) as List;
+          for (var r in decoded) {
+            final recipientData = <String, dynamic>{};
+
+            // Check if ID is from backend (MongoDB ObjectId - 24 hex characters)
+            final recipientId = r['id']?.toString() ?? '';
+            final isBackendId =
+                recipientId.length == 24 &&
+                RegExp(r'^[0-9a-fA-F]{24}$').hasMatch(recipientId);
+
+            if (isBackendId) {
+              // For recipients from backend (automatic domain), only send id and reportConfig
+              recipientData['id'] = recipientId;
+
+              // Include reportConfig if present (from individual recipient configuration)
+              if (r['reportConfig'] != null && r['reportConfig'] is List) {
+                recipientData['reportConfig'] = r['reportConfig'];
+              }
+            } else {
+              // For manually added recipients (frontend-generated ID), send name and email
+              recipientData['name'] = (r['name'] ?? '').toString().trim();
+              recipientData['email'] = (r['email'] ?? '').toString().trim();
+
+              // Include phone if present
+              if (r['phone'] != null && (r['phone'] as String).isNotEmpty) {
+                recipientData['phone'] = (r['phone'] ?? '').toString().trim();
+              }
+
+              // Include reportConfig if present (from individual recipient configuration)
+              if (r['reportConfig'] != null && r['reportConfig'] is List) {
+                recipientData['reportConfig'] = r['reportConfig'];
+              }
+            }
+
+            reportingRecipients.add(recipientData);
+          }
+        } catch (e) {
+          // If parsing fails, use empty list
+          reportingRecipients = [];
+        }
+      }
+
+      // Fallback: Use _allRecipients if recipientsJson is not available
+      if (reportingRecipients.isEmpty && _allRecipients.isNotEmpty) {
+        for (var recipient in _allRecipients) {
+          final id = recipient['id']?.toString();
+          final recipientData = {
+            'id': id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+            'name': recipient['name'] ?? '',
+            'email': recipient['email'] ?? '',
+            if (recipient['phone'] != null &&
+                (recipient['phone'] as String).isNotEmpty)
+              'phone': recipient['phone'] ?? '',
+          };
+
+          // If recipient has a config from edit button, add it to reportConfig array
+          if (id != null && _allRecipientConfigs.containsKey(id)) {
+            final config = _allRecipientConfigs[id]!;
+            recipientData['reportConfig'] = [
+              {
+                'name': config['name'] ?? 'Executive Weekly Report',
+                'interval': config['interval'] ?? 'Monthly',
+                'reportContents': config['reportContents'] ?? [],
+              },
+            ];
+          }
+
+          reportingRecipients.add(recipientData);
+        }
+      }
+
+      // Build request body WITHOUT reportConfigs (all user configs)
+      final requestBody = {
+        'reportingRecipients': reportingRecipients,
+        // Note: NOT including reportConfigs here - only individual recipient configs
+        if (widget.buildingId != null) 'buildingIds': [widget.buildingId!],
+        if (widget.siteId != null && widget.siteId!.isNotEmpty)
+          'siteId': widget.siteId!,
+      };
+
+      // Get building ID
+      final buildingId = widget.buildingId ?? '6948dcd113537bff98eb7338';
+      if (buildingId.isEmpty) {
+        throw Exception('Building ID is required');
+      }
+
+      // Make API call with PATCH
+      final response = await _dioClient.dio.patch(
+        '/api/v1/buildings/$buildingId',
+        data: requestBody,
+      );
+
+      // Check if response is successful
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Navigate to add additional buildings page
+        if (mounted) {
+          // Get siteId from widget or route state
+          final siteId =
+              widget.siteId ??
+              GoRouterState.of(context).uri.queryParameters['siteId'];
+
+          context.goNamed(
+            Routelists.addAdditionalBuildings,
+            queryParameters: {
+              if (widget.userName != null) 'userName': widget.userName!,
+              if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
+            },
+          );
+        }
+      } else {
+        // Show error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to save reporting setup'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
+    // } else {
+    //   // Regular skip - just go back
+    //   if (context.canPop()) {
+    //     context.pop();
+    //   }
+    // }
   }
 
   @override
@@ -933,7 +1429,11 @@ class _BuildingResponsiblePersonsPageState
                                     const SizedBox(height: 32),
                                     // Display saved report configs
                                     if (_savedReportConfigs.isNotEmpty) ...[
-                                      ..._savedReportConfigs.map((savedConfig) {
+                                      ..._savedReportConfigs.asMap().entries.map((
+                                        entry,
+                                      ) {
+                                        final index = entry.key;
+                                        final savedConfig = entry.value;
                                         return Container(
                                           margin: const EdgeInsets.only(
                                             bottom: 16,
@@ -972,6 +1472,64 @@ class _BuildingResponsiblePersonsPageState
                                                             color:
                                                                 Colors.black87,
                                                           ),
+                                                    ),
+                                                  ),
+                                                  // Edit button
+                                                  Material(
+                                                    color: Colors.transparent,
+                                                    child: InkWell(
+                                                      onTap: () {
+                                                        // Load config into form for editing
+                                                        setState(() {
+                                                          _editingConfigIndex =
+                                                              index;
+                                                          _reportingNameController
+                                                                  .text =
+                                                              savedConfig['name'] ??
+                                                              '';
+                                                          _selectedFrequencyKey =
+                                                              savedConfig['intervalKey'] ??
+                                                              'monthly';
+                                                          _reportOptions = Map<String, bool>.from(
+                                                            savedConfig['reportOptions'] ??
+                                                                {
+                                                                  'total_consumption':
+                                                                      true,
+                                                                  'peak_loads':
+                                                                      false,
+                                                                  'anomalies':
+                                                                      false,
+                                                                  'rooms_by_consumption':
+                                                                      true,
+                                                                  'underutilization':
+                                                                      true,
+                                                                },
+                                                          );
+                                                        });
+                                                      },
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            4,
+                                                          ),
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 8,
+                                                              vertical: 4,
+                                                            ),
+                                                        child: Text(
+                                                          'building_recipient.edit'
+                                                              .tr(),
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                            color: Colors
+                                                                .blue[700],
+                                                            decoration:
+                                                                TextDecoration
+                                                                    .underline,
+                                                          ),
+                                                        ),
+                                                      ),
                                                     ),
                                                   ),
                                                 ],
@@ -1170,21 +1728,40 @@ class _BuildingResponsiblePersonsPageState
                                     // ),
                                     const SizedBox(height: 32),
                                     // Additional Options
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: _handleCreateOwnRoutine,
-                                        child: Text(
-                                          '+ ${'building_responsible_persons.create_own_routines'.tr()}',
-                                          style: AppTextStyles.bodyMedium
-                                              .copyWith(
-                                                decoration:
-                                                    TextDecoration.underline,
-                                                color: Colors.black87,
-                                              ),
+                                    if (_editingConfigIndex == null)
+                                      Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onTap: _handleCreateOwnRoutine,
+                                          child: Text(
+                                            '+ ${'building_responsible_persons.create_own_routines'.tr()}',
+                                            style: AppTextStyles.bodyMedium
+                                                .copyWith(
+                                                  decoration:
+                                                      TextDecoration.underline,
+                                                  color: Colors.black87,
+                                                ),
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      // Show update button when editing
+                                      Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onTap: _handleCreateOwnRoutine,
+                                          child: Text(
+                                            'building_responsible_persons.update_routine'
+                                                .tr(),
+                                            style: AppTextStyles.bodyMedium
+                                                .copyWith(
+                                                  decoration:
+                                                      TextDecoration.underline,
+                                                  color: Colors.blue[700],
+                                                ),
+                                          ),
                                         ),
                                       ),
-                                    ),
                                     const SizedBox(height: 16),
                                     Material(
                                       color: Colors.transparent,
@@ -1297,28 +1874,28 @@ class _BuildingResponsiblePersonsPageState
                                                 return id != null &&
                                                     tempConfigs.containsKey(id);
                                               });
-                                          if (allHaveConfig) {
-                                            return Column(
-                                              children: [
-                                                const SizedBox(height: 16),
-                                                Center(
-                                                  child: Material(
-                                                    color: Colors.transparent,
-                                                    child: _isLoading
-                                                        ? const CircularProgressIndicator()
-                                                        : PrimaryOutlineButton(
-                                                            label:
-                                                                'building_responsible_persons.complete_setup'
-                                                                    .tr(),
-                                                            width: 260,
-                                                            onPressed:
-                                                                _handleCompleteSetup,
-                                                          ),
-                                                  ),
-                                                ),
-                                              ],
-                                            );
-                                          }
+                                          // if (allHaveConfig) {
+                                          //   return Column(
+                                          //     children: [
+                                          //       const SizedBox(height: 16),
+                                          //       Center(
+                                          //         child: Material(
+                                          //           color: Colors.transparent,
+                                          //           child: _isLoading
+                                          //               ? const CircularProgressIndicator()
+                                          //               : PrimaryOutlineButton(
+                                          //                   label:
+                                          //                       'building_responsible_persons.complete_setup'
+                                          //                           .tr(),
+                                          //                   width: 260,
+                                          //                   // onPressed:
+                                          //                   //     _handleCompleteSetup,
+                                          //                 ),
+                                          //         ),
+                                          //       ),
+                                          //     ],
+                                          //   );
+                                          // }
                                           return const SizedBox.shrink();
                                         },
                                       ),

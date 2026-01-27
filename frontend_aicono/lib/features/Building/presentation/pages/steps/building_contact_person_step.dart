@@ -53,6 +53,7 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
   bool _isEditingContact = false;
   final DioClient _dioClient = sl<DioClient>();
   bool _isSaving = false;
+  bool _createContactClicked = false;
 
   BuildingEntity get _building {
     if (widget.building != null) {
@@ -71,25 +72,6 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
           : null,
       constructionYear: widget.constructionYear,
     );
-  }
-
-  String _getBuildingSummary() {
-    final parts = <String>[];
-    final building = _building;
-    if (building.totalArea != null) {
-      parts.add('${building.totalArea!.toStringAsFixed(0)}qm');
-    }
-    if (building.numberOfRooms != null) {
-      parts.add('${building.numberOfRooms} Räume');
-    }
-    // Add "Sanitäranlage" if it's a building with rooms
-    if (building.numberOfRooms != null && building.numberOfRooms! > 0) {
-      parts.add('Sanitäranlage');
-    }
-    if (building.constructionYear != null) {
-      parts.add('Baujahr ${building.constructionYear}');
-    }
-    return parts.join(' ');
   }
 
   String _getFloorPlanStatus() {
@@ -178,70 +160,169 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
 
   void _showContactsDialog(List<Map<String, dynamic>> contactsList) {
     final Size screenSize = MediaQuery.of(context).size;
+    String? selectedContactId;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
-        backgroundColor: Colors.white,
-        title: Text('building_contact_person.contacts_from_domain'.tr()),
-        content: SizedBox(
-          width: screenSize.width < 600
-              ? screenSize.width
-              : screenSize.width < 1200
-              ? screenSize.width * 0.5
-              : screenSize.width * 0.5,
-          child: contactsList.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text('building_contact_person.no_contacts_found'.tr()),
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: contactsList.length,
-                  itemBuilder: (context, index) {
-                    final contact = contactsList[index];
-                    final name = contact['name'] ?? contact['fullName'] ?? '';
-                    final email =
-                        contact['email'] ?? contact['emailAddress'] ?? '';
-                    final contactId =
-                        contact['_id'] ??
-                        contact['id'] ??
-                        ''; // Prioritize _id from MongoDB
-
-                    return ListTile(
-                      title: Text(name.isNotEmpty ? name : 'Unbekannt'),
-                      subtitle: email.isNotEmpty ? Text(email) : null,
-                      trailing: IconButton(
-                        icon: const Icon(Icons.add),
-                        onPressed: () {
-                          // Set selected contact as completed (already selected)
-                          setState(() {
-                            _selectedContact = {
-                              'name': name,
-                              'email': email,
-                              'phone': contact['phone'] ?? '',
-                              'id': contactId.isNotEmpty
-                                  ? contactId
-                                  : DateTime.now().millisecondsSinceEpoch
-                                        .toString(),
-                              'method': 'domain',
-                            };
-                            _isEditingContact =
-                                false; // Mark as completed immediately
-                          });
-                          Navigator.of(context).pop();
-                        },
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+          backgroundColor: Colors.white,
+          title: Text('building_contact_person.contacts_from_domain'.tr()),
+          content: SizedBox(
+            width: screenSize.width < 600
+                ? screenSize.width * 0.9
+                : screenSize.width < 1200
+                ? screenSize.width * 0.5
+                : screenSize.width * 0.4,
+            child: contactsList.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'building_contact_person.no_contacts_found'.tr(),
+                    ),
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Instruction text
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: Text(
+                          'building_contact_person.choose_one_contact'.tr(),
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: Colors.grey[700],
+                          ),
+                        ),
                       ),
-                    );
-                  },
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('building_contact_person.close'.tr()),
+                      // Contacts list
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: contactsList.length,
+                          itemBuilder: (context, index) {
+                            final contact = contactsList[index];
+                            final name =
+                                contact['name'] ?? contact['fullName'] ?? '';
+                            final email =
+                                contact['email'] ??
+                                contact['emailAddress'] ??
+                                '';
+                            final contactId =
+                                contact['_id'] ??
+                                contact['id'] ??
+                                ''; // Prioritize _id from MongoDB
+
+                            return InkWell(
+                              onTap: () {
+                                setDialogState(() {
+                                  selectedContactId = contactId;
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8.0,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Radio<String>(
+                                      value: contactId,
+                                      groupValue: selectedContactId,
+                                      onChanged: (value) {
+                                        setDialogState(() {
+                                          selectedContactId = value;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            name.isNotEmpty
+                                                ? name
+                                                : 'Unbekannt',
+                                            style: AppTextStyles.bodyMedium
+                                                .copyWith(
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                          ),
+                                          if (email.isNotEmpty)
+                                            Text(
+                                              email,
+                                              style: AppTextStyles.bodyMedium
+                                                  .copyWith(
+                                                    color: Colors.grey[600],
+                                                    fontSize: 14,
+                                                  ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('building_contact_person.cancel'.tr()),
+            ),
+            TextButton(
+              onPressed: selectedContactId == null
+                  ? null
+                  : () {
+                      // Find the selected contact
+                      final selectedContact = contactsList.firstWhere((
+                        contact,
+                      ) {
+                        final contactId = contact['_id'] ?? contact['id'] ?? '';
+                        return contactId == selectedContactId;
+                      });
+
+                      final name =
+                          selectedContact['name'] ??
+                          selectedContact['fullName'] ??
+                          '';
+                      final email =
+                          selectedContact['email'] ??
+                          selectedContact['emailAddress'] ??
+                          '';
+                      final contactId =
+                          selectedContact['_id'] ?? selectedContact['id'] ?? '';
+
+                      // Set selected contact as completed
+                      setState(() {
+                        _selectedContact = {
+                          'name': name,
+                          'email': email,
+                          'phone': selectedContact['phone'] ?? '',
+                          'id': contactId.isNotEmpty
+                              ? contactId
+                              : DateTime.now().millisecondsSinceEpoch
+                                    .toString(),
+                          'method': 'domain',
+                        };
+                        _isEditingContact =
+                            false; // Mark as completed immediately
+                        _createContactClicked =
+                            false; // Re-enable "Create contact" when selecting from domain
+                      });
+                      Navigator.of(context).pop();
+                    },
+              child: Text('building_contact_person.choose_contact'.tr()),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -255,6 +336,7 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
         'method': 'upload',
       };
       _isEditingContact = true;
+      _createContactClicked = true; // Disable the "Create contact" button
     });
   }
 
@@ -280,11 +362,27 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
     });
   }
 
-  void _handleRemoveContact() {
-    setState(() {
-      _selectedContact = null;
-      _isEditingContact = false;
-    });
+  bool _isValidEmail(String email) {
+    if (email.isEmpty) return false;
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+    return emailRegex.hasMatch(email);
+  }
+
+  bool _isFormValid() {
+    if (_selectedContact == null) return false;
+
+    final name = _selectedContact!['name']?.toString().trim() ?? '';
+    final email = _selectedContact!['email']?.toString().trim() ?? '';
+
+    // If editing, check if fields are filled and email is valid
+    if (_isEditingContact) {
+      return name.isNotEmpty && email.isNotEmpty && _isValidEmail(email);
+    }
+
+    // If confirmed, check if name is not empty (email validation already done)
+    return name.isNotEmpty;
   }
 
   void _handleLanguageChanged() {
@@ -302,6 +400,12 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
 
   Future<void> _handleNext() async {
     if (_isSaving) return;
+
+    // If editing contact, confirm it first
+    if (_selectedContact != null && _isEditingContact) {
+      _handleConfirmContact();
+      return; // Return early to allow UI to update, user can click again
+    }
 
     // Get building ID
     final buildingId = widget.buildingId ?? _building.id;
@@ -591,84 +695,13 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                       ),
                                     ),
                                     const SizedBox(height: 32),
-                                    // Information boxes
-                                    if (_building.address != null)
-                                      Container(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color: Colors.grey[300]!,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.check_circle,
-                                                color: Colors.green[600],
-                                                size: 24,
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Text(
-                                                  _building.address!,
-                                                  style: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    if (_getBuildingSummary().isNotEmpty)
-                                      Container(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color: Colors.grey[300]!,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.check_circle,
-                                                color: Colors.green[600],
-                                                size: 24,
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Text(
-                                                  _getBuildingSummary(),
-                                                  style: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
+                                    // Floor plan activated box (always shown on first page)
                                     Container(
                                       margin: const EdgeInsets.only(bottom: 12),
                                       decoration: BoxDecoration(
                                         border: Border.all(
-                                          color: Colors.grey[300]!,
+                                          color: const Color(0xFF8B9A5B),
+                                          width: 1,
                                         ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
@@ -698,196 +731,105 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                     // const SizedBox(height: 12),
                                     // Contact Fields or Confirmation Box
                                     if (_selectedContact != null) ...[
-                                      if (_isEditingContact)
+                                      if (_isEditingContact) ...[
                                         // Show text fields when editing
+                                        // Name Field
                                         Container(
-                                          // margin: const EdgeInsets.only(
-                                          //   bottom: 12,
-                                          // ),
+                                          margin: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
+                                          height: 50,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                          ),
                                           decoration: BoxDecoration(
                                             border: Border.all(
-                                              color: Colors.grey[300]!,
+                                              color: const Color(0xFF8B9A5B),
+                                              width: 1,
                                             ),
                                             borderRadius: BorderRadius.circular(
-                                              8,
+                                              4,
                                             ),
-                                            color: Colors.grey[50],
+                                            color: Colors.white,
                                           ),
-                                          child: Stack(
-                                            children: [
-                                              Padding(
-                                                padding: const EdgeInsets.all(
-                                                  30,
-                                                ),
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    // Name Field
-                                                    Container(
-                                                      height: 50,
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 16,
-                                                          ),
-                                                      decoration: BoxDecoration(
-                                                        border: Border.all(
-                                                          color: Colors.black54,
-                                                          width: 2,
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              4,
-                                                            ),
-                                                        color: Colors.white,
-                                                      ),
-                                                      child: TextFormField(
-                                                        initialValue:
-                                                            _selectedContact!['name'] ??
-                                                            '',
-                                                        decoration: InputDecoration(
-                                                          hintText:
-                                                              'building_contact_person.name_hint'
-                                                                  .tr(),
-                                                          border:
-                                                              InputBorder.none,
-                                                          hintStyle: AppTextStyles
-                                                              .bodyMedium
-                                                              .copyWith(
-                                                                color: Colors
-                                                                    .grey[600],
-                                                              ),
-                                                          contentPadding:
-                                                              EdgeInsets.zero,
-                                                        ),
-                                                        style: AppTextStyles
-                                                            .bodyMedium
-                                                            .copyWith(
-                                                              color: Colors
-                                                                  .black87,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                            ),
-                                                        onChanged: (value) {
-                                                          _handleContactNameChanged(
-                                                            value,
-                                                          );
-                                                        },
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 12),
-                                                    // Email Field
-                                                    Container(
-                                                      height: 50,
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 16,
-                                                          ),
-                                                      decoration: BoxDecoration(
-                                                        border: Border.all(
-                                                          color: Colors.black54,
-                                                          width: 2,
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              4,
-                                                            ),
-                                                        color: Colors.white,
-                                                      ),
-                                                      child: TextFormField(
-                                                        initialValue:
-                                                            _selectedContact!['email'] ??
-                                                            '',
-                                                        decoration: InputDecoration(
-                                                          hintText:
-                                                              'building_contact_person.email_hint'
-                                                                  .tr(),
-                                                          border:
-                                                              InputBorder.none,
-                                                          hintStyle: AppTextStyles
-                                                              .bodyMedium
-                                                              .copyWith(
-                                                                color: Colors
-                                                                    .grey[600],
-                                                              ),
-                                                          contentPadding:
-                                                              EdgeInsets.zero,
-                                                        ),
-                                                        style: AppTextStyles
-                                                            .bodyMedium
-                                                            .copyWith(
-                                                              color: Colors
-                                                                  .black87,
-                                                            ),
-                                                        keyboardType:
-                                                            TextInputType
-                                                                .emailAddress,
-                                                        onChanged: (value) {
-                                                          _handleContactEmailChanged(
-                                                            value,
-                                                          );
-                                                        },
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 12),
-                                                    // Confirm Button
-                                                    Center(
-                                                      child: Material(
-                                                        color:
-                                                            Colors.transparent,
-                                                        child: PrimaryOutlineButton(
-                                                          label:
-                                                              'building_contact_person.confirm_contact'
-                                                                  .tr(),
-                                                          width: 200,
-                                                          onPressed:
-                                                              _handleConfirmContact,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              // Cancel button at top right corner
-                                              Positioned(
-                                                top: 3,
-                                                right: 3,
-                                                child: Material(
-                                                  color: Colors.transparent,
-                                                  child: InkWell(
-                                                    onTap: _handleRemoveContact,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          20,
-                                                        ),
-                                                    child: Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                            4,
-                                                          ),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.grey[200],
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                      child: Icon(
-                                                        Icons.close,
-                                                        color: Colors.grey[700],
-                                                        size: 18,
-                                                      ),
-                                                    ),
+                                          child: TextFormField(
+                                            initialValue:
+                                                _selectedContact!['name'] ?? '',
+                                            decoration: InputDecoration(
+                                              hintText:
+                                                  'building_contact_person.name_hint'
+                                                      .tr(),
+                                              border: InputBorder.none,
+                                              hintStyle: AppTextStyles
+                                                  .bodyMedium
+                                                  .copyWith(
+                                                    color: Colors.grey[600],
                                                   ),
+                                              contentPadding: EdgeInsets.zero,
+                                            ),
+                                            style: AppTextStyles.bodyMedium
+                                                .copyWith(
+                                                  color: Colors.black87,
                                                 ),
-                                              ),
-                                            ],
+                                            onChanged: (value) {
+                                              _handleContactNameChanged(value);
+                                              // Trigger rebuild to update button state
+                                              setState(() {});
+                                            },
                                           ),
-                                        )
-                                      else
+                                        ),
+                                        // Email Field
+                                        Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
+                                          height: 50,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: const Color(0xFF8B9A5B),
+                                              width: 1,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                            color: Colors.white,
+                                          ),
+                                          child: TextFormField(
+                                            initialValue:
+                                                _selectedContact!['email'] ??
+                                                '',
+                                            decoration: InputDecoration(
+                                              hintText:
+                                                  'building_contact_person.email_hint'
+                                                      .tr(),
+                                              border: InputBorder.none,
+                                              hintStyle: AppTextStyles
+                                                  .bodyMedium
+                                                  .copyWith(
+                                                    color: Colors.grey[600],
+                                                  ),
+                                              contentPadding: EdgeInsets.zero,
+                                            ),
+                                            style: AppTextStyles.bodyMedium
+                                                .copyWith(
+                                                  color: Colors.black87,
+                                                ),
+                                            keyboardType:
+                                                TextInputType.emailAddress,
+                                            onChanged: (value) {
+                                              _handleContactEmailChanged(value);
+                                            },
+                                          ),
+                                        ),
+                                      ] else
                                         // Show confirmation box when confirmed
                                         Container(
-                                          // margin: const EdgeInsets.only(
-                                          //   bottom: 12,
-                                          // ),
+                                          margin: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
                                           decoration: BoxDecoration(
                                             border: Border.all(
                                               color: Colors.grey[300]!,
@@ -913,7 +855,7 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                                             _selectedContact!['name']
                                                                 .toString()
                                                                 .isNotEmpty
-                                                        ? '${_selectedContact!['name']}              ${_selectedContact!['email'] != null && _selectedContact!['email'].toString().isNotEmpty ? _selectedContact!['email'] : ''}'
+                                                        ? '${_selectedContact!['name']}      ${_selectedContact!['email'] != null && _selectedContact!['email'].toString().isNotEmpty ? _selectedContact!['email'] : ''}'
                                                         : _selectedContact!['email'] !=
                                                                   null &&
                                                               _selectedContact!['email']
@@ -933,8 +875,10 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                           ),
                                         ),
                                     ],
-                                    // Action links - side by side (only show if no contact selected)
-                                    if (_selectedContact == null)
+                                    // Action links - side by side (only show if no contact selected or when editing)
+                                    if (_selectedContact == null ||
+                                        (_selectedContact != null &&
+                                            _isEditingContact))
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
@@ -958,22 +902,37 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                                     Text(
                                                       '+',
                                                       style: TextStyle(
-                                                        fontSize: 18,
+                                                        fontSize:
+                                                            screenSize.width <
+                                                                600
+                                                            ? 14
+                                                            : 18,
                                                         fontWeight:
                                                             FontWeight.bold,
                                                         color: Colors.black,
                                                       ),
                                                     ),
-                                                    const SizedBox(width: 8),
-                                                    Text(
-                                                      'building_contact_person.automatic_from_domain'
-                                                          .tr(),
-                                                      style: TextStyle(
-                                                        fontSize: 16,
-                                                        color: Colors.black,
-                                                        decoration:
-                                                            TextDecoration
-                                                                .underline,
+                                                    SizedBox(
+                                                      width:
+                                                          screenSize.width < 600
+                                                          ? 4
+                                                          : 8,
+                                                    ),
+                                                    Flexible(
+                                                      child: Text(
+                                                        'building_contact_person.automatic_from_domain'
+                                                            .tr(),
+                                                        style: TextStyle(
+                                                          fontSize:
+                                                              screenSize.width <
+                                                                  600
+                                                              ? 12
+                                                              : 16,
+                                                          color: Colors.black,
+                                                          decoration:
+                                                              TextDecoration
+                                                                  .underline,
+                                                        ),
                                                       ),
                                                     ),
                                                   ],
@@ -981,45 +940,79 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                               ),
                                             ),
                                           ),
-                                          const SizedBox(width: 24),
+                                          SizedBox(
+                                            width: screenSize.width < 600
+                                                ? 12
+                                                : 24,
+                                          ),
                                           Material(
                                             color: Colors.transparent,
                                             child: InkWell(
-                                              onTap: _handleUploadContact,
+                                              onTap: _createContactClicked
+                                                  ? null
+                                                  : _handleUploadContact,
                                               borderRadius:
                                                   BorderRadius.circular(4),
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 8,
-                                                      horizontal: 4,
-                                                    ),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    Text(
-                                                      '+',
-                                                      style: TextStyle(
-                                                        fontSize: 18,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: Colors.black,
+                                              child: Opacity(
+                                                opacity: _createContactClicked
+                                                    ? 0.5
+                                                    : 1.0,
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 8,
+                                                        horizontal: 4,
                                                       ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Text(
-                                                      'building_contact_person.upload_contact'
-                                                          .tr(),
-                                                      style: TextStyle(
-                                                        fontSize: 16,
-                                                        color: Colors.black,
-                                                        decoration:
-                                                            TextDecoration
-                                                                .underline,
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        '+',
+                                                        style: TextStyle(
+                                                          fontSize:
+                                                              screenSize.width <
+                                                                  600
+                                                              ? 14
+                                                              : 18,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color:
+                                                              _createContactClicked
+                                                              ? Colors.grey
+                                                              : Colors.black,
+                                                        ),
                                                       ),
-                                                    ),
-                                                  ],
+                                                      SizedBox(
+                                                        width:
+                                                            screenSize.width <
+                                                                600
+                                                            ? 4
+                                                            : 8,
+                                                      ),
+                                                      Flexible(
+                                                        child: Text(
+                                                          'building_contact_person.upload_contact'
+                                                              .tr(),
+                                                          style: TextStyle(
+                                                            fontSize:
+                                                                screenSize
+                                                                        .width <
+                                                                    600
+                                                                ? 12
+                                                                : 16,
+                                                            color:
+                                                                _createContactClicked
+                                                                ? Colors.grey
+                                                                : Colors.black,
+                                                            decoration:
+                                                                TextDecoration
+                                                                    .underline,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
                                             ),
@@ -1027,30 +1020,34 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                         ],
                                       ),
                                     const SizedBox(height: 32),
-                                    // Skip step link
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: _handleSkip,
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 12,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              'building_contact_person.skip_step'
-                                                  .tr(),
-                                              style: AppTextStyles.bodyMedium
-                                                  .copyWith(
-                                                    decoration: TextDecoration
-                                                        .underline,
-                                                    color: Colors.black87,
+                                    // Skip step link (only show if no contact selected or when editing)
+                                    if (_selectedContact == null ||
+                                        (_selectedContact != null &&
+                                            _isEditingContact))
+                                      Center(
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            onTap: _handleSkip,
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 12,
                                                   ),
+                                              child: Text(
+                                                'building_contact_person.skip_step'
+                                                    .tr(),
+                                                style: AppTextStyles.bodyMedium
+                                                    .copyWith(
+                                                      decoration: TextDecoration
+                                                          .underline,
+                                                      color: Colors.black87,
+                                                    ),
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ),
                                     const SizedBox(height: 16),
                                     // "Das passt so" button
                                     Center(
@@ -1063,7 +1060,10 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                                     'building_contact_person.button_text'
                                                         .tr(),
                                                 width: 260,
-                                                onPressed: _handleNext,
+                                                onPressed: _isFormValid()
+                                                    ? _handleNext
+                                                    : null,
+                                                enabled: _isFormValid(),
                                               ),
                                       ),
                                     ),
