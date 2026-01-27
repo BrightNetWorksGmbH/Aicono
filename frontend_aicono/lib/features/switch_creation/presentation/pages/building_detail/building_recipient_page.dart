@@ -47,11 +47,12 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
   final Set<String> _selectedContactIds =
       {}; // Track selected contacts from domain
   bool _isConfirmed = false; // Track if recipients are confirmed
+  final Set<String> _confirmedRecipientIds =
+      {}; // Track which individual recipients are confirmed
   final Map<String, bool> _editingRecipients =
       {}; // Track which recipients are being edited
   final Map<String, Map<String, dynamic>> _recipientConfigs =
       {}; // Store report configurations for each recipient
-  bool _isLoading = false; // Track loading state for complete setup
 
   @override
   void initState() {
@@ -90,31 +91,6 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
     return '';
   }
 
-  String _getBuildingSummary() {
-    final parts = <String>[];
-    if (widget.totalArea != null && widget.totalArea!.isNotEmpty) {
-      final area = double.tryParse(widget.totalArea!);
-      if (area != null) {
-        parts.add('${area.toStringAsFixed(0)}qm');
-      }
-    }
-    if (widget.numberOfRooms != null && widget.numberOfRooms!.isNotEmpty) {
-      final rooms = int.tryParse(widget.numberOfRooms!);
-      if (rooms != null) {
-        parts.add('$rooms Räume');
-        // Add "Sanitäranlage" if it's a building with rooms
-        if (rooms > 0) {
-          parts.add('Sanitäranlage');
-        }
-      }
-    }
-    if (widget.constructionYear != null &&
-        widget.constructionYear!.isNotEmpty) {
-      parts.add('Baujahr ${widget.constructionYear}');
-    }
-    return parts.join(' ');
-  }
-
   String _getFloorPlanStatus() {
     // Return floor plan status - this would come from building data
     // For now, return a default status
@@ -123,11 +99,11 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
 
   void _handleAddContact() {
     setState(() {
-      _recipients.add({
-        'name': '',
-        'email': '',
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      });
+      final newRecipientId = DateTime.now().millisecondsSinceEpoch.toString();
+      _recipients.add({'name': '', 'email': '', 'id': newRecipientId});
+      // Set the new recipient as editing so text fields are shown
+      _editingRecipients[newRecipientId] = true;
+      // Don't reset _isConfirmed - keep confirmed recipients as confirmed
     });
   }
 
@@ -298,24 +274,30 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                       final email =
                           contact['email'] ?? contact['emailAddress'] ?? '';
 
+                      final recipientId = contactId.isNotEmpty
+                          ? contactId
+                          : DateTime.now().millisecondsSinceEpoch.toString();
+
                       _selectedContactIds.add(contactId);
                       _recipients.add({
                         'name': name,
                         'email': email,
                         'phone': contact['phone'] ?? '',
-                        'id': contactId.isNotEmpty
-                            ? contactId
-                            : DateTime.now().millisecondsSinceEpoch.toString(),
+                        'id': recipientId,
                         'method': 'domain',
                       });
+
+                      // Mark recipients from domain as confirmed immediately
+                      _confirmedRecipientIds.add(recipientId);
                     }
                   }
 
-                  // Mark recipients as confirmed if they were selected from dialog
+                  // Mark as confirmed when selecting from domain
                   if (_recipients.isNotEmpty) {
                     _isConfirmed = true;
-                    _editingRecipients.clear();
                   }
+                  // Clear editing state for newly added recipients
+                  _editingRecipients.clear();
                 });
                 Navigator.of(context).pop();
               },
@@ -338,6 +320,10 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
       _recipients.removeWhere((recipient) => recipient['id'] == id);
       // Also remove from selected contact IDs if it was from domain
       _selectedContactIds.remove(id);
+      // Remove from confirmed recipients
+      _confirmedRecipientIds.remove(id);
+      // Remove from editing state
+      _editingRecipients.remove(id);
     });
   }
 
@@ -418,180 +404,798 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
   }
 
   void _handleContinue() {
-    // If not confirmed yet, validate and show confirmation
-    if (!_isConfirmed) {
-      if (_validateRecipients()) {
-        setState(() {
-          _isConfirmed = true;
-          // Clear editing state
-          _editingRecipients.clear();
-        });
-      }
-      return;
+    // Validate all recipients first
+    if (!_validateRecipients()) {
+      return; // Validation failed, don't proceed
     }
 
-    // If confirmed and all recipients have configs, show complete setup option
-    // Otherwise, this button is just for confirmation (legacy behavior)
-    // The actual navigation happens via edit buttons on each recipient
-  }
-
-  Future<void> _handleCompleteSetup() async {
-    if (_isLoading) return;
-
-    // Check if all recipients have configurations
-    final allRecipientsHaveConfig = _recipients.every((recipient) {
-      final id = recipient['id']?.toString();
-      return id != null && _recipientConfigs.containsKey(id);
+    // Check if there are any unconfirmed recipients
+    final hasUnconfirmed = _recipients.any((r) {
+      final id = r['id']?.toString();
+      return id != null && !_confirmedRecipientIds.contains(id);
     });
 
-    if (!allRecipientsHaveConfig) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('building_recipient.config_all_recipients'.tr()),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Build reportingRecipients array
-      List<Map<String, dynamic>> reportingRecipients = [];
-      for (var recipient in _recipients) {
-        final id = recipient['id']?.toString();
-        if (id != null && _recipientConfigs.containsKey(id)) {
-          final config = _recipientConfigs[id]!;
-          reportingRecipients.add({
-            'name': (recipient['name'] ?? '').toString().trim(),
-            'email': (recipient['email'] ?? '').toString().trim(),
-            'phone': (recipient['phone'] ?? '').toString().trim(),
-            'reportConfig': [
-              {
-                'name': config['name'] ?? 'Executive Weekly Report',
-                'interval': config['interval'] ?? 'Monthly',
-                'reportContents': config['reportContents'] ?? [],
-              },
-            ],
-          });
+    if (hasUnconfirmed) {
+      // Confirm all recipients
+      setState(() {
+        _isConfirmed = true;
+        // Mark all recipients as confirmed
+        for (var recipient in _recipients) {
+          final id = recipient['id']?.toString();
+          if (id != null) {
+            _confirmedRecipientIds.add(id);
+          }
         }
-      }
+        // Clear editing state
+        _editingRecipients.clear();
+      });
+      return;
+    }
 
-      // Build request body
-      final requestBody = {
-        'reportingRecipients': reportingRecipients,
-        'buildingIds': widget.buildingId != null ? [widget.buildingId!] : [],
+    // If confirmed, navigate to responsible persons page to add report configs for all users
+    // This will combine individual recipient configs with all-user configs
+    context.pushNamed(
+      Routelists.buildingResponsiblePersons,
+      queryParameters: {
+        if (widget.userName != null) 'userName': widget.userName!,
+        if (widget.buildingAddress != null &&
+            widget.buildingAddress!.isNotEmpty)
+          'buildingAddress': widget.buildingAddress!,
+        if (widget.buildingName != null) 'buildingName': widget.buildingName!,
+        if (widget.buildingId != null) 'buildingId': widget.buildingId!,
         if (widget.siteId != null && widget.siteId!.isNotEmpty)
           'siteId': widget.siteId!,
-      };
-
-      // Make API call
-      final response = await _dioClient.dio.post(
-        '/api/v1/reporting/setup',
-        data: requestBody,
-      );
-
-      // Check if response is successful
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        // Navigate to add additional buildings page
-        if (mounted) {
-          context.goNamed(
-            Routelists.addAdditionalBuildings,
-            queryParameters: {
-              if (widget.userName != null) 'userName': widget.userName!,
-              if (widget.siteId != null && widget.siteId!.isNotEmpty)
-                'siteId': widget.siteId!,
-            },
-          );
-        }
-      } else {
-        // Show error message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to save reporting setup'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      // Show error message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+        'allRecipients': jsonEncode(_recipients),
+        'recipientConfigs': jsonEncode(_recipientConfigs),
+        'createForAll': 'true', // Flag to indicate "create for all" mode
+      },
+    );
   }
 
   void _handleEditRecipient(String id) {
-    // Navigate to responsible persons page with recipient data
+    // Show dialog with reporting configuration form
     final recipient = _recipients.firstWhere((r) => r['id'] == id);
-    final recipientJson = jsonEncode({
-      'name': recipient['name'] ?? '',
-      'email': recipient['email'] ?? '',
-      'phone': recipient['phone'] ?? '',
-      'id': id,
-    });
+    _showReportingConfigDialog(recipient);
+  }
 
-    context
-        .pushNamed(
-          Routelists.buildingResponsiblePersons,
-          queryParameters: {
-            if (widget.userName != null) 'userName': widget.userName!,
-            if (widget.buildingAddress != null &&
-                widget.buildingAddress!.isNotEmpty)
-              'buildingAddress': widget.buildingAddress!,
-            if (widget.buildingName != null)
-              'buildingName': widget.buildingName!,
-            if (widget.buildingId != null) 'buildingId': widget.buildingId!,
-            if (widget.siteId != null && widget.siteId!.isNotEmpty)
-              'siteId': widget.siteId!,
-            'recipient': recipientJson,
-            'allRecipients': jsonEncode(_recipients),
-            'recipientConfigs': jsonEncode(_recipientConfigs),
-          },
-        )
-        .then((result) {
-          // When returning from responsible persons page, update the config
-          if (result != null && result is Map<String, dynamic>) {
-            setState(() {
-              _recipientConfigs.addAll(
-                Map<String, Map<String, dynamic>>.from(result),
+  void _showReportingConfigDialog(Map<String, dynamic> recipient) {
+    final recipientId = recipient['id']?.toString() ?? '';
+    final recipientName = recipient['name']?.toString() ?? '';
+
+    // Store multiple saved routines for this recipient
+    final List<Map<String, dynamic>> savedRoutines = [];
+
+    // Load existing configs if available
+    if (recipientId.isNotEmpty && _recipientConfigs.containsKey(recipientId)) {
+      final config = _recipientConfigs[recipientId]!;
+      // If config has routines list, use it; otherwise create one routine from existing config
+      if (config['routines'] != null && config['routines'] is List) {
+        savedRoutines.addAll(
+          List<Map<String, dynamic>>.from(config['routines']),
+        );
+      } else {
+        // Convert old single config to routines format
+        savedRoutines.add({
+          'name': config['name'] ?? '',
+          'intervalKey': config['intervalKey'] ?? 'monthly',
+          'reportOptions': Map<String, bool>.from(
+            config['reportOptions'] ??
+                {
+                  'total_consumption': true,
+                  'peak_loads': false,
+                  'anomalies': false,
+                  'rooms_by_consumption': true,
+                  'underutilization': true,
+                },
+          ),
+        });
+      }
+    }
+
+    final Size screenSize = MediaQuery.of(context).size;
+
+    // Current form controllers and state
+    final TextEditingController currentReportingNameController =
+        TextEditingController();
+    String currentSelectedFrequencyKey = 'monthly';
+    Map<String, bool> currentReportOptions = {
+      'total_consumption': true,
+      'peak_loads': false,
+      'anomalies': false,
+      'rooms_by_consumption': true,
+      'underutilization': true,
+    };
+    int? editingRoutineIndex; // Track which routine is being edited
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          // Function to validate current form
+          bool validateCurrentForm() {
+            if (currentReportingNameController.text.trim().isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'building_responsible_persons.validation_name_required'
+                        .tr(),
+                  ),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              return false;
+            }
+
+            // Check if at least one checkbox is selected
+            final hasSelectedOption = currentReportOptions.values.any(
+              (value) => value == true,
+            );
+            if (!hasSelectedOption) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'building_responsible_persons.validation_at_least_one_option'
+                        .tr(),
+                  ),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              return false;
+            }
+
+            return true;
+          }
+
+          // Function to edit a routine
+          void editRoutine(int index) {
+            final routine = savedRoutines[index];
+            setDialogState(() {
+              editingRoutineIndex = index;
+              currentReportingNameController.text = routine['name'] ?? '';
+              currentSelectedFrequencyKey = routine['intervalKey'] ?? 'monthly';
+              currentReportOptions = Map<String, bool>.from(
+                routine['reportOptions'] ??
+                    {
+                      'total_consumption': true,
+                      'peak_loads': false,
+                      'anomalies': false,
+                      'rooms_by_consumption': true,
+                      'underutilization': true,
+                    },
               );
             });
           }
-        });
+
+          // Function to save current form as a routine
+          void saveCurrentRoutine() {
+            if (!validateCurrentForm()) {
+              return;
+            }
+
+            final wasEditing = editingRoutineIndex != null;
+
+            setDialogState(() {
+              final routineData = {
+                'name': currentReportingNameController.text.trim(),
+                'intervalKey': currentSelectedFrequencyKey,
+                'reportOptions': Map<String, bool>.from(currentReportOptions),
+              };
+
+              if (editingRoutineIndex != null) {
+                // Update existing routine
+                savedRoutines[editingRoutineIndex!] = routineData;
+                editingRoutineIndex = null;
+              } else {
+                // Add new routine
+                savedRoutines.add(routineData);
+              }
+
+              // Reset form for new routine
+              currentReportingNameController.clear();
+              currentSelectedFrequencyKey = 'monthly';
+              currentReportOptions = {
+                'total_consumption': true,
+                'peak_loads': false,
+                'anomalies': false,
+                'rooms_by_consumption': true,
+                'underutilization': true,
+              };
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  wasEditing
+                      ? 'building_responsible_persons.routine_updated'.tr()
+                      : 'building_responsible_persons.routine_saved'.tr(),
+                ),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            backgroundColor: Colors.white,
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+            actionsPadding: const EdgeInsets.all(24),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'building_recipient.reporting_dialog_title'.tr(
+                      namedArgs: {'name': recipientName},
+                    ),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: screenSize.width < 600
+                  ? screenSize.width * 0.9
+                  : screenSize.width < 1200
+                  ? screenSize.width * 0.6
+                  : screenSize.width * 0.5,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Subtitle
+                    Text(
+                      'building_recipient.reporting_dialog_subtitle'.tr(
+                        namedArgs: {'name': recipientName},
+                      ),
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Display saved routines above the form
+                    if (savedRoutines.isNotEmpty) ...[
+                      ...savedRoutines.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final routine = entry.value;
+                        final routineName = routine['name'] ?? '';
+                        final routineIntervalKey =
+                            routine['intervalKey'] ?? 'monthly';
+                        return Container(
+                          margin: EdgeInsets.only(
+                            bottom: index < savedRoutines.length - 1 ? 16 : 24,
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: const Color(0xFF8B9A5B),
+                              width: 1,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                            color: Colors.grey[50],
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                color: Colors.green[600],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      routineName.isNotEmpty
+                                          ? routineName
+                                          : 'building_responsible_persons.reporting_name_hint'
+                                                .tr(),
+                                      style: AppTextStyles.bodyMedium.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'building_responsible_persons.$routineIntervalKey'
+                                          .tr(),
+                                      style: AppTextStyles.bodyMedium.copyWith(
+                                        color: Colors.grey[600],
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Edit button
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => editRoutine(index),
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    child: Text(
+                                      'building_recipient.edit'.tr(),
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.blue[700],
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Remove button
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    setDialogState(() {
+                                      if (editingRoutineIndex == index) {
+                                        // If editing this routine, reset form
+                                        editingRoutineIndex = null;
+                                        currentReportingNameController.clear();
+                                        currentSelectedFrequencyKey = 'monthly';
+                                        currentReportOptions = {
+                                          'total_consumption': true,
+                                          'peak_loads': false,
+                                          'anomalies': false,
+                                          'rooms_by_consumption': true,
+                                          'underutilization': true,
+                                        };
+                                      }
+                                      savedRoutines.removeAt(index);
+                                    });
+                                  },
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(4),
+                                    child: Icon(
+                                      Icons.close,
+                                      size: 18,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                    // Current form fields
+                    // Report Name Field
+                    Container(
+                      height: 50,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: const Color(0xFF8B9A5B),
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: TextFormField(
+                        controller: currentReportingNameController,
+                        decoration: InputDecoration(
+                          hintText:
+                              'building_responsible_persons.reporting_name_hint'
+                                  .tr(),
+                          border: InputBorder.none,
+                          hintStyle: AppTextStyles.bodyMedium.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Frequency Field
+                    Container(
+                      height: 50,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: const Color(0xFF8B9A5B),
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'building_responsible_persons.$currentSelectedFrequencyKey'
+                                  .tr(),
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                // Show frequency selection dialog
+                                showDialog(
+                                  context: context,
+                                  builder: (freqContext) => AlertDialog(
+                                    title: Text(
+                                      'building_responsible_persons.select_frequency'
+                                          .tr(),
+                                    ),
+                                    content: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        ListTile(
+                                          title: Text(
+                                            'building_responsible_persons.daily'
+                                                .tr(),
+                                          ),
+                                          onTap: () {
+                                            setDialogState(() {
+                                              currentSelectedFrequencyKey =
+                                                  'daily';
+                                            });
+                                            Navigator.of(freqContext).pop();
+                                          },
+                                        ),
+                                        ListTile(
+                                          title: Text(
+                                            'building_responsible_persons.weekly'
+                                                .tr(),
+                                          ),
+                                          onTap: () {
+                                            setDialogState(() {
+                                              currentSelectedFrequencyKey =
+                                                  'weekly';
+                                            });
+                                            Navigator.of(freqContext).pop();
+                                          },
+                                        ),
+                                        ListTile(
+                                          title: Text(
+                                            'building_responsible_persons.monthly'
+                                                .tr(),
+                                          ),
+                                          onTap: () {
+                                            setDialogState(() {
+                                              currentSelectedFrequencyKey =
+                                                  'monthly';
+                                            });
+                                            Navigator.of(freqContext).pop();
+                                          },
+                                        ),
+                                        ListTile(
+                                          title: Text(
+                                            'building_responsible_persons.yearly'
+                                                .tr(),
+                                          ),
+                                          onTap: () {
+                                            setDialogState(() {
+                                              currentSelectedFrequencyKey =
+                                                  'yearly';
+                                            });
+                                            Navigator.of(freqContext).pop();
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                '+ ${'building_responsible_persons.change_frequency'.tr()}',
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                  decoration: TextDecoration.underline,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Report Options Checkboxes - Row 1
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 16,
+                      alignment: WrapAlignment.start,
+                      children: [
+                        _buildReportOptionCheckbox(
+                          'total_consumption',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
+                        _buildReportOptionCheckbox(
+                          'peak_loads',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Report Options Checkboxes - Row 2
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 16,
+                      alignment: WrapAlignment.start,
+                      children: [
+                        _buildReportOptionCheckbox(
+                          'anomalies',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
+                        _buildReportOptionCheckbox(
+                          'rooms_by_consumption',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
+                        _buildReportOptionCheckbox(
+                          'underutilization',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    // Create own routine link (only show when not editing)
+                    if (editingRoutineIndex == null)
+                      Center(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: saveCurrentRoutine,
+                            child: Text(
+                              '+ ${'building_responsible_persons.create_own_routines'.tr()}',
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                decoration: TextDecoration.underline,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      // Show update button when editing
+                      Center(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: saveCurrentRoutine,
+                            child: Text(
+                              'building_responsible_persons.update_routine'
+                                  .tr(),
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                decoration: TextDecoration.underline,
+                                color: Colors.blue[700],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              // Done button
+              SizedBox(
+                width: double.infinity,
+                child: Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: const Color(0xFF8B9A5B),
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        // Save current form if it has data
+                        if (currentReportingNameController.text
+                                .trim()
+                                .isNotEmpty ||
+                            currentReportOptions.values.any(
+                              (value) => value == true,
+                            )) {
+                          if (!validateCurrentForm()) {
+                            return;
+                          }
+                          saveCurrentRoutine();
+                        }
+
+                        // Build report configs from all saved routines
+                        final List<Map<String, dynamic>> reportConfigs = [];
+                        for (var routine in savedRoutines) {
+                          // Build report contents from selected options
+                          final routineOptions =
+                              routine['reportOptions'] as Map<String, bool>;
+                          List<String> reportContents = [];
+                          if (routineOptions['total_consumption'] == true) {
+                            reportContents.add('TotalConsumption');
+                          }
+                          if (routineOptions['rooms_by_consumption'] == true) {
+                            reportContents.add('ConsumptionByRoom');
+                          }
+                          if (routineOptions['peak_loads'] == true) {
+                            reportContents.add('PeakLoads');
+                          }
+                          if (routineOptions['anomalies'] == true) {
+                            reportContents.add('Anomalies');
+                          }
+                          if (routineOptions['underutilization'] == true) {
+                            reportContents.add('InefficientUsage');
+                          }
+
+                          // Map frequency key to API format
+                          String interval = 'Monthly';
+                          switch (routine['intervalKey']) {
+                            case 'daily':
+                              interval = 'Daily';
+                              break;
+                            case 'weekly':
+                              interval = 'Weekly';
+                              break;
+                            case 'monthly':
+                              interval = 'Monthly';
+                              break;
+                            case 'yearly':
+                              interval = 'Yearly';
+                              break;
+                          }
+
+                          reportConfigs.add({
+                            'name': routine['name'] ?? '',
+                            'interval': interval,
+                            'reportContents': reportContents,
+                          });
+                        }
+
+                        // Save all configs
+                        setState(() {
+                          _recipientConfigs[recipientId] = {
+                            'routines': savedRoutines,
+                            'reportConfigs': reportConfigs,
+                          };
+                        });
+
+                        Navigator.of(context).pop();
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Center(
+                        child: Text(
+                          'building_recipient.done'.tr(),
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildReportOptionCheckbox(
+    String option,
+    Map<String, bool> reportOptions,
+    StateSetter setDialogState,
+  ) {
+    final isSelected = reportOptions[option] ?? false;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          setDialogState(() {
+            reportOptions[option] = !isSelected;
+          });
+        },
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black54, width: 1),
+                  borderRadius: BorderRadius.circular(4),
+                  color: isSelected ? const Color(0xFF8B9A5B) : Colors.white,
+                ),
+                child: isSelected
+                    ? const Icon(Icons.check, size: 16, color: Colors.white)
+                    : null,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'building_responsible_persons.$option'.tr(),
+                style: AppTextStyles.bodyMedium.copyWith(color: Colors.black87),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _handleCreateReportForAll() {
     // Navigate to responsible persons page for all recipients at once
-    // Encode all recipients as JSON
-    final recipientsJson = jsonEncode(
-      _recipients
-          .map(
-            (r) => {
-              'name': (r['name'] ?? '').toString().trim(),
-              'email': (r['email'] ?? '').toString().trim(),
-              if (r['phone'] != null && (r['phone'] as String).isNotEmpty)
-                'phone': (r['phone'] ?? '').toString().trim(),
+    // Encode all recipients as JSON with their configs
+    final recipientsList = _recipients.map((r) {
+      final recipientId = r['id']?.toString();
+      final recipientData = <String, dynamic>{
+        'id': recipientId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        'name': (r['name'] ?? '').toString().trim(),
+        'email': (r['email'] ?? '').toString().trim(),
+        if (r['phone'] != null && (r['phone'] as String).isNotEmpty)
+          'phone': (r['phone'] ?? '').toString().trim(),
+      };
+
+      // Include reportConfig if recipient has a config
+      // The config structure can have 'reportConfigs' array (from dialog) or old format
+      if (recipientId != null && _recipientConfigs.containsKey(recipientId)) {
+        final config = _recipientConfigs[recipientId]!;
+
+        // Check if config has reportConfigs array (new format from dialog)
+        if (config['reportConfigs'] != null &&
+            config['reportConfigs'] is List) {
+          recipientData['reportConfig'] = List<Map<String, dynamic>>.from(
+            config['reportConfigs'],
+          );
+        } else {
+          // Old format - create single reportConfig
+          recipientData['reportConfig'] = [
+            {
+              'name': config['name'] ?? 'Executive Weekly Report',
+              'interval': config['interval'] ?? 'Monthly',
+              'reportContents': List<String>.from(
+                config['reportContents'] ?? [],
+              ),
             },
-          )
-          .toList(),
-    );
+          ];
+        }
+      }
+
+      return recipientData;
+    }).toList();
+
+    final recipientsJson = jsonEncode(recipientsList);
 
     context.pushNamed(
       Routelists.buildingResponsiblePersons,
@@ -610,48 +1214,6 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
             'true', // Flag to indicate this is "create for all" mode
       },
     );
-  }
-
-  void _handleConfirmEditRecipient(String id) {
-    // Validate the edited recipient
-    final recipient = _recipients.firstWhere((r) => r['id'] == id);
-    final name = recipient['name']?.toString().trim() ?? '';
-    final email = recipient['email']?.toString().trim() ?? '';
-
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('building_recipient.validation_name_required'.tr()),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('building_recipient.validation_email_required'.tr()),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (!_isValidEmail(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('building_recipient.validation_email_invalid'.tr()),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _editingRecipients[id] = false;
-      _isConfirmed = true; // Re-confirm after successful edit
-    });
   }
 
   void _handleSkip() {
@@ -802,88 +1364,14 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                       ),
                                     ),
                                     const SizedBox(height: 32),
-                                    // Information boxes (similar to contact person step)
-                                    // 1. Building Address
-                                    if (widget.buildingAddress != null &&
-                                        widget.buildingAddress!.isNotEmpty)
-                                      Container(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color: Colors.grey[300]!,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.check_circle,
-                                                color: Colors.green[600],
-                                                size: 24,
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Text(
-                                                  widget.buildingAddress!,
-                                                  style: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    // 2. Building Summary
-                                    if (_getBuildingSummary().isNotEmpty)
-                                      Container(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color: Colors.grey[300]!,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.check_circle,
-                                                color: Colors.green[600],
-                                                size: 24,
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Text(
-                                                  _getBuildingSummary(),
-                                                  style: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    // 3. Floor Plan Status
+                                    // Information boxes (matching the image - only Floor plan and Contact person)
+                                    // 1. Floor Plan Status (with dark olive-green border)
                                     Container(
                                       margin: const EdgeInsets.only(bottom: 12),
                                       decoration: BoxDecoration(
                                         border: Border.all(
-                                          color: Colors.grey[300]!,
+                                          color: const Color(0xFF8B9A5B),
+                                          width: 1,
                                         ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
@@ -910,16 +1398,14 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                         ),
                                       ),
                                     ),
-                                    // 4. Contact Person Information Box (if available)
+                                    // 2. Contact Person Information Box (if available)
                                     if (_contactPerson != null &&
                                         _getContactPersonDisplay().isNotEmpty)
                                       Container(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 12,
-                                        ),
                                         decoration: BoxDecoration(
                                           border: Border.all(
-                                            color: Colors.grey[300]!,
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 1,
                                           ),
                                           borderRadius: BorderRadius.circular(
                                             8,
@@ -948,7 +1434,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                           ),
                                         ),
                                       ),
-                                    const SizedBox(height: 24),
+                                    const SizedBox(height: 12),
                                     // Recipient Fields or Confirmation Boxes
                                     if (_recipients.isNotEmpty)
                                       ..._recipients.asMap().entries.map((
@@ -959,11 +1445,13 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                         final isEditing =
                                             _editingRecipients[recipientId] ??
                                             false;
+                                        final isConfirmed =
+                                            _confirmedRecipientIds.contains(
+                                              recipientId,
+                                            );
 
-                                        // Show confirmation box if confirmed and not editing
-                                        if (_isConfirmed && !isEditing) {
-                                          final hasConfig = _recipientConfigs
-                                              .containsKey(recipientId);
+                                        // Show confirmation box if recipient is confirmed and not editing
+                                        if (isConfirmed && !isEditing) {
                                           return Container(
                                             margin: const EdgeInsets.only(
                                               bottom: 12,
@@ -980,37 +1468,37 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                               child: Row(
                                                 children: [
                                                   // Checkbox - marked if config exists
-                                                  Container(
-                                                    width: 24,
-                                                    height: 24,
-                                                    decoration: BoxDecoration(
-                                                      border: Border.all(
-                                                        color: hasConfig
-                                                            ? const Color(
-                                                                0xFF8B9A5B,
-                                                              )
-                                                            : Colors.grey[400]!,
-                                                        width: 2,
-                                                      ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            4,
-                                                          ),
-                                                      color: hasConfig
-                                                          ? const Color(
-                                                              0xFF8B9A5B,
-                                                            )
-                                                          : Colors.white,
-                                                    ),
-                                                    child: hasConfig
-                                                        ? const Icon(
-                                                            Icons.check,
-                                                            size: 16,
-                                                            color: Colors.white,
-                                                          )
-                                                        : null,
-                                                  ),
-                                                  const SizedBox(width: 12),
+                                                  // Container(
+                                                  //   width: 24,
+                                                  //   height: 24,
+                                                  //   decoration: BoxDecoration(
+                                                  //     border: Border.all(
+                                                  //       color: hasConfig
+                                                  //           ? const Color(
+                                                  //               0xFF8B9A5B,
+                                                  //             )
+                                                  //           : Colors.grey[400]!,
+                                                  //       width: 2,
+                                                  //     ),
+                                                  //     borderRadius:
+                                                  //         BorderRadius.circular(
+                                                  //           4,
+                                                  //         ),
+                                                  //     color: hasConfig
+                                                  //         ? const Color(
+                                                  //             0xFF8B9A5B,
+                                                  //           )
+                                                  //         : Colors.white,
+                                                  //   ),
+                                                  //   child: hasConfig
+                                                  //       ? const Icon(
+                                                  //           Icons.check,
+                                                  //           size: 16,
+                                                  //           color: Colors.white,
+                                                  //         )
+                                                  //       : null,
+                                                  // ),
+                                                  // const SizedBox(width: 12),
                                                   // Name
                                                   Expanded(
                                                     child: Text(
@@ -1044,12 +1532,10 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                                               vertical: 4,
                                                             ),
                                                         child: Text(
-                                                          'building_recipient.edit'
+                                                          'building_recipient.custom_report'
                                                               .tr(),
                                                           style: TextStyle(
                                                             fontSize: 14,
-                                                            color: Colors
-                                                                .blue[700],
                                                             decoration:
                                                                 TextDecoration
                                                                     .underline,
@@ -1195,33 +1681,11 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                                         },
                                                       ),
                                                     ),
-                                                    // Confirm button when editing
-                                                    if (isEditing) ...[
-                                                      const SizedBox(
-                                                        height: 12,
-                                                      ),
-                                                      Center(
-                                                        child: Material(
-                                                          color: Colors
-                                                              .transparent,
-                                                          child: PrimaryOutlineButton(
-                                                            label:
-                                                                'building_recipient.confirm'
-                                                                    .tr(),
-                                                            width: 200,
-                                                            onPressed: () =>
-                                                                _handleConfirmEditRecipient(
-                                                                  recipientId,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
                                                   ],
                                                 ),
                                               ),
-                                              // Cancel button at top right corner (only show when not confirmed or when editing)
-                                              if (!_isConfirmed || isEditing)
+                                              // Cancel button at top right corner (only show when recipient is not confirmed)
+                                              if (!isConfirmed)
                                                 Positioned(
                                                   top: 1,
                                                   right: 1,
@@ -1229,18 +1693,10 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                                     color: Colors.transparent,
                                                     child: InkWell(
                                                       onTap: () {
-                                                        if (isEditing) {
-                                                          // Cancel editing
-                                                          setState(() {
-                                                            _editingRecipients[recipientId] =
-                                                                false;
-                                                          });
-                                                        } else {
-                                                          // Remove recipient
-                                                          _handleRemoveRecipient(
-                                                            recipient['id'],
-                                                          );
-                                                        }
+                                                        // Remove recipient
+                                                        _handleRemoveRecipient(
+                                                          recipient['id'],
+                                                        );
                                                       },
                                                       borderRadius:
                                                           BorderRadius.circular(
@@ -1272,101 +1728,131 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                           ),
                                         );
                                       }),
-                                    // Action links - side by side (only show when not confirmed)
-                                    if (!_isConfirmed) ...[
-                                      const SizedBox(height: 24),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Material(
-                                            color: Colors.transparent,
-                                            child: InkWell(
-                                              onTap: _handleAutomaticFromDomain,
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 8,
-                                                      horizontal: 4,
+                                    // Action links - side by side (always show to allow adding more recipients)
+                                    const SizedBox(height: 24),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            onTap: _handleAutomaticFromDomain,
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 8,
+                                                    horizontal: 4,
+                                                  ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    '+',
+                                                    style: TextStyle(
+                                                      fontSize:
+                                                          screenSize.width < 600
+                                                          ? 14
+                                                          : 18,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: Colors.black,
                                                     ),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    Text(
-                                                      '+',
-                                                      style: TextStyle(
-                                                        fontSize: 18,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: Colors.black,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Text(
+                                                  ),
+                                                  SizedBox(
+                                                    width:
+                                                        screenSize.width < 600
+                                                        ? 4
+                                                        : 8,
+                                                  ),
+                                                  Flexible(
+                                                    child: Text(
                                                       'building_recipient.automatic_from_domain'
                                                           .tr(),
                                                       style: TextStyle(
-                                                        fontSize: 16,
+                                                        fontSize:
+                                                            screenSize.width <
+                                                                600
+                                                            ? 12
+                                                            : 16,
                                                         color: Colors.black,
                                                         decoration:
                                                             TextDecoration
                                                                 .underline,
                                                       ),
                                                     ),
-                                                  ],
-                                                ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ),
-                                          const SizedBox(width: 24),
-                                          Material(
-                                            color: Colors.transparent,
-                                            child: InkWell(
-                                              onTap: _handleUploadContact,
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 8,
-                                                      horizontal: 4,
+                                        ),
+                                        SizedBox(
+                                          width: screenSize.width < 600
+                                              ? 12
+                                              : 24,
+                                        ),
+                                        Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            onTap: _handleUploadContact,
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 8,
+                                                    horizontal: 4,
+                                                  ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    '+',
+                                                    style: TextStyle(
+                                                      fontSize:
+                                                          screenSize.width < 600
+                                                          ? 14
+                                                          : 18,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: Colors.black,
                                                     ),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    Text(
-                                                      '+',
-                                                      style: TextStyle(
-                                                        fontSize: 18,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: Colors.black,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Text(
+                                                  ),
+                                                  SizedBox(
+                                                    width:
+                                                        screenSize.width < 600
+                                                        ? 4
+                                                        : 8,
+                                                  ),
+                                                  Flexible(
+                                                    child: Text(
                                                       'building_recipient.upload_contact'
                                                           .tr(),
                                                       style: TextStyle(
-                                                        fontSize: 16,
+                                                        fontSize:
+                                                            screenSize.width <
+                                                                600
+                                                            ? 12
+                                                            : 16,
                                                         color: Colors.black,
                                                         decoration:
                                                             TextDecoration
                                                                 .underline,
                                                       ),
                                                     ),
-                                                  ],
-                                                ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    ],
+                                        ),
+                                      ],
+                                    ),
                                     const SizedBox(height: 32),
                                     // // Property Checkboxes
                                     // ..._properties.entries.map((entry) {
@@ -1472,27 +1958,29 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                     ),
 
                                     const SizedBox(height: 16),
-                                    // Two buttons: "Create report for all user" and "Reportings festlegen"/"Complete Setup"
-                                    if (_isConfirmed &&
+
+                                    // "Reportings festlegen" button - show when there are unconfirmed recipients (text fields visible)
+                                    if (_recipients.any((r) {
+                                          final id = r['id']?.toString();
+                                          return id != null &&
+                                              !_confirmedRecipientIds.contains(
+                                                id,
+                                              );
+                                        }) &&
                                         _recipients.isNotEmpty) ...[
-                                      // "Create report for all user" button
                                       Center(
                                         child: Material(
                                           color: Colors.transparent,
                                           child: PrimaryOutlineButton(
                                             label:
-                                                'building_recipient.create_report_for_all'
+                                                'building_recipient.button_text'
                                                     .tr(),
                                             width: 260,
-                                            onPressed:
-                                                _handleCreateReportForAll,
+                                            onPressed: _handleContinue,
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(height: 16),
-                                    ],
-                                    // "Reportings festlegen" button or "Complete Setup" button
-                                    if (_isConfirmed &&
+                                    ] else if (_isConfirmed &&
                                         _recipients.isNotEmpty &&
                                         _recipients.every((r) {
                                           final id = r['id']?.toString();
@@ -1500,40 +1988,58 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                               _recipientConfigs.containsKey(id);
                                         })) ...[
                                       // Show "Complete Setup" button if all recipients are configured
-                                      Center(
-                                        child: Material(
-                                          color: Colors.transparent,
-                                          child: _isLoading
-                                              ? const CircularProgressIndicator()
-                                              : PrimaryOutlineButton(
-                                                  label:
-                                                      'building_recipient.complete_setup'
-                                                          .tr(),
-                                                  width: 260,
-                                                  onPressed:
-                                                      _handleCompleteSetup,
-                                                ),
-                                        ),
-                                      ),
-                                    ] else if (!_isConfirmed ||
-                                        _recipients.isEmpty) ...[
-                                      // Show "Reportings festlegen" button
-                                      Center(
-                                        child: Material(
-                                          color: Colors.transparent,
-                                          child: PrimaryOutlineButton(
-                                            label: _isConfirmed
-                                                ? 'building_recipient.button_text_continue'
-                                                      .tr()
-                                                : 'building_recipient.button_text'
-                                                      .tr(),
-                                            width: 260,
-                                            onPressed: _handleContinue,
-                                          ),
-                                        ),
-                                      ),
+                                      // Center(
+                                      //   child: Material(
+                                      //     color: Colors.transparent,
+                                      //     child: _isLoading
+                                      //         ? const CircularProgressIndicator()
+                                      //         : PrimaryOutlineButton(
+                                      //             label:
+                                      //                 'building_recipient.complete_setup'
+                                      //                     .tr(),
+                                      //             width: 260,
+                                      //             onPressed:
+                                      //                 _handleCompleteSetup,
+                                      //           ),
+                                      //   ),
+                                      // ),
+                                    ] else if (_isConfirmed &&
+                                        _recipients.isNotEmpty) ...[
+                                      // Show "Continue" button when all are confirmed but not all have configs
+                                      // Center(
+                                      //   child: Material(
+                                      //     color: Colors.transparent,
+                                      //     child: PrimaryOutlineButton(
+                                      //       label:
+                                      //           'building_recipient.button_text_continue'
+                                      //               .tr(),
+                                      //       width: 260,
+                                      //       onPressed: _handleContinue,
+                                      //     ),
+                                      //   ),
+                                      // ),
                                     ],
+                                    const SizedBox(height: 16),
+
+                                    // Two buttons: "Create report for all user" and "Reportings festlegen"/"Complete Setup"
+                                    // if (_isConfirmed &&
+                                    //     _recipients.isNotEmpty) ...[
+                                    // "Create report for all user" button
+                                    Center(
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: PrimaryOutlineButton(
+                                          label:
+                                              'building_recipient.create_report_for_all'
+                                                  .tr(),
+                                          width: 260,
+                                          onPressed: _handleCreateReportForAll,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
                                   ],
+                                  // ],
                                 ),
                               ),
                             ),

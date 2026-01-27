@@ -167,6 +167,8 @@
     "button_text": "That's fine"
   },
   "building_contact_person": {
+    "choose_one_contact": "You can choose one contact from domain server",
+    "choose_contact": "Choose contact",
     "progress_text": "Almost done, {name}!",
     "progress_text_fallback": "Almost done!",
     "title": "Who is the contact person for the building?",
@@ -181,10 +183,11 @@
     "close": "Close",
     "skip_step": "Skip step",
     "button_text": "That's fine",
-    "floor_plan_status": "Floor plan activated & measurement data created",
+    "floor_plan_status": "Floor plan activated",
     "confirm_contact": "Confirm contact"
   },
   "building_recipient": {
+    "custom_report": "Custom Report",
     "progress_text": "Almost done, {name}!",
     "progress_text_fallback": "Almost done!",
     "title": "Who should receive automatic reports?",
@@ -213,7 +216,10 @@
     "validation_email_invalid": "Please enter a valid email address",
     "complete_setup": "Complete Setup",
     "config_all_recipients": "Please configure all recipients",
-    "create_report_for_all": "Create report for all user"
+    "create_report_for_all": "Create report for all user",
+    "reporting_dialog_title": "How should the reporting for {name} look?",
+    "reporting_dialog_subtitle": "You can customize reporting just for {name}.",
+    "done": "Done"
   },
   "building_responsible_persons": {
     "progress_text": "Almost done, {name}!",
@@ -243,7 +249,10 @@
     "config_all_recipients": "Please configure all recipients",
     "validation_name_required": "Please enter a name for the reporting",
     "validation_option_required": "Please select at least one report option",
+    "validation_at_least_one_option": "Please select at least one checkbox option",
     "routine_saved": "Routine saved successfully",
+    "routine_updated": "Routine updated successfully",
+    "update_routine": "Update routine",
     "interval_label": "Interval",
     "add_responsible_person": "Add responsible person",
     "name_hint": "Name",

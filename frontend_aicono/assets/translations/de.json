@@ -167,6 +167,8 @@
     "button_text": "Das passt so"
   },
   "building_contact_person": {
+    "choose_one_contact": "Sie können einen Kontakt vom Domain-Server auswählen",
+    "choose_contact": "Kontakt auswählen",
     "progress_text": "Fast geschafft, {name}!",
     "progress_text_fallback": "Fast geschafft!",
     "title": "Wer ist Ansprechpartner für das Gebäude?",
@@ -181,10 +183,11 @@
     "close": "Schließen",
     "skip_step": "Schritt überspringen",
     "button_text": "Das passt so",
-    "floor_plan_status": "Grundriss aktiviert & Messdaten angelegt",
+    "floor_plan_status": "Grundriss aktiviert",
     "confirm_contact": "Kontakt bestätigen"
   },
   "building_recipient": {
+    "custom_report": "Individueller Bericht",
     "progress_text": "Fast geschafft, {name}!",
     "progress_text_fallback": "Fast geschafft!",
     "title": "Wer soll automatische Reportings erhalten?",
@@ -213,7 +216,10 @@
     "validation_email_invalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
     "complete_setup": "Setup abschließen",
     "config_all_recipients": "Bitte konfigurieren Sie alle Empfänger",
-    "create_report_for_all": "Report für alle Benutzer erstellen"
+    "create_report_for_all": "Report für alle Benutzer erstellen",
+    "reporting_dialog_title": "Wie soll das Reporting für {name} aussehen?",
+    "reporting_dialog_subtitle": "Sie können das Reporting nur für {name} anpassen.",
+    "done": "Fertig"
   },
   "building_responsible_persons": {
     "progress_text": "Fast geschafft, {name}!",
@@ -243,7 +249,10 @@
     "config_all_recipients": "Bitte konfigurieren Sie alle Empfänger",
     "validation_name_required": "Bitte geben Sie einen Namen für das Reporting ein",
     "validation_option_required": "Bitte wählen Sie mindestens eine Report-Option aus",
+    "validation_at_least_one_option": "Bitte wählen Sie mindestens eine Checkbox-Option aus",
     "routine_saved": "Routine erfolgreich gespeichert",
+    "routine_updated": "Routine erfolgreich aktualisiert",
+    "update_routine": "Routine aktualisieren",
     "interval_label": "Intervall",
     "add_responsible_person": "Verantwortliche Person hinzufügen",
     "name_hint": "Name",
