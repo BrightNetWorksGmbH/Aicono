@@ -23,6 +23,8 @@ class MeasurementQueryService {
      * @param {number} options.resolution - Override automatic resolution (0, 15, 60, 1440)
      * @param {number} options.limit - Limit number of results
      * @param {number} options.skip - Skip number of results
+     * @param {string} options.measurementType - Filter by measurement type
+     * @param {string} options.stateType - Filter by state type (for Energy, defaults to 'actual')
      * @returns {Promise<Array>} Array of measurements
      */
     async getMeasurements(sensorId, startDate, endDate, options = {}) {
@@ -58,6 +60,21 @@ class MeasurementQueryService {
             timestamp: { $gte: startDate, $lt: endDate }
         };
         
+        // Add measurementType filter if specified
+        if (options.measurementType) {
+            matchStage['meta.measurementType'] = options.measurementType;
+            // For Energy measurements, default to 'actual' stateType if not specified
+            if (options.measurementType === 'Energy') {
+                matchStage['meta.stateType'] = options.stateType || 'actual';
+            } else if (options.stateType) {
+                // Allow stateType for other measurement types if explicitly specified
+                matchStage['meta.stateType'] = options.stateType;
+            }
+        } else if (options.stateType) {
+            // If stateType is specified without measurementType, apply it
+            matchStage['meta.stateType'] = options.stateType;
+        }
+        
         let query = db.collection('measurements')
             .find(matchStage)
             .sort({ timestamp: 1 });
@@ -89,6 +106,7 @@ class MeasurementQueryService {
      * @param {Object} options - Query options
      * @param {string} options.measurementType - Filter by measurement type
      * @param {number} options.resolution - Override automatic resolution
+     * @param {string} options.stateType - Filter by state type (for Energy, defaults to 'actual')
      * @returns {Promise<Array>} Array of measurements
      */
     async getMeasurementsByBuilding(buildingId, startDate, endDate, options = {}) {
@@ -124,8 +142,53 @@ class MeasurementQueryService {
             timestamp: { $gte: startDate, $lt: endDate }
         };
         
+        // Determine stateType filtering based on options
+        // For reports: use appropriate total* stateType based on interval
+        // For dashboard (arbitrary ranges): use Power (actual* states) for energy calculation
+        const interval = options.interval || null;
+        
+        // Helper function to get stateType for interval (same as in dashboardDiscoveryService)
+        const getStateTypeForInterval = (interval) => {
+            if (!interval) return null;
+            const intervalMap = {
+                'Daily': 'totalDay',
+                'Weekly': 'totalWeek',
+                'Monthly': 'totalMonth',
+                'Yearly': 'totalYear',
+                'daily': 'totalDay',
+                'weekly': 'totalWeek',
+                'monthly': 'totalMonth',
+                'yearly': 'totalYear'
+            };
+            return intervalMap[interval] || null;
+        };
+        
+        const energyStateType = getStateTypeForInterval(interval);
+        
         if (options.measurementType) {
             matchStage['meta.measurementType'] = options.measurementType;
+            // For Energy measurements:
+            // - If interval is specified (report): use appropriate total* stateType
+            // - If no interval (dashboard arbitrary range): use Power (actual* states) for calculation
+            if (options.measurementType === 'Energy') {
+                if (energyStateType) {
+                    // Report with fixed interval: use totalDay/totalWeek/totalMonth/totalYear
+                    matchStage['meta.stateType'] = options.stateType || energyStateType;
+                } else {
+                    // Dashboard arbitrary range: use Power (actual* states) for energy calculation
+                    matchStage['meta.measurementType'] = 'Power';
+                    matchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
+                }
+            } else if (options.measurementType === 'Power') {
+                // Power measurements: use actual* states
+                matchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
+            } else if (options.stateType) {
+                // Allow explicit stateType for other measurement types
+                matchStage['meta.stateType'] = options.stateType;
+            }
+        } else if (options.stateType) {
+            // If stateType is specified without measurementType, apply it
+            matchStage['meta.stateType'] = options.stateType;
         }
         
         const measurements = await db.collection('measurements')
@@ -148,9 +211,10 @@ class MeasurementQueryService {
      * @param {Date} startDate - Start date
      * @param {Date} endDate - End date
      * @param {string|null} measurementType - Optional measurement type filter
+     * @param {string|null} stateType - Optional state type filter (for Energy, defaults to 'actual')
      * @returns {Promise<Array>} Array of statistics grouped by measurement type
      */
-    async getStatistics(buildingId, startDate, endDate, measurementType = null) {
+    async getStatistics(buildingId, startDate, endDate, measurementType = null, stateType = null) {
         const db = mongoose.connection.db;
         if (!db) {
             throw new Error('Database connection not available');
@@ -180,6 +244,16 @@ class MeasurementQueryService {
         
         if (measurementType) {
             matchStage['meta.measurementType'] = measurementType;
+            // For Energy measurements, default to 'actual' stateType if not specified
+            if (measurementType === 'Energy') {
+                matchStage['meta.stateType'] = stateType || 'actual';
+            } else if (stateType) {
+                // Allow stateType for other measurement types if explicitly specified
+                matchStage['meta.stateType'] = stateType;
+            }
+        } else if (stateType) {
+            // If stateType is specified without measurementType, apply it
+            matchStage['meta.stateType'] = stateType;
         }
         
         const pipeline = [
@@ -272,6 +346,13 @@ class MeasurementQueryService {
             resolution_minutes: { $in: [60, 1440] }, // Hourly or daily (field is at root level)
             timestamp: { $gte: startDate, $lt: endDate }
         };
+        
+        // For Energy measurements in daily summary, only use 'actual' stateType
+        // Use $or to include Energy with stateType='actual' OR other measurement types
+        matchStage.$or = [
+            { 'meta.measurementType': 'Energy', 'meta.stateType': 'actual' },
+            { 'meta.measurementType': { $ne: 'Energy' } }
+        ];
         
         const pipeline = [
             { $match: matchStage },

@@ -189,25 +189,169 @@ class MeasurementAggregationService {
                         measurementType: '$_id.measurementType',
                         stateType: '$_id.stateType'
                     },
-                    // For energy meters: consumption = last - first
-                    // Handle meter resets: if lastValue < firstValue (meter reset detected), set to 0
-                    // This occurs when cumulative meters (totalMonth, totalWeek, totalDay) reset at period boundaries
-                    // Consumption cannot be negative - negative values indicate meter resets, not actual negative consumption
-                    // For other types: use average
+                    // Aggregation strategy based on measurementType AND stateType:
+                    // - Power (actual* states): use average (instantaneous values)
+                    // - Energy (total* states): use last - first (cumulative counter consumption)
+                    // - All others: use average
                     value: {
-                        $cond: {
-                            if: { $eq: ['$_id.measurementType', 'Energy'] },
-                            then: {
-                                // Ensure consumption is never negative (handles meter resets)
-                                // When a cumulative meter resets, lastValue < firstValue, resulting in negative consumption
-                                // We set it to 0 because the reset means no consumption in that period
-                                $max: [
-                                    0, // Minimum consumption is 0
-                                    { $subtract: ['$lastValue', '$firstValue'] }
+                        $cond: [
+                            // Case 1: Energy (total* states) → consumption = last - first
+                            {
+                                $and: [
+                                    { $eq: ['$_id.measurementType', 'Energy'] },
+                                    {
+                                        $or: [
+                                            { $eq: ['$_id.stateType', 'total'] },
+                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalYear'] },
+                                            { $eq: ['$_id.stateType', 'totalNeg'] },
+                                            { $eq: ['$_id.stateType', 'totalNegDay'] },
+                                            { $eq: ['$_id.stateType', 'totalNegWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalNegMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                        ]
+                                    }
                                 ]
                             },
-                            else: '$avgValue'
-                        }
+                            {
+                                // Energy consumption calculation with reset detection
+                                $let: {
+                                    vars: {
+                                        consumption: { $subtract: ['$lastValue', '$firstValue'] },
+                                        resetThreshold: 100 // Threshold to detect significant resets
+                                    },
+                                    in: {
+                                        $cond: {
+                                            // If consumption < 0 AND firstValue > threshold: reset detected
+                                            if: {
+                                                $and: [
+                                                    { $lt: ['$$consumption', 0] },
+                                                    { $gt: ['$firstValue', '$$resetThreshold'] }
+                                                ]
+                                            },
+                                            then: '$lastValue', // Reset detected: consumption = lastValue (new period started at 0)
+                                            else: {
+                                                // Normal case: consumption = last - first (ensure non-negative)
+                                                $max: [
+                                                    0,
+                                                    '$$consumption'
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            // Case 2: Power (actual* states) → average
+                            {
+                                $cond: [
+                                    {
+                                        $and: [
+                                            { $eq: ['$_id.measurementType', 'Power'] },
+                                            {
+                                                $regexMatch: {
+                                                    input: '$_id.stateType',
+                                                    regex: '^actual'
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    '$avgValue',
+                                    // Case 3: Water/Gas (if cumulative total* states) → consumption = last - first
+                                    {
+                                        $cond: [
+                                            {
+                                                $and: [
+                                                    {
+                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
+                                                    },
+                                                    {
+                                                        $or: [
+                                                            { $eq: ['$_id.stateType', 'total'] },
+                                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                            { $eq: ['$_id.stateType', 'totalYear'] }
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                // Water/Gas consumption with reset detection
+                                                $let: {
+                                                    vars: {
+                                                        consumption: { $subtract: ['$lastValue', '$firstValue'] },
+                                                        resetThreshold: 10 // Lower threshold for water/gas
+                                                    },
+                                                    in: {
+                                                        $cond: {
+                                                            if: {
+                                                                $and: [
+                                                                    { $lt: ['$$consumption', 0] },
+                                                                    { $gt: ['$firstValue', '$$resetThreshold'] }
+                                                                ]
+                                                            },
+                                                            then: '$lastValue',
+                                                            else: {
+                                                                $max: [0, '$$consumption']
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            // Case 4: All others (Temperature, Humidity, etc.) → average
+                                            '$avgValue'
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    // Add hasReset flag for debugging (Energy and Water/Gas only)
+                    hasReset: {
+                        $cond: [
+                            {
+                                $and: [
+                                    {
+                                        $in: ['$_id.measurementType', ['Energy', 'Water', 'Heating']]
+                                    },
+                                    {
+                                        $or: [
+                                            { $eq: ['$_id.stateType', 'total'] },
+                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalYear'] },
+                                            { $eq: ['$_id.stateType', 'totalNeg'] },
+                                            { $eq: ['$_id.stateType', 'totalNegDay'] },
+                                            { $eq: ['$_id.stateType', 'totalNegWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalNegMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                        ]
+                                    },
+                                    {
+                                        $and: [
+                                            { $lt: [{ $subtract: ['$lastValue', '$firstValue'] }, 0] },
+                                            {
+                                                $gt: [
+                                                    '$firstValue',
+                                                    {
+                                                        $cond: {
+                                                            if: { $eq: ['$_id.measurementType', 'Energy'] },
+                                                            then: 100,
+                                                            else: 10
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            true,
+                            false
+                        ]
                     },
                     avgValue: 1,
                     minValue: 1,
@@ -586,16 +730,13 @@ class MeasurementAggregationService {
                             }
                         }
                     },
-                    // For energy: sum consumption, for others: average
-                    value: {
-                        $sum: {
-                            $cond: [
-                                { $eq: ['$meta.measurementType', 'Energy'] },
-                                '$value',
-                                0
-                            ]
-                        }
-                    },
+                    // Aggregate from 15-minute aggregates:
+                    // - Energy (total* states): sum consumption values
+                    // - Power (actual* states): average power values
+                    // - Others: average
+                    firstValue: { $first: '$value' },
+                    lastValue: { $last: '$value' },
+                    sumValue: { $sum: '$value' },
                     avgValue: { $avg: '$avgValue' },
                     minValue: { $min: '$minValue' },
                     maxValue: { $max: '$maxValue' },
@@ -614,15 +755,80 @@ class MeasurementAggregationService {
                         measurementType: '$_id.measurementType',
                         stateType: '$_id.stateType'
                     },
+                    // Aggregation strategy for hourly from 15-minute aggregates:
+                    // - Energy (total* states): sum consumption from 15-min aggregates
+                    // - Power (actual* states): average power from 15-min aggregates
+                    // - Others: average
                     value: {
-                        $cond: {
-                            if: { $eq: ['$_id.measurementType', 'Energy'] },
-                            then: {
-                                // Ensure Energy consumption is never negative (safety check)
-                                $max: [0, '$value']
+                        $cond: [
+                            // Case 1: Energy (total* states) → sum consumption
+                            {
+                                $and: [
+                                    { $eq: ['$_id.measurementType', 'Energy'] },
+                                    {
+                                        $or: [
+                                            { $eq: ['$_id.stateType', 'total'] },
+                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalYear'] },
+                                            { $eq: ['$_id.stateType', 'totalNeg'] },
+                                            { $eq: ['$_id.stateType', 'totalNegDay'] },
+                                            { $eq: ['$_id.stateType', 'totalNegWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalNegMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                        ]
+                                    }
+                                ]
                             },
-                            else: '$avgValue'
-                        }
+                            {
+                                // Sum consumption from 15-minute aggregates (ensure non-negative)
+                                $max: [0, '$sumValue']
+                            },
+                            // Case 2: Power (actual* states) → average
+                            {
+                                $cond: [
+                                    {
+                                        $and: [
+                                            { $eq: ['$_id.measurementType', 'Power'] },
+                                            {
+                                                $regexMatch: {
+                                                    input: '$_id.stateType',
+                                                    regex: '^actual'
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    '$avgValue',
+                                    // Case 3: Water/Gas (total* states) → sum consumption
+                                    {
+                                        $cond: [
+                                            {
+                                                $and: [
+                                                    {
+                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
+                                                    },
+                                                    {
+                                                        $or: [
+                                                            { $eq: ['$_id.stateType', 'total'] },
+                                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                            { $eq: ['$_id.stateType', 'totalYear'] }
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                $max: [0, '$sumValue']
+                                            },
+                                            // Case 4: All others → average
+                                            '$avgValue'
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
                     },
                     avgValue: 1,
                     minValue: 1,
@@ -761,15 +967,11 @@ class MeasurementAggregationService {
                             }
                         }
                     },
-                    value: {
-                        $sum: {
-                            $cond: [
-                                { $eq: ['$meta.measurementType', 'Energy'] },
-                                '$value',
-                                0
-                            ]
-                        }
-                    },
+                    // Aggregate from hourly aggregates:
+                    // - Energy (total* states): sum consumption values
+                    // - Power (actual* states): average power values
+                    // - Others: average
+                    sumValue: { $sum: '$value' },
                     avgValue: { $avg: '$avgValue' },
                     minValue: { $min: '$minValue' },
                     maxValue: { $max: '$maxValue' },
@@ -788,15 +990,80 @@ class MeasurementAggregationService {
                         measurementType: '$_id.measurementType',
                         stateType: '$_id.stateType'
                     },
+                    // Aggregation strategy for daily from hourly aggregates:
+                    // - Energy (total* states): sum consumption from hourly aggregates
+                    // - Power (actual* states): average power from hourly aggregates
+                    // - Others: average
                     value: {
-                        $cond: {
-                            if: { $eq: ['$_id.measurementType', 'Energy'] },
-                            then: {
-                                // Ensure Energy consumption is never negative (safety check)
-                                $max: [0, '$value']
+                        $cond: [
+                            // Case 1: Energy (total* states) → sum consumption
+                            {
+                                $and: [
+                                    { $eq: ['$_id.measurementType', 'Energy'] },
+                                    {
+                                        $or: [
+                                            { $eq: ['$_id.stateType', 'total'] },
+                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalYear'] },
+                                            { $eq: ['$_id.stateType', 'totalNeg'] },
+                                            { $eq: ['$_id.stateType', 'totalNegDay'] },
+                                            { $eq: ['$_id.stateType', 'totalNegWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalNegMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                        ]
+                                    }
+                                ]
                             },
-                            else: '$avgValue'
-                        }
+                            {
+                                // Sum consumption from hourly aggregates (ensure non-negative)
+                                $max: [0, '$sumValue']
+                            },
+                            // Case 2: Power (actual* states) → average
+                            {
+                                $cond: [
+                                    {
+                                        $and: [
+                                            { $eq: ['$_id.measurementType', 'Power'] },
+                                            {
+                                                $regexMatch: {
+                                                    input: '$_id.stateType',
+                                                    regex: '^actual'
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    '$avgValue',
+                                    // Case 3: Water/Gas (total* states) → sum consumption
+                                    {
+                                        $cond: [
+                                            {
+                                                $and: [
+                                                    {
+                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
+                                                    },
+                                                    {
+                                                        $or: [
+                                                            { $eq: ['$_id.stateType', 'total'] },
+                                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                            { $eq: ['$_id.stateType', 'totalYear'] }
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                $max: [0, '$sumValue']
+                                            },
+                                            // Case 4: All others → average
+                                            '$avgValue'
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
                     },
                     avgValue: 1,
                     minValue: 1,
@@ -983,15 +1250,11 @@ class MeasurementAggregationService {
                         stateType: '$meta.stateType',
                         bucket: '$weekStart'
                     },
-                    value: {
-                        $sum: {
-                            $cond: [
-                                { $eq: ['$meta.measurementType', 'Energy'] },
-                                '$value',
-                                0
-                            ]
-                        }
-                    },
+                    // Aggregate from daily aggregates:
+                    // - Energy (total* states): sum consumption values
+                    // - Power (actual* states): average power values
+                    // - Others: average
+                    sumValue: { $sum: '$value' },
                     avgValue: { $avg: '$avgValue' },
                     minValue: { $min: '$minValue' },
                     maxValue: { $max: '$maxValue' },
@@ -1010,12 +1273,80 @@ class MeasurementAggregationService {
                         measurementType: '$_id.measurementType',
                         stateType: '$_id.stateType'
                     },
+                    // Aggregation strategy for weekly from daily aggregates:
+                    // - Energy (total* states): sum consumption from daily aggregates
+                    // - Power (actual* states): average power from daily aggregates
+                    // - Others: average
                     value: {
-                        $cond: {
-                            if: { $eq: ['$_id.measurementType', 'Energy'] },
-                            then: '$value',
-                            else: '$avgValue'
-                        }
+                        $cond: [
+                            // Case 1: Energy (total* states) → sum consumption
+                            {
+                                $and: [
+                                    { $eq: ['$_id.measurementType', 'Energy'] },
+                                    {
+                                        $or: [
+                                            { $eq: ['$_id.stateType', 'total'] },
+                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalYear'] },
+                                            { $eq: ['$_id.stateType', 'totalNeg'] },
+                                            { $eq: ['$_id.stateType', 'totalNegDay'] },
+                                            { $eq: ['$_id.stateType', 'totalNegWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalNegMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                // Sum consumption from daily aggregates (ensure non-negative)
+                                $max: [0, '$sumValue']
+                            },
+                            // Case 2: Power (actual* states) → average
+                            {
+                                $cond: [
+                                    {
+                                        $and: [
+                                            { $eq: ['$_id.measurementType', 'Power'] },
+                                            {
+                                                $regexMatch: {
+                                                    input: '$_id.stateType',
+                                                    regex: '^actual'
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    '$avgValue',
+                                    // Case 3: Water/Gas (total* states) → sum consumption
+                                    {
+                                        $cond: [
+                                            {
+                                                $and: [
+                                                    {
+                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
+                                                    },
+                                                    {
+                                                        $or: [
+                                                            { $eq: ['$_id.stateType', 'total'] },
+                                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                            { $eq: ['$_id.stateType', 'totalYear'] }
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                $max: [0, '$sumValue']
+                                            },
+                                            // Case 4: All others → average
+                                            '$avgValue'
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
                     },
                     avgValue: 1,
                     minValue: 1,
@@ -1184,15 +1515,11 @@ class MeasurementAggregationService {
                         stateType: '$meta.stateType',
                         bucket: '$monthStart'
                     },
-                    value: {
-                        $sum: {
-                            $cond: [
-                                { $eq: ['$meta.measurementType', 'Energy'] },
-                                '$value',
-                                0
-                            ]
-                        }
-                    },
+                    // Aggregate from weekly/daily aggregates:
+                    // - Energy (total* states): sum consumption values
+                    // - Power (actual* states): average power values
+                    // - Others: average
+                    sumValue: { $sum: '$value' },
                     avgValue: { $avg: '$avgValue' },
                     minValue: { $min: '$minValue' },
                     maxValue: { $max: '$maxValue' },
@@ -1211,12 +1538,80 @@ class MeasurementAggregationService {
                         measurementType: '$_id.measurementType',
                         stateType: '$_id.stateType'
                     },
+                    // Aggregation strategy for monthly from weekly/daily aggregates:
+                    // - Energy (total* states): sum consumption from weekly/daily aggregates
+                    // - Power (actual* states): average power from weekly/daily aggregates
+                    // - Others: average
                     value: {
-                        $cond: {
-                            if: { $eq: ['$_id.measurementType', 'Energy'] },
-                            then: '$value',
-                            else: '$avgValue'
-                        }
+                        $cond: [
+                            // Case 1: Energy (total* states) → sum consumption
+                            {
+                                $and: [
+                                    { $eq: ['$_id.measurementType', 'Energy'] },
+                                    {
+                                        $or: [
+                                            { $eq: ['$_id.stateType', 'total'] },
+                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalYear'] },
+                                            { $eq: ['$_id.stateType', 'totalNeg'] },
+                                            { $eq: ['$_id.stateType', 'totalNegDay'] },
+                                            { $eq: ['$_id.stateType', 'totalNegWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalNegMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                // Sum consumption from weekly/daily aggregates (ensure non-negative)
+                                $max: [0, '$sumValue']
+                            },
+                            // Case 2: Power (actual* states) → average
+                            {
+                                $cond: [
+                                    {
+                                        $and: [
+                                            { $eq: ['$_id.measurementType', 'Power'] },
+                                            {
+                                                $regexMatch: {
+                                                    input: '$_id.stateType',
+                                                    regex: '^actual'
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    '$avgValue',
+                                    // Case 3: Water/Gas (total* states) → sum consumption
+                                    {
+                                        $cond: [
+                                            {
+                                                $and: [
+                                                    {
+                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
+                                                    },
+                                                    {
+                                                        $or: [
+                                                            { $eq: ['$_id.stateType', 'total'] },
+                                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                            { $eq: ['$_id.stateType', 'totalYear'] }
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                $max: [0, '$sumValue']
+                                            },
+                                            // Case 4: All others → average
+                                            '$avgValue'
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
                     },
                     avgValue: 1,
                     minValue: 1,

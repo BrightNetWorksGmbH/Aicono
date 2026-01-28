@@ -8,6 +8,7 @@ const Sensor = require('../models/Sensor');
 const UserRole = require('../models/UserRole');
 const User = require('../models/User');
 const measurementQueryService = require('./measurementQueryService');
+const analyticsService = require('./analyticsService');
 
 /**
  * Unit normalization helper functions
@@ -83,6 +84,31 @@ function getBaseUnit(measurementType) {
         'Gas': 'm³'
     };
     return baseUnits[measurementType] || '';
+}
+
+/**
+ * Get appropriate stateType for Energy measurements based on report interval
+ * Maps report intervals to corresponding total* stateTypes from Loxone
+ * @param {String} interval - Report interval: 'Daily', 'Weekly', 'Monthly', 'Yearly', or null for arbitrary range
+ * @returns {String|null} StateType to use for Energy queries, or null if interval doesn't map to a total* state
+ */
+function getStateTypeForInterval(interval) {
+    if (!interval) {
+        return null; // Arbitrary range - use Power aggregation method instead
+    }
+    
+    const intervalMap = {
+        'Daily': 'totalDay',
+        'Weekly': 'totalWeek',
+        'Monthly': 'totalMonth',
+        'Yearly': 'totalYear',
+        'daily': 'totalDay',
+        'weekly': 'totalWeek',
+        'monthly': 'totalMonth',
+        'yearly': 'totalYear'
+    };
+    
+    return intervalMap[interval] || null;
 }
 
 /**
@@ -468,8 +494,8 @@ class DashboardDiscoveryService {
             };
         }));
         
-        // Get building KPIs
-        const kpis = await this.getBuildingKPIs(buildingId, startDate, endDate, options);
+        // Get building KPIs and analytics
+        const buildingAnalytics = await this.getBuildingAnalytics(buildingId, startDate, endDate, options);
         
         return {
             _id: building._id,
@@ -483,7 +509,8 @@ class DashboardDiscoveryService {
             room_count: localRooms.length,
             sensor_count: sensors.length,
             floors: floorsWithRooms,
-            kpis,
+            kpis: buildingAnalytics.kpis,
+            analytics: buildingAnalytics.analytics,
             time_range: {
                 start: startDate.toISOString(),
                 end: endDate.toISOString()
@@ -809,7 +836,7 @@ class DashboardDiscoveryService {
      * @param {Array} rawResults - Raw aggregation results from MongoDB
      * @returns {Object} KPIs object with normalized units
      */
-    calculateKPIsFromResults(rawResults) {
+    calculateKPIsFromResults(rawResults, options = {}) {
         // Process results: normalize units and aggregate by measurementType
         const processedResults = new Map();
         
@@ -842,12 +869,19 @@ class DashboardDiscoveryService {
         let totalConsumption = 0;
         let peak = 0;
         let base = 0;
-        let average = 0;
+        let averageEnergy = 0; // Average energy consumption per period (kWh)
+        let averagePower = 0; // Average power (kW)
         let avgQuality = 100;
-        let mainUnit = 'kWh';
         
-        // Find Energy data for total_consumption, base, average
+        // Separate units for energy and power
+        const energyUnit = 'kWh';
+        const powerUnit = 'kW';
+        
+        // Find Energy data for total_consumption, base, averageEnergy
         const energyData = processedResults.get('Energy');
+        // For dashboard arbitrary ranges: calculate energy from Power if no Energy data
+        const powerData = processedResults.get('Power');
+        const usePowerForEnergy = !energyData && powerData && powerData.values.length > 0 && !options.interval;
         // console.log(`[DEBUG] calculateKPIsFromResults:`, {
         //     hasEnergyData: !!energyData,
         //     energyValuesCount: energyData?.values?.length || 0,
@@ -862,9 +896,9 @@ class DashboardDiscoveryService {
             if (validEnergyValues.length > 0) {
                 const energyValues = validEnergyValues;
                 totalConsumption = energyValues.reduce((sum, v) => sum + v, 0);
+                // Base is minimum energy consumption (kWh) from Energy measurements
                 base = Math.min(...energyValues);
-                average = totalConsumption / energyValues.length;
-                mainUnit = energyData.baseUnit || 'kWh';
+                averageEnergy = totalConsumption / energyValues.length;
                 
                 // Calculate quality from Energy measurements
                 const qualitySum = energyData.avgQuality.reduce((sum, q) => sum + q, 0);
@@ -874,30 +908,55 @@ class DashboardDiscoveryService {
                 console.warn(`[KPI] All Energy values were negative (meter resets detected), setting consumption to 0`);
                 totalConsumption = 0;
                 base = 0;
-                average = 0;
-                mainUnit = energyData.baseUnit || 'kWh';
+                averageEnergy = 0;
                 avgQuality = energyData.avgQuality.length > 0 
                     ? energyData.avgQuality.reduce((sum, q) => sum + q, 0) / energyData.avgQuality.length 
                     : 100;
             }
+        } else if (usePowerForEnergy && powerData && powerData.values.length > 0) {
+            // For dashboard arbitrary ranges: calculate energy consumption from Power
+            // Energy (kWh) = Average Power (kW) × Time Duration (hours)
+            const avgPower = powerData.values.reduce((sum, v) => sum + v, 0) / powerData.values.length;
+            const timeDurationHours = options.startDate && options.endDate
+                ? (new Date(options.endDate) - new Date(options.startDate)) / (1000 * 60 * 60)
+                : 0;
+            
+            if (timeDurationHours > 0) {
+                totalConsumption = avgPower * timeDurationHours;
+                // Base is minimum energy consumption (kWh), calculated from minimum power × hours
+                // Note: This differs from breakdown.min for Power (which is in kW) - base is in kWh (energy)
+                base = Math.min(...powerData.values) * timeDurationHours;
+                // Average energy per measurement period = total consumption / number of measurement periods
+                averageEnergy = totalConsumption / powerData.values.length;
+                averagePower = avgPower; // Average power (kW)
+                
+                // Calculate quality from Power measurements
+                const qualitySum = powerData.avgQuality.reduce((sum, q) => sum + q, 0);
+                avgQuality = qualitySum / powerData.avgQuality.length;
+            }
         }
         
-        // Find Power data for peak power (instantaneous maximum)
-        // Peak should be maximum instantaneous power (from Power measurements), not from Energy
-        const powerData = processedResults.get('Power');
+        // Find Power data for peak power (instantaneous maximum) and average power
+        // Peak is maximum instantaneous power (kW) from Power measurements, not from Energy
+        // Note: Peak is in kW (power), while base is in kWh (energy) - they represent different metrics
         if (powerData && powerData.values.length > 0) {
             const powerValues = powerData.values;
-            peak = Math.max(...powerValues);
-            // If we have Power data, update unit to kW for peak
-            if (!mainUnit || mainUnit === 'kWh') {
-                mainUnit = 'kW'; // Peak is in kW (power), not kWh (energy)
+            peak = Math.max(...powerValues); // Maximum instantaneous power (kW)
+            // Calculate average power if not already set
+            if (averagePower === 0) {
+                averagePower = powerValues.reduce((sum, v) => sum + v, 0) / powerValues.length;
             }
         } else if (energyData && energyData.values.length > 0) {
-            // Fallback: use Energy max if no Power data available
+            // Fallback: use Energy max if no Power data available (less ideal, but provides a value)
             peak = Math.max(...energyData.values);
         }
         
-        // Build breakdown for all measurement types
+        // Build breakdown for ALL measurement types found in the data
+        // Includes: Power, Energy, Temperature, Analog, Heating, and any other measurement types that have data
+        // Note: Breakdown shows raw values in their native units (kW for Power, °C for Temperature, m³ for Heating, etc.)
+        // For Power: breakdown.min is in kW (power), while KPIs.base is in kWh (energy) - they represent different metrics
+        // Temperature, Analog, and other non-energy types are included for informational purposes but don't contribute to total_consumption
+        // All measurement types that have data will appear in the breakdown
         for (const [measurementType, data] of processedResults.entries()) {
             const values = data.values;
             if (values.length === 0) continue;
@@ -913,23 +972,58 @@ class DashboardDiscoveryService {
                 measurement_type: measurementType,
                 total: Math.round(total * 1000) / 1000,  // Round to 3 decimals
                 average: Math.round(avg * 1000) / 1000,
-                min: Math.round(min * 1000) / 1000,
-                max: Math.round(max * 1000) / 1000,
+                min: Math.round(min * 1000) / 1000, // Raw min value in native unit (kW for Power, °C for Temperature, etc.)
+                max: Math.round(max * 1000) / 1000, // Raw max value in native unit
                 count: data.count,
-                unit: data.baseUnit
+                unit: data.baseUnit // Native unit for this measurement type
             });
         }
         
-        return {
-            total_consumption: Math.round(totalConsumption * 1000) / 1000,
-            peak: Math.round(peak * 1000) / 1000,
-            base: Math.round(base * 1000) / 1000,
-            average: Math.round(average * 1000) / 1000,
-            average_quality: Math.round(avgQuality * 100) / 100,
-            unit: mainUnit,
-            data_quality_warning: avgQuality < 100,
+        // Return structured KPIs with clear grouping by type (energy/power/quality)
+        // Base calculation note: base is minimum energy consumption (kWh), calculated from Power min × hours
+        // when using Power for energy. Breakdown min for Power shows raw power value (kW), which differs from
+        // base (kWh) - this is expected and correct since base represents energy, not power.
+        const kpis = {
+            // Energy metrics (kWh) - consumption over time period
+            energy: {
+                total_consumption: Math.round(totalConsumption * 1000) / 1000, // Total energy consumed (kWh)
+                average: Math.round(averageEnergy * 1000) / 1000, // Average energy per measurement period (kWh)
+                base: Math.round(base * 1000) / 1000, // Minimum energy consumption (kWh) - calculated from Power min × hours when using Power for energy
+                unit: 'kWh'
+            },
+            // Power metrics (kW) - instantaneous power measurements
+            power: {
+                peak: Math.round(peak * 1000) / 1000, // Maximum instantaneous power (kW)
+                average: Math.round(averagePower * 1000) / 1000, // Average power (kW)
+                unit: 'kW'
+            },
+            // Quality metrics
+            quality: {
+                average: Math.round(avgQuality * 100) / 100, // Average data quality percentage
+                warning: avgQuality < 100 // True if quality issues detected
+            },
+            // Breakdown by measurement type (includes ALL types: Power, Temperature, Heating, Analog, etc.)
+            // All measurement types found in the data are included here
             breakdown: breakdown
         };
+        
+        // Add backward compatibility fields only if explicitly requested (for legacy clients)
+        // This reduces redundancy in the default response
+        if (options.includeLegacyFields) {
+            kpis.total_consumption = kpis.energy.total_consumption;
+            kpis.peak = kpis.power.peak;
+            kpis.base = kpis.energy.base;
+            kpis.average = kpis.energy.average; // Same as energy.average
+            kpis.averagePower = kpis.power.average; // Same as power.average
+            kpis.averageEnergy = kpis.energy.average; // Same as energy.average (redundant with average)
+            kpis.average_quality = kpis.quality.average; // Same as quality.average
+            kpis.unit = energyUnit; // Backward compatibility (defaults to kWh)
+            kpis.energyUnit = energyUnit; // Always 'kWh'
+            kpis.powerUnit = powerUnit; // Always 'kW'
+            kpis.data_quality_warning = kpis.quality.warning; // Same as quality.warning
+        }
+        
+        return kpis;
     }
 
     /**
@@ -958,15 +1052,25 @@ class DashboardDiscoveryService {
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
         
-        // Determine resolution
+        // Determine resolution based on time range AND data age
+        // For week-old data, we need to use hourly/daily aggregates (15-min may be deleted)
         let resolution = 15;
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            if (days > 90) {
+            // Check how old the data is (days since endDate)
+            const daysSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60 * 24);
+            
+            if (days > 90 || daysSinceEndDate > 7) {
+                // Very old data or long periods: use daily aggregates
                 resolution = 1440; // daily
-            } else if (days > 7) {
+            } else if (days > 7 || daysSinceEndDate > 1) {
+                // Week-old data or periods > 7 days: use hourly aggregates
+                // (15-minute aggregates may have been deleted for old data)
                 resolution = 60; // hourly
+            } else {
+                // Recent data (last 7 days): use 15-minute aggregates
+                resolution = 15; // 15-minute
             }
         }
         
@@ -976,8 +1080,37 @@ class DashboardDiscoveryService {
             timestamp: { $gte: startDate, $lt: endDate }
         };
         
+        // Determine stateType filtering (same logic as getBuildingKPIs)
+        const interval = options.interval || null;
+        const energyStateType = getStateTypeForInterval(interval);
+        
         if (options.measurementType) {
             matchStage['meta.measurementType'] = options.measurementType;
+            if (options.measurementType === 'Energy') {
+                if (energyStateType) {
+                    matchStage['meta.stateType'] = energyStateType;
+                } else {
+                    matchStage['meta.measurementType'] = 'Power';
+                    matchStage['meta.stateType'] = { $regex: '^actual' };
+                }
+            } else if (options.measurementType === 'Power') {
+                matchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
+            } else if (options.stateType) {
+                matchStage['meta.stateType'] = options.stateType;
+            }
+        } else {
+            const orConditions = [];
+            
+            if (energyStateType) {
+                orConditions.push({ 'meta.measurementType': 'Energy', 'meta.stateType': energyStateType });
+            } else {
+                orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+            }
+            
+            orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+            orConditions.push({ 'meta.measurementType': { $nin: ['Energy', 'Power'] } });
+            
+            matchStage.$or = orConditions;
         }
         
         const pipeline = [
@@ -996,9 +1129,81 @@ class DashboardDiscoveryService {
             }
         ];
         
-        const rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
-       
-        return this.calculateKPIsFromResults(rawResults);
+        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        
+        // Track which measurement types we've found
+        const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
+        
+        // Try fallback resolutions if:
+        // 1. No results found at all, OR
+        // 2. We're querying all measurement types (no measurementType filter) and might be missing some types
+        const shouldTryFallback = rawResults.length === 0 || (!options.measurementType && foundMeasurementTypes.size < 5);
+        
+        if (shouldTryFallback) {
+            const fallbackResolutions = [];
+            
+            // Determine fallback resolutions based on current resolution
+            if (resolution === 15) {
+                // Try hourly, then daily
+                fallbackResolutions.push(60, 1440);
+            } else if (resolution === 60) {
+                // Try daily
+                fallbackResolutions.push(1440);
+            }
+            
+            // Try each fallback resolution and merge results
+            for (const fallbackResolution of fallbackResolutions) {
+                const fallbackMatchStage = {
+                    ...matchStage,
+                    resolution_minutes: fallbackResolution
+                };
+                // Preserve $or structure if it exists
+                if (matchStage.$or) {
+                    fallbackMatchStage.$or = matchStage.$or;
+                }
+                
+                const fallbackPipeline = [
+                    { $match: fallbackMatchStage },
+                    {
+                        $group: {
+                            _id: {
+                                measurementType: '$meta.measurementType',
+                                unit: '$unit'
+                            },
+                            values: { $push: '$value' },
+                            units: { $first: '$unit' },
+                            avgQuality: { $avg: '$quality' },
+                            count: { $sum: 1 }
+                        }
+                    }
+                ];
+                
+                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                
+                if (fallbackResults.length > 0) {
+                    // Merge fallback results with existing results
+                    // Only add measurement types we haven't found yet
+                    for (const fallbackResult of fallbackResults) {
+                        const measurementType = fallbackResult._id.measurementType;
+                        if (!foundMeasurementTypes.has(measurementType)) {
+                            rawResults.push(fallbackResult);
+                            foundMeasurementTypes.add(measurementType);
+                            console.log(`[DEBUG] getSiteKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
+                        }
+                    }
+                    
+                    // If we had no results initially, use fallback results and stop
+                    if (rawResults.length === 0) {
+                        rawResults = fallbackResults;
+                        console.log(`[DEBUG] getSiteKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                        break; // Found data, stop trying fallbacks
+                    }
+                }
+            }
+        }
+        
+        // Pass time range for energy calculation from Power
+        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval });
     }
 
     /**
@@ -1052,8 +1257,57 @@ class DashboardDiscoveryService {
             timestamp: { $gte: startDate, $lt: endDate }
         };
         
+        // Determine stateType filtering based on options
+        // For reports: use appropriate total* stateType based on interval
+        // For dashboard (arbitrary ranges): use Power (actual* states) for energy calculation
+        const interval = options.interval || null;
+        const energyStateType = getStateTypeForInterval(interval);
+        
         if (options.measurementType) {
             matchStage['meta.measurementType'] = options.measurementType;
+            // For Energy measurements:
+            // - If interval is specified (report): use appropriate total* stateType
+            // - If no interval (dashboard arbitrary range): use Power (actual* states) for calculation
+            if (options.measurementType === 'Energy') {
+                if (energyStateType) {
+                    // Report with fixed interval: use totalDay/totalWeek/totalMonth/totalYear
+                    matchStage['meta.stateType'] = energyStateType;
+                } else {
+                    // Dashboard arbitrary range: use Power (actual* states) for energy calculation
+                    // We'll calculate energy from Power data: energy = average_power × hours
+                    matchStage['meta.measurementType'] = 'Power';
+                    matchStage['meta.stateType'] = { $regex: '^actual' }; // actual, actual0, actual1, etc.
+                }
+            } else if (options.measurementType === 'Power') {
+                // Power measurements: use actual* states
+                matchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
+            } else if (options.stateType) {
+                // Allow explicit stateType for other measurement types
+                matchStage['meta.stateType'] = options.stateType;
+            }
+        } else {
+            // When querying all measurement types (no measurementType filter):
+            // - Energy: use total* states if interval specified, otherwise use Power (actual*)
+            // - Power: use actual* states
+            // - Others (Temperature, Analog, Heating, etc.): no stateType filter - include ALL types
+            const orConditions = [];
+            
+            if (energyStateType) {
+                // Report: Energy with total* stateType
+                orConditions.push({ 'meta.measurementType': 'Energy', 'meta.stateType': energyStateType });
+            } else {
+                // Dashboard: Use Power (actual* states) for energy calculation
+                orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+            }
+            
+            // Power measurements: actual* states
+            orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+            
+            // Other measurement types (Temperature, Analog, Heating, etc.): no stateType filter
+            // This ensures ALL measurement types are included in the breakdown
+            orConditions.push({ 'meta.measurementType': { $nin: ['Energy', 'Power'] } });
+            
+            matchStage.$or = orConditions;
         }
         
         const pipeline = [
@@ -1083,10 +1337,16 @@ class DashboardDiscoveryService {
         //     resultTypes: rawResults.map(r => r._id.measurementType)
         // });
         
-        // If no results found, try fallback resolutions
-        // This handles cases where aggregates at the preferred resolution don't exist yet
-        // Always try fallback, even if resolution was explicitly set (for reports)
-        if (rawResults.length === 0) {
+        // Track which measurement types we've found
+        const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
+        
+        // Try fallback resolutions if:
+        // 1. No results found at all, OR
+        // 2. We're querying all measurement types (no measurementType filter) and might be missing some types
+        // This ensures we find Temperature, Analog, and other types that might be at different resolutions
+        const shouldTryFallback = rawResults.length === 0 || (!options.measurementType && foundMeasurementTypes.size < 5);
+        
+        if (shouldTryFallback) {
             const fallbackResolutions = [];
             
             // Determine fallback resolutions based on current resolution
@@ -1098,12 +1358,16 @@ class DashboardDiscoveryService {
                 fallbackResolutions.push(1440);
             }
             
-            // Try each fallback resolution
+            // Try each fallback resolution and merge results
             for (const fallbackResolution of fallbackResolutions) {
                 const fallbackMatchStage = {
                     ...matchStage,
                     resolution_minutes: fallbackResolution
                 };
+                // Preserve $or structure if it exists
+                if (matchStage.$or) {
+                    fallbackMatchStage.$or = matchStage.$or;
+                }
                 
                 const fallbackPipeline = [
                     { $match: fallbackMatchStage },
@@ -1121,15 +1385,134 @@ class DashboardDiscoveryService {
                     }
                 ];
                 
-                rawResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
-                if (rawResults.length > 0) {
-                    console.log(`[DEBUG] getBuildingKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
-                    break; // Found data, stop trying fallbacks
+                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                
+                if (fallbackResults.length > 0) {
+                    // Merge fallback results with existing results
+                    // Only add measurement types we haven't found yet
+                    for (const fallbackResult of fallbackResults) {
+                        const measurementType = fallbackResult._id.measurementType;
+                        if (!foundMeasurementTypes.has(measurementType)) {
+                            rawResults.push(fallbackResult);
+                            foundMeasurementTypes.add(measurementType);
+                            console.log(`[DEBUG] getBuildingKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
+                        }
+                    }
+                    
+                    // If we had no results initially, use fallback results and stop
+                    if (rawResults.length === 0) {
+                        rawResults = fallbackResults;
+                        console.log(`[DEBUG] getBuildingKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                        break; // Found data, stop trying fallbacks
+                    }
                 }
             }
         }
         
-        return this.calculateKPIsFromResults(rawResults);
+        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval: options.interval });
+    }
+
+    /**
+     * Get building analytics (KPIs + additional analytics)
+     * Combines KPIs with analytics like EUI, per capita, benchmark, etc.
+     * @param {String} buildingId - Building ID
+     * @param {Date} startDate - Start date
+     * @param {Date} endDate - End date
+     * @param {Object} options - Query options (interval, resolution, etc.)
+     * @returns {Promise<Object>} Combined KPIs and analytics object
+     */
+    async getBuildingAnalytics(buildingId, startDate, endDate, options = {}) {
+        // Get building object
+        const building = await Building.findById(buildingId);
+        if (!building) {
+            throw new Error(`Building with ID ${buildingId} not found`);
+        }
+
+        // Get KPIs
+        const kpis = await this.getBuildingKPIs(buildingId, startDate, endDate, options);
+
+        // Prepare time range object for analytics
+        const timeRange = {
+            startDate,
+            endDate
+        };
+
+        // Generate analytics (handle errors gracefully)
+        const analytics = {};
+
+        try {
+            analytics.eui = await analyticsService.generateEUI(building, kpis, timeRange, buildingId);
+        } catch (error) {
+            console.warn(`[DASHBOARD] Error generating EUI for building ${buildingId}:`, error.message);
+            analytics.eui = { available: false, message: error.message };
+        }
+
+        try {
+            analytics.perCapita = await analyticsService.generatePerCapitaConsumption(building, kpis, buildingId);
+        } catch (error) {
+            console.warn(`[DASHBOARD] Error generating per capita consumption for building ${buildingId}:`, error.message);
+            analytics.perCapita = { available: false, message: error.message };
+        }
+
+        try {
+            analytics.benchmark = await analyticsService.generateBenchmarkComparison(building, kpis, timeRange, buildingId);
+        } catch (error) {
+            console.warn(`[DASHBOARD] Error generating benchmark comparison for building ${buildingId}:`, error.message);
+            analytics.benchmark = { available: false, message: error.message };
+        }
+
+        try {
+            analytics.inefficientUsage = await analyticsService.generateInefficientUsage(buildingId, timeRange, options.interval || null, this);
+        } catch (error) {
+            console.warn(`[DASHBOARD] Error generating inefficient usage for building ${buildingId}:`, error.message);
+            analytics.inefficientUsage = { available: false, message: error.message };
+        }
+
+        try {
+            analytics.anomalies = await analyticsService.generateAnomalies(buildingId, timeRange);
+        } catch (error) {
+            console.warn(`[DASHBOARD] Error generating anomalies for building ${buildingId}:`, error.message);
+            analytics.anomalies = { total: 0, bySeverity: { High: 0, Medium: 0, Low: 0 }, anomalies: [] };
+        }
+
+        try {
+            analytics.dataQuality = analyticsService.generateDataQualityReport(kpis);
+        } catch (error) {
+            console.warn(`[DASHBOARD] Error generating data quality report for building ${buildingId}:`, error.message);
+            analytics.dataQuality = { available: false, message: error.message };
+        }
+
+        // Always include time-based analysis (works with Power data for arbitrary ranges)
+        // generateTimeBasedAnalysis can work without interval - it uses Power data when interval is null
+        try {
+            analytics.timeBasedAnalysis = await analyticsService.generateTimeBasedAnalysis(
+                buildingId, 
+                timeRange, 
+                options.interval || null
+            );
+        } catch (error) {
+            console.warn(`[DASHBOARD] Error generating time-based analysis for building ${buildingId}:`, error.message);
+            analytics.timeBasedAnalysis = { available: false, message: error.message };
+        }
+
+        try {
+            analytics.buildingComparison = await analyticsService.generateBuildingComparison(buildingId, timeRange, options.interval || null, this);
+        } catch (error) {
+            console.warn(`[DASHBOARD] Error generating building comparison for building ${buildingId}:`, error.message);
+            analytics.buildingComparison = { available: false, message: error.message };
+        }
+
+        try {
+            analytics.temperatureAnalysis = await analyticsService.generateTemperatureAnalysis(buildingId, timeRange);
+        } catch (error) {
+            console.warn(`[DASHBOARD] Error generating temperature analysis for building ${buildingId}:`, error.message);
+            analytics.temperatureAnalysis = { available: false, message: error.message };
+        }
+
+        return {
+            kpis,
+            analytics
+        };
     }
 
     /**
@@ -1180,8 +1563,37 @@ class DashboardDiscoveryService {
             timestamp: { $gte: startDate, $lt: endDate }
         };
         
+        // Determine stateType filtering based on options (same logic as getBuildingKPIs)
+        const interval = options.interval || null;
+        const energyStateType = getStateTypeForInterval(interval);
+        
         if (options.measurementType) {
             matchStage['meta.measurementType'] = options.measurementType;
+            if (options.measurementType === 'Energy') {
+                if (energyStateType) {
+                    matchStage['meta.stateType'] = energyStateType;
+                } else {
+                    matchStage['meta.measurementType'] = 'Power';
+                    matchStage['meta.stateType'] = { $regex: '^actual' };
+                }
+            } else if (options.measurementType === 'Power') {
+                matchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
+            } else if (options.stateType) {
+                matchStage['meta.stateType'] = options.stateType;
+            }
+        } else {
+            const orConditions = [];
+            
+            if (energyStateType) {
+                orConditions.push({ 'meta.measurementType': 'Energy', 'meta.stateType': energyStateType });
+            } else {
+                orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+            }
+            
+            orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+            orConditions.push({ 'meta.measurementType': { $nin: ['Energy', 'Power'] } });
+            
+            matchStage.$or = orConditions;
         }
         
         const pipeline = [
@@ -1200,8 +1612,80 @@ class DashboardDiscoveryService {
             }
         ];
         
-        const rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
-        return this.calculateKPIsFromResults(rawResults);
+        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        
+        // Track which measurement types we've found
+        const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
+        
+        // Try fallback resolutions if:
+        // 1. No results found at all, OR
+        // 2. We're querying all measurement types (no measurementType filter) and might be missing some types
+        const shouldTryFallback = rawResults.length === 0 || (!options.measurementType && foundMeasurementTypes.size < 5);
+        
+        if (shouldTryFallback) {
+            const fallbackResolutions = [];
+            
+            // Determine fallback resolutions based on current resolution
+            if (resolution === 15) {
+                // Try hourly, then daily
+                fallbackResolutions.push(60, 1440);
+            } else if (resolution === 60) {
+                // Try daily
+                fallbackResolutions.push(1440);
+            }
+            
+            // Try each fallback resolution and merge results
+            for (const fallbackResolution of fallbackResolutions) {
+                const fallbackMatchStage = {
+                    ...matchStage,
+                    resolution_minutes: fallbackResolution
+                };
+                // Preserve $or structure if it exists
+                if (matchStage.$or) {
+                    fallbackMatchStage.$or = matchStage.$or;
+                }
+                
+                const fallbackPipeline = [
+                    { $match: fallbackMatchStage },
+                    {
+                        $group: {
+                            _id: {
+                                measurementType: '$meta.measurementType',
+                                unit: '$unit'
+                            },
+                            values: { $push: '$value' },
+                            units: { $first: '$unit' },
+                            avgQuality: { $avg: '$quality' },
+                            count: { $sum: 1 }
+                        }
+                    }
+                ];
+                
+                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                
+                if (fallbackResults.length > 0) {
+                    // Merge fallback results with existing results
+                    // Only add measurement types we haven't found yet
+                    for (const fallbackResult of fallbackResults) {
+                        const measurementType = fallbackResult._id.measurementType;
+                        if (!foundMeasurementTypes.has(measurementType)) {
+                            rawResults.push(fallbackResult);
+                            foundMeasurementTypes.add(measurementType);
+                            console.log(`[DEBUG] getRoomKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
+                        }
+                    }
+                    
+                    // If we had no results initially, use fallback results and stop
+                    if (rawResults.length === 0) {
+                        rawResults = fallbackResults;
+                        console.log(`[DEBUG] getRoomKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                        break; // Found data, stop trying fallbacks
+                    }
+                }
+            }
+        }
+        
+        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval: options.interval });
     }
 
     /**
@@ -1243,8 +1727,37 @@ class DashboardDiscoveryService {
             timestamp: { $gte: startDate, $lt: endDate }
         };
         
+        // Determine stateType filtering (same logic as getBuildingKPIs)
+        const interval = options.interval || null;
+        const energyStateType = getStateTypeForInterval(interval);
+        
         if (options.measurementType) {
             matchStage['meta.measurementType'] = options.measurementType;
+            if (options.measurementType === 'Energy') {
+                if (energyStateType) {
+                    matchStage['meta.stateType'] = energyStateType;
+                } else {
+                    matchStage['meta.measurementType'] = 'Power';
+                    matchStage['meta.stateType'] = { $regex: '^actual' };
+                }
+            } else if (options.measurementType === 'Power') {
+                matchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
+            } else if (options.stateType) {
+                matchStage['meta.stateType'] = options.stateType;
+            }
+        } else {
+            const orConditions = [];
+            
+            if (energyStateType) {
+                orConditions.push({ 'meta.measurementType': 'Energy', 'meta.stateType': energyStateType });
+            } else {
+                orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+            }
+            
+            orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+            orConditions.push({ 'meta.measurementType': { $nin: ['Energy', 'Power'] } });
+            
+            matchStage.$or = orConditions;
         }
         
         const pipeline = [
@@ -1263,8 +1776,81 @@ class DashboardDiscoveryService {
             }
         ];
         
-        const rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
-        return this.calculateKPIsFromResults(rawResults);
+        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        
+        // Track which measurement types we've found
+        const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
+        
+        // Try fallback resolutions if:
+        // 1. No results found at all, OR
+        // 2. We're querying all measurement types (no measurementType filter) and might be missing some types
+        const shouldTryFallback = rawResults.length === 0 || (!options.measurementType && foundMeasurementTypes.size < 5);
+        
+        if (shouldTryFallback) {
+            const fallbackResolutions = [];
+            
+            // Determine fallback resolutions based on current resolution
+            if (resolution === 15) {
+                // Try hourly, then daily
+                fallbackResolutions.push(60, 1440);
+            } else if (resolution === 60) {
+                // Try daily
+                fallbackResolutions.push(1440);
+            }
+            
+            // Try each fallback resolution and merge results
+            for (const fallbackResolution of fallbackResolutions) {
+                const fallbackMatchStage = {
+                    ...matchStage,
+                    resolution_minutes: fallbackResolution
+                };
+                // Preserve $or structure if it exists
+                if (matchStage.$or) {
+                    fallbackMatchStage.$or = matchStage.$or;
+                }
+                
+                const fallbackPipeline = [
+                    { $match: fallbackMatchStage },
+                    {
+                        $group: {
+                            _id: {
+                                measurementType: '$meta.measurementType',
+                                unit: '$unit'
+                            },
+                            values: { $push: '$value' },
+                            units: { $first: '$unit' },
+                            avgQuality: { $avg: '$quality' },
+                            count: { $sum: 1 }
+                        }
+                    }
+                ];
+                
+                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                
+                if (fallbackResults.length > 0) {
+                    // Merge fallback results with existing results
+                    // Only add measurement types we haven't found yet
+                    for (const fallbackResult of fallbackResults) {
+                        const measurementType = fallbackResult._id.measurementType;
+                        if (!foundMeasurementTypes.has(measurementType)) {
+                            rawResults.push(fallbackResult);
+                            foundMeasurementTypes.add(measurementType);
+                            console.log(`[DEBUG] getSensorKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
+                        }
+                    }
+                    
+                    // If we had no results initially, use fallback results and stop
+                    if (rawResults.length === 0) {
+                        rawResults = fallbackResults;
+                        console.log(`[DEBUG] getSensorKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                        break; // Found data, stop trying fallbacks
+                    }
+                }
+            }
+        }
+        
+        // Pass time range for energy calculation from Power
+        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval });
     }
 
     /**
