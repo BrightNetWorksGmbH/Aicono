@@ -202,7 +202,10 @@ exports.updateBuilding = asyncHandler(async (req, res) => {
   }
 
   // Validate reportingRecipients if provided
-  // Can be array of objects (with optional reportConfig) or array of string IDs
+  // Can be array of:
+  // 1. String IDs: "696f21f9d8e3e4af1f137463"
+  // 2. Objects with id field: { id: "696f21f9d8e3e4af1f137463", reportConfig: [...] }
+  // 3. Full recipient objects: { name, email, phone?, reportConfig? }
   if (filteredData.reportingRecipients !== undefined) {
     if (!Array.isArray(filteredData.reportingRecipients)) {
       return res.status(400).json({
@@ -214,27 +217,52 @@ exports.updateBuilding = asyncHandler(async (req, res) => {
     // Validate each item in array
     for (const recipient of filteredData.reportingRecipients) {
       if (typeof recipient === 'string') {
-        // Valid - it's an ID reference
+        // Valid - it's an ID reference (existing recipient without config)
       } else if (typeof recipient === 'object' && recipient !== null) {
-        // Validate email format if provided
-        if (recipient.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.email)) {
+        // Check if it's an object with id field (existing recipient with optional config)
+        if (recipient.id !== undefined) {
+          // Validate id is a string
+          if (typeof recipient.id !== 'string') {
+            return res.status(400).json({
+              success: false,
+              error: 'id field in reportingRecipients must be a string'
+            });
+          }
+          
+          // Validate reportConfig if provided
+          if (recipient.reportConfig !== undefined) {
+            const error = validateReportConfigsArray(recipient.reportConfig, 'reportConfig in reportingRecipients');
+            if (error) {
+              return res.status(400).json(error);
+            }
+          }
+        } else if (recipient.email !== undefined) {
+          // It's a full recipient object (new recipient)
+          // Validate email format if provided
+          if (recipient.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.email)) {
+            return res.status(400).json({
+              success: false,
+              error: 'Invalid email format in reportingRecipients'
+            });
+          }
+          
+          // Validate reportConfig if provided (recipient-specific configs)
+          if (recipient.reportConfig !== undefined) {
+            const error = validateReportConfigsArray(recipient.reportConfig, 'reportConfig in reportingRecipients');
+            if (error) {
+              return res.status(400).json(error);
+            }
+          }
+        } else {
           return res.status(400).json({
             success: false,
-            error: 'Invalid email format in reportingRecipients'
+            error: 'Each item in reportingRecipients must be either a string ID, an object with id field (and optional reportConfig), or an object with name, email, optional phone, and optional reportConfig array'
           });
-        }
-        
-        // Validate reportConfig if provided (recipient-specific configs)
-        if (recipient.reportConfig !== undefined) {
-          const error = validateReportConfigsArray(recipient.reportConfig, 'reportConfig in reportingRecipients');
-          if (error) {
-            return res.status(400).json(error);
-          }
         }
       } else {
         return res.status(400).json({
           success: false,
-          error: 'Each item in reportingRecipients must be either a string ID or an object with name, email, optional phone, and optional reportConfig array'
+          error: 'Each item in reportingRecipients must be either a string ID, an object with id field (and optional reportConfig), or an object with name, email, optional phone, and optional reportConfig array'
         });
       }
     }

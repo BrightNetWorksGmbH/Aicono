@@ -25,45 +25,110 @@ function normalizeUUID(uuid) {
 // Get measurement type from sensor, control type, and category
 /**
  * Determine measurement type from sensor, control type, category, and format
- * Priority: 1. Format string (for Meter controls - most reliable), 2. Category type, 3. Category name, 4. Control type
- * Note: Format strings take priority because Meter controls can be in any category but the format indicates what they measure
+ * Priority: 1. StateType + Format string (for Meter controls - most reliable), 2. Category type, 3. Category name, 4. Control type
+ * Note: For Meter controls, stateType determines Power vs Energy:
+ * - actual* states (actual, actual0, actual1, etc.) = Power (instantaneous, W/kW)
+ * - total* states (total, totalDay, totalWeek, etc.) = Energy (cumulative, Wh/kWh)
  */
 function getMeasurementType(sensor, controlType, categoryInfo = null, controlData = null, stateType = null) {
-    // Priority 1: Check format string for Meter controls FIRST (most reliable indicator)
+    // Priority 1: For Meter controls, stateType + format string combination is most reliable
     // Meter controls can measure: Energy (kW/kWh), Temperature (°C), Gas/Water (m³/L), etc.
-    // Format strings are more reliable than category names for determining what a meter actually measures
     if (controlType === 'Meter' && controlData && controlData.details) {
-        // Choose format based on stateType: actualFormat for "actual", totalFormat for "total*" states
-        let formatStr = '';
-        if (stateType && stateType !== 'actual' && (stateType.startsWith('total') || stateType.startsWith('totalNeg'))) {
-            formatStr = (controlData.details.totalFormat || controlData.details.actualFormat || '').toLowerCase();
-        } else {
-            formatStr = (controlData.details.actualFormat || controlData.details.totalFormat || '').toLowerCase();
-        }
-        
-        // Temperature meter (format string is definitive)
-        if (formatStr.includes('°c') || formatStr.includes('°f')) {
-            return 'Temperature';
-        }
-        
-        // Water/Gas meter
-        if (formatStr.includes('m³') || formatStr.includes('m^3') || formatStr.includes(' l') || formatStr.includes('liter')) {
-            // If in heating category, it's heating
-            if (categoryInfo && categoryInfo.name && 
-                (categoryInfo.name.toLowerCase().includes('heizung') || categoryInfo.name.toLowerCase().includes('heating'))) {
-                return 'Heating';
+        // CRITICAL: StateType determines Power vs Energy for Meter controls
+        // actual* states = Power (instantaneous), total* states = Energy (cumulative)
+        if (stateType && stateType.startsWith('actual')) {
+            // actual, actual0, actual1, etc. → Power (instantaneous)
+            // Choose format based on stateType: actualFormat for "actual*" states
+            let formatStr = (controlData.details.actualFormat || controlData.details.totalFormat || '').toLowerCase();
+            
+            // Temperature meter (format string is definitive)
+            if (formatStr.includes('°c') || formatStr.includes('°f')) {
+                return 'Temperature';
             }
-            return 'Water';
-        }
-        
-        // Power meter (kW only, no kWh in format)
-        if (formatStr.includes('kw') && !formatStr.includes('kwh')) {
-            return 'Power';
-        }
-        
-        // Energy meter (kWh or Wh in format)
-        if (formatStr.includes('kwh') || formatStr.includes('wh')) {
-            return 'Energy';
+            
+            // Water/Gas meter
+            if (formatStr.includes('m³') || formatStr.includes('m^3') || formatStr.includes(' l') || formatStr.includes('liter')) {
+                // If in heating category, it's heating
+                if (categoryInfo && categoryInfo.name && 
+                    (categoryInfo.name.toLowerCase().includes('heizung') || categoryInfo.name.toLowerCase().includes('heating'))) {
+                    return 'Heating';
+                }
+                return 'Water';
+            }
+            
+            // Power meter: W, kW (but NOT kWh/Wh)
+            // Check for W or kW, but exclude kWh/Wh
+            if ((formatStr.includes('w') || formatStr.includes('kw')) && 
+                !formatStr.includes('kwh') && !formatStr.includes('wh')) {
+                return 'Power';
+            }
+            
+            // If format contains kWh/Wh, it's still Power for actual* states (unusual but possible)
+            // The stateType takes precedence: actual* = Power
+            if (formatStr.includes('kwh') || formatStr.includes('wh')) {
+                // This is unusual - actual state with energy format, but stateType says Power
+                // Trust stateType: actual* = Power
+                return 'Power';
+            }
+        } else if (stateType && (stateType.startsWith('total') || stateType.startsWith('totalNeg'))) {
+            // total, totalDay, totalWeek, totalMonth, totalYear, totalNeg, etc. → Energy (cumulative)
+            // Choose format based on stateType: totalFormat for "total*" states
+            let formatStr = (controlData.details.totalFormat || controlData.details.actualFormat || '').toLowerCase();
+            
+            // Temperature meter (format string is definitive)
+            if (formatStr.includes('°c') || formatStr.includes('°f')) {
+                return 'Temperature';
+            }
+            
+            // Water/Gas meter
+            if (formatStr.includes('m³') || formatStr.includes('m^3') || formatStr.includes(' l') || formatStr.includes('liter')) {
+                // If in heating category, it's heating
+                if (categoryInfo && categoryInfo.name && 
+                    (categoryInfo.name.toLowerCase().includes('heizung') || categoryInfo.name.toLowerCase().includes('heating'))) {
+                    return 'Heating';
+                }
+                return 'Water';
+            }
+            
+            // Energy meter: kWh or Wh in format
+            if (formatStr.includes('kwh') || formatStr.includes('wh')) {
+                return 'Energy';
+            }
+            
+            // If format is W/kW (not kWh), but stateType is total*, it's still Energy (cumulative counter)
+            // The stateType takes precedence: total* = Energy
+            if (formatStr.includes('w') || formatStr.includes('kw')) {
+                return 'Energy';
+            }
+        } else {
+            // No stateType or unknown stateType - fall back to format string analysis
+            let formatStr = (controlData.details.actualFormat || controlData.details.totalFormat || '').toLowerCase();
+            
+            // Temperature meter (format string is definitive)
+            if (formatStr.includes('°c') || formatStr.includes('°f')) {
+                return 'Temperature';
+            }
+            
+            // Water/Gas meter
+            if (formatStr.includes('m³') || formatStr.includes('m^3') || formatStr.includes(' l') || formatStr.includes('liter')) {
+                // If in heating category, it's heating
+                if (categoryInfo && categoryInfo.name && 
+                    (categoryInfo.name.toLowerCase().includes('heizung') || categoryInfo.name.toLowerCase().includes('heating'))) {
+                    return 'Heating';
+                }
+                return 'Water';
+            }
+            
+            // Power meter: W, kW (but NOT kWh/Wh)
+            if ((formatStr.includes('w') || formatStr.includes('kw')) && 
+                !formatStr.includes('kwh') && !formatStr.includes('wh')) {
+                return 'Power';
+            }
+            
+            // Energy meter: kWh or Wh in format
+            if (formatStr.includes('kwh') || formatStr.includes('wh')) {
+                return 'Energy';
+            }
         }
     }
     

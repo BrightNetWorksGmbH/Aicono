@@ -153,9 +153,13 @@ class ReportEmailService {
 
     // Summary
     text += `SUMMARY\n`;
-    text += `Total Consumption: ${kpis.total_consumption} ${kpis.unit}\n`;
-    text += `Average: ${kpis.average} ${kpis.unit}\n`;
-    text += `Peak: ${kpis.peak} ${kpis.unit}\n\n`;
+    const energyUnit = kpis.energyUnit || 'kWh';
+    const powerUnit = kpis.powerUnit || 'kW';
+    const averagePower = kpis.averagePower || 0;
+    const averageEnergy = kpis.averageEnergy || kpis.average || 0;
+    text += `Total Energy: ${(kpis.total_consumption || 0).toFixed(3)} ${energyUnit}\n`;
+    text += `Average Power: ${(averagePower > 0 ? averagePower : averageEnergy).toFixed(3)} ${averagePower > 0 ? powerUnit : energyUnit}\n`;
+    text += `Peak Power: ${(kpis.peak || 0).toFixed(3)} ${powerUnit}\n\n`;
 
     // Content sections
     for (const contentType of reportContents) {
@@ -183,28 +187,36 @@ class ReportEmailService {
 
   /**
    * Format summary section
+   * Shows key metrics with proper units and clear labels
    */
   formatSummarySection(reportData, building) {
     const { kpis } = reportData;
+    const energyUnit = kpis.energyUnit || 'kWh';
+    const powerUnit = kpis.powerUnit || 'kW';
+    const totalEnergy = kpis.total_consumption || 0;
+    const averageEnergy = kpis.averageEnergy || kpis.average || 0;
+    const averagePower = kpis.averagePower || 0;
+    const peakPower = kpis.peak || 0;
+    
     return `
       <div class="info-box">
         <h3 style="color: #214A59; margin-top: 0;">Summary</h3>
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Total Consumption:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${kpis.total_consumption} ${kpis.unit}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Total Energy:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${totalEnergy.toFixed(3)} ${energyUnit}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Average:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${kpis.average} ${kpis.unit}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Average Power:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${averagePower > 0 ? averagePower.toFixed(3) : averageEnergy.toFixed(3)} ${averagePower > 0 ? powerUnit : energyUnit}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Peak:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${kpis.peak} ${kpis.unit}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Peak Power:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${peakPower.toFixed(3)} ${powerUnit}</td>
           </tr>
           <tr>
             <td style="padding: 8px;"><strong>Data Quality:</strong></td>
-            <td style="padding: 8px;">${kpis.average_quality}% ${kpis.data_quality_warning ? '⚠️' : '✓'}</td>
+            <td style="padding: 8px;">${kpis.average_quality || 100}% ${kpis.data_quality_warning ? '⚠️' : '✓'}</td>
           </tr>
         </table>
       </div>
@@ -216,23 +228,56 @@ class ReportEmailService {
    */
   formatContentSection(contentType, content) {
     switch (contentType) {
-      case 'TotalConsumption':
+      case 'TotalConsumption': {
+        // Use explicit units for clarity
+        const totalEnergy = content.totalConsumption || 0;
+        const totalEnergyUnit = content.totalConsumptionUnit || content.energyUnit || 'kWh';
+        const avgEnergy = content.averageEnergy || content.average || 0;
+        const avgEnergyUnit = content.averageEnergyUnit || content.energyUnit || 'kWh';
+        const avgPower = content.averagePower || 0;
+        const avgPowerUnit = content.averagePowerUnit || content.powerUnit || 'kW';
+        const peakPower = content.peak || 0;
+        const peakPowerUnit = content.peakUnit || content.powerUnit || 'kW';
+        
         return `
           <div class="info-box">
-            <h3 style="color: #214A59; margin-top: 0;">Total Consumption</h3>
-            <p><strong>Total:</strong> ${content.totalConsumption} ${content.unit}</p>
-            <p><strong>Average:</strong> ${content.average} ${content.unit}</p>
-            <p><strong>Peak:</strong> ${content.peak} ${content.unit}</p>
+            <h3 style="color: #214A59; margin-top: 0;">Energy & Power Overview</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Total Energy:</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${totalEnergy.toFixed(3)} ${totalEnergyUnit}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Average Power:</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${avgPower > 0 ? avgPower.toFixed(3) : avgEnergy.toFixed(3)} ${avgPower > 0 ? avgPowerUnit : avgEnergyUnit}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px;"><strong>Peak Power:</strong></td>
+                <td style="padding: 8px;">${peakPower.toFixed(3)} ${peakPowerUnit}</td>
+              </tr>
+            </table>
           </div>
         `;
+      }
 
       case 'ConsumptionByRoom':
         if (!content.rooms || content.rooms.length === 0) {
           return `<div class="info-box"><p>No room data available.</p></div>`;
         }
-        let roomsHtml = '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;"><tr style="background: #f8f9fa;"><th style="padding: 8px; text-align: left;">Room</th><th style="padding: 8px; text-align: right;">Consumption</th><th style="padding: 8px; text-align: right;">Average</th></tr>';
+        let roomsHtml = '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;"><tr style="background: #f8f9fa;"><th style="padding: 8px; text-align: left;">Room</th><th style="padding: 8px; text-align: right;">Energy</th><th style="padding: 8px; text-align: right;">Avg Energy</th><th style="padding: 8px; text-align: right;">Peak Power</th></tr>';
         content.rooms.slice(0, 10).forEach(room => {
-          roomsHtml += `<tr><td style="padding: 8px; border-bottom: 1px solid #eee;">${room.roomName}</td><td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">${room.consumption} ${room.unit}</td><td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">${room.average} ${room.unit}</td></tr>`;
+          const consumption = room.consumption || 0;
+          const consumptionUnit = room.consumptionUnit || room.energyUnit || room.unit || 'kWh';
+          const avgEnergy = room.averageEnergy || room.average || 0;
+          const avgEnergyUnit = room.averageEnergyUnit || room.energyUnit || room.unit || 'kWh';
+          const peak = room.peak || 0;
+          const peakUnit = room.peakUnit || room.powerUnit || 'kW';
+          roomsHtml += `<tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${room.roomName}</td>
+            <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">${consumption.toFixed(3)} ${consumptionUnit}</td>
+            <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">${avgEnergy.toFixed(3)} ${avgEnergyUnit}</td>
+            <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">${peak.toFixed(3)} ${peakUnit}</td>
+          </tr>`;
         });
         roomsHtml += '</table>';
         return `
@@ -242,15 +287,20 @@ class ReportEmailService {
           </div>
         `;
 
-      case 'PeakLoads':
+      case 'PeakLoads': {
+        const peakPowerVal = content.peak || 0;
+        const peakPowerUnitVal = content.peakUnit || content.powerUnit || content.unit || 'kW';
+        const avgPowerVal = content.average || 0;
+        const avgPowerUnitVal = content.averageUnit || content.powerUnit || content.unit || 'kW';
         return `
           <div class="info-box">
             <h3 style="color: #214A59; margin-top: 0;">Peak Loads</h3>
-            <p><strong>Peak:</strong> ${content.peak} ${content.unit}</p>
-            <p><strong>Average:</strong> ${content.average} ${content.unit}</p>
+            <p><strong>Peak Power:</strong> ${peakPowerVal.toFixed(3)} ${peakPowerUnitVal}</p>
+            <p><strong>Average Power:</strong> ${avgPowerVal.toFixed(3)} ${avgPowerUnitVal}</p>
             ${content.peakToAverageRatio ? `<p><strong>Peak to Average Ratio:</strong> ${content.peakToAverageRatio}x</p>` : ''}
           </div>
         `;
+      }
 
       case 'MeasurementTypeBreakdown':
         if (!content.breakdown || content.breakdown.length === 0) {
@@ -311,11 +361,15 @@ class ReportEmailService {
         `;
 
       case 'InefficientUsage':
+        const baseLoad = content.baseLoad || 0;
+        const baseLoadUnit = content.baseLoadUnit || content.energyUnit || 'kWh';
+        const avgLoad = content.averageLoad || 0;
+        const avgLoadUnit = content.averageLoadUnit || content.energyUnit || 'kWh';
         return `
           <div class="info-box">
             <h3 style="color: #214A59; margin-top: 0;">Inefficient Usage Analysis</h3>
-            <p><strong>Base Load:</strong> ${content.baseLoad} kWh</p>
-            <p><strong>Average Load:</strong> ${content.averageLoad} kWh</p>
+            <p><strong>Base Energy Load:</strong> ${baseLoad.toFixed(3)} ${baseLoadUnit}</p>
+            <p><strong>Average Energy Load:</strong> ${avgLoad.toFixed(3)} ${avgLoadUnit}</p>
             ${content.baseToAverageRatio ? `<p><strong>Base to Average Ratio:</strong> ${content.baseToAverageRatio}</p>` : ''}
             <p><strong>Status:</strong> ${content.inefficientUsageDetected ? '⚠️ ' + content.message : '✓ ' + content.message}</p>
           </div>
@@ -339,13 +393,28 @@ class ReportEmailService {
         `;
 
       case 'PeriodComparison':
+        const currentConsumption = content.current.consumption || 0;
+        const currentConsumptionUnit = content.current.consumptionUnit || content.current.energyUnit || 'kWh';
+        const previousConsumption = content.previous.consumption || 0;
+        const previousConsumptionUnit = content.previous.consumptionUnit || content.previous.energyUnit || 'kWh';
+        const changeConsumption = content.change.consumption || 0;
+        const changeConsumptionUnit = content.change.consumptionUnit || 'kWh';
+        const currentPeak = content.current.peak || 0;
+        const currentPeakUnit = content.current.peakUnit || content.current.powerUnit || 'kW';
+        const previousPeak = content.previous.peak || 0;
+        const previousPeakUnit = content.previous.peakUnit || content.previous.powerUnit || 'kW';
+        const changePeak = content.change.peak || 0;
+        const changePeakUnit = content.change.peakUnit || 'kW';
         return `
           <div class="info-box">
             <h3 style="color: #214A59; margin-top: 0;">Period Comparison</h3>
-            <p><strong>Current Period Consumption:</strong> ${content.current.consumption} kWh</p>
-            <p><strong>Previous Period Consumption:</strong> ${content.previous.consumption} kWh</p>
-            <p><strong>Change:</strong> ${content.change.consumption} kWh (${content.change.consumptionPercent}%)</p>
-            ${content.change.consumptionPercent > 0 ? '<p style="color: #dc3545;">⚠️ Consumption increased</p>' : content.change.consumptionPercent < 0 ? '<p style="color: #28a745;">✓ Consumption decreased</p>' : '<p>No change</p>'}
+            <p><strong>Current Period Energy:</strong> ${currentConsumption.toFixed(3)} ${currentConsumptionUnit}</p>
+            <p><strong>Previous Period Energy:</strong> ${previousConsumption.toFixed(3)} ${previousConsumptionUnit}</p>
+            <p><strong>Energy Change:</strong> ${changeConsumption.toFixed(3)} ${changeConsumptionUnit} (${content.change.consumptionPercent !== null ? content.change.consumptionPercent.toFixed(1) : 'N/A'}%)</p>
+            <p><strong>Current Peak Power:</strong> ${currentPeak.toFixed(3)} ${currentPeakUnit}</p>
+            <p><strong>Previous Peak Power:</strong> ${previousPeak.toFixed(3)} ${previousPeakUnit}</p>
+            <p><strong>Peak Power Change:</strong> ${changePeak.toFixed(3)} ${changePeakUnit}</p>
+            ${content.change.consumptionPercent > 0 ? '<p style="color: #dc3545;">⚠️ Energy consumption increased</p>' : content.change.consumptionPercent < 0 ? '<p style="color: #28a745;">✓ Energy consumption decreased</p>' : '<p>No change</p>'}
           </div>
         `;
 
@@ -421,9 +490,17 @@ class ReportEmailService {
 
     switch (contentType) {
       case 'TotalConsumption':
-        text += `Total: ${content.totalConsumption} ${content.unit}\n`;
-        text += `Average: ${content.average} ${content.unit}\n`;
-        text += `Peak: ${content.peak} ${content.unit}\n`;
+        const totalEnergy = content.totalConsumption || 0;
+        const totalEnergyUnit = content.totalConsumptionUnit || content.energyUnit || 'kWh';
+        const avgPower = content.averagePower || 0;
+        const avgPowerUnit = content.averagePowerUnit || content.powerUnit || 'kW';
+        const avgEnergy = content.averageEnergy || content.average || 0;
+        const avgEnergyUnit = content.averageEnergyUnit || content.energyUnit || 'kWh';
+        const peakPower = content.peak || 0;
+        const peakPowerUnit = content.peakUnit || content.powerUnit || 'kW';
+        text += `Total Energy: ${totalEnergy.toFixed(3)} ${totalEnergyUnit}\n`;
+        text += `Average Power: ${(avgPower > 0 ? avgPower : avgEnergy).toFixed(3)} ${avgPower > 0 ? avgPowerUnit : avgEnergyUnit}\n`;
+        text += `Peak Power: ${peakPower.toFixed(3)} ${peakPowerUnit}\n`;
         break;
       case 'ConsumptionByRoom':
         if (content.rooms) {

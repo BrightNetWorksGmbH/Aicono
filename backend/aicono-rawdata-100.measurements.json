@@ -1,0 +1,2300 @@
+[{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:07.831Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6643a25e0e2a84859f"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2884.1147914048033,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:08.640Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6643a25e0e2a8485af"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2884.274555532039,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:09.645Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6643a25e0e2a8485c8"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2884.4913014812364,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:10.607Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6643a25e0e2a8485e1"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2884.7078324046906,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:11.654Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6643a25e0e2a8485fa"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2884.929523945983,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:12.347Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6643a25e0e2a84861e"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2885.07810676686,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:13.476Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6643a25e0e2a848628"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2885.2948528008437,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:14.319Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6d43a25e0e2a848d86"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2885.5111687831727,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:15.390Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6d43a25e0e2a848d9f"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2885.7279148171565,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:16.399Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6d43a25e0e2a848db3"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2885.9429406445215,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:17.329Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6d43a25e0e2a848dcc"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2886.1583965235413,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:18.364Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6d43a25e0e2a848de0"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2886.37557260918,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:19.415Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6d43a25e0e2a848df9"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2886.590598436545,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:20.505Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff6d43a25e0e2a848e12"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2886.807559496356,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:21.382Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7043a25e0e2a849380"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2887.022585323721,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:21.712Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7043a25e0e2a849390"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2887.0806422971095,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:22.386Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7043a25e0e2a8493a9"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2887.229655150136,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:23.357Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7043a25e0e2a8493b8"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2887.4464010993333,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:24.389Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7043a25e0e2a8493cc"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2887.661641868328,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:25.327Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7043a25e0e2a8493db"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2887.8768826373225,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:26.361Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7043a25e0e2a8493f4"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2888.0938436122633,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:27.291Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7043a25e0e2a849408"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2888.3088693555146,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:28.339Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7043a25e0e2a84941d"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2888.5269054591718,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:29.430Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7643a25e0e2a849629"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2888.741931202423,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:30.424Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7643a25e0e2a84963d"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2888.9569569456744,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:31.351Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7643a25e0e2a84964c"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2889.1724127404123,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:31.703Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7643a25e0e2a84965c"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2889.2539074971046,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:32.403Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7643a25e0e2a849675"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2889.4022752470505,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:37.489Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7f43a25e0e2a84a6a0"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2890.4804129179024,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:38.410Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7f43a25e0e2a84a6b9"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2890.6960834571655,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:39.459Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7f43a25e0e2a84a6d2"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2890.9111089200396,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:40.038Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7f43a25e0e2a84a6e2"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2891.0257174917515,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:40.963Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7f43a25e0e2a84a6fb"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2891.2411730055514,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:41.780Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7f43a25e0e2a84a710"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2891.421579368903,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:42.470Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7f43a25e0e2a84a729"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2891.5720970980547,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:33.433Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7643a25e0e2a84968e"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2889.6175157353878,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:34.536Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7643a25e0e2a8496a7"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2889.832756223725,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:35.411Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7643a25e0e2a8496c0"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2890.0495018903025,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:36.452Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff7643a25e0e2a8496c5"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2890.2645273531766,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:43.511Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8843a25e0e2a84adf9"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2891.7873376659118,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:44.561Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8843a25e0e2a84ae12"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2892.0040834125653,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:45.495Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8843a25e0e2a84ae2b"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2892.2195390059646,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:46.581Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8843a25e0e2a84ae3f"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2892.4345645482795,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:47.566Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8843a25e0e2a84ae58"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2892.650235167221,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:48.579Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8843a25e0e2a84ae78"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2892.86655086279,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:49.540Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8843a25e0e2a84ae91"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2893.0822214817317,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:50.588Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8e43a25e0e2a84b552"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2893.298967228385,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:51.513Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8e43a25e0e2a84b56b"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2893.514637847327,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:51.975Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8e43a25e0e2a84b580"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2893.5935522213563,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:52.679Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8e43a25e0e2a84b599"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2893.744285044626,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:53.694Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8e43a25e0e2a84b5b2"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2893.961245731952,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:54.635Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8e43a25e0e2a84b5c1"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2894.1779913938203,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:55.687Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff8e43a25e0e2a84b5da"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2894.3940919793135,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:56.031Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff9243a25e0e2a84b892"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2894.482682468093,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:57.077Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff9243a25e0e2a84b8a1"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2894.6977079262956,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:58.096Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff9243a25e0e2a84b8b5"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2894.912733384498,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:59.045Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff9243a25e0e2a84b8ce"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2895.128188893617,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:59.863Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "6948dcd113537bff98eb7338"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1045eec5cd2babccdcb3"
+    },
+    "stateType": "totalWeek"
+  },
+  "_id": {
+    "$oid": "6976ff9243a25e0e2a84b8dd"
+  },
+  "quality": 100,
+  "resolution_minutes": 0,
+  "source": "websocket",
+  "value": 2895.2870927072286,
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:08.912Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff6643a25e0e2a848754"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.120133829932,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:09.876Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff6643a25e0e2a84876d"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.131862224993,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:10.930Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff7743a25e0e2a849823"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.143613913788,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:11.849Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff7743a25e0e2a849842"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.155342308848,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:14.055Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff7743a25e0e2a84986a"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.17872921777,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:14.868Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff7743a25e0e2a849883"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.19042267223,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:15.955Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff7743a25e0e2a84989c"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.20216271416,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:16.956Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff7743a25e0e2a8498b0"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.213879462353,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:17.915Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff7743a25e0e2a8498c9"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.225619504283,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:18.914Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff7743a25e0e2a8498dd"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.237312958743,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:19.969Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff7743a25e0e2a8498f6"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.249064647538,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:20.884Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff7743a25e0e2a84990a"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.260804689467,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:21.927Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff7743a25e0e2a849929"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.272474850193,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:23.903Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff7743a25e0e2a849951"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.295861759114,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:25.987Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff8f43a25e0e2a84b692"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.319167139965,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:26.916Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff8f43a25e0e2a84b6ab"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.33084894756,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:27.953Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff8f43a25e0e2a84b6ba"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.342565695755,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:28.993Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff8f43a25e0e2a84b6d4"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.35428244395,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:30.043Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff8f43a25e0e2a84b6e3"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.36594095781,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:32.004Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff8f43a25e0e2a84b71b"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.38925798553,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:32.943Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff8f43a25e0e2a84b739"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.40091649939,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:33.981Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff8f43a25e0e2a84b752"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.41262160072,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:35.065Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff8f43a25e0e2a84b76b"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.42431505518,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:37.085Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff8f43a25e0e2a84b789"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.447643729767,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:37.923Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff8f43a25e0e2a84b7a2"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.459325537362,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:39.017Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff8f43a25e0e2a84b7bb"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.470984051222,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:40.004Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ff8f43a25e0e2a84b7cf"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.482735740017,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:40.939Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffce43a25e0e2a84ef9d"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.494405900743,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:41.978Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffce43a25e0e2a84efc1"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.50607606147,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:43.025Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffce43a25e0e2a84efe4"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.517792809664,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:44.007Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffce43a25e0e2a84effd"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.52954449846,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:44.984Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffce43a25e0e2a84f016"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.54123795292,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:46.032Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffce43a25e0e2a84f02f"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.55297799485,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:47.081Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffce43a25e0e2a84f043"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.56467144931,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:47.659Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffce43a25e0e2a84f05e"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.572404968992,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:48.694Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffce43a25e0e2a84f077"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.582585298525,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:49.828Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffce43a25e0e2a84f090"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.592785927816,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:50.670Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffce43a25e0e2a84f0a9"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.60296625735,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:51.779Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffce43a25e0e2a84f0c2"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.6131871864,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:52.756Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffd643a25e0e2a84fafc"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.623418265335,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:53.698Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffd643a25e0e2a84fb15"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.63364934427,
+  "unit": "kWh",
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-01-26T05:37:54.728Z"
+  },
+  "meta": {
+    "buildingId": {
+      "$oid": "69674a4883b8ba4cdd805947"
+    },
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "696a1044eec5cd2babccdca6"
+    },
+    "stateType": "totalMonth"
+  },
+  "quality": 100,
+  "_id": {
+    "$oid": "6976ffd643a25e0e2a84fb24"
+  },
+  "resolution_minutes": 0,
+  "value": 16686.64389057308,
+  "unit": "kWh",
+  "source": "websocket"
+}]

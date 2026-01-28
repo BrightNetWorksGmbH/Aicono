@@ -125,13 +125,28 @@ class BuildingService {
           let recipientReportConfigs = [];
           let recipientData = recipientInput;
           
-          if (typeof recipientInput === 'object' && recipientInput !== null && recipientInput.reportConfig) {
-            // Extract reportConfig from recipient object
-            recipientReportConfigs = recipientInput.reportConfig;
-            // Create a copy without reportConfig for resolving recipient
-            recipientData = { ...recipientInput };
-            delete recipientData.reportConfig;
+          if (typeof recipientInput === 'object' && recipientInput !== null) {
+            // Check if it's an object with id field (existing recipient with optional config)
+            if (recipientInput.id !== undefined) {
+              // Extract reportConfig if provided
+              if (recipientInput.reportConfig) {
+                recipientReportConfigs = recipientInput.reportConfig;
+              }
+              // Use the id string directly for resolving recipient
+              recipientData = recipientInput.id;
+            } else if (recipientInput.reportConfig !== undefined) {
+              // It's a full recipient object with reportConfig
+              // Extract reportConfig from recipient object
+              recipientReportConfigs = recipientInput.reportConfig;
+              // Create a copy without reportConfig for resolving recipient
+              recipientData = { ...recipientInput };
+              delete recipientData.reportConfig;
+            } else {
+              // It's a full recipient object without reportConfig
+              recipientData = recipientInput;
+            }
           }
+          // If recipientInput is a string, recipientData is already set to that string
           
           const recipientId = await reportingService.resolveRecipient(recipientData);
 
