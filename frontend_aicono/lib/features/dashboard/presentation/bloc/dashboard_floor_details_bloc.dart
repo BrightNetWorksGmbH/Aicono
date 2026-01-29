@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:frontend_aicono/core/error/failure.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_details_filter.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_floor_details_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_floor_details_usecase.dart';
 
@@ -14,11 +15,15 @@ abstract class DashboardFloorDetailsEvent extends Equatable {
 
 class DashboardFloorDetailsRequested extends DashboardFloorDetailsEvent {
   final String floorId;
+  final DashboardDetailsFilter? filter;
 
-  const DashboardFloorDetailsRequested({required this.floorId});
+  const DashboardFloorDetailsRequested({
+    required this.floorId,
+    this.filter,
+  });
 
   @override
-  List<Object?> get props => [floorId];
+  List<Object?> get props => [floorId, filter];
 }
 
 class DashboardFloorDetailsReset extends DashboardFloorDetailsEvent {}
@@ -88,7 +93,10 @@ class DashboardFloorDetailsBloc
   ) async {
     emit(DashboardFloorDetailsLoading(floorId: event.floorId));
 
-    final result = await getDashboardFloorDetailsUseCase(event.floorId);
+    final result = await getDashboardFloorDetailsUseCase(
+      event.floorId,
+      filter: event.filter,
+    );
     result.fold(
       (failure) => emit(
         DashboardFloorDetailsFailure(

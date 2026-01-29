@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:frontend_aicono/core/error/failure.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_building_details_entity.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_details_filter.dart';
 import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_building_details_usecase.dart';
 
 // Events
@@ -14,11 +15,15 @@ abstract class DashboardBuildingDetailsEvent extends Equatable {
 
 class DashboardBuildingDetailsRequested extends DashboardBuildingDetailsEvent {
   final String buildingId;
+  final DashboardDetailsFilter? filter;
 
-  const DashboardBuildingDetailsRequested({required this.buildingId});
+  const DashboardBuildingDetailsRequested({
+    required this.buildingId,
+    this.filter,
+  });
 
   @override
-  List<Object?> get props => [buildingId];
+  List<Object?> get props => [buildingId, filter];
 }
 
 class DashboardBuildingDetailsReset extends DashboardBuildingDetailsEvent {}
@@ -88,7 +93,10 @@ class DashboardBuildingDetailsBloc
   ) async {
     emit(DashboardBuildingDetailsLoading(buildingId: event.buildingId));
 
-    final result = await getDashboardBuildingDetailsUseCase(event.buildingId);
+    final result = await getDashboardBuildingDetailsUseCase(
+      event.buildingId,
+      filter: event.filter,
+    );
     result.fold(
       (failure) => emit(
         DashboardBuildingDetailsFailure(

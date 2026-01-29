@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:frontend_aicono/core/error/failure.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_details_filter.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_site_details_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_site_details_usecase.dart';
 
@@ -14,11 +15,15 @@ abstract class DashboardSiteDetailsEvent extends Equatable {
 
 class DashboardSiteDetailsRequested extends DashboardSiteDetailsEvent {
   final String siteId;
+  final DashboardDetailsFilter? filter;
 
-  const DashboardSiteDetailsRequested({required this.siteId});
+  const DashboardSiteDetailsRequested({
+    required this.siteId,
+    this.filter,
+  });
 
   @override
-  List<Object?> get props => [siteId];
+  List<Object?> get props => [siteId, filter];
 }
 
 class DashboardSiteDetailsReset extends DashboardSiteDetailsEvent {}
@@ -79,7 +84,10 @@ class DashboardSiteDetailsBloc
   ) async {
     emit(DashboardSiteDetailsLoading(siteId: event.siteId));
 
-    final result = await getDashboardSiteDetailsUseCase(event.siteId);
+    final result = await getDashboardSiteDetailsUseCase(
+      event.siteId,
+      filter: event.filter,
+    );
     result.fold(
       (failure) => emit(
         DashboardSiteDetailsFailure(

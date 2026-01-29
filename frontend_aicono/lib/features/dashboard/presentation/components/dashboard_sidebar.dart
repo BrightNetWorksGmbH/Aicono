@@ -7,6 +7,9 @@ import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/services/auth_service.dart';
 import 'package:frontend_aicono/core/storage/local_storage.dart';
+import 'package:frontend_aicono/features/Authentication/domain/entities/switch_role_entity.dart';
+import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/components/switch_switching_dialog.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/tree_item_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/tree_view_widget.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,6 +26,9 @@ class DashboardSidebar extends StatefulWidget {
     this.activeSection,
     this.isInDrawer = false,
     this.onLanguageChanged,
+    this.onSwitchSelected,
+    this.showSwitchSwitcher = true,
+    this.verseId,
   });
 
   /// Show a "back to dashboard" link at the top when used outside the dashboard page
@@ -37,6 +43,15 @@ class DashboardSidebar extends StatefulWidget {
   /// Callback for when language changes (to trigger dashboard rebuild)
   final VoidCallback? onLanguageChanged;
 
+  /// Callback when user selects a different organization (bryteswitch). Parent should save selected ID and reload dashboard.
+  final ValueChanged<String>? onSwitchSelected;
+
+  /// Whether to show the switch/organization switcher in the Companies section (default true).
+  final bool showSwitchSwitcher;
+
+  /// Optional current verse/switch ID from parent (e.g. dashboard). When provided, sidebar stays in sync when parent switches.
+  final String? verseId;
+
   @override
   State<DashboardSidebar> createState() => _DashboardSidebarState();
 }
@@ -44,12 +59,22 @@ class DashboardSidebar extends StatefulWidget {
 class _DashboardSidebarState extends State<DashboardSidebar> {
   String? currentVerseId;
   List<TreeItemEntity> _reportings = [];
+  List<SwitchRoleEntity> _roles = [];
 
   @override
   void initState() {
     super.initState();
     _loadVerseId();
+    _loadUserAndRoles();
     _loadSampleReportings();
+  }
+
+  @override
+  void didUpdateWidget(DashboardSidebar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.verseId != oldWidget.verseId && widget.verseId != null) {
+      setState(() => currentVerseId = widget.verseId);
+    }
   }
 
   void _loadVerseId() {
@@ -58,6 +83,22 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
     setState(() {
       currentVerseId = savedVerseId;
     });
+  }
+
+  Future<void> _loadUserAndRoles() async {
+    try {
+      final loginRepository = sl<LoginRepository>();
+      final userResult = await loginRepository.getCurrentUser();
+      userResult.fold((_) {}, (user) {
+        if (user != null && mounted) {
+          setState(() {
+            _roles = user.roles;
+            // Keep currentVerseId in sync with saved
+            currentVerseId = sl<LocalStorage>().getSelectedVerseId();
+          });
+        }
+      });
+    } catch (_) {}
   }
 
   void _loadSampleReportings() {
@@ -104,11 +145,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                   ),
                 ),
               ),
-              const Divider(
-                height: 20,
-                thickness: 1,
-                color: Color(0x40000000),
-              ),
+              const Divider(height: 20, thickness: 1, color: Color(0x40000000)),
               const SizedBox(height: 8),
             ],
             // Deine Liegenschaften (Your Properties)
@@ -154,6 +191,18 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
         InkWell(
           onTap: () {
             // Clear selection when clicking on section title
+            context.read<DashboardSiteDetailsBloc>().add(
+              DashboardSiteDetailsReset(),
+            );
+            context.read<DashboardBuildingDetailsBloc>().add(
+              DashboardBuildingDetailsReset(),
+            );
+            context.read<DashboardFloorDetailsBloc>().add(
+              DashboardFloorDetailsReset(),
+            );
+            context.read<DashboardRoomDetailsBloc>().add(
+              DashboardRoomDetailsReset(),
+            );
           },
           hoverColor: Colors.transparent,
           splashColor: Colors.transparent,
@@ -166,11 +215,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
             ),
           ),
         ),
-        const Divider(
-          height: 20,
-          thickness: 1,
-          color: Color(0x40000000),
-        ),
+        const Divider(height: 20, thickness: 1, color: Color(0x40000000)),
         BlocBuilder<DashboardSitesBloc, DashboardSitesState>(
           builder: (context, sitesState) {
             if (sitesState is DashboardSitesLoading ||
@@ -199,10 +244,18 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
             }
 
             if (sitesState is DashboardSitesSuccess) {
-              final siteDetailsState = context.watch<DashboardSiteDetailsBloc>().state;
-              final buildingDetailsState = context.watch<DashboardBuildingDetailsBloc>().state;
-              final floorDetailsState = context.watch<DashboardFloorDetailsBloc>().state;
-              final roomDetailsState = context.watch<DashboardRoomDetailsBloc>().state;
+              final siteDetailsState = context
+                  .watch<DashboardSiteDetailsBloc>()
+                  .state;
+              final buildingDetailsState = context
+                  .watch<DashboardBuildingDetailsBloc>()
+                  .state;
+              final floorDetailsState = context
+                  .watch<DashboardFloorDetailsBloc>()
+                  .state;
+              final roomDetailsState = context
+                  .watch<DashboardRoomDetailsBloc>()
+                  .state;
 
               // Get selected IDs
               String? selectedSiteId;
@@ -227,9 +280,11 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                   buildingDetailsState is DashboardBuildingDetailsFailure) {
                 if (buildingDetailsState is DashboardBuildingDetailsLoading) {
                   selectedBuildingId = buildingDetailsState.buildingId;
-                } else if (buildingDetailsState is DashboardBuildingDetailsSuccess) {
+                } else if (buildingDetailsState
+                    is DashboardBuildingDetailsSuccess) {
                   selectedBuildingId = buildingDetailsState.buildingId;
-                } else if (buildingDetailsState is DashboardBuildingDetailsFailure) {
+                } else if (buildingDetailsState
+                    is DashboardBuildingDetailsFailure) {
                   selectedBuildingId = buildingDetailsState.buildingId;
                 }
               }
@@ -258,6 +313,18 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                 }
               }
 
+              // Compute add-button label from selection: nothing → Add site; site → Add building; building → Add floor; floor → Add room
+              String propertyAddLabel;
+              if (selectedFloorId != null) {
+                propertyAddLabel = 'dashboard.sidebar.add_room'.tr();
+              } else if (selectedBuildingId != null) {
+                propertyAddLabel = 'dashboard.sidebar.add_floor'.tr();
+              } else if (selectedSiteId != null) {
+                propertyAddLabel = 'dashboard.sidebar.add_building'.tr();
+              } else {
+                propertyAddLabel = 'dashboard.sidebar.add_site'.tr();
+              }
+
               // Build tree items
               final items = sitesState.sites.map((site) {
                 List<TreeItemEntity> buildingChildren = [];
@@ -269,75 +336,79 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                     buildingChildren = buildings.map((building) {
                       List<TreeItemEntity> floorChildren = [];
 
-                    // If this building is selected and we have building details, show floors
-                    if (selectedBuildingId == building.id &&
-                        buildingDetailsState is DashboardBuildingDetailsSuccess) {
-                      final floors = buildingDetailsState.details.floors;
-                      floorChildren = floors.map((floor) {
-                        List<TreeItemEntity> roomChildren = [];
+                      // If this building is selected and we have building details, show floors
+                      if (selectedBuildingId == building.id &&
+                          buildingDetailsState
+                              is DashboardBuildingDetailsSuccess) {
+                        final floors = buildingDetailsState.details.floors;
+                        floorChildren = floors.map((floor) {
+                          List<TreeItemEntity> roomChildren = [];
 
-                        // If this floor is selected and we have floor details, show rooms
-                        if (selectedFloorId == floor.id &&
-                            floorDetailsState is DashboardFloorDetailsSuccess) {
-                          final rooms = floorDetailsState.details.rooms;
-                          roomChildren = rooms.map((room) {
-                            return TreeItemEntity(
-                              id: room.id,
-                              name: room.name,
-                              type: 'property',
-                            );
-                          }).toList();
-                        } else if (selectedFloorId == floor.id &&
-                            floorDetailsState is DashboardFloorDetailsLoading) {
-                          // Show loading indicator or empty for loading state
-                        } else if (floor.rooms.isNotEmpty) {
-                          // Show rooms from site details if available
-                          roomChildren = floor.rooms.map((room) {
-                            return TreeItemEntity(
-                              id: room.id,
-                              name: room.name,
-                              type: 'property',
-                            );
-                          }).toList();
-                        }
+                          // If this floor is selected and we have floor details, show rooms
+                          if (selectedFloorId == floor.id &&
+                              floorDetailsState
+                                  is DashboardFloorDetailsSuccess) {
+                            final rooms = floorDetailsState.details.rooms;
+                            roomChildren = rooms.map((room) {
+                              return TreeItemEntity(
+                                id: room.id,
+                                name: room.name,
+                                type: 'property',
+                              );
+                            }).toList();
+                          } else if (selectedFloorId == floor.id &&
+                              floorDetailsState
+                                  is DashboardFloorDetailsLoading) {
+                            // Show loading indicator or empty for loading state
+                          } else if (floor.rooms.isNotEmpty) {
+                            // Show rooms from site details if available
+                            roomChildren = floor.rooms.map((room) {
+                              return TreeItemEntity(
+                                id: room.id,
+                                name: room.name,
+                                type: 'property',
+                              );
+                            }).toList();
+                          }
 
-                        return TreeItemEntity(
-                          id: floor.id,
-                          name: floor.name,
-                          type: 'property',
-                          children: roomChildren,
-                        );
-                      }).toList();
-                    } else if (selectedBuildingId == building.id &&
-                        buildingDetailsState is DashboardBuildingDetailsLoading) {
-                      // Show loading indicator or empty for loading state
-                    } else if (building.floors.isNotEmpty) {
-                      // Show floors from site details if available
-                      floorChildren = building.floors.map((floor) {
-                        final roomChildren = floor.rooms.map((room) {
                           return TreeItemEntity(
-                            id: room.id,
-                            name: room.name,
+                            id: floor.id,
+                            name: floor.name,
                             type: 'property',
+                            children: roomChildren,
                           );
                         }).toList();
+                      } else if (selectedBuildingId == building.id &&
+                          buildingDetailsState
+                              is DashboardBuildingDetailsLoading) {
+                        // Show loading indicator or empty for loading state
+                      } else if (building.floors.isNotEmpty) {
+                        // Show floors from site details if available
+                        floorChildren = building.floors.map((floor) {
+                          final roomChildren = floor.rooms.map((room) {
+                            return TreeItemEntity(
+                              id: room.id,
+                              name: room.name,
+                              type: 'property',
+                            );
+                          }).toList();
 
-                        return TreeItemEntity(
-                          id: floor.id,
-                          name: floor.name,
-                          type: 'property',
-                          children: roomChildren,
-                        );
-                      }).toList();
-                    }
+                          return TreeItemEntity(
+                            id: floor.id,
+                            name: floor.name,
+                            type: 'property',
+                            children: roomChildren,
+                          );
+                        }).toList();
+                      }
 
-                    return TreeItemEntity(
-                      id: building.id,
-                      name: building.name,
-                      type: 'property',
-                      children: floorChildren,
-                    );
-                  }).toList();
+                      return TreeItemEntity(
+                        id: building.id,
+                        name: building.name,
+                        type: 'property',
+                        children: floorChildren,
+                      );
+                    }).toList();
                   } else if (siteDetailsState is DashboardSiteDetailsLoading) {
                     // While loading, show empty children so the site appears expandable
                     // This ensures the tree expands on first click
@@ -349,9 +420,10 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                 // If site is selected and loading, show loading placeholder
                 // This ensures it expands on first click
                 final hasBuildings = site.buildingCount > 0;
-                final isSelectedAndLoading = selectedSiteId == site.id &&
+                final isSelectedAndLoading =
+                    selectedSiteId == site.id &&
                     siteDetailsState is DashboardSiteDetailsLoading;
-                
+
                 return TreeItemEntity(
                   id: site.id,
                   name: site.name,
@@ -359,8 +431,17 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                   // If site has buildings and is selected/loading, show loading placeholder
                   // This makes it expandable on first click
                   // When details load, buildingChildren will be populated
-                  children: hasBuildings && buildingChildren.isEmpty && isSelectedAndLoading
-                      ? [TreeItemEntity(id: '${site.id}_loading', name: 'Loading...', type: 'property')]
+                  children:
+                      hasBuildings &&
+                          buildingChildren.isEmpty &&
+                          isSelectedAndLoading
+                      ? [
+                          TreeItemEntity(
+                            id: '${site.id}_loading',
+                            name: 'Loading...',
+                            type: 'property',
+                          ),
+                        ]
                       : buildingChildren,
                 );
               }).toList();
@@ -373,50 +454,53 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                   final isSite = sitesState.sites.any((s) => s.id == item.id);
                   if (isSite) {
                     context.read<DashboardSiteDetailsBloc>().add(
-                          DashboardSiteDetailsRequested(siteId: item.id),
-                        );
+                      DashboardSiteDetailsRequested(siteId: item.id),
+                    );
                     // Reset other selections
                     context.read<DashboardBuildingDetailsBloc>().add(
-                          DashboardBuildingDetailsReset(),
-                        );
+                      DashboardBuildingDetailsReset(),
+                    );
                     context.read<DashboardFloorDetailsBloc>().add(
-                          DashboardFloorDetailsReset(),
-                        );
+                      DashboardFloorDetailsReset(),
+                    );
                     context.read<DashboardRoomDetailsBloc>().add(
-                          DashboardRoomDetailsReset(),
-                        );
+                      DashboardRoomDetailsReset(),
+                    );
                     return;
                   }
 
                   // Check if it's a building
                   if (siteDetailsState is DashboardSiteDetailsSuccess) {
-                    final isBuilding = siteDetailsState.details.buildings
-                        .any((b) => b.id == item.id);
+                    final isBuilding = siteDetailsState.details.buildings.any(
+                      (b) => b.id == item.id,
+                    );
                     if (isBuilding) {
                       context.read<DashboardBuildingDetailsBloc>().add(
-                            DashboardBuildingDetailsRequested(buildingId: item.id),
-                          );
+                        DashboardBuildingDetailsRequested(buildingId: item.id),
+                      );
                       // Reset floor and room selections
                       context.read<DashboardFloorDetailsBloc>().add(
-                            DashboardFloorDetailsReset(),
-                          );
+                        DashboardFloorDetailsReset(),
+                      );
                       context.read<DashboardRoomDetailsBloc>().add(
-                            DashboardRoomDetailsReset(),
-                          );
+                        DashboardRoomDetailsReset(),
+                      );
                       return;
                     }
 
                     // Check if it's a floor
                     for (final building in siteDetailsState.details.buildings) {
-                      final isFloor = building.floors.any((f) => f.id == item.id);
+                      final isFloor = building.floors.any(
+                        (f) => f.id == item.id,
+                      );
                       if (isFloor) {
                         context.read<DashboardFloorDetailsBloc>().add(
-                              DashboardFloorDetailsRequested(floorId: item.id),
-                            );
+                          DashboardFloorDetailsRequested(floorId: item.id),
+                        );
                         // Reset room selection
                         context.read<DashboardRoomDetailsBloc>().add(
-                              DashboardRoomDetailsReset(),
-                            );
+                          DashboardRoomDetailsReset(),
+                        );
                         return;
                       }
                     }
@@ -427,8 +511,8 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                         final isRoom = floor.rooms.any((r) => r.id == item.id);
                         if (isRoom) {
                           context.read<DashboardRoomDetailsBloc>().add(
-                                DashboardRoomDetailsRequested(roomId: item.id),
-                              );
+                            DashboardRoomDetailsRequested(roomId: item.id),
+                          );
                           return;
                         }
                       }
@@ -437,15 +521,16 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
 
                   // Also check building details state for floors/rooms
                   if (buildingDetailsState is DashboardBuildingDetailsSuccess) {
-                    final isFloor = buildingDetailsState.details.floors
-                        .any((f) => f.id == item.id);
+                    final isFloor = buildingDetailsState.details.floors.any(
+                      (f) => f.id == item.id,
+                    );
                     if (isFloor) {
                       context.read<DashboardFloorDetailsBloc>().add(
-                            DashboardFloorDetailsRequested(floorId: item.id),
-                          );
+                        DashboardFloorDetailsRequested(floorId: item.id),
+                      );
                       context.read<DashboardRoomDetailsBloc>().add(
-                            DashboardRoomDetailsReset(),
-                          );
+                        DashboardRoomDetailsReset(),
+                      );
                       return;
                     }
 
@@ -453,8 +538,8 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                       final isRoom = floor.rooms.any((r) => r.id == item.id);
                       if (isRoom) {
                         context.read<DashboardRoomDetailsBloc>().add(
-                              DashboardRoomDetailsRequested(roomId: item.id),
-                            );
+                          DashboardRoomDetailsRequested(roomId: item.id),
+                        );
                         return;
                       }
                     }
@@ -462,29 +547,30 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
 
                   // Check floor details state for rooms
                   if (floorDetailsState is DashboardFloorDetailsSuccess) {
-                    final isRoom = floorDetailsState.details.rooms
-                        .any((r) => r.id == item.id);
+                    final isRoom = floorDetailsState.details.rooms.any(
+                      (r) => r.id == item.id,
+                    );
                     if (isRoom) {
                       context.read<DashboardRoomDetailsBloc>().add(
-                            DashboardRoomDetailsRequested(roomId: item.id),
-                          );
+                        DashboardRoomDetailsRequested(roomId: item.id),
+                      );
                       return;
                     }
                   }
                 },
                 onAddItem: () {
-                  // TODO: Navigate to add location page
+                  // TODO: Navigate to add site/building/floor/room based on selection
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'dashboard.sidebar.add_location'.tr() +
+                        propertyAddLabel +
                             ' ' +
                             'dashboard.main_content.coming_soon'.tr(),
                       ),
                     ),
                   );
                 },
-                addItemLabel: 'dashboard.sidebar.add_location'.tr(),
+                addItemLabel: propertyAddLabel,
               );
             }
 
@@ -514,11 +600,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
             ),
           ),
         ),
-        const Divider(
-          height: 20,
-          thickness: 1,
-          color: Color(0x40000000),
-        ),
+        const Divider(height: 20, thickness: 1, color: Color(0x40000000)),
         TreeViewWidget(
           items: _reportings,
           onItemTap: (item) {
@@ -542,7 +624,40 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
     );
   }
 
+  SwitchRoleEntity? _getCurrentRole(String? switchId) {
+    if (switchId == null || _roles.isEmpty) return null;
+    final match = _roles.where((r) => r.bryteswitchId == switchId);
+    return match.isEmpty ? null : match.first;
+  }
+
+  void _showSwitchSwitchingDialog() {
+    if (_roles.isEmpty || widget.onSwitchSelected == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => SwitchSwitchingDialog(
+        roles: _roles,
+        currentSwitchId: currentVerseId,
+        currentRole: _getCurrentRole(currentVerseId),
+        onSwitchSelected: (bryteswitchId) {
+          widget.onSwitchSelected!.call(bryteswitchId);
+          setState(() {
+            currentVerseId = bryteswitchId;
+          });
+        },
+      ),
+    );
+  }
+
   Widget _buildVerseSection() {
+    final effectiveVerseId = widget.verseId ?? currentVerseId;
+    final currentRole = _getCurrentRole(effectiveVerseId);
+    final showSwitcher =
+        widget.showSwitchSwitcher &&
+        _roles.isNotEmpty &&
+        widget.onSwitchSelected != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -553,25 +668,69 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
             color: Colors.black,
           ),
         ),
-        const Divider(
-          height: 20,
-          thickness: 1,
-          color: Color(0x40000000),
-        ),
+        const Divider(height: 20, thickness: 1, color: Color(0x40000000)),
         const SizedBox(height: 12),
-        // Company logo placeholder
-        Container(
-          width: 100,
-          height: 100,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[300]!),
-            color: Colors.white,
-          ),
-          child: Icon(
-            Icons.business,
-            color: AppTheme.primary,
-            size: 40,
+        InkWell(
+          onTap: showSwitcher ? _showSwitchSwitchingDialog : null,
+          borderRadius: BorderRadius.circular(8),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Column(
+                children: [
+                  Container(
+                    width: 100,
+                    height: 100,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      color: Colors.white,
+                    ),
+                    child: Icon(
+                      Icons.business,
+                      color: AppTheme.primary,
+                      size: 40,
+                    ),
+                  ),
+                  if (currentRole != null) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: 100,
+                      child: Text(
+                        currentRole.organizationName.isNotEmpty
+                            ? currentRole.organizationName
+                            : currentRole.subDomain,
+                        style: AppTextStyles.titleSmall.copyWith(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (showSwitcher)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100]!.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.swap_horiz,
+                      color: AppTheme.primary,
+                      size: 16,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ],
@@ -596,11 +755,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
             ),
           ),
         ),
-        const Divider(
-          height: 20,
-          thickness: 1,
-          color: Color(0x40000000),
-        ),
+        const Divider(height: 20, thickness: 1, color: Color(0x40000000)),
         InkWell(
           onTap: () {
             // TODO: Navigate to Links page
@@ -616,19 +771,13 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
             ),
           ),
         ),
-        const Divider(
-          height: 20,
-          thickness: 1,
-          color: Color(0x40000000),
-        ),
+        const Divider(height: 20, thickness: 1, color: Color(0x40000000)),
         InkWell(
           onTap: () {
             if (currentVerseId != null) {
               context.pushNamed(
                 Routelists.statistics,
-                pathParameters: {
-                  'verseId': currentVerseId ?? '',
-                },
+                queryParameters: {'verseId': currentVerseId ?? ''},
               );
             }
           },
@@ -643,21 +792,11 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
             ),
           ),
         ),
-        const Divider(
-          height: 20,
-          thickness: 1,
-          color: Color(0x40000000),
-        ),
+        const Divider(height: 20, thickness: 1, color: Color(0x40000000)),
         InkWell(
           onTap: () {
-            if (currentVerseId != null) {
-              context.pushNamed(
-                Routelists.inviteUser,
-                extra: {
-                  'verseId': currentVerseId,
-                },
-              );
-            }
+            // UI-only: just navigate to invite user page
+            context.pushNamed(Routelists.inviteUser);
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),

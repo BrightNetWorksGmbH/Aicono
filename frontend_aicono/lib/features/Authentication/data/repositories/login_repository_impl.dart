@@ -39,14 +39,15 @@ class LoginRepositoryImpl implements LoginRepository {
           combinedUserData['refresh_token'] =
               token; // Use same token as refresh if not provided
 
-          // Handle roles array - extract bryteswitch_id for joinedVerse
+          // Handle roles array - extract bryteswitch_id for joinedVerse and store full roles for switch switching
           if (data['roles'] != null && data['roles'] is List) {
-            final roles = data['roles'] as List;
-            final joinedVerse = roles
+            final rolesList = data['roles'] as List;
+            final joinedVerse = rolesList
                 .where((role) => role['bryteswitch_id'] != null)
                 .map((role) => role['bryteswitch_id'].toString())
                 .toList();
             combinedUserData['joined_verse'] = joinedVerse;
+            combinedUserData['roles'] = rolesList;
           }
 
           // Add is_setup_complete if present
@@ -59,17 +60,21 @@ class LoginRepositoryImpl implements LoginRepository {
 
           // Save tokens to secure storage
           if (kDebugMode) {
-            print('💾 LoginRepository: Saving tokens - access: ${user.token.length} chars, refresh: ${user.refreshToken.length} chars');
+            print(
+              '💾 LoginRepository: Saving tokens - access: ${user.token.length} chars, refresh: ${user.refreshToken.length} chars',
+            );
           }
           await SecureStorage.saveTokens(
             user.token, // Access token
             user.refreshToken, // Refresh token (or token if refreshToken not provided)
           );
-          
+
           // Verify token was saved
           if (kDebugMode) {
             final verifyToken = await SecureStorage.getAccessToken();
-            print('🔍 LoginRepository: Token verification - ${verifyToken != null ? "✅ Token saved successfully" : "❌ Token NOT found after save!"}');
+            print(
+              '🔍 LoginRepository: Token verification - ${verifyToken != null ? "✅ Token saved successfully" : "❌ Token NOT found after save!"}',
+            );
           }
 
           return Right(user);

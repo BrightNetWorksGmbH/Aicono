@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
@@ -105,7 +107,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
         }
 
         // Check floor details
-        return BlocBuilder<DashboardFloorDetailsBloc, DashboardFloorDetailsState>(
+        return BlocBuilder<
+          DashboardFloorDetailsBloc,
+          DashboardFloorDetailsState
+        >(
           builder: (context, floorState) {
             // Priority 2: Floor details
             if (floorState is DashboardFloorDetailsLoading ||
@@ -115,7 +120,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             }
 
             // Check building details
-            return BlocBuilder<DashboardBuildingDetailsBloc, DashboardBuildingDetailsState>(
+            return BlocBuilder<
+              DashboardBuildingDetailsBloc,
+              DashboardBuildingDetailsState
+            >(
               builder: (context, buildingState) {
                 // Priority 3: Building details
                 if (buildingState is DashboardBuildingDetailsLoading ||
@@ -125,7 +133,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 }
 
                 // Check site details
-                return BlocBuilder<DashboardSiteDetailsBloc, DashboardSiteDetailsState>(
+                return BlocBuilder<
+                  DashboardSiteDetailsBloc,
+                  DashboardSiteDetailsState
+                >(
                   builder: (context, siteState) {
                     // Priority 4: Site details
                     if (siteState is DashboardSiteDetailsLoading ||
@@ -145,13 +156,16 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                                 const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
                                   'Loading sites...',
-                                  style: AppTextStyles.titleSmall
-                                      .copyWith(color: Colors.grey[700]),
+                                  style: AppTextStyles.titleSmall.copyWith(
+                                    color: Colors.grey[700],
+                                  ),
                                 ),
                               ],
                             ),
@@ -163,21 +177,28 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(Icons.error_outline, color: Colors.red[600], size: 18),
+                                Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red[600],
+                                  size: 18,
+                                ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
                                     sitesState.message,
-                                    style: AppTextStyles.titleSmall
-                                        .copyWith(color: Colors.red[700]),
+                                    style: AppTextStyles.titleSmall.copyWith(
+                                      color: Colors.red[700],
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 TextButton(
                                   onPressed: () {
-                                    context
-                                        .read<DashboardSitesBloc>()
-                                        .add(DashboardSitesRequested());
+                                    context.read<DashboardSitesBloc>().add(
+                                      DashboardSitesRequested(
+                                        bryteswitchId: widget.verseId,
+                                      ),
+                                    );
                                   },
                                   child: const Text('Retry'),
                                 ),
@@ -191,8 +212,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                             return _buildCard(
                               child: Text(
                                 'No sites found.',
-                                style: AppTextStyles.titleSmall
-                                    .copyWith(color: Colors.grey[700]),
+                                style: AppTextStyles.titleSmall.copyWith(
+                                  color: Colors.grey[700],
+                                ),
                               ),
                             );
                           }
@@ -200,8 +222,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                           return _buildCard(
                             child: Text(
                               'Select an item from the sidebar to view details.',
-                              style: AppTextStyles.titleSmall
-                                  .copyWith(color: Colors.grey[700]),
+                              style: AppTextStyles.titleSmall.copyWith(
+                                color: Colors.grey[700],
+                              ),
                             ),
                           );
                         }
@@ -246,18 +269,15 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 .map(
                   (s) => DropdownMenuItem<String>(
                     value: s.id,
-                    child: Text(
-                      s.name,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: Text(s.name, overflow: TextOverflow.ellipsis),
                   ),
                 )
                 .toList(),
             onChanged: (id) {
               if (id == null) return;
               context.read<DashboardSiteDetailsBloc>().add(
-                    DashboardSiteDetailsRequested(siteId: id),
-                  );
+                DashboardSiteDetailsRequested(siteId: id),
+              );
             },
           ),
         ),
@@ -286,7 +306,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               const SizedBox(width: 12),
               Text(
                 'Loading site details...',
-                style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
+                style: AppTextStyles.titleSmall.copyWith(
+                  color: Colors.grey[700],
+                ),
               ),
             ],
           );
@@ -301,15 +323,17 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               Expanded(
                 child: Text(
                   state.message,
-                  style: AppTextStyles.titleSmall.copyWith(color: Colors.red[700]),
+                  style: AppTextStyles.titleSmall.copyWith(
+                    color: Colors.red[700],
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               TextButton(
                 onPressed: () {
                   context.read<DashboardSiteDetailsBloc>().add(
-                        DashboardSiteDetailsRequested(siteId: state.siteId),
-                      );
+                    DashboardSiteDetailsRequested(siteId: state.siteId),
+                  );
                 },
                 child: const Text('Retry'),
               ),
@@ -334,29 +358,19 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               const SizedBox(height: 4),
               Text(
                 d.address,
-                style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
+                style: AppTextStyles.titleSmall.copyWith(
+                  color: Colors.grey[700],
+                ),
               ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  _kpiTile(
-                    label: 'Buildings',
-                    value: '${d.buildingCount}',
-                  ),
-                  _kpiTile(
-                    label: 'Floors',
-                    value: '${d.totalFloors}',
-                  ),
-                  _kpiTile(
-                    label: 'Rooms',
-                    value: '${d.totalRooms}',
-                  ),
-                  _kpiTile(
-                    label: 'Sensors',
-                    value: '${d.totalSensors}',
-                  ),
+                  _kpiTile(label: 'Buildings', value: '${d.buildingCount}'),
+                  _kpiTile(label: 'Floors', value: '${d.totalFloors}'),
+                  _kpiTile(label: 'Rooms', value: '${d.totalRooms}'),
+                  _kpiTile(label: 'Sensors', value: '${d.totalSensors}'),
                 ],
               ),
               const SizedBox(height: 16),
@@ -404,7 +418,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               if (d.buildings.isEmpty)
                 Text(
                   'No buildings for this site yet.',
-                  style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
+                  style: AppTextStyles.titleSmall.copyWith(
+                    color: Colors.grey[700],
+                  ),
                 )
               else
                 Column(
@@ -424,7 +440,11 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.apartment, color: AppTheme.primary, size: 18),
+                          Icon(
+                            Icons.apartment,
+                            color: AppTheme.primary,
+                            size: 18,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
@@ -497,15 +517,17 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             Expanded(
               child: Text(
                 state.message,
-                style: AppTextStyles.titleSmall.copyWith(color: Colors.red[700]),
+                style: AppTextStyles.titleSmall.copyWith(
+                  color: Colors.red[700],
+                ),
               ),
             ),
             const SizedBox(width: 12),
             TextButton(
               onPressed: () {
                 context.read<DashboardRoomDetailsBloc>().add(
-                      DashboardRoomDetailsRequested(roomId: state.roomId),
-                    );
+                  DashboardRoomDetailsRequested(roomId: state.roomId),
+                );
               },
               child: const Text('Retry'),
             ),
@@ -539,7 +561,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: Color(int.parse(d.color.replaceFirst('#', '0xFF'))),
+                        color: Color(
+                          int.parse(d.color.replaceFirst('#', '0xFF')),
+                        ),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -650,15 +674,17 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             Expanded(
               child: Text(
                 state.message,
-                style: AppTextStyles.titleSmall.copyWith(color: Colors.red[700]),
+                style: AppTextStyles.titleSmall.copyWith(
+                  color: Colors.red[700],
+                ),
               ),
             ),
             const SizedBox(width: 12),
             TextButton(
               onPressed: () {
                 context.read<DashboardFloorDetailsBloc>().add(
-                      DashboardFloorDetailsRequested(floorId: state.floorId),
-                    );
+                  DashboardFloorDetailsRequested(floorId: state.floorId),
+                );
               },
               child: const Text('Retry'),
             ),
@@ -772,7 +798,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 if (d.rooms.isEmpty)
                   Text(
                     'No rooms on this floor.',
-                    style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
+                    style: AppTextStyles.titleSmall.copyWith(
+                      color: Colors.grey[700],
+                    ),
                   )
                 else
                   Column(
@@ -793,7 +821,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                               height: 20,
                               decoration: BoxDecoration(
                                 color: Color(
-                                  int.parse(room.color.replaceFirst('#', '0xFF')),
+                                  int.parse(
+                                    room.color.replaceFirst('#', '0xFF'),
+                                  ),
                                 ),
                                 shape: BoxShape.circle,
                               ),
@@ -859,17 +889,19 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             Expanded(
               child: Text(
                 state.message,
-                style: AppTextStyles.titleSmall.copyWith(color: Colors.red[700]),
+                style: AppTextStyles.titleSmall.copyWith(
+                  color: Colors.red[700],
+                ),
               ),
             ),
             const SizedBox(width: 12),
             TextButton(
               onPressed: () {
                 context.read<DashboardBuildingDetailsBloc>().add(
-                      DashboardBuildingDetailsRequested(
-                        buildingId: state.buildingId,
-                      ),
-                    );
+                  DashboardBuildingDetailsRequested(
+                    buildingId: state.buildingId,
+                  ),
+                );
               },
               child: const Text('Retry'),
             ),
@@ -908,7 +940,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                   const SizedBox(height: 4),
                   Text(
                     'Type: ${d.typeOfUse}',
-                    style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
+                    style: AppTextStyles.titleSmall.copyWith(
+                      color: Colors.grey[700],
+                    ),
                   ),
                 ],
                 const SizedBox(height: 12),
@@ -922,10 +956,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     if (d.buildingSize != null)
                       _kpiTile(label: 'Size', value: '${d.buildingSize} m²'),
                     if (d.yearOfConstruction != null)
-                      _kpiTile(
-                        label: 'Year',
-                        value: '${d.yearOfConstruction}',
-                      ),
+                      _kpiTile(label: 'Year', value: '${d.yearOfConstruction}'),
                   ],
                 ),
                 if (kpis != null) ...[
@@ -973,7 +1004,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 if (d.floors.isEmpty)
                   Text(
                     'No floors in this building yet.',
-                    style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
+                    style: AppTextStyles.titleSmall.copyWith(
+                      color: Colors.grey[700],
+                    ),
                   )
                 else
                   Column(
@@ -989,7 +1022,11 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.layers, color: AppTheme.primary, size: 18),
+                            Icon(
+                              Icons.layers,
+                              color: AppTheme.primary,
+                              size: 18,
+                            ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Column(
@@ -1074,9 +1111,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
       children: [
         Text(
           'dashboard.main_content.greeting'.tr(
-            namedArgs: {
-              'name': _userFirstName ?? 'User',
-            },
+            namedArgs: {'name': _userFirstName ?? 'User'},
           ),
           style: AppTextStyles.headlineLarge.copyWith(
             fontWeight: FontWeight.bold,
@@ -1099,15 +1134,14 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     return Center(
       child: PrimaryOutlineButton(
         onPressed: () {
-          // TODO: Navigate to reporting preview page
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'dashboard.main_content.reporting_preview'.tr() +
-                    ' ' +
-                    'dashboard.main_content.coming_soon'.tr(),
-              ),
-            ),
+          context.pushNamed(
+            Routelists.statistics,
+            queryParameters: {
+              if (widget.verseId != null && widget.verseId!.isNotEmpty)
+                'verseId': widget.verseId!,
+              if (_userFirstName != null && _userFirstName!.isNotEmpty)
+                'userName': _userFirstName!,
+            },
           );
         },
         label: 'dashboard.main_content.reporting_preview'.tr(),
@@ -1130,11 +1164,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(
-              Icons.search,
-              size: 20,
-              color: Colors.grey[600],
-            ),
+            Icon(Icons.search, size: 20, color: Colors.grey[600]),
           ],
         ),
         const SizedBox(height: 16),
@@ -1205,10 +1235,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     );
   }
 
-  Widget _buildActionLink({
-    required String text,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildActionLink({required String text, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
       hoverColor: Colors.transparent,
@@ -1257,7 +1284,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             child: CircularProgressIndicator(
               value: loadingProgress.expectedTotalBytes != null
                   ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
+                        loadingProgress.expectedTotalBytes!
                   : null,
             ),
           );
@@ -1270,11 +1297,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.broken_image,
-                  color: Colors.grey[400],
-                  size: 48,
-                ),
+                Icon(Icons.broken_image, color: Colors.grey[400], size: 48),
                 const SizedBox(height: 8),
                 Text(
                   'Failed to load floor plan',

@@ -268,19 +268,14 @@ Future<void> init() async {
     () => DashboardSiteDetailsBloc(getDashboardSiteDetailsUseCase: sl()),
   );
   sl.registerFactory(
-    () => DashboardBuildingDetailsBloc(
-      getDashboardBuildingDetailsUseCase: sl(),
-    ),
+    () =>
+        DashboardBuildingDetailsBloc(getDashboardBuildingDetailsUseCase: sl()),
   );
   sl.registerFactory(
-    () => DashboardFloorDetailsBloc(
-      getDashboardFloorDetailsUseCase: sl(),
-    ),
+    () => DashboardFloorDetailsBloc(getDashboardFloorDetailsUseCase: sl()),
   );
   sl.registerFactory(
-    () => DashboardRoomDetailsBloc(
-      getDashboardRoomDetailsUseCase: sl(),
-    ),
+    () => DashboardRoomDetailsBloc(getDashboardRoomDetailsUseCase: sl()),
   );
 
   // Upload dependencies
