@@ -5,6 +5,7 @@ import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
+import 'package:frontend_aicono/core/network/dio_client.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/loxone_connection_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/connect_loxone_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/widget/building_detail_widget/loxone_connection_widget.dart';
@@ -25,6 +26,51 @@ class LoxoneConnectionPage extends StatefulWidget {
 
 class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
   Map<String, dynamic>? _connectionData;
+  Map<String, dynamic>? _buildingData;
+  bool _isLoadingBuilding = false;
+  final DioClient _dioClient = sl<DioClient>();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBuildingData();
+  }
+
+  Future<void> _fetchBuildingData() async {
+    if (widget.buildingId == null || widget.buildingId!.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingBuilding = true;
+    });
+
+    try {
+      final response = await _dioClient.get(
+        '/api/v1/buildings/${widget.buildingId}',
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        if (data['success'] == true && data['data'] != null) {
+          setState(() {
+            _buildingData = data['data'] as Map<String, dynamic>;
+          });
+        }
+      }
+    } catch (e) {
+      // Silently fail - user can still fill the form manually
+      if (mounted) {
+        debugPrint('Error fetching building data: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingBuilding = false;
+        });
+      }
+    }
+  }
 
   void _handleLanguageChanged() {
     setState(() {});
@@ -82,6 +128,8 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
         queryParameters: {
           if (userName != null) 'userName': userName,
           if (buildingAddress != null) 'buildingAddress': buildingAddress,
+          if (widget.buildingId != null && widget.buildingId!.isNotEmpty)
+            'buildingId': widget.buildingId!,
         },
       );
     } else {
@@ -120,6 +168,8 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
         queryParameters: {
           if (userName != null) 'userName': userName,
           if (buildingAddress != null) 'buildingAddress': buildingAddress,
+          if (widget.buildingId != null && widget.buildingId!.isNotEmpty)
+            'buildingId': widget.buildingId!,
         },
       );
     } else {
@@ -155,12 +205,15 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
             _navigateAfterSuccess();
           } else if (state is ConnectLoxoneFailure) {
             // Navigate to building details page with building information
+            final uri = Uri.parse(GoRouterState.of(context).uri.toString());
+            final buildingAddress = uri.queryParameters['buildingAddress'];
             context.pushNamed(
               Routelists.setBuildingDetails,
               queryParameters: {
                 if (widget.userName != null) 'userName': widget.userName!,
-                'buildingId': widget.buildingId!,
-                'buildingName': "test",
+                if (widget.buildingId != null && widget.buildingId!.isNotEmpty)
+                  'buildingId': widget.buildingId!,
+                if (buildingAddress != null) 'buildingAddress': buildingAddress,
               },
             );
             ScaffoldMessenger.of(context).showSnackBar(
@@ -197,8 +250,9 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
                           onConnect: () => _handleConnect(blocContext),
                           onSkip: _handleSkip,
                           onBack: _handleBack,
-                          isLoading: state is ConnectLoxoneLoading,
+                          isLoading: state is ConnectLoxoneLoading || _isLoadingBuilding,
                           onConnectionDataReady: _handleConnectionDataReady,
+                          initialData: _buildingData,
                         );
                       },
                     ),

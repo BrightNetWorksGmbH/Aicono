@@ -219,7 +219,9 @@
     "create_report_for_all": "Create report for all user",
     "reporting_dialog_title": "How should the reporting for {name} look?",
     "reporting_dialog_subtitle": "You can customize reporting just for {name}.",
-    "done": "Done"
+    "done": "Done",
+    "create_contact": "Create report recipient",
+    "create_contact_subtitle": "Enter the report recipient details below."
   },
   "building_responsible_persons": {
     "progress_text": "Almost done, {name}!",
@@ -253,6 +255,8 @@
     "routine_saved": "Routine saved successfully",
     "routine_updated": "Routine updated successfully",
     "update_routine": "Update routine",
+    "edit_routine": "Edit Routine",
+    "edit_routine_subtitle": "Update the routine details below.",
     "interval_label": "Interval",
     "add_responsible_person": "Add responsible person",
     "name_hint": "Name",

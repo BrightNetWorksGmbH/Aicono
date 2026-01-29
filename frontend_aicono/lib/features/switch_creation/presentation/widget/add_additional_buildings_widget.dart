@@ -12,6 +12,8 @@ import 'package:frontend_aicono/features/switch_creation/presentation/bloc/creat
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_site_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
 
+import '../../../../core/widgets/page_header_row.dart';
+
 class AddAdditionalBuildingsWidget extends StatefulWidget {
   final String? userName;
   final String? siteId;
@@ -95,14 +97,13 @@ class _AddAdditionalBuildingsWidgetState
       if (isYes) {
         // When "ja" is selected for the first time, create one default building text field
         if (_buildings.isEmpty) {
-          final buildingId = 'building_${DateTime.now().millisecondsSinceEpoch}';
+          final buildingId =
+              'building_${DateTime.now().millisecondsSinceEpoch}';
           final controller = TextEditingController();
           _buildingControllers[buildingId] = controller;
-          _buildings.add(BuildingItem(
-            id: buildingId,
-            name: '',
-            isEditable: true,
-          ));
+          _buildings.add(
+            BuildingItem(id: buildingId, name: '', isEditable: true),
+          );
         }
       } else {
         // If "no" is selected, remove all user-added buildings
@@ -122,11 +123,7 @@ class _AddAdditionalBuildingsWidgetState
       final buildingId = 'building_${DateTime.now().millisecondsSinceEpoch}';
       final controller = TextEditingController();
       _buildingControllers[buildingId] = controller;
-      _buildings.add(BuildingItem(
-        id: buildingId,
-        name: '',
-        isEditable: true,
-      ));
+      _buildings.add(BuildingItem(id: buildingId, name: '', isEditable: true));
     });
     widget.onBuildingsChanged?.call(_buildings);
   }
@@ -160,7 +157,7 @@ class _AddAdditionalBuildingsWidgetState
         _buildingControllers.remove(buildingId);
       }
       _buildings.removeWhere((building) => building.id == buildingId);
-      
+
       // If all buildings are removed and "ja" was selected, reset to show checkboxes
       if (_buildings.isEmpty && _hasAdditionalBuildings == true) {
         _hasAdditionalBuildings = null;
@@ -170,12 +167,8 @@ class _AddAdditionalBuildingsWidgetState
     widget.onBuildingsChanged?.call(_buildings);
   }
 
-
   Widget _buildShimmerField() {
-    return ShimmerContainer(
-      width: double.infinity,
-      height: 60,
-    );
+    return ShimmerContainer(width: double.infinity, height: 60);
   }
 
   @override
@@ -209,228 +202,230 @@ class _AddAdditionalBuildingsWidgetState
         final hasError = getSiteState is GetSiteFailure;
 
         return Padding(
-      padding: const EdgeInsets.all(12.0),
-      child: Container(
-        height: (screenSize.height * 0.95) + 50,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 20),
-              TopHeader(
-                onLanguageChanged: widget.onLanguageChanged,
-                containerWidth: screenSize.width > 500
-                    ? 500
-                    : screenSize.width * 0.98,
-              ),
-              if (widget.onBack != null) ...[
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: InkWell(
-                    onTap: widget.onBack,
-                    borderRadius: BorderRadius.circular(8),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      child: Icon(Icons.arrow_back, color: Colors.black87, size: 24),
-                    ),
+          padding: const EdgeInsets.all(12.0),
+          child: Container(
+            height: (screenSize.height * 0.95) + 50,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 20),
+                  TopHeader(
+                    onLanguageChanged: widget.onLanguageChanged,
+                    containerWidth: screenSize.width > 500
+                        ? 500
+                        : screenSize.width * 0.98,
                   ),
-                ),
-              ],
-              const SizedBox(height: 50),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: SizedBox(
-                    width: screenSize.width < 600
-                        ? screenSize.width * 0.95
-                        : screenSize.width < 1200
+
+                  const SizedBox(height: 50),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: SizedBox(
+                        width: screenSize.width < 600
+                            ? screenSize.width * 0.95
+                            : screenSize.width < 1200
                             ? screenSize.width * 0.5
                             : screenSize.width * 0.6,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          _buildProgressText(),
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: 0.9,
-                            backgroundColor: Colors.grey.shade300,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              const Color(0xFF8B9A5B), // Muted green color
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _buildProgressText(),
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: Colors.black87,
+                              ),
                             ),
-                            minHeight: 8,
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        Text(
-                          'add_additional_buildings.title'.tr(),
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.headlineSmall.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 40),
-                        // Show property name with resource types and check icon if available
-                        if (isLoading) ...[
-                          _buildShimmerField(),
-                          const SizedBox(height: 16),
-                          _buildShimmerField(),
-                          const SizedBox(height: 24),
-                        ] else if (hasError) ...[
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              border: Border.all(color: Colors.red.shade300),
-                              borderRadius: BorderRadius.zero,
+                            const SizedBox(height: 12),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: 0.9,
+                                backgroundColor: Colors.grey.shade300,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  const Color(0xFF8B9A5B), // Muted green color
+                                ),
+                                minHeight: 8,
+                              ),
                             ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  'Error loading site data',
-                                  style: AppTextStyles.bodyMedium.copyWith(
-                                    color: Colors.red.shade700,
-                                    fontWeight: FontWeight.w600,
+                            const SizedBox(height: 32),
+                            PageHeaderRow(
+                              title: 'add_additional_buildings.title'.tr(),
+                              showBackButton: widget.onBack != null,
+                              onBack: widget.onBack,
+                            ),
+
+                            const SizedBox(height: 40),
+                            // Show property name with resource types and check icon if available
+                            if (isLoading) ...[
+                              _buildShimmerField(),
+                              const SizedBox(height: 16),
+                              _buildShimmerField(),
+                              const SizedBox(height: 24),
+                            ] else if (hasError) ...[
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  border: Border.all(
+                                    color: Colors.red.shade300,
                                   ),
+                                  borderRadius: BorderRadius.zero,
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  getSiteState.message,
-                                  style: AppTextStyles.bodySmall.copyWith(
-                                    color: Colors.red.shade600,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 12),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    if (widget.siteId != null &&
-                                        widget.siteId!.isNotEmpty) {
-                                      context.read<GetSiteBloc>().add(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      'Error loading site data',
+                                      style: AppTextStyles.bodyMedium.copyWith(
+                                        color: Colors.red.shade700,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      getSiteState.message,
+                                      style: AppTextStyles.bodySmall.copyWith(
+                                        color: Colors.red.shade600,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        if (widget.siteId != null &&
+                                            widget.siteId!.isNotEmpty) {
+                                          context.read<GetSiteBloc>().add(
                                             GetSiteRequested(
                                               siteId: widget.siteId!,
                                             ),
                                           );
-                                    }
-                                  },
-                                  child: const Text('Retry'),
+                                        }
+                                      },
+                                      child: const Text('Retry'),
+                                    ),
+                                  ],
                                 ),
+                              ),
+                              const SizedBox(height: 24),
+                            ] else ...[
+                              if (fallbackPropertyName != null &&
+                                  fallbackPropertyName.isNotEmpty) ...[
+                                _buildCompletedField(
+                                  value: fallbackPropertyName,
+                                  resourceTypes: fallbackResourceTypes,
+                                ),
+                                const SizedBox(height: 16),
                               ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                        ] else ...[
-                          if (fallbackPropertyName != null &&
-                              fallbackPropertyName.isNotEmpty) ...[
-                            _buildCompletedField(
-                              value: fallbackPropertyName,
-                              resourceTypes: fallbackResourceTypes,
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-                          // Show location with check icon if available
-                          if (fallbackLocation != null &&
-                              fallbackLocation.isNotEmpty) ...[
-                            _buildCompletedField(value: fallbackLocation),
-                            const SizedBox(height: 24),
-                          ],
-                        ],
-                        // Display buildings with text fields
-                        if (_buildings.isNotEmpty) ...[
-                          ..._buildings.map((building) => Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: _buildBuildingTextField(building),
-                              )),
-                          const SizedBox(height: 16),
-                        ],
-                        // Add building link (show only if buildings have data)
-                        if (_hasBuildingsWithData()) ...[
-                          const SizedBox(height: 16),
-                          InkWell(
-                            onTap: _addNewBuildingField,
-                            child: Text(
-                              'add_additional_buildings.add_building_link'.tr(),
-                              style: AppTextStyles.bodyMedium.copyWith(
-                                decoration: TextDecoration.underline,
-                                color: Colors.black87,
+                              // Show location with check icon if available
+                              if (fallbackLocation != null &&
+                                  fallbackLocation.isNotEmpty) ...[
+                                _buildCompletedField(value: fallbackLocation),
+                                const SizedBox(height: 24),
+                              ],
+                            ],
+                            // Display buildings with text fields
+                            if (_buildings.isNotEmpty) ...[
+                              ..._buildings.map(
+                                (building) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: _buildBuildingTextField(building),
+                                ),
                               ),
-                            ),
-                          ),
-                        ],
-                        // Yes/No selection (only show when "ja" hasn't been selected yet)
-                        if (_hasAdditionalBuildings == null) ...[
-                          const SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _buildYesNoOption(
-                                label: 'add_additional_buildings.yes'.tr(),
-                                isSelected: false,
-                                onTap: () => _handleYesNoSelection(true),
-                              ),
-                              const SizedBox(width: 24),
-                              _buildYesNoOption(
-                                label: 'add_additional_buildings.no'.tr(),
-                                isSelected: false,
-                                onTap: () => _handleYesNoSelection(false),
+                              const SizedBox(height: 16),
+                            ],
+                            // Add building link (show only if buildings have data)
+                            if (_hasBuildingsWithData()) ...[
+                              const SizedBox(height: 16),
+                              InkWell(
+                                onTap: _addNewBuildingField,
+                                child: Text(
+                                  'add_additional_buildings.add_building_link'
+                                      .tr(),
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    decoration: TextDecoration.underline,
+                                    color: Colors.black87,
+                                  ),
+                                ),
                               ),
                             ],
-                          ),
-                        ],
-                        const SizedBox(height: 24),
-                        InkWell(
-                          onTap: widget.onSkip,
-                          child: Text(
-                            'add_additional_buildings.skip_link'.tr(),
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              decoration: TextDecoration.underline,
-                              color: Colors.black87,
+                            // Yes/No selection (only show when "ja" hasn't been selected yet)
+                            if (_hasAdditionalBuildings == null) ...[
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _buildYesNoOption(
+                                    label: 'add_additional_buildings.yes'.tr(),
+                                    isSelected: false,
+                                    onTap: () => _handleYesNoSelection(true),
+                                  ),
+                                  const SizedBox(width: 24),
+                                  _buildYesNoOption(
+                                    label: 'add_additional_buildings.no'.tr(),
+                                    isSelected: false,
+                                    onTap: () => _handleYesNoSelection(false),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            const SizedBox(height: 24),
+                            InkWell(
+                              onTap: widget.onSkip,
+                              child: Text(
+                                'add_additional_buildings.skip_link'.tr(),
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                  decoration: TextDecoration.underline,
+                                  color: Colors.black87,
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 32),
+                            BlocBuilder<
+                              CreateBuildingsBloc,
+                              CreateBuildingsState
+                            >(
+                              builder: (context, createBuildingsState) {
+                                final isLoading =
+                                    createBuildingsState
+                                        is CreateBuildingsLoading;
+                                return isLoading
+                                    ? const SizedBox(
+                                        width: 260,
+                                        height: 48,
+                                        child: Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                      )
+                                    : PrimaryOutlineButton(
+                                        label:
+                                            'add_additional_buildings.button_text'
+                                                .tr(),
+                                        width: 260,
+                                        enabled:
+                                            _hasBuildingsWithData() &&
+                                            !isLoading,
+                                        onPressed:
+                                            _hasBuildingsWithData() &&
+                                                !isLoading
+                                            ? widget.onContinue
+                                            : null,
+                                      );
+                              },
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 32),
-                        BlocBuilder<CreateBuildingsBloc, CreateBuildingsState>(
-                          builder: (context, createBuildingsState) {
-                            final isLoading = createBuildingsState is CreateBuildingsLoading;
-                            return isLoading
-                                ? const SizedBox(
-                                    width: 260,
-                                    height: 48,
-                                    child: Center(
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                  )
-                                : PrimaryOutlineButton(
-                                    label: 'add_additional_buildings.button_text'.tr(),
-                                    width: 260,
-                                    enabled: _hasBuildingsWithData() && !isLoading,
-                                    onPressed: _hasBuildingsWithData() && !isLoading
-                                        ? widget.onContinue
-                                        : null,
-                                  );
-                          },
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
         );
       },
     );
@@ -444,10 +439,7 @@ class _AddAdditionalBuildingsWidgetState
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: Colors.black54,
-          width: 2,
-        ),
+        border: Border.all(color: Colors.black54, width: 2),
         borderRadius: BorderRadius.zero,
       ),
       child: Row(
@@ -459,12 +451,7 @@ class _AddAdditionalBuildingsWidgetState
             color: const Color(0xFF238636), // Green checkmark
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              value,
-              style: AppTextStyles.bodyMedium,
-            ),
-          ),
+          Expanded(child: Text(value, style: AppTextStyles.bodyMedium)),
           if (resourceTypes != null && resourceTypes.isNotEmpty) ...[
             const SizedBox(width: 16),
             Text(
@@ -496,7 +483,8 @@ class _AddAdditionalBuildingsWidgetState
   }
 
   Widget _buildBuildingTextField(BuildingItem building) {
-    final controller = _buildingControllers[building.id] ?? TextEditingController();
+    final controller =
+        _buildingControllers[building.id] ?? TextEditingController();
     if (!_buildingControllers.containsKey(building.id)) {
       _buildingControllers[building.id] = controller;
     }
@@ -510,17 +498,11 @@ class _AddAdditionalBuildingsWidgetState
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.zero,
-          borderSide: BorderSide(
-            color: const Color(0xFF8B9A5B),
-            width: 2,
-          ),
+          borderSide: BorderSide(color: const Color(0xFF8B9A5B), width: 2),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.zero,
-          borderSide: BorderSide(
-            color: const Color(0xFF8B9A5B),
-            width: 2,
-          ),
+          borderSide: BorderSide(color: const Color(0xFF8B9A5B), width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -530,10 +512,7 @@ class _AddAdditionalBuildingsWidgetState
           onPressed: () => _removeBuilding(building.id),
           icon: const Icon(Icons.close, color: Colors.grey),
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(
-            minWidth: 40,
-            minHeight: 40,
-          ),
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
         ),
       ),
       onChanged: (value) {
@@ -552,18 +531,11 @@ class _AddAdditionalBuildingsWidgetState
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          XCheckBox(
-            value: isSelected,
-            onChanged: (_) => onTap(),
-          ),
+          XCheckBox(value: isSelected, onChanged: (_) => onTap()),
           const SizedBox(width: 8),
-          Text(
-            label,
-            style: AppTextStyles.bodyMedium,
-          ),
+          Text(label, style: AppTextStyles.bodyMedium),
         ],
       ),
     );
   }
 }
-

@@ -4,6 +4,8 @@ import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 
+import '../../../../core/widgets/page_header_row.dart';
+
 class ConfirmStructureWidget extends StatelessWidget {
   final String? userName;
   final VoidCallback onLanguageChanged;
@@ -23,9 +25,7 @@ class ConfirmStructureWidget extends StatelessWidget {
   String _buildProgressText() {
     final name = userName?.trim();
     if (name != null && name.isNotEmpty) {
-      return 'confirm_structure.progress_text'.tr(
-        namedArgs: {'name': name},
-      );
+      return 'confirm_structure.progress_text'.tr(namedArgs: {'name': name});
     }
     return 'confirm_structure.progress_text_fallback'.tr();
   }
@@ -33,9 +33,7 @@ class ConfirmStructureWidget extends StatelessWidget {
   String _buildHeading() {
     final name = userName?.trim();
     if (name != null && name.isNotEmpty) {
-      return 'confirm_structure.heading'.tr(
-        namedArgs: {'name': name},
-      );
+      return 'confirm_structure.heading'.tr(namedArgs: {'name': name});
     }
     return 'confirm_structure.heading_fallback'.tr();
   }
@@ -64,27 +62,14 @@ class ConfirmStructureWidget extends StatelessWidget {
                     ? 500
                     : screenSize.width * 0.98,
               ),
-              if (onBack != null) ...[
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: InkWell(
-                    onTap: onBack,
-                    borderRadius: BorderRadius.circular(8),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      child: Icon(Icons.arrow_back, color: Colors.black87, size: 24),
-                    ),
-                  ),
-                ),
-              ],
+
               const SizedBox(height: 50),
               SizedBox(
                 width: screenSize.width < 600
                     ? screenSize.width * 0.95
                     : screenSize.width < 1200
-                        ? screenSize.width * 0.5
-                        : screenSize.width * 0.6,
+                    ? screenSize.width * 0.5
+                    : screenSize.width * 0.6,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -108,13 +93,12 @@ class ConfirmStructureWidget extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    Text(
-                      _buildHeading(),
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.headlineSmall.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
+                    PageHeaderRow(
+                      title: _buildHeading(),
+                      showBackButton: onBack != null,
+                      onBack: onBack,
                     ),
+
                     const SizedBox(height: 24),
                     Text(
                       'confirm_structure.description'.tr(),
@@ -150,4 +134,3 @@ class ConfirmStructureWidget extends StatelessWidget {
     );
   }
 }
-

@@ -5,6 +5,8 @@ import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 
+import '../../../../core/widgets/page_header_row.dart';
+
 class AddPropertyNameWidget extends StatefulWidget {
   final String? userName;
   final VoidCallback onLanguageChanged;
@@ -45,9 +47,7 @@ class _AddPropertyNameWidgetState extends State<AddPropertyNameWidget> {
   String _buildProgressText() {
     final name = widget.userName?.trim();
     if (name != null && name.isNotEmpty) {
-      return 'add_property_name.progress_text'.tr(
-        namedArgs: {'name': name},
-      );
+      return 'add_property_name.progress_text'.tr(namedArgs: {'name': name});
     }
     return 'add_property_name.progress_text_fallback'.tr();
   }
@@ -76,27 +76,14 @@ class _AddPropertyNameWidgetState extends State<AddPropertyNameWidget> {
                     ? 500
                     : screenSize.width * 0.98,
               ),
-              if (widget.onBack != null) ...[
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: InkWell(
-                    onTap: widget.onBack,
-                    borderRadius: BorderRadius.circular(8),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      child: Icon(Icons.arrow_back, color: Colors.black87, size: 24),
-                    ),
-                  ),
-                ),
-              ],
+
               const SizedBox(height: 50),
               SizedBox(
                 width: screenSize.width < 600
                     ? screenSize.width * 0.95
                     : screenSize.width < 1200
-                        ? screenSize.width * 0.5
-                        : screenSize.width * 0.6,
+                    ? screenSize.width * 0.5
+                    : screenSize.width * 0.6,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -120,13 +107,12 @@ class _AddPropertyNameWidgetState extends State<AddPropertyNameWidget> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    Text(
-                      'add_property_name.title'.tr(),
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.headlineSmall.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
+                    PageHeaderRow(
+                      title: 'add_property_name.title'.tr(),
+                      showBackButton: widget.onBack != null,
+                      onBack: widget.onBack,
                     ),
+
                     const SizedBox(height: 40),
                     TextField(
                       controller: _controller,
@@ -189,4 +175,3 @@ class _AddPropertyNameWidgetState extends State<AddPropertyNameWidget> {
     );
   }
 }
-

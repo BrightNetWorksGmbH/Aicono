@@ -5,6 +5,8 @@ import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 
+import '../../../../core/widgets/page_header_row.dart';
+
 class SetSwitchColorWidget extends StatefulWidget {
   final String? userName;
   final Color primaryColor;
@@ -145,24 +147,7 @@ class _SetSwitchColorWidgetState extends State<SetSwitchColorWidget> {
                     ? 500
                     : screenSize.width * 0.98,
               ),
-              if (widget.onBack != null) ...[
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: InkWell(
-                    onTap: widget.onBack,
-                    borderRadius: BorderRadius.circular(8),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      child: Icon(
-                        Icons.arrow_back,
-                        color: Colors.black87,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+
               const SizedBox(height: 50),
               SizedBox(
                 width: screenSize.width < 600
@@ -174,13 +159,12 @@ class _SetSwitchColorWidgetState extends State<SetSwitchColorWidget> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      'set_switch_color.title'.tr(),
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.headlineLarge.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
+                    PageHeaderRow(
+                      title: 'set_switch_color.title'.tr(),
+                      showBackButton: widget.onBack != null,
+                      onBack: widget.onBack,
                     ),
+
                     const SizedBox(height: 32),
                     // Color Display Container
                     Container(

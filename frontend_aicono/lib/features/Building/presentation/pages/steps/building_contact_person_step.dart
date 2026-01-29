@@ -8,6 +8,7 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/primary_outline_button.dart';
 import '../../../../../core/widgets/app_footer.dart';
 import '../../../../../core/widgets/top_part_widget.dart';
+import '../../../../../core/widgets/page_header_row.dart';
 import '../../../../../core/routing/routeLists.dart';
 import '../../../../../core/network/dio_client.dart';
 import '../../../../../core/injection_container.dart';
@@ -166,9 +167,25 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
           backgroundColor: Colors.white,
-          title: Text('building_contact_person.contacts_from_domain'.tr()),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'building_contact_person.contacts_from_domain'.tr(),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: () => Navigator.of(context).pop(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
           content: SizedBox(
             width: screenSize.width < 600
                 ? screenSize.width * 0.9
@@ -228,6 +245,7 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                   children: [
                                     Radio<String>(
                                       value: contactId,
+                                      activeColor: Colors.black,
                                       groupValue: selectedContactId,
                                       onChanged: (value) {
                                         setDialogState(() {
@@ -273,11 +291,12 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                   ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('building_contact_person.cancel'.tr()),
-            ),
-            TextButton(
+            // TextButton(
+            //   onPressed: () => Navigator.of(context).pop(),
+            //   child: Text('building_contact_person.cancel'.tr()),
+            // ),
+            PrimaryOutlineButton(
+              label: 'building_contact_person.choose_contact'.tr(),
               onPressed: selectedContactId == null
                   ? null
                   : () {
@@ -319,7 +338,7 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                       });
                       Navigator.of(context).pop();
                     },
-              child: Text('building_contact_person.choose_contact'.tr()),
+              width: 260,
             ),
           ],
         ),
@@ -577,7 +596,7 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                     height: (screenSize.height * 0.95) + 50,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -607,15 +626,23 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: 0.85,
-                                backgroundColor: Colors.grey.shade300,
-                                valueColor: const AlwaysStoppedAnimation<Color>(
-                                  Color(0xFF8B9A5B),
+                            SizedBox(
+                              width: screenSize.width < 600
+                                  ? screenSize.width * 0.95
+                                  : screenSize.width < 1200
+                                  ? screenSize.width * 0.5
+                                  : screenSize.width * 0.6,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.zero,
+                                child: LinearProgressIndicator(
+                                  value: 0.85,
+                                  backgroundColor: Colors.grey.shade300,
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(
+                                        Color(0xFF8B9A5B),
+                                      ),
+                                  minHeight: 8,
                                 ),
-                                minHeight: 8,
                               ),
                             ),
                           ] else ...[
@@ -629,15 +656,22 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: 0.85,
-                                backgroundColor: Colors.grey.shade300,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  const Color(0xFF8B9A5B),
+                            SizedBox(
+                              width: screenSize.width < 600
+                                  ? screenSize.width * 0.95
+                                  : screenSize.width < 1200
+                                  ? screenSize.width * 0.5
+                                  : screenSize.width * 0.6,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.zero,
+                                child: LinearProgressIndicator(
+                                  value: 0.85,
+                                  backgroundColor: Colors.grey.shade300,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    const Color(0xFF8B9A5B),
+                                  ),
+                                  minHeight: 8,
                                 ),
-                                minHeight: 8,
                               ),
                             ),
                           ],
@@ -654,46 +688,21 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    // Back button
-                                    if (widget.onBack != null ||
-                                        widget.buildingId != null) ...[
-                                      Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Material(
-                                          color: Colors.transparent,
-                                          child: InkWell(
-                                            onTap:
-                                                widget.onBack ??
-                                                () => context.pop(),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 8,
-                                              ),
-                                              child: Icon(
-                                                Icons.arrow_back,
-                                                color: Colors.black87,
-                                                size: 24,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                    ],
-                                    // Question
-                                    Text(
-                                      'building_contact_person.title'.tr(),
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
+                                    // Header with back button and title
+                                    PageHeaderRow(
+                                      title:
+                                          "Contact Person Contact Person Contact Person Contact Person Contact Person Contact Person",
+                                      onBack:
+                                          (widget.onBack != null ||
+                                              widget.buildingId != null)
+                                          ? (widget.onBack ??
+                                                () => context.pop())
+                                          : null,
+                                      showBackButton:
+                                          widget.onBack != null ||
+                                          widget.buildingId != null,
                                     ),
+
                                     const SizedBox(height: 32),
                                     // Floor plan activated box (always shown on first page)
                                     Container(
@@ -703,16 +712,17 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                           color: const Color(0xFF8B9A5B),
                                           width: 1,
                                         ),
-                                        borderRadius: BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.zero,
                                       ),
                                       child: Padding(
                                         padding: const EdgeInsets.all(16),
                                         child: Row(
                                           children: [
-                                            Icon(
-                                              Icons.check_circle,
-                                              color: Colors.green[600],
-                                              size: 24,
+                                            Image.asset(
+                                              'assets/images/check.png',
+                                              width: 16,
+                                              height: 16,
+                                              color: const Color(0xFF238636),
                                             ),
                                             const SizedBox(width: 12),
                                             Expanded(
@@ -747,9 +757,7 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                               color: const Color(0xFF8B9A5B),
                                               width: 1,
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
+                                            borderRadius: BorderRadius.zero,
                                             color: Colors.white,
                                           ),
                                           child: TextFormField(
@@ -792,9 +800,7 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                               color: const Color(0xFF8B9A5B),
                                               width: 1,
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
+                                            borderRadius: BorderRadius.zero,
                                             color: Colors.white,
                                           ),
                                           child: TextFormField(
@@ -834,18 +840,19 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                             border: Border.all(
                                               color: Colors.grey[300]!,
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                                            borderRadius: BorderRadius.zero,
                                           ),
                                           child: Padding(
                                             padding: const EdgeInsets.all(16),
                                             child: Row(
                                               children: [
-                                                Icon(
-                                                  Icons.check_circle,
-                                                  color: Colors.green[600],
-                                                  size: 24,
+                                                Image.asset(
+                                                  'assets/images/check.png',
+                                                  width: 16,
+                                                  height: 16,
+                                                  color: const Color(
+                                                    0xFF238636,
+                                                  ),
                                                 ),
                                                 const SizedBox(width: 12),
                                                 Expanded(
@@ -887,8 +894,7 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                             color: Colors.transparent,
                                             child: InkWell(
                                               onTap: _handleAutomaticFromDomain,
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
+                                              borderRadius: BorderRadius.zero,
                                               child: Padding(
                                                 padding:
                                                     const EdgeInsets.symmetric(
@@ -951,8 +957,7 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                               onTap: _createContactClicked
                                                   ? null
                                                   : _handleUploadContact,
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
+                                              borderRadius: BorderRadius.zero,
                                               child: Opacity(
                                                 opacity: _createContactClicked
                                                     ? 0.5

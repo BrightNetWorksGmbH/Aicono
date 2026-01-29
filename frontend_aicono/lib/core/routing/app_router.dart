@@ -572,7 +572,8 @@ class AppRouter {
           state.uri.queryParameters['numberOfRooms'] ?? '',
         );
         final siteId = state.uri.queryParameters['siteId'];
-        final buildingId = state.uri.queryParameters['buildingId'] ??
+        final buildingId =
+            state.uri.queryParameters['buildingId'] ??
             '6948dcd113537bff98eb7338'; // Default buildingId if not provided
 
         final building = BuildingEntity(
@@ -687,6 +688,7 @@ class AppRouter {
         );
         final constructionYear = state.uri.queryParameters['constructionYear'];
         final floorPlanUrl = state.uri.queryParameters['floorPlanUrl'];
+        final floorName = state.uri.queryParameters['floorName'];
         final roomsJson = state.uri.queryParameters['rooms'];
 
         List<Map<String, dynamic>>? rooms;
@@ -713,6 +715,7 @@ class AppRouter {
             numberOfRooms: numberOfRooms,
             constructionYear: constructionYear,
             floorPlanUrl: floorPlanUrl,
+            floorName: floorName,
             rooms: rooms,
           ),
         );
@@ -881,12 +884,16 @@ class AppRouter {
         final buildingId =
             state.uri.queryParameters['buildingId'] ??
             '6948dcd113537bff98eb7338'; // Default buildingId if not provided
+        final buildingIds = state
+            .uri
+            .queryParameters['buildingIds']; // Comma-separated buildingIds
         final siteId = state.uri.queryParameters['siteId'];
         final recipientsJson = state.uri.queryParameters['recipients'];
         final recipient = state.uri.queryParameters['recipient'];
         final allRecipients = state.uri.queryParameters['allRecipients'];
         final recipientConfigs = state.uri.queryParameters['recipientConfigs'];
         final createForAll = state.uri.queryParameters['createForAll'];
+        final reportConfigs = state.uri.queryParameters['reportConfigs'];
 
         return _buildPage(
           context,
@@ -896,12 +903,14 @@ class AppRouter {
             buildingAddress: buildingAddress,
             buildingName: buildingName,
             buildingId: buildingId,
+            buildingIds: buildingIds, // Pass buildingIds
             siteId: siteId,
             recipientsJson: recipientsJson,
             recipient: recipient,
             allRecipients: allRecipients,
             recipientConfigs: recipientConfigs,
             createForAll: createForAll,
+            reportConfigs: reportConfigs,
           ),
         );
       },

@@ -10,12 +10,16 @@ import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/network/dio_client.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
+
+import '../../../../../core/widgets/page_header_row.dart';
 
 class BuildingResponsiblePersonsPage extends StatefulWidget {
   final String? userName;
   final String? buildingAddress;
   final String? buildingName;
   final String? buildingId;
+  final String? buildingIds; // Comma-separated list of buildingIds
   final String? siteId;
   final String? recipientsJson; // Legacy: for backward compatibility
   final String? recipient; // Current recipient being configured
@@ -30,6 +34,7 @@ class BuildingResponsiblePersonsPage extends StatefulWidget {
     this.buildingAddress,
     this.buildingName,
     this.buildingId,
+    this.buildingIds,
     this.siteId,
     this.recipientsJson,
     this.recipient,
@@ -142,6 +147,34 @@ class _BuildingResponsiblePersonsPageState
 
   void _handleLanguageChanged() {
     setState(() {});
+  }
+
+  void _navigateAfterCompletion() {
+    // Get switchId from PropertySetupCubit (saved at login stage)
+    final propertyCubit = sl<PropertySetupCubit>();
+    final switchId = propertyCubit.state.switchId;
+
+    if (switchId != null && switchId.isNotEmpty) {
+      context.goNamed(
+        Routelists.addPropertyName,
+        queryParameters: {'switchId': switchId},
+      );
+    } else {
+      // Fallback: navigate to additional building list if switchId not available
+      final siteId =
+          propertyCubit.state.siteId ??
+          widget.siteId ??
+          GoRouterState.of(context).uri.queryParameters['siteId'] ??
+          "6967410283b8ba4cdd805855";
+
+      context.goNamed(
+        Routelists.additionalBuildingList,
+        queryParameters: {
+          if (widget.userName != null) 'userName': widget.userName!,
+          if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
+        },
+      );
+    }
   }
 
   void _handleFrequencyChange() {
@@ -322,6 +355,489 @@ class _BuildingResponsiblePersonsPageState
 
   String _getReportOptionLabel(String key) {
     return 'building_responsible_persons.$key'.tr();
+  }
+
+  void _showEditRoutineDialog(int index) {
+    final savedConfig = _savedReportConfigs[index];
+    final screenSize = MediaQuery.of(context).size;
+
+    // Create controllers for the dialog
+    final TextEditingController dialogNameController = TextEditingController(
+      text: savedConfig['name'] ?? '',
+    );
+    String dialogSelectedFrequencyKey = savedConfig['intervalKey'] ?? 'monthly';
+    Map<String, bool> dialogReportOptions = Map<String, bool>.from(
+      savedConfig['reportOptions'] ??
+          {
+            'total_consumption': true,
+            'peak_loads': false,
+            'anomalies': false,
+            'rooms_by_consumption': true,
+            'underutilization': true,
+          },
+    );
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          // Function to validate form
+          bool validateForm() {
+            if (dialogNameController.text.trim().isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'building_responsible_persons.validation_name_required'
+                        .tr(),
+                  ),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              return false;
+            }
+
+            final hasSelectedOption = dialogReportOptions.values.any(
+              (value) => value == true,
+            );
+            if (!hasSelectedOption) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'building_responsible_persons.validation_at_least_one_option'
+                        .tr(),
+                  ),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              return false;
+            }
+
+            return true;
+          }
+
+          // Function to save changes
+          void saveChanges() {
+            if (!validateForm()) {
+              return;
+            }
+
+            // Build report contents from selected options
+            List<String> reportContents = [];
+            if (dialogReportOptions['total_consumption'] == true) {
+              reportContents.add('TotalConsumption');
+            }
+            if (dialogReportOptions['rooms_by_consumption'] == true) {
+              reportContents.add('ConsumptionByRoom');
+            }
+            if (dialogReportOptions['peak_loads'] == true) {
+              reportContents.add('PeakLoads');
+            }
+            if (dialogReportOptions['anomalies'] == true) {
+              reportContents.add('Anomalies');
+            }
+            if (dialogReportOptions['underutilization'] == true) {
+              reportContents.add('InefficientUsage');
+            }
+
+            // Map frequency key to API format
+            String interval = 'Monthly';
+            switch (dialogSelectedFrequencyKey) {
+              case 'daily':
+                interval = 'Daily';
+                break;
+              case 'weekly':
+                interval = 'Weekly';
+                break;
+              case 'monthly':
+                interval = 'Monthly';
+                break;
+              case 'yearly':
+                interval = 'Yearly';
+                break;
+            }
+
+            // Update the saved config
+            setState(() {
+              _savedReportConfigs[index] = {
+                'name': dialogNameController.text.trim(),
+                'interval': interval,
+                'intervalKey': dialogSelectedFrequencyKey,
+                'reportContents': reportContents,
+                'reportOptions': Map<String, bool>.from(dialogReportOptions),
+                'completed': true,
+              };
+            });
+
+            Navigator.of(context).pop();
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'building_responsible_persons.routine_updated'.tr(),
+                ),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+
+          // Build checkbox widget for dialog
+          Widget buildDialogCheckbox(String option) {
+            final isSelected = dialogReportOptions[option] ?? false;
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  setDialogState(() {
+                    dialogReportOptions[option] = !isSelected;
+                  });
+                },
+                borderRadius: BorderRadius.zero,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black54, width: 1),
+                          borderRadius: BorderRadius.zero,
+                          color: Colors.white,
+                        ),
+                        child: isSelected
+                            ? const Icon(
+                                Icons.close,
+                                size: 16,
+                                color: Colors.black,
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _getReportOptionLabel(option),
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            backgroundColor: Colors.white,
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+            actionsPadding: const EdgeInsets.all(24),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'building_responsible_persons.edit_routine'.tr(),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: screenSize.width < 600
+                  ? screenSize.width * 0.9
+                  : screenSize.width < 1200
+                  ? screenSize.width * 0.6
+                  : screenSize.width * 0.5,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Subtitle
+                    Text(
+                      'building_responsible_persons.edit_routine_subtitle'.tr(),
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Report Name Field
+                    Container(
+                      height: 50,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: const Color(0xFF8B9A5B),
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.zero,
+                      ),
+                      child: TextFormField(
+                        controller: dialogNameController,
+                        decoration: InputDecoration(
+                          hintText:
+                              'building_responsible_persons.reporting_name_hint'
+                                  .tr(),
+                          border: InputBorder.none,
+                          hintStyle: AppTextStyles.bodyMedium.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Frequency Field
+                    Container(
+                      height: 50,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: const Color(0xFF8B9A5B),
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.zero,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'building_responsible_persons.$dialogSelectedFrequencyKey'
+                                  .tr(),
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          Builder(
+                            builder: (buttonContext) => Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  final RenderBox? renderBox =
+                                      buttonContext.findRenderObject()
+                                          as RenderBox?;
+                                  if (renderBox != null) {
+                                    final Offset offset = renderBox
+                                        .localToGlobal(Offset.zero);
+                                    final Size size = renderBox.size;
+
+                                    final double left = offset.dx;
+                                    final double top = offset.dy + size.height;
+                                    final double right =
+                                        MediaQuery.of(context).size.width -
+                                        left -
+                                        size.width;
+                                    final double bottom =
+                                        MediaQuery.of(context).size.height -
+                                        top -
+                                        200;
+
+                                    showMenu(
+                                      context: context,
+                                      color: Colors.white,
+                                      position: RelativeRect.fromLTRB(
+                                        left,
+                                        top,
+                                        right,
+                                        bottom,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(0),
+                                      ),
+                                      elevation: 8,
+                                      items: [
+                                        PopupMenuItem<String>(
+                                          value: 'daily',
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 8,
+                                            ),
+                                            child: Text(
+                                              'building_responsible_persons.daily'
+                                                  .tr(),
+                                              style: AppTextStyles.bodyMedium
+                                                  .copyWith(
+                                                    color: Colors.black87,
+                                                    fontWeight:
+                                                        dialogSelectedFrequencyKey ==
+                                                            'daily'
+                                                        ? FontWeight.w600
+                                                        : FontWeight.normal,
+                                                  ),
+                                            ),
+                                          ),
+                                          onTap: () {
+                                            Future.delayed(Duration.zero, () {
+                                              setDialogState(() {
+                                                dialogSelectedFrequencyKey =
+                                                    'daily';
+                                              });
+                                            });
+                                          },
+                                        ),
+                                        PopupMenuItem<String>(
+                                          value: 'weekly',
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 8,
+                                            ),
+                                            child: Text(
+                                              'building_responsible_persons.weekly'
+                                                  .tr(),
+                                              style: AppTextStyles.bodyMedium
+                                                  .copyWith(
+                                                    color: Colors.black87,
+                                                    fontWeight:
+                                                        dialogSelectedFrequencyKey ==
+                                                            'weekly'
+                                                        ? FontWeight.w600
+                                                        : FontWeight.normal,
+                                                  ),
+                                            ),
+                                          ),
+                                          onTap: () {
+                                            Future.delayed(Duration.zero, () {
+                                              setDialogState(() {
+                                                dialogSelectedFrequencyKey =
+                                                    'weekly';
+                                              });
+                                            });
+                                          },
+                                        ),
+                                        PopupMenuItem<String>(
+                                          value: 'monthly',
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 8,
+                                            ),
+                                            child: Text(
+                                              'building_responsible_persons.monthly'
+                                                  .tr(),
+                                              style: AppTextStyles.bodyMedium
+                                                  .copyWith(
+                                                    color: Colors.black87,
+                                                    fontWeight:
+                                                        dialogSelectedFrequencyKey ==
+                                                            'monthly'
+                                                        ? FontWeight.w600
+                                                        : FontWeight.normal,
+                                                  ),
+                                            ),
+                                          ),
+                                          onTap: () {
+                                            Future.delayed(Duration.zero, () {
+                                              setDialogState(() {
+                                                dialogSelectedFrequencyKey =
+                                                    'monthly';
+                                              });
+                                            });
+                                          },
+                                        ),
+                                        PopupMenuItem<String>(
+                                          value: 'yearly',
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 8,
+                                            ),
+                                            child: Text(
+                                              'building_responsible_persons.yearly'
+                                                  .tr(),
+                                              style: AppTextStyles.bodyMedium
+                                                  .copyWith(
+                                                    color: Colors.black87,
+                                                    fontWeight:
+                                                        dialogSelectedFrequencyKey ==
+                                                            'yearly'
+                                                        ? FontWeight.w600
+                                                        : FontWeight.normal,
+                                                  ),
+                                            ),
+                                          ),
+                                          onTap: () {
+                                            Future.delayed(Duration.zero, () {
+                                              setDialogState(() {
+                                                dialogSelectedFrequencyKey =
+                                                    'yearly';
+                                              });
+                                            });
+                                          },
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                },
+                                child: Text(
+                                  '+ ${'building_responsible_persons.change_frequency'.tr()}',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    decoration: TextDecoration.underline,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Report Options Checkboxes - Row 1
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 16,
+                      alignment: WrapAlignment.start,
+                      children: [
+                        buildDialogCheckbox('total_consumption'),
+                        buildDialogCheckbox('peak_loads'),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Report Options Checkboxes - Row 2
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 16,
+                      alignment: WrapAlignment.start,
+                      children: [
+                        buildDialogCheckbox('anomalies'),
+                        buildDialogCheckbox('rooms_by_consumption'),
+                        buildDialogCheckbox('underutilization'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              PrimaryOutlineButton(
+                label: 'building_recipient.done'.tr(),
+                onPressed: saveChanges,
+                width: 260,
+              ),
+            ],
+            actionsAlignment: MainAxisAlignment.center,
+          );
+        },
+      ),
+    );
   }
 
   void _handleAddResponsiblePerson() {
@@ -580,39 +1096,41 @@ class _BuildingResponsiblePersonsPageState
       final requestBody = {
         'reportingRecipients': reportingRecipients,
         if (reportConfigs.isNotEmpty) 'reportConfigs': reportConfigs,
-        // if (widget.buildingId != null) 'buildingIds': [widget.buildingId!],
-        // if (widget.siteId != null && widget.siteId!.isNotEmpty)
-        //   'siteId': widget.siteId!,
       };
 
-      // Get building ID
-      final buildingId = widget.buildingId ?? '6948dcd113537bff98eb7338';
-      if (buildingId.isEmpty) {
-        throw Exception('Building ID is required');
+      // Get building IDs - use buildingIds if provided, otherwise use single buildingId
+      List<String> buildingIdsList = [];
+      if (widget.buildingIds != null && widget.buildingIds!.isNotEmpty) {
+        buildingIdsList = widget.buildingIds!
+            .split(',')
+            .where((id) => id.trim().isNotEmpty)
+            .toList();
+      } else if (widget.buildingId != null && widget.buildingId!.isNotEmpty) {
+        buildingIdsList = [widget.buildingId!];
       }
 
-      // Make API call
-      final response = await _dioClient.dio.patch(
-        '/api/v1/buildings/$buildingId',
-        data: requestBody,
-      );
+      if (buildingIdsList.isEmpty) {
+        throw Exception('Building ID(s) are required');
+      }
+
+      // Make API call for each building
+      // Note: If multiple buildings, we'll update each one
+      var lastResponse;
+      for (final buildingId in buildingIdsList) {
+        lastResponse = await _dioClient.dio.patch(
+          '/api/v1/buildings/$buildingId',
+          data: requestBody,
+        );
+      }
+
+      // Use the last response for navigation check
+      final response = lastResponse!;
 
       // Check if response is successful
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Navigate to add additional buildings page
+        // Navigate to add property name page with switchId
         if (mounted) {
-          // Get siteId from widget or route state
-          final siteId =
-              widget.siteId ??
-              GoRouterState.of(context).uri.queryParameters['siteId'];
-
-          context.goNamed(
-            Routelists.addAdditionalBuildings,
-            queryParameters: {
-              if (widget.userName != null) 'userName': widget.userName!,
-              if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
-            },
-          );
+          _navigateAfterCompletion();
         }
       } else {
         // Show error message
@@ -777,20 +1295,9 @@ class _BuildingResponsiblePersonsPageState
 
       // Check if response is successful
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Navigate to add additional buildings page
+        // Navigate to add property name page with switchId
         if (mounted) {
-          // Get siteId from widget or route state
-          final siteId =
-              widget.siteId ??
-              GoRouterState.of(context).uri.queryParameters['siteId'];
-
-          context.goNamed(
-            Routelists.addAdditionalBuildings,
-            queryParameters: {
-              if (widget.userName != null) 'userName': widget.userName!,
-              if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
-            },
-          );
+          _navigateAfterCompletion();
         }
       } else {
         // Show error message
@@ -955,7 +1462,7 @@ class _BuildingResponsiblePersonsPageState
                 GoRouterState.of(context).uri.queryParameters['siteId'];
 
             context.goNamed(
-              Routelists.addAdditionalBuildings,
+              Routelists.additionalBuildingList,
               queryParameters: {
                 if (widget.userName != null) 'userName': widget.userName!,
                 if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
@@ -1079,20 +1586,9 @@ class _BuildingResponsiblePersonsPageState
 
       // Check if response is successful
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Navigate to add additional buildings page
+        // Navigate to add property name page with switchId
         if (mounted) {
-          // Get siteId from widget or route state
-          final siteId =
-              widget.siteId ??
-              GoRouterState.of(context).uri.queryParameters['siteId'];
-
-          context.goNamed(
-            Routelists.addAdditionalBuildings,
-            queryParameters: {
-              if (widget.userName != null) 'userName': widget.userName!,
-              if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
-            },
-          );
+          _navigateAfterCompletion();
         }
       } else {
         // Show error message
@@ -1236,20 +1732,9 @@ class _BuildingResponsiblePersonsPageState
 
       // Check if response is successful
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Navigate to add additional buildings page
+        // Navigate to add property name page with switchId
         if (mounted) {
-          // Get siteId from widget or route state
-          final siteId =
-              widget.siteId ??
-              GoRouterState.of(context).uri.queryParameters['siteId'];
-
-          context.goNamed(
-            Routelists.addAdditionalBuildings,
-            queryParameters: {
-              if (widget.userName != null) 'userName': widget.userName!,
-              if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
-            },
-          );
+          _navigateAfterCompletion();
         }
       } else {
         // Show error message
@@ -1316,7 +1801,7 @@ class _BuildingResponsiblePersonsPageState
                     height: (screenSize.height * 0.95) + 50,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -1335,8 +1820,8 @@ class _BuildingResponsiblePersonsPageState
                               verseInitial: null,
                             ),
                           ),
-                          if (widget.userName != null) ...[
-                            const SizedBox(height: 16),
+                          const SizedBox(height: 16),
+                          if (widget.userName != null)
                             Text(
                               'building_responsible_persons.progress_text'.tr(
                                 namedArgs: {'name': widget.userName!},
@@ -1345,9 +1830,15 @@ class _BuildingResponsiblePersonsPageState
                                 color: Colors.black87,
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: screenSize.width < 600
+                                ? screenSize.width * 0.95
+                                : screenSize.width < 1200
+                                ? screenSize.width * 0.5
+                                : screenSize.width * 0.6,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.zero,
                               child: LinearProgressIndicator(
                                 value: 0.95,
                                 backgroundColor: Colors.grey.shade300,
@@ -1357,7 +1848,7 @@ class _BuildingResponsiblePersonsPageState
                                 minHeight: 8,
                               ),
                             ),
-                          ],
+                          ),
                           const SizedBox(height: 50),
                           Expanded(
                             child: SingleChildScrollView(
@@ -1372,59 +1863,16 @@ class _BuildingResponsiblePersonsPageState
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     // Back button if editing a specific recipient
-                                    if (_currentRecipient != null) ...[
-                                      Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Material(
-                                          color: Colors.transparent,
-                                          child: InkWell(
-                                            onTap: () => context.pop(),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 8,
-                                              ),
-                                              child: Icon(
-                                                Icons.arrow_back,
-                                                color: Colors.black87,
-                                                size: 24,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                    ],
-                                    Text(
-                                      widget.createForAll == 'true'
-                                          ? 'building_responsible_persons.title_for_all'
-                                                .tr()
-                                          : _currentRecipient != null
-                                          ? 'building_responsible_persons.title_recipient'.tr(
-                                              namedArgs: {
-                                                'name':
-                                                    _currentRecipient!['name'] ??
-                                                    '',
-                                              },
-                                            )
-                                          : widget.userName != null
-                                          ? 'building_responsible_persons.title'
-                                                .tr(
-                                                  namedArgs: {
-                                                    'name': widget.userName!,
-                                                  },
-                                                )
-                                          : 'building_responsible_persons.title_fallback'
-                                                .tr(),
-                                      textAlign: TextAlign.center,
-                                      style: AppTextStyles.headlineSmall
-                                          .copyWith(
-                                            fontWeight: FontWeight.w900,
-                                            color: Colors.black87,
-                                          ),
+                                    // if (_currentRecipient != null) ...[
+
+                                    // const SizedBox(height: 12),
+                                    // ],
+                                    PageHeaderRow(
+                                      title:
+                                          'building_responsible_persons.title'
+                                              .tr(),
+                                      showBackButton: true,
+                                      onBack: () => context.pop(),
                                     ),
                                     const SizedBox(height: 32),
                                     // Display saved report configs
@@ -1444,9 +1892,7 @@ class _BuildingResponsiblePersonsPageState
                                               color: const Color(0xFF8B9A5B),
                                               width: 2,
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                                            borderRadius: BorderRadius.zero,
                                             color: Colors.grey[50],
                                           ),
                                           child: Column(
@@ -1455,10 +1901,13 @@ class _BuildingResponsiblePersonsPageState
                                             children: [
                                               Row(
                                                 children: [
-                                                  Icon(
-                                                    Icons.check_circle,
-                                                    color: Colors.green[600],
-                                                    size: 20,
+                                                  Image.asset(
+                                                    'assets/images/check.png',
+                                                    width: 16,
+                                                    height: 16,
+                                                    color: const Color(
+                                                      0xFF238636,
+                                                    ),
                                                   ),
                                                   const SizedBox(width: 8),
                                                   Expanded(
@@ -1479,38 +1928,12 @@ class _BuildingResponsiblePersonsPageState
                                                     color: Colors.transparent,
                                                     child: InkWell(
                                                       onTap: () {
-                                                        // Load config into form for editing
-                                                        setState(() {
-                                                          _editingConfigIndex =
-                                                              index;
-                                                          _reportingNameController
-                                                                  .text =
-                                                              savedConfig['name'] ??
-                                                              '';
-                                                          _selectedFrequencyKey =
-                                                              savedConfig['intervalKey'] ??
-                                                              'monthly';
-                                                          _reportOptions = Map<String, bool>.from(
-                                                            savedConfig['reportOptions'] ??
-                                                                {
-                                                                  'total_consumption':
-                                                                      true,
-                                                                  'peak_loads':
-                                                                      false,
-                                                                  'anomalies':
-                                                                      false,
-                                                                  'rooms_by_consumption':
-                                                                      true,
-                                                                  'underutilization':
-                                                                      true,
-                                                                },
-                                                          );
-                                                        });
+                                                        _showEditRoutineDialog(
+                                                          index,
+                                                        );
                                                       },
                                                       borderRadius:
-                                                          BorderRadius.circular(
-                                                            4,
-                                                          ),
+                                                          BorderRadius.zero,
                                                       child: Padding(
                                                         padding:
                                                             const EdgeInsets.symmetric(
@@ -1522,12 +1945,59 @@ class _BuildingResponsiblePersonsPageState
                                                               .tr(),
                                                           style: TextStyle(
                                                             fontSize: 14,
-                                                            color: Colors
-                                                                .blue[700],
+                                                            color:
+                                                                Colors.black87,
                                                             decoration:
                                                                 TextDecoration
                                                                     .underline,
                                                           ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  // Remove button
+                                                  Material(
+                                                    color: Colors.transparent,
+                                                    child: InkWell(
+                                                      onTap: () {
+                                                        setState(() {
+                                                          // If editing this routine, reset editing state
+                                                          if (_editingConfigIndex ==
+                                                              index) {
+                                                            _editingConfigIndex =
+                                                                null;
+                                                            _reportingNameController
+                                                                .clear();
+                                                            _selectedFrequencyKey =
+                                                                'monthly';
+                                                            _reportOptions = {
+                                                              'total_consumption':
+                                                                  true,
+                                                              'peak_loads':
+                                                                  false,
+                                                              'anomalies':
+                                                                  false,
+                                                              'rooms_by_consumption':
+                                                                  true,
+                                                              'underutilization':
+                                                                  true,
+                                                            };
+                                                          }
+                                                          _savedReportConfigs
+                                                              .removeAt(index);
+                                                        });
+                                                      },
+                                                      borderRadius:
+                                                          BorderRadius.zero,
+                                                      child: const Padding(
+                                                        padding: EdgeInsets.all(
+                                                          4,
+                                                        ),
+                                                        child: Icon(
+                                                          Icons.close,
+                                                          size: 18,
+                                                          color: Colors.grey,
                                                         ),
                                                       ),
                                                     ),
@@ -1580,7 +2050,7 @@ class _BuildingResponsiblePersonsPageState
                                           color: const Color(0xFF8B9A5B),
                                           width: 1,
                                         ),
-                                        borderRadius: BorderRadius.circular(4),
+                                        borderRadius: BorderRadius.zero,
                                       ),
                                       child: TextFormField(
                                         controller: _reportingNameController,
@@ -1610,7 +2080,7 @@ class _BuildingResponsiblePersonsPageState
                                           color: const Color(0xFF8B9A5B),
                                           width: 1,
                                         ),
-                                        borderRadius: BorderRadius.circular(4),
+                                        borderRadius: BorderRadius.zero,
                                       ),
                                       child: Row(
                                         children: [
@@ -1944,12 +2414,12 @@ class _BuildingResponsiblePersonsPageState
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _handleReportOptionToggle(option),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.zero,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             // border: Border.all(color: Colors.black54, width: 1),
-            // borderRadius: BorderRadius.circular(4),
+            //             borderRadius: BorderRadius.zero,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1959,7 +2429,7 @@ class _BuildingResponsiblePersonsPageState
                 height: 20,
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.black54, width: 1),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.zero,
                   color: Colors.white,
                 ),
                 child: isSelected
@@ -1987,7 +2457,7 @@ class _BuildingResponsiblePersonsPageState
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.black54, width: 2),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.zero,
           ),
           child: Row(
             children: [
@@ -2029,7 +2499,7 @@ class _BuildingResponsiblePersonsPageState
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.black54, width: 2),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.zero,
           ),
           child: Row(
             children: [

@@ -19,6 +19,7 @@ import 'package:frontend_aicono/features/upload/presentation/bloc/upload_bloc.da
 import 'package:frontend_aicono/features/upload/presentation/bloc/upload_event.dart';
 import 'package:frontend_aicono/features/upload/presentation/bloc/upload_state.dart';
 import '../../../../../core/routing/routeLists.dart';
+import '../../../../../core/widgets/page_header_row.dart';
 import '../../../../../core/widgets/primary_outline_button.dart';
 import '../../pages/steps/building_floor_plan_step.dart';
 
@@ -63,6 +64,7 @@ class FloorPlanActivationWidget extends StatefulWidget {
   final String? buildingSize;
   final int? numberOfRooms;
   final String? constructionYear;
+  final String? floorName;
 
   const FloorPlanActivationWidget({
     super.key,
@@ -75,6 +77,7 @@ class FloorPlanActivationWidget extends StatefulWidget {
     this.buildingSize,
     this.numberOfRooms,
     this.constructionYear,
+    this.floorName,
   });
 
   @override
@@ -966,6 +969,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                   'numberOfRooms': widget.numberOfRooms.toString(),
                 if (widget.constructionYear != null)
                   'constructionYear': widget.constructionYear!,
+                if (widget.floorName != null) 'floorName': widget.floorName!,
                 'floorPlanUrl': state.url,
                 'rooms': Uri.encodeComponent(jsonEncode(roomsData)),
               },
@@ -1189,17 +1193,14 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Title
-        const Text(
-          'Grundriss aktivieren',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-          textAlign: TextAlign.center,
+        PageHeaderRow(
+          title: 'Grundriss aktivieren',
+          showBackButton: true,
+          onBack: () {
+            Navigator.pop(context);
+          },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         // Rectangle mode toggle and color selector (show when image is loaded)
         if (_imageBytes != null && _showDrawingMode)
           Container(
@@ -1900,8 +1901,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
           ),
         ),
         // Save and Next button
-        Material(
-          color: Colors.transparent,
+        Center(
           child: PrimaryOutlineButton(
             label: _imageBytes != null ? 'Speichern & Weiter' : 'Das passt so',
 

@@ -53,10 +53,7 @@ class _AddAdditionalBuildingsPageState
   }
 
   void _handleAddBuildingDetails(BuildingItem building) {
-    // Generate a temporary buildingId for Loxone connection
-    final buildingId = 'building_${DateTime.now().millisecondsSinceEpoch}';
-
-    // // Navigate to Loxone connection page first
+    // Navigate to Loxone connection page first
     context.pushNamed(
       Routelists.loxoneConnection,
       queryParameters: {

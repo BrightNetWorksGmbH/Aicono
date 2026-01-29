@@ -24,6 +24,7 @@ class _BuildingOnboardingPageState extends State<BuildingOnboardingPage> {
   int _currentStep = 0;
   BuildingEntity? _buildingData;
   int? _editingFloorNumber; // Track which floor is being edited
+  String? _editingFloorName; // Track the floor name being edited
   final Set<int> _completedFloors = {}; // Track completed floors
 
   @override
@@ -89,14 +90,16 @@ class _BuildingOnboardingPageState extends State<BuildingOnboardingPage> {
         _completedFloors.add(_editingFloorNumber!);
       }
       _editingFloorNumber = null;
+      _editingFloorName = null;
     });
     _pageController.jumpToPage(1);
   }
 
-  void _editFloor(int floorNumber) {
+  void _editFloor(int floorNumber, String floorName) {
     // Navigate to floor plan step for the specific floor
     setState(() {
       _editingFloorNumber = floorNumber;
+      _editingFloorName = floorName;
       _currentStep = 2;
     });
     _pageController.jumpToPage(2);
@@ -217,6 +220,8 @@ class _BuildingOnboardingPageState extends State<BuildingOnboardingPage> {
                             'floor-plan-editor',
                           );
                         },
+                        floorNumber: _editingFloorNumber,
+                        floorName: _editingFloorName,
                       ),
                     ],
                   ),

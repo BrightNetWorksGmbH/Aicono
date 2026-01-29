@@ -9,6 +9,8 @@ import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/create_site_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
 
+import '../../../../core/widgets/page_header_row.dart';
+
 class SelectResourcesWidget extends StatefulWidget {
   final String? userName;
   final VoidCallback onLanguageChanged;
@@ -45,9 +47,7 @@ class _SelectResourcesWidgetState extends State<SelectResourcesWidget> {
   String _buildProgressText() {
     final name = widget.userName?.trim();
     if (name != null && name.isNotEmpty) {
-      return 'select_resources.progress_text'.tr(
-        namedArgs: {'name': name},
-      );
+      return 'select_resources.progress_text'.tr(namedArgs: {'name': name});
     }
     return 'select_resources.progress_text_fallback'.tr();
   }
@@ -82,29 +82,14 @@ class _SelectResourcesWidgetState extends State<SelectResourcesWidget> {
                         ? 500
                         : screenSize.width * 0.98,
                   ),
-                  if (widget.onBack != null) ...[
-                    const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: InkWell(
-                        onTap: widget.onBack,
-                        borderRadius: BorderRadius.circular(8),
-                        child: const Padding(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          child: Icon(Icons.arrow_back,
-                              color: Colors.black87, size: 24),
-                        ),
-                      ),
-                    ),
-                  ],
+
                   const SizedBox(height: 50),
                   SizedBox(
                     width: screenSize.width < 600
                         ? screenSize.width * 0.95
                         : screenSize.width < 1200
-                            ? screenSize.width * 0.5
-                            : screenSize.width * 0.6,
+                        ? screenSize.width * 0.5
+                        : screenSize.width * 0.6,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -128,16 +113,16 @@ class _SelectResourcesWidgetState extends State<SelectResourcesWidget> {
                           ),
                         ),
                         const SizedBox(height: 32),
-                        Text(
-                          'select_resources.title'.tr(),
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.headlineSmall.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
+                        PageHeaderRow(
+                          title: 'select_resources.title'.tr(),
+                          showBackButton: widget.onBack != null,
+                          onBack: widget.onBack,
                         ),
+
                         const SizedBox(height: 40),
                         // Show property name with check icon if available
-                        if (propertyName != null && propertyName.isNotEmpty) ...[
+                        if (propertyName != null &&
+                            propertyName.isNotEmpty) ...[
                           _buildCompletedField(value: propertyName),
                           const SizedBox(height: 16),
                         ],
@@ -182,7 +167,8 @@ class _SelectResourcesWidgetState extends State<SelectResourcesWidget> {
                         const SizedBox(height: 32),
                         BlocBuilder<CreateSiteBloc, CreateSiteState>(
                           builder: (context, createSiteState) {
-                            final isLoading = createSiteState is CreateSiteLoading;
+                            final isLoading =
+                                createSiteState is CreateSiteLoading;
                             return isLoading
                                 ? const SizedBox(
                                     width: 260,
@@ -210,17 +196,12 @@ class _SelectResourcesWidgetState extends State<SelectResourcesWidget> {
     );
   }
 
-  Widget _buildCompletedField({
-    required String value,
-  }) {
+  Widget _buildCompletedField({required String value}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: Colors.black54,
-          width: 2,
-        ),
+        border: Border.all(color: Colors.black54, width: 2),
         borderRadius: BorderRadius.zero,
       ),
       child: Row(
@@ -232,12 +213,7 @@ class _SelectResourcesWidgetState extends State<SelectResourcesWidget> {
             color: const Color(0xFF238636), // Green checkmark
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              value,
-              style: AppTextStyles.bodyMedium,
-            ),
-          ),
+          Expanded(child: Text(value, style: AppTextStyles.bodyMedium)),
         ],
       ),
     );
@@ -257,8 +233,7 @@ class _SelectResourcesWidgetState extends State<SelectResourcesWidget> {
             _selectedResources.add(value);
           }
         });
-        sl<PropertySetupCubit>()
-            .setResourceTypes(_selectedResources.toList());
+        sl<PropertySetupCubit>().setResourceTypes(_selectedResources.toList());
       },
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -273,18 +248,15 @@ class _SelectResourcesWidgetState extends State<SelectResourcesWidget> {
                   _selectedResources.remove(value);
                 }
               });
-              sl<PropertySetupCubit>()
-                  .setResourceTypes(_selectedResources.toList());
+              sl<PropertySetupCubit>().setResourceTypes(
+                _selectedResources.toList(),
+              );
             },
           ),
           const SizedBox(width: 8),
-          Text(
-            label,
-            style: AppTextStyles.bodyMedium,
-          ),
+          Text(label, style: AppTextStyles.bodyMedium),
         ],
       ),
     );
   }
 }
-
