@@ -161,7 +161,7 @@ class _SetSwitchImageWidgetState extends State<SetSwitchImageWidget> {
                     ),
 
                     const SizedBox(height: 40),
-                    GestureDetector(
+                    InkWell(
                       onTap: _pickImage,
                       child: _DashedBorder(
                         borderColor: Colors.black54,

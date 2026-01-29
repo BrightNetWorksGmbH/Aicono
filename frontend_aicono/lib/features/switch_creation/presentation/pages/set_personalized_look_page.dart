@@ -7,6 +7,7 @@ import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/widget/set_personalize_look_widget.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/switch_creation_cubit.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
 
 class SetPersonalizedLookPage extends StatefulWidget {
@@ -21,6 +22,15 @@ class SetPersonalizedLookPage extends StatefulWidget {
 }
 
 class _SetPersonalizedLookPageState extends State<SetPersonalizedLookPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Store switchId from invitation in PropertySetupCubit
+    if (widget.invitation != null && widget.invitation!.verseId.isNotEmpty) {
+      sl<PropertySetupCubit>().setSwitchId(widget.invitation!.verseId);
+    }
+  }
+
   void _handleLanguageChanged() {
     setState(() {});
   }
