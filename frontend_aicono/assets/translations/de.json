@@ -277,6 +277,14 @@
       "logout": "Abmelden",
       "no_entries": "Keine Einträge verfügbar"
     },
+    "switch_switcher": {
+      "title": "Organisation wechseln",
+      "subtitle": "Wähle die Organisation, in der du arbeiten möchtest",
+      "current": "Aktuell",
+      "active": "Aktiv",
+      "current_switch": "Aktuelle Organisation",
+      "switch": "Wechseln"
+    },
     "main_content": {
       "greeting": "Hallo, {name}!",
       "greeting_fallback": "Hallo, User!",
@@ -292,6 +300,47 @@
     "tree_view": {
       "no_entries": "Keine Einträge verfügbar"
     }
+  },
+  "statistics_dashboard": {
+    "dear_name": "Lieber {name},",
+    "daily_reporting": "Dein tägliches Reporting:",
+    "executive_summary": "Executive Summary",
+    "summary_resource_status": "Ressourcenstatus: stabil, unter Vorjahresverbrauch",
+    "summary_cost_targets": "Alle heutigen Kostenziele erreicht oder unterschritten",
+    "summary_forecast_targets": "Prognostizierte Kostenziele (Fiskaljahr) aktuell erreicht",
+    "key_facts_title": "Key Facts auf einen Blick",
+    "energy_consumption_current": "Energieverbrauch aktuell",
+    "below_plan_2025": "5% unter Plan bis 2025",
+    "consumption_costs_forecast": "Verbrauchskosten gesamt (Prognose)",
+    "months_jan_jun": "JAN  FEB  MRZ  APR  MAI  JUN",
+    "co2_emission_forecast": "CO2 Emission (Prognose)",
+    "peak_load_analysis_title": "Lastspitzenanalyse wie prognostiziert",
+    "peak_load_analysis_subtitle": "Lastspitzenanalyse nur noch bei Anomalien",
+    "production_peak": "Produktions-Peak",
+    "last_peak_detail": "Letzter Peak: 14. Mai, 15:00 Uhr - 47% über Mittelwert.",
+    "peak_as_forecast": "Lastspitze wie prognostiziert",
+    "according_to_calculation": "Entsprechend Kalkulation",
+    "normalized_as_planned": "Planmäßig normalisiert",
+    "recommendation_title": "Handlungsempfehlung",
+    "water_warehouse": "Wasser, Lagerhalle",
+    "warehouse_water_increase": "Das Lagergebäude zeigt 14% Mehrverbrauch Wasser seit 15.Mai",
+    "sudden_increase_since": "Plötzliche Verbrauchs-Steigerung constant seit 14.05 12:03",
+    "water_meter_warehouse": "Wasserzähler, Lagergebäude",
+    "meter_number": "Zählernummer: 387395PU",
+    "ground_floor_reception": "Erdgeschoss, Empfang",
+    "active": "aktiv",
+    "targets_covered": "Konkrete und prognostizierte Ziele weiterhin gedeckt",
+    "savings_potential": "Einsparpotential 500€ monatlich vorhanden",
+    "device_malfunction_risk": "Risiko für Gerätefehlfunktion besteht",
+    "request_check": "Prüfung anfordern",
+    "observe_for_now": "Vorläufig beobachten",
+    "hide_anomaly_future": "Anomalie zukünftig ausblenden",
+    "thanks_goodbye": "Danke für Deine Zeit, {name} und bis morgen!",
+    "request_interval_change": "Intervalländerung anfragen",
+    "report_created": "Reporting erstellt am 07.11 um 10:38 basierend auf 31 Tagen Messdaten.",
+    "report_disclaimer": "Dieses Reporting ist Bestandteil des ESG Datenraums der BrightNetWorks GmbH.",
+    "average": "MITTEL",
+    "now": "JETZT"
   },
   "common": {
     "cancel": "Abbrechen",

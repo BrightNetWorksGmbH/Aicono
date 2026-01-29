@@ -1,4 +1,5 @@
 import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
+import 'package:frontend_aicono/features/Authentication/domain/entities/switch_role_entity.dart';
 import 'dart:convert';
 
 class User {
@@ -15,6 +16,7 @@ class User {
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<String> joinedVerse;
+  final List<SwitchRoleEntity> roles;
   final String token;
   final String refreshToken;
   final List<InvitationEntity> pendingInvitations;
@@ -33,6 +35,7 @@ class User {
     required this.createdAt,
     required this.updatedAt,
     required this.joinedVerse,
+    this.roles = const [],
     required this.token,
     required this.refreshToken,
     this.pendingInvitations = const [],
@@ -84,6 +87,16 @@ class User {
         }
         return <String>[];
       })(),
+      roles: (() {
+        final raw = json['roles'];
+        if (raw == null || raw is! List) return <SwitchRoleEntity>[];
+        return raw
+            .map<SwitchRoleEntity>(
+              (e) => SwitchRoleEntity.fromJson(e as Map<String, dynamic>),
+            )
+            .where((r) => r.bryteswitchId.isNotEmpty)
+            .toList();
+      })(),
       token: json['token'] ?? '',
       refreshToken: json['refresh_token'] ?? json['token'] ?? '',
       pendingInvitations:
@@ -108,6 +121,7 @@ class User {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'joined_verse': joinedVerse,
+      'roles': roles.map((e) => e.toJson()).toList(),
       'token': token,
       'refresh_token': refreshToken,
       'pending_invitations': pendingInvitations.map((e) => e.toJson()).toList(),

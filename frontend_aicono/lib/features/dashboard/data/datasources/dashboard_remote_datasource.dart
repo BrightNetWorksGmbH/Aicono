@@ -12,7 +12,9 @@ import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_roo
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_details_filter.dart';
 
 abstract class DashboardRemoteDataSource {
-  Future<Either<Failure, DashboardSitesResponse>> getSites();
+  Future<Either<Failure, DashboardSitesResponse>> getSites(
+    String? bryteswitchId,
+  );
 
   Future<Either<Failure, DashboardSiteDetailsResponse>> getSiteDetails(
     String siteId, {
@@ -41,13 +43,22 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   DashboardRemoteDataSourceImpl({required this.dioClient});
 
   @override
-  Future<Either<Failure, DashboardSitesResponse>> getSites() async {
+  Future<Either<Failure, DashboardSitesResponse>> getSites(
+    String? bryteswitchId,
+  ) async {
     try {
       if (kDebugMode) {
-        print('📤 Dashboard getSites request');
+        print('📤 Dashboard getSites request bryteswitch_id=$bryteswitchId');
       }
 
-      final response = await dioClient.get('/api/v1/dashboard/sites');
+      final queryParams = <String, dynamic>{};
+      if (bryteswitchId != null && bryteswitchId.isNotEmpty) {
+        queryParams['bryteswitch_id'] = bryteswitchId;
+      }
+      final response = await dioClient.get(
+        '/api/v1/dashboard/sites',
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
 
       if (response.statusCode == 200) {
         final data = response.data;
@@ -109,10 +120,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
         print('📤 Dashboard getSiteDetails request: siteId=$siteId');
       }
 
-      final queryParams =
-          (filter != null && filter.toQueryMap().isNotEmpty)
-              ? filter.toQueryMap()
-              : null;
+      final queryParams = (filter != null && filter.toQueryMap().isNotEmpty)
+          ? filter.toQueryMap()
+          : null;
       final response = await dioClient.get(
         '/api/v1/dashboard/sites/$siteId',
         queryParameters: queryParams,
@@ -178,13 +188,14 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       if (kDebugMode) {
-        print('📤 Dashboard getBuildingDetails request: buildingId=$buildingId');
+        print(
+          '📤 Dashboard getBuildingDetails request: buildingId=$buildingId',
+        );
       }
 
-      final queryParams =
-          (filter != null && filter.toQueryMap().isNotEmpty)
-              ? filter.toQueryMap()
-              : null;
+      final queryParams = (filter != null && filter.toQueryMap().isNotEmpty)
+          ? filter.toQueryMap()
+          : null;
       final response = await dioClient.get(
         '/api/v1/dashboard/buildings/$buildingId',
         queryParameters: queryParams,
@@ -198,7 +209,8 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
           }
           return Left(
             ServerFailure(
-              (data['message'] ?? 'Failed to load building details.').toString(),
+              (data['message'] ?? 'Failed to load building details.')
+                  .toString(),
             ),
           );
         }
@@ -245,10 +257,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
         print('📤 Dashboard getFloorDetails request: floorId=$floorId');
       }
 
-      final queryParams =
-          (filter != null && filter.toQueryMap().isNotEmpty)
-              ? filter.toQueryMap()
-              : null;
+      final queryParams = (filter != null && filter.toQueryMap().isNotEmpty)
+          ? filter.toQueryMap()
+          : null;
       final response = await dioClient.get(
         '/api/v1/dashboard/floors/$floorId',
         queryParameters: queryParams,
@@ -309,10 +320,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
         print('📤 Dashboard getRoomDetails request: roomId=$roomId');
       }
 
-      final queryParams =
-          (filter != null && filter.toQueryMap().isNotEmpty)
-              ? filter.toQueryMap()
-              : null;
+      final queryParams = (filter != null && filter.toQueryMap().isNotEmpty)
+          ? filter.toQueryMap()
+          : null;
       final response = await dioClient.get(
         '/api/v1/dashboard/rooms/$roomId',
         queryParameters: queryParams,
@@ -363,4 +373,3 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
     }
   }
 }
-

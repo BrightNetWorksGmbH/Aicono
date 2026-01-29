@@ -12,7 +12,14 @@ abstract class DashboardSitesEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class DashboardSitesRequested extends DashboardSitesEvent {}
+class DashboardSitesRequested extends DashboardSitesEvent {
+  final String? bryteswitchId;
+
+  const DashboardSitesRequested({this.bryteswitchId});
+
+  @override
+  List<Object?> get props => [bryteswitchId];
+}
 
 class DashboardSitesReset extends DashboardSitesEvent {}
 
@@ -47,11 +54,12 @@ class DashboardSitesFailure extends DashboardSitesState {
 }
 
 // Bloc
-class DashboardSitesBloc extends Bloc<DashboardSitesEvent, DashboardSitesState> {
+class DashboardSitesBloc
+    extends Bloc<DashboardSitesEvent, DashboardSitesState> {
   final GetDashboardSitesUseCase getDashboardSitesUseCase;
 
   DashboardSitesBloc({required this.getDashboardSitesUseCase})
-      : super(DashboardSitesInitial()) {
+    : super(DashboardSitesInitial()) {
     on<DashboardSitesRequested>(_onRequested);
     on<DashboardSitesReset>((event, emit) => emit(DashboardSitesInitial()));
   }
@@ -62,7 +70,7 @@ class DashboardSitesBloc extends Bloc<DashboardSitesEvent, DashboardSitesState> 
   ) async {
     emit(DashboardSitesLoading());
 
-    final result = await getDashboardSitesUseCase();
+    final result = await getDashboardSitesUseCase(event.bryteswitchId);
     result.fold(
       (failure) => emit(DashboardSitesFailure(message: _mapFailure(failure))),
       (response) => emit(DashboardSitesSuccess(sites: response.data)),
@@ -78,4 +86,3 @@ class DashboardSitesBloc extends Bloc<DashboardSitesEvent, DashboardSitesState> 
     return 'An unexpected error occurred.';
   }
 }
-

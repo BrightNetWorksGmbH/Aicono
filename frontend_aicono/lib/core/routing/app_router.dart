@@ -40,6 +40,7 @@ import 'package:frontend_aicono/features/Building/presentation/pages/floor_plan_
 import 'package:frontend_aicono/features/Building/presentation/pages/steps/building_contact_person_step.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/page/dashboard_page.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/pages/statistics_dashboard_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/switch_settings_page.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/pages/invite_user_page.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/pages/complete_user_invite_page.dart';
@@ -707,6 +708,19 @@ class AppRouter {
       pageBuilder: (context, state) {
         final verseId = state.uri.queryParameters['verseId'];
         return _buildPage(context, state, DashboardPage(verseId: verseId));
+      },
+    ),
+    GoRoute(
+      path: '/statistics',
+      name: Routelists.statistics,
+      pageBuilder: (context, state) {
+        final verseId = state.uri.queryParameters['verseId'];
+        final userName = state.uri.queryParameters['userName'];
+        return _buildPage(
+          context,
+          state,
+          StatisticsDashboardPage(verseId: verseId, userName: userName),
+        );
       },
     ),
     GoRoute(

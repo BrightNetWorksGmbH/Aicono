@@ -241,7 +241,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
         BlocProvider(
           create: (context) {
             final bloc = sl<DashboardSitesBloc>();
-            bloc.add(DashboardSitesRequested());
+            bloc.add(const DashboardSitesRequested(bryteswitchId: null));
             return bloc;
           },
         ),
@@ -252,128 +252,129 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
       ],
       child: SafeArea(
         child: Scaffold(
-        key: _scaffoldKey,
-        drawer: Drawer(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.grey[50]!, Colors.grey[100]!],
+          key: _scaffoldKey,
+          drawer: Drawer(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.grey[50]!, Colors.grey[100]!],
+                ),
               ),
-            ),
-            child: SafeArea(
-              child: SingleChildScrollView(
-                child: DashboardSidebar(
-                  isInDrawer: true,
-                  showBackToDashboard: true,
-                  activeSection: 'settings',
-                  onLanguageChanged: _handleLanguageChanged,
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  child: DashboardSidebar(
+                    isInDrawer: true,
+                    showBackToDashboard: true,
+                    activeSection: 'settings',
+                    onLanguageChanged: _handleLanguageChanged,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        backgroundColor: Colors.black,
-        body: SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: screenSize.height),
-            child: Center(
-              child: Container(
-                width: screenSize.width,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.5),
-                      blurRadius: 25,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(24.0),
-                              child: TopHeader(
-                                onLanguageChanged: _handleLanguageChanged,
-                                containerWidth: screenSize.width > 1200
-                                    ? 1200
-                                    : screenSize.width,
-                                // Only provide onMenuTap on narrow screens to open drawer
-                                // On wide screens, leave it null so the menu shows popup
-                                onMenuTap: screenSize.width < 800
-                                    ? () {
-                                        _scaffoldKey.currentState
-                                            ?.openDrawer();
-                                      }
-                                    : null,
+          backgroundColor: Colors.black,
+          body: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: screenSize.height),
+              child: Center(
+                child: Container(
+                  width: screenSize.width,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 25,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(24.0),
+                                child: TopHeader(
+                                  onLanguageChanged: _handleLanguageChanged,
+                                  containerWidth: screenSize.width > 1200
+                                      ? 1200
+                                      : screenSize.width,
+                                  // Only provide onMenuTap on narrow screens to open drawer
+                                  // On wide screens, leave it null so the menu shows popup
+                                  onMenuTap: screenSize.width < 800
+                                      ? () {
+                                          _scaffoldKey.currentState
+                                              ?.openDrawer();
+                                        }
+                                      : null,
+                                ),
                               ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0,
-                              ),
-                              child: Builder(
-                                builder: (context) {
-                                  final isNarrow = screenSize.width < 800;
-                                  final mainFlex = isNarrow ? 1 : 7;
-                                  return Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      if (!isNarrow)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16.0,
+                                ),
+                                child: Builder(
+                                  builder: (context) {
+                                    final isNarrow = screenSize.width < 800;
+                                    final mainFlex = isNarrow ? 1 : 7;
+                                    return Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (!isNarrow)
+                                          Expanded(
+                                            flex: 3,
+                                            child: DashboardSidebar(
+                                              showBackToDashboard: true,
+                                              activeSection: 'settings',
+                                              onLanguageChanged:
+                                                  _handleLanguageChanged,
+                                            ),
+                                          ),
                                         Expanded(
-                                          flex: 3,
-                                          child: DashboardSidebar(
-                                            showBackToDashboard: true,
-                                            activeSection: 'settings',
-                                            onLanguageChanged: _handleLanguageChanged,
+                                          flex: mainFlex,
+                                          child: Container(
+                                            color: Colors.white,
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(24),
+                                              child: _buildSettingsContent(),
+                                            ),
                                           ),
                                         ),
-                                      Expanded(
-                                        flex: mainFlex,
-                                        child: Container(
-                                          color: Colors.white,
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(24),
-                                            child: _buildSettingsContent(),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                },
+                                      ],
+                                    );
+                                  },
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 24),
-                          ],
+                              const SizedBox(height: 24),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    AppFooter(
-                      onLanguageChanged: _handleLanguageChanged,
-                      containerWidth: screenSize.width > 1200
-                          ? 1200
-                          : screenSize.width,
-                    ),
-                  ],
+                      AppFooter(
+                        onLanguageChanged: _handleLanguageChanged,
+                        containerWidth: screenSize.width > 1200
+                            ? 1200
+                            : screenSize.width,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 
@@ -525,10 +526,10 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                                     _switchNameFocusNode.requestFocus();
                                     _switchNameController.selection =
                                         TextSelection(
-                                      baseOffset: 0,
-                                      extentOffset: _switchNameController.text
-                                          .length,
-                                    );
+                                          baseOffset: 0,
+                                          extentOffset:
+                                              _switchNameController.text.length,
+                                        );
                                   },
                                 );
                               },
@@ -638,11 +639,11 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                                   const Duration(milliseconds: 50),
                                   () {
                                     _organizationFocusNode.requestFocus();
-                                    _organizationController.selection =
-                                        TextSelection(
+                                    _organizationController
+                                        .selection = TextSelection(
                                       baseOffset: 0,
-                                      extentOffset: _organizationController.text
-                                          .length,
+                                      extentOffset:
+                                          _organizationController.text.length,
                                     );
                                   },
                                 );
@@ -755,10 +756,10 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                                     _subdomainFocusNode.requestFocus();
                                     _subdomainController.selection =
                                         TextSelection(
-                                      baseOffset: 0,
-                                      extentOffset: _subdomainController.text
-                                          .length,
-                                    );
+                                          baseOffset: 0,
+                                          extentOffset:
+                                              _subdomainController.text.length,
+                                        );
                                   },
                                 );
                               },
@@ -820,9 +821,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                       InkWell(
                         onTap: _pickColor,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Text(
                             '+ Choose Color',
                             style: AppTextStyles.bodyMedium.copyWith(
@@ -929,8 +928,8 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                                           () {
                                             _colorNameFocusNode.requestFocus();
                                             // Select all text for easy editing
-                                            _colorNameController.selection =
-                                                TextSelection(
+                                            _colorNameController
+                                                .selection = TextSelection(
                                               baseOffset: 0,
                                               extentOffset: _colorNameController
                                                   .text
@@ -943,9 +942,10 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                                         'Change Color Name',
                                         style: AppTextStyles.bodyMedium
                                             .copyWith(
-                                          color: Colors.grey[700],
-                                          decoration: TextDecoration.underline,
-                                        ),
+                                              color: Colors.grey[700],
+                                              decoration:
+                                                  TextDecoration.underline,
+                                            ),
                                       ),
                                     ),
                                   ],
@@ -983,9 +983,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                           InkWell(
                             onTap: _pickColor,
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 8,
-                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
                               child: Text(
                                 '+ Choose Color',
                                 style: AppTextStyles.bodyMedium.copyWith(
@@ -1058,13 +1056,15 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                 child: SizedBox(
                   width: 200,
                   child: OutlinedButton(
-                    onPressed: (isButtonEnabled &&
+                    onPressed:
+                        (isButtonEnabled &&
                             (_logoFile != null || _networkLogoUrl != null))
                         ? _saveSettings
                         : null,
                     style: OutlinedButton.styleFrom(
                       backgroundColor: Colors.white,
-                      foregroundColor: (isButtonEnabled &&
+                      foregroundColor:
+                          (isButtonEnabled &&
                               (_logoFile != null || _networkLogoUrl != null))
                           ? const Color(0xFF171C23)
                           : Colors.grey,
@@ -1073,7 +1073,8 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                         horizontal: 20,
                       ),
                       side: BorderSide(
-                        color: (isButtonEnabled &&
+                        color:
+                            (isButtonEnabled &&
                                 (_logoFile != null || _networkLogoUrl != null))
                             ? const Color(0xFF171C23)
                             : Colors.grey,
@@ -1088,7 +1089,8 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                       style: AppTextStyles.buttonText.copyWith(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: (isButtonEnabled &&
+                        color:
+                            (isButtonEnabled &&
                                 (_logoFile != null || _networkLogoUrl != null))
                             ? const Color(0xFF171C23)
                             : Colors.grey,
@@ -1220,27 +1222,27 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                   color: Colors.white,
                   child: _logoFile != null
                       ? kIsWeb
-                          ? Image.memory(
-                              _selectedImageBytes!,
-                              fit: BoxFit.contain,
-                            )
-                          : Image.file(
-                              File(_logoFile!.path),
-                              fit: BoxFit.contain,
-                            )
+                            ? Image.memory(
+                                _selectedImageBytes!,
+                                fit: BoxFit.contain,
+                              )
+                            : Image.file(
+                                File(_logoFile!.path),
+                                fit: BoxFit.contain,
+                              )
                       : networkLogoUrl != null && networkLogoUrl.isNotEmpty
-                          ? Image.network(
-                              networkLogoUrl,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(
-                                  Icons.image,
-                                  size: 48,
-                                  color: Colors.grey,
-                                );
-                              },
-                            )
-                          : null,
+                      ? Image.network(
+                          networkLogoUrl,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(
+                              Icons.image,
+                              size: 48,
+                              color: Colors.grey,
+                            );
+                          },
+                        )
+                      : null,
                 )
               else
                 Row(
