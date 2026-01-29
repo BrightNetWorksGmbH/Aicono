@@ -4,6 +4,8 @@ import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 
+import '../../../../../core/widgets/page_header_row.dart';
+
 class LoxoneConnectionWidget extends StatefulWidget {
   final String? userName;
   final VoidCallback onLanguageChanged;
@@ -12,6 +14,7 @@ class LoxoneConnectionWidget extends StatefulWidget {
   final VoidCallback? onBack;
   final bool isLoading;
   final ValueChanged<Map<String, dynamic>>? onConnectionDataReady;
+  final Map<String, dynamic>? initialData;
 
   const LoxoneConnectionWidget({
     super.key,
@@ -22,6 +25,7 @@ class LoxoneConnectionWidget extends StatefulWidget {
     this.onBack,
     this.isLoading = false,
     this.onConnectionDataReady,
+    this.initialData,
   });
 
   @override
@@ -29,20 +33,35 @@ class LoxoneConnectionWidget extends StatefulWidget {
 }
 
 class _LoxoneConnectionWidgetState extends State<LoxoneConnectionWidget> {
-  final TextEditingController _userController = TextEditingController(
-    text: 'AICONO_clouduser01',
-  );
-  final TextEditingController _passController = TextEditingController(
-    text: 'A9f!Q2m#R7xP',
-  );
-  final TextEditingController _externalAddressController =
-      TextEditingController(text: 'dns.loxonecloud.com');
-  final TextEditingController _portController = TextEditingController(
-    text: '443',
-  );
-  final TextEditingController _serialNumberController = TextEditingController(
-    text: '504F94D107EE',
-  );
+  late final TextEditingController _userController;
+  late final TextEditingController _passController;
+  late final TextEditingController _externalAddressController;
+  late final TextEditingController _portController;
+  late final TextEditingController _serialNumberController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize controllers with initial data if available
+    final data = widget.initialData;
+    _userController = TextEditingController(
+      text: data?['miniserver_user']?.toString() ?? 'AICONO_clouduser01',
+    );
+    _passController = TextEditingController(
+      text: data?['miniserver_pass']?.toString() ?? 'A9f!Q2m#R7xP',
+    );
+    _externalAddressController = TextEditingController(
+      text:
+          data?['miniserver_external_address']?.toString() ??
+          'dns.loxonecloud.com',
+    );
+    _portController = TextEditingController(
+      text: data?['miniserver_port']?.toString() ?? '443',
+    );
+    _serialNumberController = TextEditingController(
+      text: data?['miniserver_serial']?.toString() ?? '504F94D107EE',
+    );
+  }
 
   @override
   void dispose() {
@@ -80,25 +99,8 @@ class _LoxoneConnectionWidgetState extends State<LoxoneConnectionWidget> {
                 userInitial: widget.userName?[0].toUpperCase(),
                 verseInitial: null,
               ),
-              if (widget.onBack != null) ...[
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: InkWell(
-                    onTap: widget.onBack,
-                    borderRadius: BorderRadius.circular(8),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      child: Icon(
-                        Icons.arrow_back,
-                        color: Colors.black87,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 50),
+              const SizedBox(height: 30),
+
               Expanded(
                 child: SingleChildScrollView(
                   child: SizedBox(
@@ -111,15 +113,26 @@ class _LoxoneConnectionWidgetState extends State<LoxoneConnectionWidget> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          'Loxone Verbindung',
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.headlineSmall.copyWith(
-                            fontWeight: FontWeight.w900,
-                            color: Colors.black87,
+                        SizedBox(height: 20),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: 0.9,
+                            backgroundColor: Colors.grey.shade300,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              const Color(0xFF8B9A5B), // Muted green color
+                            ),
+                            minHeight: 8,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 20),
+                        PageHeaderRow(
+                          title: 'Loxone Verbindung',
+                          showBackButton: widget.onBack != null,
+                          onBack: widget.onBack,
+                        ),
+                        const SizedBox(height: 20),
+
                         Text(
                           'Bitte geben Sie Ihre Loxone-Verbindungsdaten ein',
                           textAlign: TextAlign.center,

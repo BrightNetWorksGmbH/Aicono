@@ -7,6 +7,7 @@ import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
+import 'package:frontend_aicono/core/widgets/xChackbox.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/network/dio_client.dart';
@@ -97,16 +98,6 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
     return 'building_recipient.floor_plan_status'.tr();
   }
 
-  void _handleAddContact() {
-    setState(() {
-      final newRecipientId = DateTime.now().millisecondsSinceEpoch.toString();
-      _recipients.add({'name': '', 'email': '', 'id': newRecipientId});
-      // Set the new recipient as editing so text fields are shown
-      _editingRecipients[newRecipientId] = true;
-      // Don't reset _isConfirmed - keep confirmed recipients as confirmed
-    });
-  }
-
   Future<void> _handleAutomaticFromDomain() async {
     // Show loading dialog
     showDialog(
@@ -193,9 +184,23 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
           backgroundColor: Colors.white,
-          title: Text('building_recipient.contacts_from_domain'.tr()),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text('building_recipient.contacts_from_domain'.tr()),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: () => Navigator.of(context).pop(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
           content: SizedBox(
             width: screenSize.width < 600
                 ? screenSize.width
@@ -225,7 +230,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                       return ListTile(
                         title: Text(name.isNotEmpty ? name : 'Unbekannt'),
                         subtitle: email.isNotEmpty ? Text(email) : null,
-                        leading: Checkbox(
+                        leading: XCheckBox(
                           value: isSelected,
                           onChanged: (value) {
                             setDialogState(() {
@@ -237,19 +242,33 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                             });
                           },
                         ),
+
+                        //  Checkbox(
+                        //   value: isSelected,
+                        //   onChanged: (value) {
+                        //     setDialogState(() {
+                        //       if (value == true) {
+                        //         tempSelectedIds.add(contactId);
+                        //       } else {
+                        //         tempSelectedIds.remove(contactId);
+                        //       }
+                        //     });
+                        //   },
+                        // ),
                       );
                     },
                   ),
           ),
           actions: [
-            TextButton(
-              onPressed: () {
-                // Cancel - don't save selections
-                Navigator.of(context).pop();
-              },
-              child: Text('building_recipient.cancel'.tr()),
-            ),
-            TextButton(
+            // TextButton(
+            //   onPressed: () {
+            //     // Cancel - don't save selections
+            //     Navigator.of(context).pop();
+            //   },
+            //   child: Text('building_recipient.cancel'.tr()),
+            // ),
+            PrimaryOutlineButton(
+              label: 'building_recipient.confirm'.tr(),
               onPressed: () {
                 // Confirm - save selected contacts
                 setState(() {
@@ -301,7 +320,8 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                 });
                 Navigator.of(context).pop();
               },
-              child: Text('building_recipient.confirm'.tr()),
+
+              width: 260,
             ),
           ],
         ),
@@ -310,8 +330,176 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
   }
 
   void _handleUploadContact() {
-    // Add a new empty recipient field
-    _handleAddContact();
+    // Show dialog to create a new contact
+    _showCreateContactDialog();
+  }
+
+  void _showCreateContactDialog() {
+    final Size screenSize = MediaQuery.of(context).size;
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController emailController = TextEditingController();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          bool _isValidEmail(String email) {
+            final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+            return emailRegex.hasMatch(email);
+          }
+
+          bool _isFormValid() {
+            final name = nameController.text.trim();
+            final email = emailController.text.trim();
+            return name.isNotEmpty && email.isNotEmpty && _isValidEmail(email);
+          }
+
+          return AlertDialog(
+            actionsAlignment: MainAxisAlignment.center,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            backgroundColor: Colors.white,
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+            actionsPadding: const EdgeInsets.all(24),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'building_recipient.create_contact'.tr(),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: screenSize.width < 600
+                  ? screenSize.width * 0.9
+                  : screenSize.width < 1200
+                  ? screenSize.width * 0.6
+                  : screenSize.width * 0.5,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Subtitle
+                    Text(
+                      'building_recipient.create_contact_subtitle'.tr(),
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Name Field
+                    Container(
+                      height: 50,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: const Color(0xFF8B9A5B),
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.zero,
+                      ),
+                      child: TextFormField(
+                        controller: nameController,
+                        decoration: InputDecoration(
+                          hintText: 'building_recipient.name_hint'.tr(),
+                          border: InputBorder.none,
+                          hintStyle: AppTextStyles.bodyMedium.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: Colors.black87,
+                        ),
+                        onChanged: (value) {
+                          setDialogState(() {});
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Email Field
+                    Container(
+                      height: 50,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: const Color(0xFF8B9A5B),
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.zero,
+                      ),
+                      child: TextFormField(
+                        controller: emailController,
+                        decoration: InputDecoration(
+                          hintText: 'building_recipient.email_hint'.tr(),
+                          border: InputBorder.none,
+                          hintStyle: AppTextStyles.bodyMedium.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: Colors.black87,
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        onChanged: (value) {
+                          setDialogState(() {});
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              PrimaryOutlineButton(
+                label: 'building_recipient.confirm'.tr(),
+                onPressed: _isFormValid()
+                    ? () {
+                        // Create the recipient
+                        final name = nameController.text.trim();
+                        final email = emailController.text.trim();
+
+                        setState(() {
+                          final newRecipientId = DateTime.now()
+                              .millisecondsSinceEpoch
+                              .toString();
+                          _recipients.add({
+                            'name': name,
+                            'email': email,
+                            'id': newRecipientId,
+                            'method': 'upload',
+                          });
+                          // Mark the recipient as confirmed immediately so it shows as a confirmation box
+                          _confirmedRecipientIds.add(newRecipientId);
+                          // Don't set as editing - show as confirmed
+                          // Don't reset _isConfirmed - keep confirmed recipients as confirmed
+                        });
+
+                        Navigator.of(context).pop();
+                      }
+                    : null,
+                width: 260,
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   void _handleRemoveRecipient(String id) {
@@ -499,11 +687,11 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
         TextEditingController();
     String currentSelectedFrequencyKey = 'monthly';
     Map<String, bool> currentReportOptions = {
-      'total_consumption': true,
+      'total_consumption': false,
       'peak_loads': false,
       'anomalies': false,
-      'rooms_by_consumption': true,
-      'underutilization': true,
+      'rooms_by_consumption': false,
+      'underutilization': false,
     };
     int? editingRoutineIndex; // Track which routine is being edited
 
@@ -569,6 +757,8 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
 
           // Function to save current form as a routine
           void saveCurrentRoutine() {
+            Navigator.of(context).pop();
+
             if (!validateCurrentForm()) {
               return;
             }
@@ -602,7 +792,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                 'underutilization': true,
               };
             });
-
+            Navigator.of(context).pop();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
@@ -616,9 +806,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
           }
 
           return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             backgroundColor: Colors.white,
             titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
             contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
@@ -686,15 +874,16 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                               color: const Color(0xFF8B9A5B),
                               width: 1,
                             ),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.zero,
                             color: Colors.grey[50],
                           ),
                           child: Row(
                             children: [
-                              Icon(
-                                Icons.check_circle,
-                                color: Colors.green[600],
-                                size: 20,
+                              Image.asset(
+                                'assets/images/check.png',
+                                width: 16,
+                                height: 16,
+                                color: const Color(0xFF238636),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -728,7 +917,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                 color: Colors.transparent,
                                 child: InkWell(
                                   onTap: () => editRoutine(index),
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.zero,
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 8,
@@ -738,7 +927,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                       'building_recipient.edit'.tr(),
                                       style: TextStyle(
                                         fontSize: 14,
-                                        color: Colors.blue[700],
+                                        color: Colors.black,
                                         decoration: TextDecoration.underline,
                                       ),
                                     ),
@@ -768,7 +957,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                       savedRoutines.removeAt(index);
                                     });
                                   },
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.zero,
                                   child: const Padding(
                                     padding: EdgeInsets.all(4),
                                     child: Icon(
@@ -794,7 +983,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                           color: const Color(0xFF8B9A5B),
                           width: 1,
                         ),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.zero,
                       ),
                       child: TextFormField(
                         controller: currentReportingNameController,
@@ -822,7 +1011,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                           color: const Color(0xFF8B9A5B),
                           width: 1,
                         ),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.zero,
                       ),
                       child: Row(
                         children: [
@@ -835,83 +1024,172 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                               ),
                             ),
                           ),
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () {
-                                // Show frequency selection dialog
-                                showDialog(
-                                  context: context,
-                                  builder: (freqContext) => AlertDialog(
-                                    title: Text(
-                                      'building_responsible_persons.select_frequency'
-                                          .tr(),
-                                    ),
-                                    content: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        ListTile(
-                                          title: Text(
-                                            'building_responsible_persons.daily'
-                                                .tr(),
+                          Builder(
+                            builder: (buttonContext) => Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  // Get the position of the button
+                                  final RenderBox? renderBox =
+                                      buttonContext.findRenderObject()
+                                          as RenderBox?;
+                                  if (renderBox != null) {
+                                    final Offset offset = renderBox
+                                        .localToGlobal(Offset.zero);
+                                    final Size size = renderBox.size;
+
+                                    // Calculate position for dropdown (below the button)
+                                    final double left = offset.dx;
+                                    final double top = offset.dy + size.height;
+                                    final double right =
+                                        MediaQuery.of(context).size.width -
+                                        left -
+                                        size.width;
+                                    final double bottom =
+                                        MediaQuery.of(context).size.height -
+                                        top -
+                                        200;
+
+                                    showMenu(
+                                      context: context,
+                                      color: Colors.white,
+                                      position: RelativeRect.fromLTRB(
+                                        left,
+                                        top,
+                                        right,
+                                        bottom,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(0),
+                                      ),
+                                      elevation: 8,
+                                      items: [
+                                        PopupMenuItem<String>(
+                                          value: 'daily',
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 8,
+                                            ),
+                                            child: Text(
+                                              'building_responsible_persons.daily'
+                                                  .tr(),
+                                              style: AppTextStyles.bodyMedium
+                                                  .copyWith(
+                                                    color: Colors.black87,
+                                                    fontWeight:
+                                                        currentSelectedFrequencyKey ==
+                                                            'daily'
+                                                        ? FontWeight.w600
+                                                        : FontWeight.normal,
+                                                  ),
+                                            ),
                                           ),
                                           onTap: () {
-                                            setDialogState(() {
-                                              currentSelectedFrequencyKey =
-                                                  'daily';
+                                            Future.delayed(Duration.zero, () {
+                                              setDialogState(() {
+                                                currentSelectedFrequencyKey =
+                                                    'daily';
+                                              });
                                             });
-                                            Navigator.of(freqContext).pop();
                                           },
                                         ),
-                                        ListTile(
-                                          title: Text(
-                                            'building_responsible_persons.weekly'
-                                                .tr(),
+                                        PopupMenuItem<String>(
+                                          value: 'weekly',
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 8,
+                                            ),
+                                            child: Text(
+                                              'building_responsible_persons.weekly'
+                                                  .tr(),
+                                              style: AppTextStyles.bodyMedium
+                                                  .copyWith(
+                                                    color: Colors.black87,
+                                                    fontWeight:
+                                                        currentSelectedFrequencyKey ==
+                                                            'weekly'
+                                                        ? FontWeight.w600
+                                                        : FontWeight.normal,
+                                                  ),
+                                            ),
                                           ),
                                           onTap: () {
-                                            setDialogState(() {
-                                              currentSelectedFrequencyKey =
-                                                  'weekly';
+                                            Future.delayed(Duration.zero, () {
+                                              setDialogState(() {
+                                                currentSelectedFrequencyKey =
+                                                    'weekly';
+                                              });
                                             });
-                                            Navigator.of(freqContext).pop();
                                           },
                                         ),
-                                        ListTile(
-                                          title: Text(
-                                            'building_responsible_persons.monthly'
-                                                .tr(),
+                                        PopupMenuItem<String>(
+                                          value: 'monthly',
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 8,
+                                            ),
+                                            child: Text(
+                                              'building_responsible_persons.monthly'
+                                                  .tr(),
+                                              style: AppTextStyles.bodyMedium
+                                                  .copyWith(
+                                                    color: Colors.black87,
+                                                    fontWeight:
+                                                        currentSelectedFrequencyKey ==
+                                                            'monthly'
+                                                        ? FontWeight.w600
+                                                        : FontWeight.normal,
+                                                  ),
+                                            ),
                                           ),
                                           onTap: () {
-                                            setDialogState(() {
-                                              currentSelectedFrequencyKey =
-                                                  'monthly';
+                                            Future.delayed(Duration.zero, () {
+                                              setDialogState(() {
+                                                currentSelectedFrequencyKey =
+                                                    'monthly';
+                                              });
                                             });
-                                            Navigator.of(freqContext).pop();
                                           },
                                         ),
-                                        ListTile(
-                                          title: Text(
-                                            'building_responsible_persons.yearly'
-                                                .tr(),
+                                        PopupMenuItem<String>(
+                                          value: 'yearly',
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 8,
+                                            ),
+                                            child: Text(
+                                              'building_responsible_persons.yearly'
+                                                  .tr(),
+                                              style: AppTextStyles.bodyMedium
+                                                  .copyWith(
+                                                    color: Colors.black87,
+                                                    fontWeight:
+                                                        currentSelectedFrequencyKey ==
+                                                            'yearly'
+                                                        ? FontWeight.w600
+                                                        : FontWeight.normal,
+                                                  ),
+                                            ),
                                           ),
                                           onTap: () {
-                                            setDialogState(() {
-                                              currentSelectedFrequencyKey =
-                                                  'yearly';
+                                            Future.delayed(Duration.zero, () {
+                                              setDialogState(() {
+                                                currentSelectedFrequencyKey =
+                                                    'yearly';
+                                              });
                                             });
-                                            Navigator.of(freqContext).pop();
                                           },
                                         ),
                                       ],
-                                    ),
+                                    );
+                                  }
+                                },
+                                child: Text(
+                                  '+ ${'building_responsible_persons.change_frequency'.tr()}',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    decoration: TextDecoration.underline,
+                                    color: Colors.black87,
                                   ),
-                                );
-                              },
-                              child: Text(
-                                '+ ${'building_responsible_persons.change_frequency'.tr()}',
-                                style: AppTextStyles.bodyMedium.copyWith(
-                                  decoration: TextDecoration.underline,
-                                  color: Colors.black87,
                                 ),
                               ),
                             ),
@@ -1004,106 +1282,201 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
             ),
             actions: [
               // Done button
-              SizedBox(
-                width: double.infinity,
-                child: Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: const Color(0xFF8B9A5B),
-                      width: 1,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        // Save current form if it has data
-                        if (currentReportingNameController.text
-                                .trim()
-                                .isNotEmpty ||
-                            currentReportOptions.values.any(
-                              (value) => value == true,
-                            )) {
-                          if (!validateCurrentForm()) {
-                            return;
-                          }
-                          saveCurrentRoutine();
-                        }
-
-                        // Build report configs from all saved routines
-                        final List<Map<String, dynamic>> reportConfigs = [];
-                        for (var routine in savedRoutines) {
-                          // Build report contents from selected options
-                          final routineOptions =
-                              routine['reportOptions'] as Map<String, bool>;
-                          List<String> reportContents = [];
-                          if (routineOptions['total_consumption'] == true) {
-                            reportContents.add('TotalConsumption');
-                          }
-                          if (routineOptions['rooms_by_consumption'] == true) {
-                            reportContents.add('ConsumptionByRoom');
-                          }
-                          if (routineOptions['peak_loads'] == true) {
-                            reportContents.add('PeakLoads');
-                          }
-                          if (routineOptions['anomalies'] == true) {
-                            reportContents.add('Anomalies');
-                          }
-                          if (routineOptions['underutilization'] == true) {
-                            reportContents.add('InefficientUsage');
-                          }
-
-                          // Map frequency key to API format
-                          String interval = 'Monthly';
-                          switch (routine['intervalKey']) {
-                            case 'daily':
-                              interval = 'Daily';
-                              break;
-                            case 'weekly':
-                              interval = 'Weekly';
-                              break;
-                            case 'monthly':
-                              interval = 'Monthly';
-                              break;
-                            case 'yearly':
-                              interval = 'Yearly';
-                              break;
-                          }
-
-                          reportConfigs.add({
-                            'name': routine['name'] ?? '',
-                            'interval': interval,
-                            'reportContents': reportContents,
-                          });
-                        }
-
-                        // Save all configs
-                        setState(() {
-                          _recipientConfigs[recipientId] = {
-                            'routines': savedRoutines,
-                            'reportConfigs': reportConfigs,
-                          };
-                        });
-
-                        Navigator.of(context).pop();
-                      },
-                      borderRadius: BorderRadius.circular(4),
-                      child: Center(
-                        child: Text(
-                          'building_recipient.done'.tr(),
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
+              PrimaryOutlineButton(
+                label: 'building_recipient.done'.tr(),
+                onPressed: () {
+                  // Save current form if it has data
+                  if (currentReportingNameController.text.trim().isNotEmpty ||
+                      currentReportOptions.values.any(
+                        (value) => value == true,
+                      )) {
+                    if (!validateCurrentForm()) {
+                      return;
+                    }
+                    // Save the routine without closing dialog yet
+                    setDialogState(() {
+                      final routineData = {
+                        'name': currentReportingNameController.text.trim(),
+                        'intervalKey': currentSelectedFrequencyKey,
+                        'reportOptions': Map<String, bool>.from(
+                          currentReportOptions,
                         ),
-                      ),
-                    ),
-                  ),
-                ),
+                      };
+
+                      if (editingRoutineIndex != null) {
+                        // Update existing routine
+                        savedRoutines[editingRoutineIndex!] = routineData;
+                        editingRoutineIndex = null;
+                      } else {
+                        // Add new routine
+                        savedRoutines.add(routineData);
+                      }
+                    });
+                  }
+
+                  // Build report configs from all saved routines
+                  final List<Map<String, dynamic>> reportConfigs = [];
+                  for (var routine in savedRoutines) {
+                    // Build report contents from selected options
+                    final routineOptions =
+                        routine['reportOptions'] as Map<String, bool>;
+                    List<String> reportContents = [];
+                    if (routineOptions['total_consumption'] == true) {
+                      reportContents.add('TotalConsumption');
+                    }
+                    if (routineOptions['rooms_by_consumption'] == true) {
+                      reportContents.add('ConsumptionByRoom');
+                    }
+                    if (routineOptions['peak_loads'] == true) {
+                      reportContents.add('PeakLoads');
+                    }
+                    if (routineOptions['anomalies'] == true) {
+                      reportContents.add('Anomalies');
+                    }
+                    if (routineOptions['underutilization'] == true) {
+                      reportContents.add('InefficientUsage');
+                    }
+
+                    // Map frequency key to API format
+                    String interval = 'Monthly';
+                    switch (routine['intervalKey']) {
+                      case 'daily':
+                        interval = 'Daily';
+                        break;
+                      case 'weekly':
+                        interval = 'Weekly';
+                        break;
+                      case 'monthly':
+                        interval = 'Monthly';
+                        break;
+                      case 'yearly':
+                        interval = 'Yearly';
+                        break;
+                    }
+
+                    reportConfigs.add({
+                      'name': routine['name'] ?? '',
+                      'interval': interval,
+                      'reportContents': reportContents,
+                    });
+                  }
+
+                  // Save all configs
+                  setState(() {
+                    _recipientConfigs[recipientId] = {
+                      'routines': savedRoutines,
+                      'reportConfigs': reportConfigs,
+                    };
+                  });
+
+                  Navigator.of(context).pop();
+                },
+                width: 260,
               ),
+
+              // const SizedBox(width: 16),
+              // SizedBox(
+              //   width: 260,
+              //   child: Container(
+              //     height: 50,
+              //     decoration: BoxDecoration(
+              //       border: Border.all(
+              //         color: const Color(0xFF8B9A5B),
+              //         width: 1,
+              //       ),
+              //       borderRadius: BorderRadius.zero,
+              //     ),
+              //     child: Material(
+              //       color: Colors.transparent,
+              //       child: InkWell(
+              //         onTap: () {
+              //           // Save current form if it has data
+              //           if (currentReportingNameController.text
+              //                   .trim()
+              //                   .isNotEmpty ||
+              //               currentReportOptions.values.any(
+              //                 (value) => value == true,
+              //               )) {
+              //             if (!validateCurrentForm()) {
+              //               return;
+              //             }
+              //             saveCurrentRoutine();
+              //           }
+
+              //           // Build report configs from all saved routines
+              //           final List<Map<String, dynamic>> reportConfigs = [];
+              //           for (var routine in savedRoutines) {
+              //             // Build report contents from selected options
+              //             final routineOptions =
+              //                 routine['reportOptions'] as Map<String, bool>;
+              //             List<String> reportContents = [];
+              //             if (routineOptions['total_consumption'] == true) {
+              //               reportContents.add('TotalConsumption');
+              //             }
+              //             if (routineOptions['rooms_by_consumption'] == true) {
+              //               reportContents.add('ConsumptionByRoom');
+              //             }
+              //             if (routineOptions['peak_loads'] == true) {
+              //               reportContents.add('PeakLoads');
+              //             }
+              //             if (routineOptions['anomalies'] == true) {
+              //               reportContents.add('Anomalies');
+              //             }
+              //             if (routineOptions['underutilization'] == true) {
+              //               reportContents.add('InefficientUsage');
+              //             }
+
+              //             // Map frequency key to API format
+              //             String interval = 'Monthly';
+              //             switch (routine['intervalKey']) {
+              //               case 'daily':
+              //                 interval = 'Daily';
+              //                 break;
+              //               case 'weekly':
+              //                 interval = 'Weekly';
+              //                 break;
+              //               case 'monthly':
+              //                 interval = 'Monthly';
+              //                 break;
+              //               case 'yearly':
+              //                 interval = 'Yearly';
+              //                 break;
+              //             }
+
+              //             reportConfigs.add({
+              //               'name': routine['name'] ?? '',
+              //               'interval': interval,
+              //               'reportContents': reportContents,
+              //             });
+              //           }
+
+              //           // Save all configs
+              //           setState(() {
+              //             _recipientConfigs[recipientId] = {
+              //               'routines': savedRoutines,
+              //               'reportConfigs': reportConfigs,
+              //             };
+              //           });
+
+              //           Navigator.of(context).pop();
+              //         },
+
+              //         borderRadius: BorderRadius.zero,
+              //         child: Center(
+              //           child: Text(
+              //             'building_recipient.done'.tr(),
+              //             style: AppTextStyles.bodyMedium.copyWith(
+              //               fontWeight: FontWeight.w600,
+              //               color: Colors.black87,
+              //             ),
+              //           ),
+              //         ),
+              //       ),
+              //     ),
+              //   ),
+              // ),
             ],
+            actionsAlignment: MainAxisAlignment.center,
           );
         },
       ),
@@ -1124,24 +1497,38 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
             reportOptions[option] = !isSelected;
           });
         },
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.zero,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.black54, width: 1),
-                  borderRadius: BorderRadius.circular(4),
-                  color: isSelected ? const Color(0xFF8B9A5B) : Colors.white,
-                ),
-                child: isSelected
-                    ? const Icon(Icons.check, size: 16, color: Colors.white)
-                    : null,
+              XCheckBox(
+                value: reportOptions[option]!,
+                onChanged: (val) {
+                  setDialogState(() {
+                    reportOptions[option] = !isSelected;
+                  });
+                },
               ),
+
+              // Container(
+              //   width: 20,
+              //   height: 20,
+              //   decoration: BoxDecoration(
+              //     border: Border.all(color: Colors.black54, width: 1),
+              //     borderRadius: BorderRadius.zero,
+              //     color: isSelected ? const Color(0xFF8B9A5B) : Colors.white,
+              //   ),
+              //   child: isSelected
+              //       ? Image.asset(
+              //           'assets/images/check.png',
+              //           width: 16,
+              //           height: 16,
+              //           color: Colors.white,
+              //         )
+              //       : null,
+              // ),
               const SizedBox(width: 8),
               Text(
                 'building_responsible_persons.$option'.tr(),
@@ -1250,7 +1637,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                     height: (screenSize.height * 0.95) + 50,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -1280,15 +1667,23 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: 0.90,
-                                backgroundColor: Colors.grey.shade300,
-                                valueColor: const AlwaysStoppedAnimation<Color>(
-                                  Color(0xFF8B9A5B),
+                            SizedBox(
+                              width: screenSize.width < 600
+                                  ? screenSize.width * 0.95
+                                  : screenSize.width < 1200
+                                  ? screenSize.width * 0.5
+                                  : screenSize.width * 0.6,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.zero,
+                                child: LinearProgressIndicator(
+                                  value: 0.90,
+                                  backgroundColor: Colors.grey.shade300,
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(
+                                        Color(0xFF8B9A5B),
+                                      ),
+                                  minHeight: 8,
                                 ),
-                                minHeight: 8,
                               ),
                             ),
                           ] else ...[
@@ -1301,15 +1696,22 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: 0.90,
-                                backgroundColor: Colors.grey.shade300,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  const Color(0xFF8B9A5B),
+                            SizedBox(
+                              width: screenSize.width < 600
+                                  ? screenSize.width * 0.95
+                                  : screenSize.width < 1200
+                                  ? screenSize.width * 0.5
+                                  : screenSize.width * 0.6,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.zero,
+                                child: LinearProgressIndicator(
+                                  value: 0.90,
+                                  backgroundColor: Colors.grey.shade300,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    const Color(0xFF8B9A5B),
+                                  ),
+                                  minHeight: 8,
                                 ),
-                                minHeight: 8,
                               ),
                             ),
                           ],
@@ -1326,42 +1728,50 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    // Back button
-                                    if (widget.buildingId != null) ...[
-                                      Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Material(
-                                          color: Colors.transparent,
-                                          child: InkWell(
-                                            onTap: () => context.pop(),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 8,
-                                              ),
-                                              child: Icon(
-                                                Icons.arrow_back,
-                                                color: Colors.black87,
-                                                size: 24,
+                                    // Title
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // Back button
+                                        if (widget.buildingId != null) ...[
+                                          Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                onTap: () => context.pop(),
+                                                borderRadius: BorderRadius.zero,
+                                                child: const Padding(
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 8,
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.arrow_back,
+                                                    color: Colors.black87,
+                                                    size: 24,
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ),
+                                          // const SizedBox(height: 12),
+                                        ],
+
+                                        Text(
+                                          'building_recipient.title'.tr(),
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                    ],
-                                    // Title
-                                    Text(
-                                      'building_recipient.title'.tr(),
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
+                                        SizedBox(width: 24),
+                                      ],
                                     ),
                                     const SizedBox(height: 32),
                                     // Information boxes (matching the image - only Floor plan and Contact person)
@@ -1373,16 +1783,17 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                           color: const Color(0xFF8B9A5B),
                                           width: 1,
                                         ),
-                                        borderRadius: BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.zero,
                                       ),
                                       child: Padding(
                                         padding: const EdgeInsets.all(16),
                                         child: Row(
                                           children: [
-                                            Icon(
-                                              Icons.check_circle,
-                                              color: Colors.green[600],
-                                              size: 24,
+                                            Image.asset(
+                                              'assets/images/check.png',
+                                              width: 16,
+                                              height: 16,
+                                              color: const Color(0xFF238636),
                                             ),
                                             const SizedBox(width: 12),
                                             Expanded(
@@ -1407,18 +1818,17 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                             color: const Color(0xFF8B9A5B),
                                             width: 1,
                                           ),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
+                                          borderRadius: BorderRadius.zero,
                                         ),
                                         child: Padding(
                                           padding: const EdgeInsets.all(16),
                                           child: Row(
                                             children: [
-                                              Icon(
-                                                Icons.check_circle,
-                                                color: Colors.green[600],
-                                                size: 24,
+                                              Image.asset(
+                                                'assets/images/check.png',
+                                                width: 16,
+                                                height: 16,
+                                                color: const Color(0xFF238636),
                                               ),
                                               const SizedBox(width: 12),
                                               Expanded(
@@ -1460,8 +1870,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                               border: Border.all(
                                                 color: Colors.grey[300]!,
                                               ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
+                                              borderRadius: BorderRadius.zero,
                                             ),
                                             child: Padding(
                                               padding: const EdgeInsets.all(16),
@@ -1522,9 +1931,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                                             recipientId,
                                                           ),
                                                       borderRadius:
-                                                          BorderRadius.circular(
-                                                            4,
-                                                          ),
+                                                          BorderRadius.zero,
                                                       child: Padding(
                                                         padding:
                                                             const EdgeInsets.symmetric(
@@ -1544,6 +1951,32 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                                       ),
                                                     ),
                                                   ),
+                                                  const SizedBox(width: 8),
+                                                  // Close/Remove button
+                                                  Material(
+                                                    color: Colors.transparent,
+                                                    child: InkWell(
+                                                      onTap: () {
+                                                        _handleRemoveRecipient(
+                                                          recipientId,
+                                                        );
+                                                      },
+                                                      borderRadius:
+                                                          BorderRadius.zero,
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              4,
+                                                            ),
+                                                        child: Icon(
+                                                          Icons.close,
+                                                          size: 18,
+                                                          color:
+                                                              Colors.grey[700],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -1559,9 +1992,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                             border: Border.all(
                                               color: Colors.grey[300]!,
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                                            borderRadius: BorderRadius.zero,
                                             color: Colors.grey[50],
                                           ),
                                           child: Stack(
@@ -1587,9 +2018,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                                           width: 2,
                                                         ),
                                                         borderRadius:
-                                                            BorderRadius.circular(
-                                                              4,
-                                                            ),
+                                                            BorderRadius.zero,
                                                         color: Colors.white,
                                                       ),
                                                       child: TextFormField(
@@ -1641,9 +2070,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                                           width: 2,
                                                         ),
                                                         borderRadius:
-                                                            BorderRadius.circular(
-                                                              4,
-                                                            ),
+                                                            BorderRadius.zero,
                                                         color: Colors.white,
                                                       ),
                                                       child: TextFormField(
@@ -1699,9 +2126,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                                         );
                                                       },
                                                       borderRadius:
-                                                          BorderRadius.circular(
-                                                            20,
-                                                          ),
+                                                          BorderRadius.zero,
                                                       child: Container(
                                                         padding:
                                                             const EdgeInsets.all(
@@ -1711,8 +2136,9 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                                             BoxDecoration(
                                                               color: Colors
                                                                   .grey[200],
-                                                              shape: BoxShape
-                                                                  .circle,
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .zero,
                                                             ),
                                                         child: Icon(
                                                           Icons.close,
@@ -1738,9 +2164,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                           color: Colors.transparent,
                                           child: InkWell(
                                             onTap: _handleAutomaticFromDomain,
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
+                                            borderRadius: BorderRadius.zero,
                                             child: Padding(
                                               padding:
                                                   const EdgeInsets.symmetric(
@@ -1799,9 +2223,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                           color: Colors.transparent,
                                           child: InkWell(
                                             onTap: _handleUploadContact,
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
+                                            borderRadius: BorderRadius.zero,
                                             child: Padding(
                                               padding:
                                                   const EdgeInsets.symmetric(

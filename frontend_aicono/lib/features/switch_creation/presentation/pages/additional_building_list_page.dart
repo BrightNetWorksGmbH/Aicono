@@ -35,6 +35,10 @@ class _AdditionalBuildingListPageState
   }
 
   void _handleAddBuildingDetails(BuildingData building) {
+    // Store buildingId in PropertySetupCubit for global access
+    final propertyCubit = sl<PropertySetupCubit>();
+    propertyCubit.setBuildingId(building.id);
+
     // Navigate to building details page with building information
     // context.pushNamed(
     //   Routelists.setBuildingDetails,
@@ -62,9 +66,26 @@ class _AdditionalBuildingListPageState
     context.pushNamed(Routelists.floorPlanEditor);
   }
 
-  void _handleContinue() {
-    // TODO: navigate to next step in property setup flow
-    context.pushNamed(Routelists.floorPlanEditor);
+  void _handleContinue(BuildContext blocContext) {
+    // Get switchId from PropertySetupCubit (saved at login stage)
+    final propertyCubit = sl<PropertySetupCubit>();
+    final switchId = propertyCubit.state.switchId;
+
+    if (switchId != null && switchId.isNotEmpty) {
+      // Navigate directly to add-property-name page with switchId
+      context.goNamed(
+        Routelists.addPropertyName,
+        queryParameters: {'switchId': switchId},
+      );
+    } else {
+      // Fallback: show error if switchId not available
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Switch ID not found. Please login again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override

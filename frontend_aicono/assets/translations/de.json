@@ -219,7 +219,9 @@
     "create_report_for_all": "Report für alle Benutzer erstellen",
     "reporting_dialog_title": "Wie soll das Reporting für {name} aussehen?",
     "reporting_dialog_subtitle": "Sie können das Reporting nur für {name} anpassen.",
-    "done": "Fertig"
+    "done": "Fertig",
+    "create_contact": "Report-Empfänger erstellen",
+    "create_contact_subtitle": "Geben Sie die Report-Empfänger-Daten unten ein."
   },
   "building_responsible_persons": {
     "progress_text": "Fast geschafft, {name}!",
@@ -253,6 +255,8 @@
     "routine_saved": "Routine erfolgreich gespeichert",
     "routine_updated": "Routine erfolgreich aktualisiert",
     "update_routine": "Routine aktualisieren",
+    "edit_routine": "Routine bearbeiten",
+    "edit_routine_subtitle": "Aktualisieren Sie die Routinedetails unten.",
     "interval_label": "Intervall",
     "add_responsible_person": "Verantwortliche Person hinzufügen",
     "name_hint": "Name",

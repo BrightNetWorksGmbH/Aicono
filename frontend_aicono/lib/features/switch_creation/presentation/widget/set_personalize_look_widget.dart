@@ -9,6 +9,8 @@ import 'package:frontend_aicono/features/switch_creation/presentation/bloc/switc
 import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
 import 'package:frontend_aicono/core/widgets/xChackbox.dart';
 
+import '../../../../core/widgets/page_header_row.dart';
+
 class SetPersonalizeLookWidget extends StatefulWidget {
   final String? userName;
   final InvitationEntity? invitation;
@@ -72,24 +74,7 @@ class _SetPersonalizeLookWidgetState extends State<SetPersonalizeLookWidget> {
                     ? 500
                     : screenSize.width * 0.98,
               ),
-              if (widget.onBack != null) ...[
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: InkWell(
-                    onTap: widget.onBack,
-                    borderRadius: BorderRadius.circular(8),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      child: Icon(
-                        Icons.arrow_back,
-                        color: Colors.black87,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+
               const SizedBox(height: 50),
               SizedBox(
                 width: screenSize.width < 600
@@ -101,15 +86,12 @@ class _SetPersonalizeLookWidgetState extends State<SetPersonalizeLookWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Center(
-                      child: Text(
-                        'set_personalized_look.title'.tr(),
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.headlineLarge.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
+                    PageHeaderRow(
+                      title: 'set_personalized_look.title'.tr(),
+                      showBackButton: widget.onBack != null,
+                      onBack: widget.onBack,
                     ),
+
                     const SizedBox(height: 32),
                     _buildOption(
                       value: _opt1,

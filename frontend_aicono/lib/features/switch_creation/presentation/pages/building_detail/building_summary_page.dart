@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_svg/svg.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
@@ -8,8 +9,13 @@ import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
+import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
+import 'package:frontend_aicono/core/network/dio_client.dart';
 
-import '../../../../Building/presentation/pages/steps/building_floor_plan_step.dart';
+import '../../../../../core/widgets/page_header_row.dart';
+import '../../../../Building/presentation/pages/steps/building_floor_plan_step.dart'
+    show DottedBorderContainer;
 
 class BuildingSummaryPage extends StatefulWidget {
   final String? userName;
@@ -19,6 +25,7 @@ class BuildingSummaryPage extends StatefulWidget {
   final int? numberOfRooms;
   final String? constructionYear;
   final String? floorPlanUrl;
+  final String? floorName;
   final List<Map<String, dynamic>>? rooms;
 
   const BuildingSummaryPage({
@@ -30,6 +37,7 @@ class BuildingSummaryPage extends StatefulWidget {
     this.numberOfRooms,
     this.constructionYear,
     this.floorPlanUrl,
+    this.floorName,
     this.rooms,
   });
 
@@ -42,7 +50,55 @@ class _BuildingSummaryPageState extends State<BuildingSummaryPage> {
     setState(() {});
   }
 
-  void _handleContinue() {
+  void _handleContinue() async {
+    // Get buildingId from PropertySetupCubit (stored when building is selected)
+    final propertyCubit = sl<PropertySetupCubit>();
+    final storedBuildingId = propertyCubit.state.buildingId;
+
+    // Get floorName and numberOfFloors from widget or route parameters
+    final currentState = GoRouterState.of(context);
+    String floorNameValue =
+        widget.floorName ??
+        currentState.uri.queryParameters['floorName'] ??
+        'Ground Floor';
+    int numberOfFloors =
+        int.tryParse(
+          currentState.uri.queryParameters['numberOfFloors'] ?? '1',
+        ) ??
+        1;
+
+    // If we have buildingId but numberOfFloors is still 1 (default), try to fetch from building data
+    if (storedBuildingId != null &&
+        storedBuildingId.isNotEmpty &&
+        numberOfFloors == 1) {
+      try {
+        final dioClient = sl<DioClient>();
+        final response = await dioClient.get(
+          '/api/v1/buildings/$storedBuildingId',
+        );
+
+        if (response.statusCode == 200 && response.data != null) {
+          final data = response.data;
+          if (data['success'] == true && data['data'] != null) {
+            final buildingData = data['data'] as Map<String, dynamic>;
+            // Get numberOfFloors from building data
+            if (buildingData['num_floors'] != null) {
+              numberOfFloors =
+                  int.tryParse(buildingData['num_floors'].toString()) ??
+                  numberOfFloors;
+            } else if (buildingData['numberOfFloors'] != null) {
+              numberOfFloors =
+                  int.tryParse(buildingData['numberOfFloors'].toString()) ??
+                  numberOfFloors;
+            }
+          }
+        }
+      } catch (e) {
+        // Silently fail - use default values
+        debugPrint('Error fetching building data: $e');
+      }
+    }
+
     // Navigate to room assignment page
     context.pushNamed(
       Routelists.roomAssignment,
@@ -54,10 +110,10 @@ class _BuildingSummaryPageState extends State<BuildingSummaryPage> {
         if (widget.floorPlanUrl != null) 'floorPlanUrl': widget.floorPlanUrl!,
         if (widget.rooms != null && widget.rooms!.isNotEmpty)
           'rooms': Uri.encodeComponent(jsonEncode(widget.rooms!)),
-        'buildingId':
-            '6948dcd113537bff98eb7338', // TODO: Get from previous step
-        'floorName': 'Ground Floor', // TODO: Get from previous step
-        'numberOfFloors': '1', // TODO: Get actual number of floors
+        if (storedBuildingId != null && storedBuildingId.isNotEmpty)
+          'buildingId': storedBuildingId,
+        'floorName': floorNameValue,
+        'numberOfFloors': numberOfFloors.toString(),
         if (widget.buildingSize != null) 'totalArea': widget.buildingSize!,
         if (widget.constructionYear != null)
           'constructionYear': widget.constructionYear!,
@@ -138,31 +194,97 @@ class _BuildingSummaryPageState extends State<BuildingSummaryPage> {
                               ),
                             ),
                           ],
-                          const SizedBox(height: 50),
+                          const SizedBox(height: 20),
                           Expanded(
                             child: SingleChildScrollView(
-                              child: SizedBox(
-                                width: screenSize.width < 600
-                                    ? screenSize.width * 0.95
-                                    : screenSize.width < 1200
-                                    ? screenSize.width * 0.5
-                                    : screenSize.width * 0.6,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      'Prima, so sieht Dein Gebäude aus.',
-                                      textAlign: TextAlign.center,
-                                      style: AppTextStyles.headlineSmall
-                                          .copyWith(
-                                            fontWeight: FontWeight.w900,
-                                            color: Colors.black87,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12.0,
+                                ),
+                                child: SizedBox(
+                                  width: screenSize.width < 600
+                                      ? screenSize.width * 0.95
+                                      : screenSize.width < 1200
+                                      ? screenSize.width * 0.5
+                                      : screenSize.width * 0.6,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      // Progress Indicator
+                                      SizedBox(
+                                        width: screenSize.width < 600
+                                            ? screenSize.width * 0.95
+                                            : screenSize.width < 1200
+                                            ? screenSize.width * 0.5
+                                            : screenSize.width * 0.6,
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.zero,
+                                          child: LinearProgressIndicator(
+                                            value:
+                                                0.85, // Adjust value as needed
+                                            backgroundColor:
+                                                Colors.grey.shade300,
+                                            valueColor:
+                                                const AlwaysStoppedAnimation<
+                                                  Color
+                                                >(Color(0xFF8B9A5B)),
+                                            minHeight: 8,
                                           ),
-                                    ),
-                                    const SizedBox(height: 32),
-                                    // Building Address
-                                    if (widget.buildingAddress != null)
+                                        ),
+                                      ),
+                                      const SizedBox(height: 40),
+                                      PageHeaderRow(
+                                        title: 'Grundriss aktivieren',
+                                        showBackButton: true,
+                                        onBack: () {
+                                          Navigator.pop(context);
+                                        },
+                                      ),
+
+                                      const SizedBox(height: 32),
+                                      // Building Address
+                                      if (widget.buildingAddress != null)
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 18,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: Colors.black54,
+                                              width: 2,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Image.asset(
+                                                'assets/images/check.png',
+                                                width: 20,
+                                                height: 20,
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Text(
+                                                  widget.buildingAddress!,
+                                                  style: AppTextStyles
+                                                      .bodyMedium
+                                                      .copyWith(
+                                                        color: Colors.black87,
+                                                      ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      if (widget.buildingAddress != null)
+                                        const SizedBox(height: 16),
+                                      // Building Specifications
                                       Container(
                                         width: double.infinity,
                                         padding: const EdgeInsets.symmetric(
@@ -180,15 +302,15 @@ class _BuildingSummaryPageState extends State<BuildingSummaryPage> {
                                         ),
                                         child: Row(
                                           children: [
-                                            const Icon(
-                                              Icons.check_circle,
-                                              color: Color(0xFF238636),
-                                              size: 24,
+                                            Image.asset(
+                                              'assets/images/check.png',
+                                              width: 20,
+                                              height: 20,
                                             ),
                                             const SizedBox(width: 12),
                                             Expanded(
                                               child: Text(
-                                                widget.buildingAddress!,
+                                                _buildSpecificationsText(),
                                                 style: AppTextStyles.bodyMedium
                                                     .copyWith(
                                                       color: Colors.black87,
@@ -198,154 +320,121 @@ class _BuildingSummaryPageState extends State<BuildingSummaryPage> {
                                           ],
                                         ),
                                       ),
-                                    if (widget.buildingAddress != null)
-                                      const SizedBox(height: 16),
-                                    // Building Specifications
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 18,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: Colors.black54,
-                                          width: 2,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.check_circle,
-                                            color: Color(0xFF238636),
-                                            size: 24,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Text(
-                                              _buildSpecificationsText(),
-                                              style: AppTextStyles.bodyMedium
-                                                  .copyWith(
-                                                    color: Colors.black87,
+                                      const SizedBox(height: 24),
+                                      // Floor Plan Section
+                                      DottedBorderContainer(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(16.0),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Image.asset(
+                                                    'assets/images/check.png',
+                                                    width: 20,
+                                                    height: 20,
                                                   ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 24),
-                                    // Floor Plan Section
-                                    DottedBorderContainer(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16.0),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.check_circle,
-                                                  color: Color(0xFF238636),
-                                                  size: 24,
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Text(
-                                                  'Grundriss aktiviert',
-                                                  style: AppTextStyles
-                                                      .titleMedium
-                                                      .copyWith(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: Colors.black87,
+                                                  const SizedBox(width: 12),
+                                                  Text(
+                                                    'Grundriss aktiviert',
+                                                    style: AppTextStyles
+                                                        .titleMedium
+                                                        .copyWith(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Colors.black87,
+                                                        ),
+                                                  ),
+                                                ],
+                                              ),
+                                              if (widget.rooms != null &&
+                                                  widget.rooms!.isNotEmpty) ...[
+                                                const SizedBox(height: 16),
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8.0,
                                                       ),
-                                                ),
-                                              ],
-                                            ),
-                                            if (widget.rooms != null &&
-                                                widget.rooms!.isNotEmpty) ...[
-                                              const SizedBox(height: 16),
-                                              Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 8.0,
-                                                    ),
-                                                child: Wrap(
-                                                  direction: Axis.horizontal,
-                                                  spacing: 100,
-                                                  runSpacing: 28,
-                                                  children: [
-                                                    _buildRoomLegend(),
+                                                  child: Wrap(
+                                                    direction: Axis.horizontal,
+                                                    spacing: 100,
+                                                    runSpacing: 28,
+                                                    children: [
+                                                      _buildRoomLegend(),
 
-                                                    if (widget.floorPlanUrl !=
-                                                        null)
-                                                      Container(
-                                                        height: 200,
-                                                        width: 350,
+                                                      if (widget.floorPlanUrl !=
+                                                          null)
+                                                        Container(
+                                                          height: 200,
+                                                          width: 350,
 
-                                                        child: ClipRRect(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                4,
-                                                              ),
-                                                          child: SvgPicture.network(
-                                                            widget
-                                                                .floorPlanUrl!,
-                                                            fit: BoxFit.contain,
-                                                            errorBuilder:
-                                                                (
-                                                                  context,
-                                                                  error,
-                                                                  stackTrace,
-                                                                ) {
-                                                                  return const Center(
-                                                                    child: Icon(
-                                                                      Icons
-                                                                          .image_not_supported,
-                                                                      size: 48,
-                                                                      color: Colors
-                                                                          .grey,
-                                                                    ),
-                                                                  );
-                                                                },
+                                                          child: ClipRRect(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  4,
+                                                                ),
+                                                            child: SvgPicture.network(
+                                                              widget
+                                                                  .floorPlanUrl!,
+                                                              fit: BoxFit
+                                                                  .contain,
+                                                              errorBuilder:
+                                                                  (
+                                                                    context,
+                                                                    error,
+                                                                    stackTrace,
+                                                                  ) {
+                                                                    return const Center(
+                                                                      child: Icon(
+                                                                        Icons
+                                                                            .image_not_supported,
+                                                                        size:
+                                                                            48,
+                                                                        color: Colors
+                                                                            .grey,
+                                                                      ),
+                                                                    );
+                                                                  },
+                                                            ),
                                                           ),
                                                         ),
-                                                      ),
-                                                  ],
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
+                                              ],
                                             ],
-                                          ],
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 32),
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: _handleSkip,
-                                        child: Text(
-                                          'Schritt überspringen',
-                                          style: AppTextStyles.bodyMedium
-                                              .copyWith(
-                                                decoration:
-                                                    TextDecoration.underline,
-                                                color: Colors.black87,
-                                              ),
+                                      const SizedBox(height: 32),
+                                      Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onTap: _handleSkip,
+                                          child: Text(
+                                            'Schritt überspringen',
+                                            style: AppTextStyles.bodyMedium
+                                                .copyWith(
+                                                  decoration:
+                                                      TextDecoration.underline,
+                                                  color: Colors.black87,
+                                                ),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: PrimaryOutlineButton(
-                                        label: 'Das passt so',
-                                        width: 260,
-                                        onPressed: _handleContinue,
+                                      const SizedBox(height: 16),
+                                      Material(
+                                        color: Colors.transparent,
+                                        child: PrimaryOutlineButton(
+                                          label: 'Das passt so',
+                                          width: 260,
+                                          onPressed: _handleContinue,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),

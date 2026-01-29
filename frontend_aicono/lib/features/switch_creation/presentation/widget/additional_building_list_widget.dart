@@ -12,12 +12,14 @@ import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_s
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_buildings_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
 
+import '../../../../core/widgets/page_header_row.dart';
+
 class AdditionalBuildingListWidget extends StatefulWidget {
   final String? userName;
   final String? siteId;
   final VoidCallback onLanguageChanged;
   final VoidCallback? onSkip;
-  final VoidCallback? onContinue;
+  final ValueChanged<BuildContext>? onContinue;
   final VoidCallback? onBack;
   final ValueChanged<BuildingData>? onAddBuildingDetails;
 
@@ -40,10 +42,7 @@ class AdditionalBuildingListWidget extends StatefulWidget {
 class _AdditionalBuildingListWidgetState
     extends State<AdditionalBuildingListWidget> {
   Widget _buildShimmerField() {
-    return ShimmerContainer(
-      width: double.infinity,
-      height: 60,
-    );
+    return ShimmerContainer(width: double.infinity, height: 60);
   }
 
   String _buildProgressText() {
@@ -110,22 +109,7 @@ class _AdditionalBuildingListWidgetState
                             ? 500
                             : screenSize.width * 0.98,
                       ),
-                      if (widget.onBack != null) ...[
-                        const SizedBox(height: 16),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: InkWell(
-                            onTap: widget.onBack,
-                            borderRadius: BorderRadius.circular(8),
-                            child: const Padding(
-                              padding:
-                                  EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                              child: Icon(Icons.arrow_back,
-                                  color: Colors.black87, size: 24),
-                            ),
-                          ),
-                        ),
-                      ],
+
                       const SizedBox(height: 50),
                       Expanded(
                         child: SingleChildScrollView(
@@ -133,8 +117,8 @@ class _AdditionalBuildingListWidgetState
                             width: screenSize.width < 600
                                 ? screenSize.width * 0.95
                                 : screenSize.width < 1200
-                                    ? screenSize.width * 0.5
-                                    : screenSize.width * 0.6,
+                                ? screenSize.width * 0.5
+                                : screenSize.width * 0.6,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -158,13 +142,12 @@ class _AdditionalBuildingListWidgetState
                                   ),
                                 ),
                                 const SizedBox(height: 32),
-                                Text(
-                                  'add_additional_buildings.title'.tr(),
-                                  textAlign: TextAlign.center,
-                                  style: AppTextStyles.headlineSmall.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                  ),
+                                PageHeaderRow(
+                                  title: 'add_additional_buildings.title'.tr(),
+                                  showBackButton: widget.onBack != null,
+                                  onBack: widget.onBack,
                                 ),
+
                                 const SizedBox(height: 40),
                                 // Show property name with resource types and check icon if available
                                 if (isLoadingSite) ...[
@@ -177,24 +160,28 @@ class _AdditionalBuildingListWidgetState
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
                                       color: Colors.red.shade50,
-                                      border: Border.all(color: Colors.red.shade300),
+                                      border: Border.all(
+                                        color: Colors.red.shade300,
+                                      ),
                                       borderRadius: BorderRadius.zero,
                                     ),
                                     child: Column(
                                       children: [
                                         Text(
                                           'Error loading site data',
-                                          style: AppTextStyles.bodyMedium.copyWith(
-                                            color: Colors.red.shade700,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                          style: AppTextStyles.bodyMedium
+                                              .copyWith(
+                                                color: Colors.red.shade700,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                         ),
                                         const SizedBox(height: 8),
                                         Text(
                                           getSiteState.message,
-                                          style: AppTextStyles.bodySmall.copyWith(
-                                            color: Colors.red.shade600,
-                                          ),
+                                          style: AppTextStyles.bodySmall
+                                              .copyWith(
+                                                color: Colors.red.shade600,
+                                              ),
                                           textAlign: TextAlign.center,
                                         ),
                                         const SizedBox(height: 12),
@@ -203,10 +190,10 @@ class _AdditionalBuildingListWidgetState
                                             if (widget.siteId != null &&
                                                 widget.siteId!.isNotEmpty) {
                                               context.read<GetSiteBloc>().add(
-                                                    GetSiteRequested(
-                                                      siteId: widget.siteId!,
-                                                    ),
-                                                  );
+                                                GetSiteRequested(
+                                                  siteId: widget.siteId!,
+                                                ),
+                                              );
                                             }
                                           },
                                           child: const Text('Retry'),
@@ -227,7 +214,9 @@ class _AdditionalBuildingListWidgetState
                                   // Show location with check icon if available
                                   if (fallbackLocation != null &&
                                       fallbackLocation.isNotEmpty) ...[
-                                    _buildCompletedField(value: fallbackLocation),
+                                    _buildCompletedField(
+                                      value: fallbackLocation,
+                                    ),
                                     const SizedBox(height: 24),
                                   ],
                                 ],
@@ -238,29 +227,34 @@ class _AdditionalBuildingListWidgetState
                                   _buildShimmerField(),
                                   const SizedBox(height: 16),
                                   _buildShimmerField(),
-                                ] else if (getBuildingsState is GetBuildingsFailure) ...[
+                                ] else if (getBuildingsState
+                                    is GetBuildingsFailure) ...[
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
                                       color: Colors.red.shade50,
-                                      border: Border.all(color: Colors.red.shade300),
+                                      border: Border.all(
+                                        color: Colors.red.shade300,
+                                      ),
                                       borderRadius: BorderRadius.zero,
                                     ),
                                     child: Column(
                                       children: [
                                         Text(
                                           'Error loading buildings',
-                                          style: AppTextStyles.bodyMedium.copyWith(
-                                            color: Colors.red.shade700,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                          style: AppTextStyles.bodyMedium
+                                              .copyWith(
+                                                color: Colors.red.shade700,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                         ),
                                         const SizedBox(height: 8),
                                         Text(
                                           getBuildingsState.message,
-                                          style: AppTextStyles.bodySmall.copyWith(
-                                            color: Colors.red.shade600,
-                                          ),
+                                          style: AppTextStyles.bodySmall
+                                              .copyWith(
+                                                color: Colors.red.shade600,
+                                              ),
                                           textAlign: TextAlign.center,
                                         ),
                                         const SizedBox(height: 12),
@@ -268,7 +262,9 @@ class _AdditionalBuildingListWidgetState
                                           onPressed: () {
                                             if (widget.siteId != null &&
                                                 widget.siteId!.isNotEmpty) {
-                                              context.read<GetBuildingsBloc>().add(
+                                              context
+                                                  .read<GetBuildingsBloc>()
+                                                  .add(
                                                     GetBuildingsRequested(
                                                       siteId: widget.siteId!,
                                                     ),
@@ -280,21 +276,28 @@ class _AdditionalBuildingListWidgetState
                                       ],
                                     ),
                                   ),
-                                ] else if (getBuildingsState is GetBuildingsSuccess) ...[
-                                  if (getBuildingsState.buildings.isNotEmpty) ...[
-                                    ...getBuildingsState.buildings.map((building) =>
-                                        Padding(
-                                          padding: const EdgeInsets.only(bottom: 16),
-                                          child: _buildBuildingItem(building),
-                                        )),
+                                ] else if (getBuildingsState
+                                    is GetBuildingsSuccess) ...[
+                                  if (getBuildingsState
+                                      .buildings
+                                      .isNotEmpty) ...[
+                                    ...getBuildingsState.buildings.map(
+                                      (building) => Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 16,
+                                        ),
+                                        child: _buildBuildingItem(building),
+                                      ),
+                                    ),
                                   ] else ...[
                                     Padding(
                                       padding: const EdgeInsets.all(16.0),
                                       child: Text(
                                         'No buildings found',
-                                        style: AppTextStyles.bodyMedium.copyWith(
-                                          color: Colors.grey.shade600,
-                                        ),
+                                        style: AppTextStyles.bodyMedium
+                                            .copyWith(
+                                              color: Colors.grey.shade600,
+                                            ),
                                       ),
                                     ),
                                   ],
@@ -312,9 +315,12 @@ class _AdditionalBuildingListWidgetState
                                 ),
                                 const SizedBox(height: 32),
                                 PrimaryOutlineButton(
-                                  label: 'add_additional_buildings.button_text'.tr(),
+                                  label: 'add_additional_buildings.button_text'
+                                      .tr(),
                                   width: 260,
-                                  onPressed: widget.onContinue,
+                                  onPressed: widget.onContinue != null
+                                      ? () => widget.onContinue!(context)
+                                      : null,
                                 ),
                               ],
                             ),
@@ -340,10 +346,7 @@ class _AdditionalBuildingListWidgetState
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: Colors.black54,
-          width: 2,
-        ),
+        border: Border.all(color: Colors.black54, width: 2),
         borderRadius: BorderRadius.zero,
       ),
       child: Row(
@@ -355,12 +358,7 @@ class _AdditionalBuildingListWidgetState
             color: const Color(0xFF238636),
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              value,
-              style: AppTextStyles.bodyMedium,
-            ),
-          ),
+          Expanded(child: Text(value, style: AppTextStyles.bodyMedium)),
           if (resourceTypes != null && resourceTypes.isNotEmpty) ...[
             const SizedBox(width: 16),
             Text(
@@ -396,10 +394,7 @@ class _AdditionalBuildingListWidgetState
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: const Color(0xFF8B9A5B),
-          width: 2,
-        ),
+        border: Border.all(color: const Color(0xFF8B9A5B), width: 2),
         borderRadius: BorderRadius.zero,
       ),
       child: Row(
@@ -414,9 +409,7 @@ class _AdditionalBuildingListWidgetState
           Expanded(
             child: Text(
               building.name,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: Colors.black87,
-              ),
+              style: AppTextStyles.bodyMedium.copyWith(color: Colors.black87),
             ),
           ),
           // Add details link

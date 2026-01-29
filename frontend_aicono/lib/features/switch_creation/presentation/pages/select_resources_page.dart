@@ -33,7 +33,7 @@ class _SelectResourcesPageState extends State<SelectResourcesPage> {
 
   void _handleSkip() {
     // TODO: navigate to next step or skip resource selection
-    context.pushNamed(Routelists.floorPlanEditor);
+    context.pushNamed(Routelists.additionalBuildingList);
   }
 
   void _handleContinue(BuildContext blocContext) {
@@ -120,10 +120,14 @@ class _SelectResourcesPageState extends State<SelectResourcesPage> {
               return;
             }
 
+            // Store siteId in PropertySetupCubit for use across pages
+            final propertyCubit = sl<PropertySetupCubit>();
+            propertyCubit.setSiteId(siteId);
+
             // Navigate to add additional buildings page on success with site ID
             if (mounted) {
               context.pushNamed(
-                Routelists.addAdditionalBuildings,
+                Routelists.additionalBuildingList,
                 queryParameters: {
                   if (widget.userName != null) 'userName': widget.userName!,
                   'siteId': siteId,

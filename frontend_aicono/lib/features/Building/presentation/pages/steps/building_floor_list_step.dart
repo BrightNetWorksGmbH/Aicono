@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:frontend_aicono/core/widgets/page_header_row.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/entities/get_floors_entity.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/primary_outline_button.dart';
@@ -9,8 +11,10 @@ class BuildingFloorListStep extends StatefulWidget {
   final VoidCallback onNext;
   final VoidCallback? onSkip;
   final VoidCallback? onBack;
-  final Function(int floorNumber) onEditFloor;
+  final Function(int floorNumber, String floorName) onEditFloor;
   final Set<int> completedFloors;
+  final List<FloorDetail> fetchedFloors;
+  final bool isLoadingFloors;
 
   const BuildingFloorListStep({
     super.key,
@@ -20,6 +24,8 @@ class BuildingFloorListStep extends StatefulWidget {
     this.onBack,
     required this.onEditFloor,
     this.completedFloors = const {},
+    this.fetchedFloors = const [],
+    this.isLoadingFloors = false,
   });
 
   @override
@@ -28,11 +34,67 @@ class BuildingFloorListStep extends StatefulWidget {
 
 class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
   late Set<int> _completedFloors;
+  final Map<int, TextEditingController> _floorNameControllers = {};
 
   @override
   void initState() {
     super.initState();
     _completedFloors = Set<int>.from(widget.completedFloors);
+    _initializeFloorNames();
+  }
+
+  void _initializeFloorNames() {
+    final totalFloors = widget.building.numberOfFloors ?? 1;
+
+    // Dispose existing controllers first to prevent memory leaks
+    for (final controller in _floorNameControllers.values) {
+      controller.dispose();
+    }
+    _floorNameControllers.clear();
+
+    // Create a map of floor numbers to floor details from backend
+    final Map<int, FloorDetail> floorMap = {};
+    if (widget.fetchedFloors.isNotEmpty) {
+      for (final floor in widget.fetchedFloors) {
+        final floorName = floor.name.toLowerCase();
+        int? floorNumber;
+
+        // Extract floor number from name
+        if (floorName.contains('ground') || floorName.contains('floor 0')) {
+          floorNumber = 1;
+        } else {
+          final match = RegExp(r'(\d+)').firstMatch(floorName);
+          if (match != null) {
+            floorNumber = int.tryParse(match.group(1) ?? '');
+          }
+        }
+
+        if (floorNumber != null && floorNumber <= totalFloors) {
+          // If multiple floors have same number, keep the one with floor_plan_link
+          if (!floorMap.containsKey(floorNumber) ||
+              (floor.floorPlanLink != null &&
+                  floor.floorPlanLink!.isNotEmpty)) {
+            floorMap[floorNumber] = floor;
+          }
+        }
+      }
+    }
+
+    // Initialize controllers with existing names or default values
+    for (int i = 1; i <= totalFloors; i++) {
+      final floorDetail = floorMap[i];
+      final defaultName = floorDetail?.name ?? 'Etage $i';
+      _floorNameControllers[i] = TextEditingController(text: defaultName);
+    }
+  }
+
+  @override
+  void dispose() {
+    // Dispose all controllers
+    for (final controller in _floorNameControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   @override
@@ -41,6 +103,13 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
     if (widget.completedFloors != oldWidget.completedFloors) {
       setState(() {
         _completedFloors = Set<int>.from(widget.completedFloors);
+      });
+    }
+    // Update controllers if fetched floors changed or total floors changed
+    if (widget.fetchedFloors != oldWidget.fetchedFloors ||
+        widget.building.numberOfFloors != oldWidget.building.numberOfFloors) {
+      setState(() {
+        _initializeFloorNames();
       });
     }
   }
@@ -77,136 +146,37 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Back button
-                  if (widget.onBack != null) ...[
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: InkWell(
-                        onTap: widget.onBack,
-                        borderRadius: BorderRadius.circular(8),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 8,
-                          ),
-                          child: Icon(
-                            Icons.arrow_back,
-                            color: Colors.black87,
-                            size: 24,
-                          ),
-                        ),
-                      ),
+                  SizedBox(
+                    width: screenSize.width < 600
+                        ? screenSize.width * 0.95
+                        : screenSize.width < 1200
+                        ? screenSize.width * 0.5
+                        : screenSize.width * 0.6,
+                    child: PageHeaderRow(
+                      title: 'Etagen verwalten',
+                      showBackButton: widget.onBack != null,
+                      onBack: widget.onBack,
                     ),
-                    const SizedBox(height: 16),
-                  ],
-                  // Title
-                  const Text(
-                    'Etagen verwalten',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                    textAlign: TextAlign.center,
                   ),
+
                   const SizedBox(height: 32),
-                  // Floor list
-                  if (_totalFloors > 0)
+                  // Loading state
+                  if (widget.isLoadingFloors)
+                    const Center(child: CircularProgressIndicator())
+                  // Floor list - show fetched floors if available, otherwise show default list
+                  else if (widget.fetchedFloors.isNotEmpty)
+                    ..._buildFloorsFromBackend(screenSize)
+                  else if (_totalFloors > 0)
                     ...List.generate(_totalFloors, (index) {
                       final floorNumber = index + 1;
                       final isCompleted = _completedFloors.contains(
                         floorNumber,
                       );
-                      return Container(
-                        width: screenSize.width < 600
-                            ? screenSize.width * 0.95
-                            : screenSize.width < 1200
-                            ? screenSize.width * 0.5
-                            : screenSize.width * 0.6,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isCompleted
-                                ? Colors.green
-                                : Colors.grey[300]!,
-                            width: isCompleted ? 2 : 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              spreadRadius: 1,
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              // Floor number/name
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isCompleted
-                                          ? Icons.check_circle
-                                          : Icons.circle_outlined,
-                                      color: isCompleted
-                                          ? Colors.green
-                                          : Colors.grey[600],
-                                      size: 24,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      'Etage $floorNumber',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w500,
-                                        color: isCompleted
-                                            ? Colors.green[700]
-                                            : Colors.black87,
-                                      ),
-                                    ),
-                                    if (isCompleted) ...[
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '(Abgeschlossen)',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.green[600],
-                                          fontStyle: FontStyle.italic,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              // Edit button
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  widget.onEditFloor(floorNumber);
-                                },
-                                icon: Icon(
-                                  isCompleted ? Icons.edit : Icons.add,
-                                  size: 18,
-                                ),
-                                label: Text(
-                                  isCompleted ? 'Bearbeiten' : 'Hinzufügen',
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue[700],
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 10,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      return _buildFloorItem(
+                        floorNumber: floorNumber,
+                        floorName: 'Etage $floorNumber',
+                        isCompleted: isCompleted,
+                        screenSize: screenSize,
                       );
                     })
                   else
@@ -241,16 +211,16 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
                       ),
                     ),
                   const SizedBox(height: 16),
-                  if (_completedFloors.length == _totalFloors &&
-                      _totalFloors > 0)
-                    Material(
-                      color: Colors.transparent,
-                      child: PrimaryOutlineButton(
-                        label: 'Das passt so',
-                        width: 260,
-                        onPressed: widget.onNext,
-                      ),
+                  // if (_completedFloors.length == _totalFloors &&
+                  //     _totalFloors > 0)
+                  Material(
+                    color: Colors.transparent,
+                    child: PrimaryOutlineButton(
+                      label: 'Das passt so',
+                      width: 260,
+                      onPressed: widget.onNext,
                     ),
+                  ),
 
                   // if (widget.onSkip != null)
                   //   InkWell(
@@ -309,5 +279,187 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
   // Method to check if a floor is completed
   bool isFloorCompleted(int floorNumber) {
     return _completedFloors.contains(floorNumber);
+  }
+
+  // Build floors from backend data
+  List<Widget> _buildFloorsFromBackend(Size screenSize) {
+    final List<Widget> floorWidgets = [];
+
+    // Create a map of floor numbers to floor details
+    final Map<int, FloorDetail> floorMap = {};
+    for (final floor in widget.fetchedFloors) {
+      final floorName = floor.name.toLowerCase();
+      int? floorNumber;
+
+      // Extract floor number from name
+      if (floorName.contains('ground') || floorName.contains('floor 0')) {
+        floorNumber = 1;
+      } else {
+        final match = RegExp(r'(\d+)').firstMatch(floorName);
+        if (match != null) {
+          floorNumber = int.tryParse(match.group(1) ?? '');
+        }
+      }
+
+      if (floorNumber != null && floorNumber <= _totalFloors) {
+        // If multiple floors have same number, keep the one with floor_plan_link
+        if (!floorMap.containsKey(floorNumber) ||
+            (floor.floorPlanLink != null && floor.floorPlanLink!.isNotEmpty)) {
+          floorMap[floorNumber] = floor;
+        }
+      }
+    }
+
+    // Generate floor list based on total floors
+    for (int i = 1; i <= _totalFloors; i++) {
+      final floorDetail = floorMap[i];
+      final floorName = floorDetail?.name ?? 'Etage $i';
+      final isCompleted =
+          floorDetail != null &&
+          floorDetail.floorPlanLink != null &&
+          floorDetail.floorPlanLink!.isNotEmpty;
+
+      floorWidgets.add(
+        _buildFloorItem(
+          floorNumber: i,
+          floorName: floorName,
+          isCompleted: isCompleted,
+          screenSize: screenSize,
+        ),
+      );
+    }
+
+    return floorWidgets;
+  }
+
+  Widget _buildFloorItem({
+    required int floorNumber,
+    required String floorName,
+    required bool isCompleted,
+    required Size screenSize,
+  }) {
+    // Ensure controller exists, create if it doesn't (shouldn't happen after init)
+    if (!_floorNameControllers.containsKey(floorNumber)) {
+      _floorNameControllers[floorNumber] = TextEditingController(
+        text: floorName,
+      );
+    }
+    final controller = _floorNameControllers[floorNumber]!;
+
+    return Container(
+      width: screenSize.width < 600
+          ? screenSize.width * 0.95
+          : screenSize.width < 1200
+          ? screenSize.width * 0.5
+          : screenSize.width * 0.6,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(0),
+        border: Border.all(
+          color: isCompleted ? Colors.green : Colors.grey[300]!,
+          width: isCompleted ? 2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Floor number/name with editable text field
+            Expanded(
+              child: Row(
+                children: [
+                  if (isCompleted)
+                    Image.asset(
+                      'assets/images/check.png',
+                      width: 20,
+                      height: 20,
+                    ),
+                  if (isCompleted) const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: isCompleted ? Colors.green[700] : Colors.black87,
+                      ),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
+                        border: InputBorder.none,
+                        // border: OutlineInputBorder(
+                        //   borderRadius: BorderRadius.zero,
+                        //   borderSide: BorderSide(
+                        //     color: Colors.grey[300]!,
+                        //     width: 1,
+                        //   ),
+                        // ),
+                        // enabledBorder: OutlineInputBorder(
+                        //   borderRadius: BorderRadius.zero,
+                        //   // borderSide: BorderSide(
+                        //   //   color: Colors.grey[300]!,
+                        //   //   width: 1,
+                        //   // ),
+                        // ),
+                        // focusedBorder: OutlineInputBorder(
+                        //   borderRadius: BorderRadius.zero,
+                        //   // borderSide: BorderSide(
+                        //   //   color: isCompleted ? Colors.green : Colors.black87,
+                        //   //   width: 2,
+                        //   // ),
+                        // ),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                  // if (isCompleted) ...[
+                  //   const SizedBox(width: 8),
+                  //   Text(
+                  //     '(Abgeschlossen)',
+                  //     style: TextStyle(
+                  //       fontSize: 14,
+                  //       color: Colors.green[600],
+                  //       fontStyle: FontStyle.italic,
+                  //     ),
+                  //   ),
+                  // ],
+                ],
+              ),
+            ),
+            // Edit button
+            TextButton(
+              onPressed: () {
+                final currentFloorName = controller.text.trim().isNotEmpty
+                    ? controller.text.trim()
+                    : floorName;
+                widget.onEditFloor(floorNumber, currentFloorName);
+              },
+              child: Text(
+                isCompleted ? 'Bearbeiten' : 'Hinzufügen',
+                style: TextStyle(
+                  decoration: TextDecoration.underline,
+                  color: Colors.black87,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

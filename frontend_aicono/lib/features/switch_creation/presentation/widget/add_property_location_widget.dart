@@ -8,6 +8,8 @@ import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
 
+import '../../../../core/widgets/page_header_row.dart';
+
 class AddPropertyLocationWidget extends StatefulWidget {
   final String? userName;
   final VoidCallback onLanguageChanged;
@@ -29,8 +31,7 @@ class AddPropertyLocationWidget extends StatefulWidget {
       _AddPropertyLocationWidgetState();
 }
 
-class _AddPropertyLocationWidgetState
-    extends State<AddPropertyLocationWidget> {
+class _AddPropertyLocationWidgetState extends State<AddPropertyLocationWidget> {
   late final TextEditingController _locationController;
 
   @override
@@ -89,29 +90,14 @@ class _AddPropertyLocationWidgetState
                         ? 500
                         : screenSize.width * 0.98,
                   ),
-                  if (widget.onBack != null) ...[
-                    const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: InkWell(
-                        onTap: widget.onBack,
-                        borderRadius: BorderRadius.circular(8),
-                        child: const Padding(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          child: Icon(Icons.arrow_back,
-                              color: Colors.black87, size: 24),
-                        ),
-                      ),
-                    ),
-                  ],
+
                   const SizedBox(height: 50),
                   SizedBox(
                     width: screenSize.width < 600
                         ? screenSize.width * 0.95
                         : screenSize.width < 1200
-                            ? screenSize.width * 0.5
-                            : screenSize.width * 0.6,
+                        ? screenSize.width * 0.5
+                        : screenSize.width * 0.6,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -135,19 +121,17 @@ class _AddPropertyLocationWidgetState
                           ),
                         ),
                         const SizedBox(height: 32),
-                        Text(
-                          'add_property_location.title'.tr(),
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.headlineSmall.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
+                        PageHeaderRow(
+                          title: 'add_property_location.title'.tr(),
+                          showBackButton: widget.onBack != null,
+                          onBack: widget.onBack,
                         ),
+
                         const SizedBox(height: 40),
                         // Show property name with check icon if available
-                        if (propertyName != null && propertyName.isNotEmpty) ...[
-                          _buildCompletedField(
-                            value: propertyName,
-                          ),
+                        if (propertyName != null &&
+                            propertyName.isNotEmpty) ...[
+                          _buildCompletedField(value: propertyName),
                           const SizedBox(height: 24),
                         ],
                         // Location TextField
@@ -214,17 +198,12 @@ class _AddPropertyLocationWidgetState
     );
   }
 
-  Widget _buildCompletedField({
-    required String value,
-  }) {
+  Widget _buildCompletedField({required String value}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: Colors.black54,
-          width: 2,
-        ),
+        border: Border.all(color: Colors.black54, width: 2),
         borderRadius: BorderRadius.zero,
       ),
       child: Row(
@@ -236,12 +215,7 @@ class _AddPropertyLocationWidgetState
             color: const Color(0xFF238636), // Green checkmark
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              value,
-              style: AppTextStyles.bodyMedium,
-            ),
-          ),
+          Expanded(child: Text(value, style: AppTextStyles.bodyMedium)),
         ],
       ),
     );
