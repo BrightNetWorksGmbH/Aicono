@@ -359,9 +359,9 @@ class AnalyticsService {
     const sensorIds = sensors.map(s => s._id);
 
     // Debug logging
-    console.log(`[ANOMALIES] Building ${buildingId}: Found ${rooms.length} rooms, ${sensors.length} sensors`);
-    console.log(`[ANOMALIES] Time range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
-    console.log(`[ANOMALIES] Sensor IDs: ${sensorIds.slice(0, 5).map(id => id.toString()).join(', ')}${sensorIds.length > 5 ? '...' : ''}`);
+   //console.log(`[ANOMALIES] Building ${buildingId}: Found ${rooms.length} rooms, ${sensors.length} sensors`);
+   //console.log(`[ANOMALIES] Time range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+   //console.log(`[ANOMALIES] Sensor IDs: ${sensorIds.slice(0, 5).map(id => id.toString()).join(', ')}${sensorIds.length > 5 ? '...' : ''}`);
 
     if (sensorIds.length === 0) {
       console.warn(`[ANOMALIES] No sensors found for building ${buildingId}`);
@@ -378,7 +378,7 @@ class AnalyticsService {
       timestamp_start: { $gte: startDate, $lte: endDate },
     };
     
-    console.log(`[ANOMALIES] Querying alarms with ${sensorIds.length} sensor IDs`);
+   //console.log(`[ANOMALIES] Querying alarms with ${sensorIds.length} sensor IDs`);
     
     const alarms = await AlarmLog.find(alarmQuery)
       .populate('sensor_id', 'name room_id')
@@ -386,7 +386,7 @@ class AnalyticsService {
       .sort({ timestamp_start: -1 })
       .lean();
 
-    console.log(`[ANOMALIES] Found ${alarms.length} alarms in time range`);
+   //console.log(`[ANOMALIES] Found ${alarms.length} alarms in time range`);
 
     const bySeverity = { High: 0, Medium: 0, Low: 0 };
     alarms.forEach(alarm => {
@@ -708,7 +708,7 @@ class AnalyticsService {
    * @returns {Promise<Object>} Temperature analysis data
    */
   async generateTemperatureAnalysis(buildingId, timeRange) {
-    console.log("time before generateTemperatureAnalysis is ", Date.now());
+   //console.log("time before generateTemperatureAnalysis is ", Date.now());
     const { startDate, endDate } = timeRange;
     
     // Get all temperature sensors for this building
@@ -726,8 +726,8 @@ class AnalyticsService {
       };
     }
 
-    console.log("rooms are ", rooms.length)
-    console.log("sensors are ", sensors.length)
+   //console.log("rooms are ", rooms.length)
+   //console.log("sensors are ", sensors.length)
     const db = mongoose.connection.db;
     if (!db) {
       throw new Error('Database connection not available');
@@ -736,7 +736,7 @@ class AnalyticsService {
     // Use two-stage match for index optimization:
     // 1. First match uses compound index: { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 }
     // 2. Second match filters by measurementType on already-reduced dataset
-    console.log('buildingId used in temperatureAnalysis is ', buildingId)
+   //console.log('buildingId used in temperatureAnalysis is ', buildingId)
     
     // First match: Use index-optimized fields (buildingId, resolution, timestamp)
     // This uses the compound index: { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 }
@@ -767,13 +767,13 @@ class AnalyticsService {
     ];
 
     const queryStartTime = Date.now();
-    console.log(`[TEMPERATURE] Starting aggregation query at ${queryStartTime}`);
+   //console.log(`[TEMPERATURE] Starting aggregation query at ${queryStartTime}`);
 
     const tempData = await db.collection('measurements').aggregate(pipeline).toArray();
     
     const queryEndTime = Date.now();
     const queryDuration = queryEndTime - queryStartTime;
-    console.log(`[TEMPERATURE] Query completed in ${queryDuration}ms, found ${tempData.length} sensors with data`);
+   //console.log(`[TEMPERATURE] Query completed in ${queryDuration}ms, found ${tempData.length} sensors with data`);
 
     if (tempData.length === 0) {
       return {
@@ -800,7 +800,7 @@ class AnalyticsService {
 
     const processingEndTime = Date.now();
     const totalDuration = processingEndTime - queryStartTime;
-    console.log(`[TEMPERATURE] Total processing time: ${totalDuration}ms (query: ${queryDuration}ms, processing: ${processingEndTime - queryEndTime}ms)`);
+   //console.log(`[TEMPERATURE] Total processing time: ${totalDuration}ms (query: ${queryDuration}ms, processing: ${processingEndTime - queryEndTime}ms)`);
 
     return {
       available: true,
@@ -848,7 +848,7 @@ class AnalyticsService {
     
     // Add timing for performance measurement
     const startTime = Date.now();
-    console.log(`[ANALYTICS] generateConsumptionByRoom: Processing ${rooms.length} rooms in parallel`);
+   //console.log(`[ANALYTICS] generateConsumptionByRoom: Processing ${rooms.length} rooms in parallel`);
     
     // Process all rooms in parallel instead of sequentially
     const roomPromises = rooms.map(async (room) => {
@@ -883,7 +883,7 @@ class AnalyticsService {
     const roomConsumption = roomResults.filter(room => room !== null);
     
     const duration = Date.now() - startTime;
-    console.log(`[ANALYTICS] generateConsumptionByRoom: Completed ${roomConsumption.length}/${rooms.length} rooms in ${duration}ms`);
+   //console.log(`[ANALYTICS] generateConsumptionByRoom: Completed ${roomConsumption.length}/${rooms.length} rooms in ${duration}ms`);
 
     // Sort by consumption descending
     roomConsumption.sort((a, b) => (b.consumption || 0) - (a.consumption || 0));

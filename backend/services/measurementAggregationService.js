@@ -13,7 +13,7 @@ const { isConnectionHealthy } = require('../db/connection');
  * 
  * Data Retention Strategy:
  * - Raw data (0): Deleted immediately after 15-min aggregation (with buffer)
- * - 15-minute (15): Deleted when daily aggregation runs (older than 1 day)
+ * - 15-minute (15): Deleted when hourly aggregation runs (older than 1 hour)
  * - Hourly (60): Deleted when weekly aggregation runs (older than 1 week)
  * - Daily (1440): Kept for long-term storage
  * - Weekly (10080): Kept for long-term storage
@@ -923,14 +923,15 @@ class MeasurementAggregationService {
                 console.log(`[AGGREGATION] [Hourly] Created ${count} aggregates for ${buildingId || 'all buildings'}`);
             }
             
-            // Delete 15-minute aggregates older than 24 hours (now that we have hourly aggregates)
+            // Delete 15-minute aggregates older than 1 hour (now that we have hourly aggregates)
             // This prevents database bloat from accumulating 15-minute data
+            // We only need 15-minute data for the current hour to create hourly aggregates
             let deleted15MinCount = 0;
             if (count > 0) {
-                const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-                deleted15MinCount = await this.deleteOldAggregates(15, oneDayAgo, buildingId);
+                const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+                deleted15MinCount = await this.deleteOldAggregates(15, oneHourAgo, buildingId);
                 if (deleted15MinCount > 0) {
-                    console.log(`[AGGREGATION] [Hourly] Deleted ${deleted15MinCount} old 15-minute aggregates (older than 24 hours)`);
+                    console.log(`[AGGREGATION] [Hourly] Deleted ${deleted15MinCount} old 15-minute aggregates (older than 1 hour)`);
                 }
             }
             
@@ -938,7 +939,7 @@ class MeasurementAggregationService {
             console.log(`✅ [AGGREGATION] [Hourly] SUCCESS!`);
             console.log(`   Created ${count} hourly aggregates`);
             if (deleted15MinCount > 0) {
-                console.log(`   Deleted ${deleted15MinCount} old 15-minute aggregates (older than 24 hours)`);
+                console.log(`   Deleted ${deleted15MinCount} old 15-minute aggregates (older than 1 hour)`);
             }
             console.log(`   Building: ${buildingId || 'all buildings'}`);
             console.log(`========================================\n`);

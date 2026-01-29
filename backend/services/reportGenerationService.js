@@ -165,21 +165,21 @@ class ReportGenerationService {
 
     // Generate base KPIs only (no content types)
     // For reports, force appropriate resolution based on interval and data age
+    // 15-minute aggregates are only kept for 1 hour, then deleted
     const daysSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60 * 24);
+    const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
     const resolutionOptions = {};
     
     // Determine resolution based on interval and data age
-    // Daily reports: previous day → always use hourly (60) aggregates (15-min may not exist yet)
-    // Weekly reports: previous week (7+ days old) → use hourly (60) or daily (1440) aggregates
-    // Monthly/Yearly: very old data → use daily (1440) aggregates
     if (daysSinceEndDate > 7 || interval === 'Monthly' || interval === 'Yearly') {
         resolutionOptions.resolution = 1440; // daily for old data
-    } else if (daysSinceEndDate >= 1 || interval === 'Weekly' || interval === 'Daily') {
-        // For Daily reports, always use hourly (60) since 15-minute aggregates may not exist for yesterday
-        // For Weekly reports, use hourly for week-old data
-        resolutionOptions.resolution = 60; // hourly for daily/weekly reports
+    } else if (daysSinceEndDate >= 1 || interval === 'Weekly' || interval === 'Daily' || hoursSinceEndDate > 1) {
+        // For Daily/Weekly reports, always use hourly (60) since 15-minute aggregates may not exist
+        // For data older than 1 hour, use hourly (15-minute aggregates are deleted after 1 hour)
+        resolutionOptions.resolution = 60; // hourly for daily/weekly reports or data > 1 hour old
     } else {
-        resolutionOptions.resolution = 15; // 15-minute for recent data (today)
+        // Recent data (within last hour): use 15-minute aggregates
+        resolutionOptions.resolution = 15; // 15-minute for recent data (within last hour)
     }
     
     console.log(`[REPORT-SUMMARY] ${contextPrefix} Generating ${interval} report summary: timeRange=${startDate.toISOString()} to ${endDate.toISOString()}, daysSinceEndDate=${daysSinceEndDate.toFixed(1)}, preferredResolution=${resolutionOptions.resolution || 'auto'} minutes`);
@@ -262,22 +262,22 @@ class ReportGenerationService {
 
     // Generate base KPIs (used by multiple content types)
     // For reports, force appropriate resolution based on interval and data age
+    // 15-minute aggregates are only kept for 1 hour, then deleted
     const interval = reportConfig.interval; // Get interval from reportConfig
     const daysSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60 * 24);
+    const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
     const resolutionOptions = {};
     
     // Determine resolution based on interval and data age
-    // Daily reports: previous day → always use hourly (60) aggregates (15-min may not exist yet)
-    // Weekly reports: previous week (7+ days old) → use hourly (60) or daily (1440) aggregates
-    // Monthly/Yearly: very old data → use daily (1440) aggregates
     if (daysSinceEndDate > 7 || interval === 'Monthly' || interval === 'Yearly') {
         resolutionOptions.resolution = 1440; // daily for old data
-    } else if (daysSinceEndDate >= 1 || interval === 'Weekly' || interval === 'Daily') {
-        // For Daily reports, always use hourly (60) since 15-minute aggregates may not exist for yesterday
-        // For Weekly reports, use hourly for week-old data
-        resolutionOptions.resolution = 60; // hourly for daily/weekly reports
+    } else if (daysSinceEndDate >= 1 || interval === 'Weekly' || interval === 'Daily' || hoursSinceEndDate > 1) {
+        // For Daily/Weekly reports, always use hourly (60) since 15-minute aggregates may not exist
+        // For data older than 1 hour, use hourly (15-minute aggregates are deleted after 1 hour)
+        resolutionOptions.resolution = 60; // hourly for daily/weekly reports or data > 1 hour old
     } else {
-        resolutionOptions.resolution = 15; // 15-minute for recent data (today)
+        // Recent data (within last hour): use 15-minute aggregates
+        resolutionOptions.resolution = 15; // 15-minute for recent data (within last hour)
     }
     
     console.log(`[REPORT] Generating ${interval} report for building ${buildingId}: timeRange=${startDate.toISOString()} to ${endDate.toISOString()}, daysSinceEndDate=${daysSinceEndDate.toFixed(1)}, preferredResolution=${resolutionOptions.resolution || 'auto'} minutes`);

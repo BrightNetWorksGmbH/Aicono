@@ -1059,18 +1059,22 @@ class DashboardDiscoveryService {
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            // Check how old the data is (days since endDate)
-            const daysSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60 * 24);
+            // Check how old the data is (hours since endDate)
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
             
             if (days > 90 || daysSinceEndDate > 7) {
                 // Very old data or long periods: use daily aggregates
                 resolution = 1440; // daily
             } else if (days > 7 || daysSinceEndDate > 1) {
                 // Week-old data or periods > 7 days: use hourly aggregates
-                // (15-minute aggregates may have been deleted for old data)
+                resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                // Data older than 1 hour: use hourly aggregates
+                // (15-minute aggregates are deleted after 1 hour)
                 resolution = 60; // hourly
             } else {
-                // Recent data (last 7 days): use 15-minute aggregates
+                // Recent data (within last hour): use 15-minute aggregates
                 resolution = 15; // 15-minute
             }
         }
@@ -1237,18 +1241,22 @@ class DashboardDiscoveryService {
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            // Check how old the data is (days since endDate)
-            const daysSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60 * 24);
+            // Check how old the data is (hours since endDate)
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
             
             if (days > 90 || daysSinceEndDate > 7) {
                 // Very old data or long periods: use daily aggregates
                 resolution = 1440; // daily
             } else if (days > 7 || daysSinceEndDate > 1) {
                 // Week-old data or periods > 7 days: use hourly aggregates
-                // (15-minute aggregates may have been deleted for old data)
+                resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                // Data older than 1 hour: use hourly aggregates
+                // (15-minute aggregates are deleted after 1 hour)
                 resolution = 60; // hourly
             } else {
-                // Recent data (last 7 days): use 15-minute aggregates
+                // Recent data (within last hour): use 15-minute aggregates
                 resolution = 15; // 15-minute
             }
         }
@@ -1620,18 +1628,25 @@ class DashboardDiscoveryService {
         const days = duration / (1000 * 60 * 60 * 24);
         
         // Determine resolution based on time range AND data age
+        // 15-minute aggregates are only kept for 1 hour, then deleted
         let resolution = 15;
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            // Check how old the data is (days since endDate)
-            const daysSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60 * 24);
+            // Check how old the data is (hours since endDate)
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
             
             if (days > 90 || daysSinceEndDate > 7) {
                 resolution = 1440; // daily
             } else if (days > 7 || daysSinceEndDate > 1) {
                 resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                // Data older than 1 hour: use hourly aggregates
+                // (15-minute aggregates are deleted after 1 hour)
+                resolution = 60; // hourly
             } else {
+                // Recent data (within last hour): use 15-minute aggregates
                 resolution = 15; // 15-minute
             }
         }
@@ -1788,15 +1803,27 @@ class DashboardDiscoveryService {
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
         
-        // Determine resolution
+        // Determine resolution based on time range AND data age
+        // 15-minute aggregates are only kept for 1 hour, then deleted
         let resolution = 15;
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            if (days > 90) {
-                resolution = 1440;
-            } else if (days > 7) {
-                resolution = 60;
+            // Check how old the data is (hours since endDate)
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
+            
+            if (days > 90 || daysSinceEndDate > 7) {
+                resolution = 1440; // daily
+            } else if (days > 7 || daysSinceEndDate > 1) {
+                resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                // Data older than 1 hour: use hourly aggregates
+                // (15-minute aggregates are deleted after 1 hour)
+                resolution = 60; // hourly
+            } else {
+                // Recent data (within last hour): use 15-minute aggregates
+                resolution = 15; // 15-minute
             }
         }
         
@@ -1962,15 +1989,27 @@ class DashboardDiscoveryService {
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
         
-        // Determine resolution
+        // Determine resolution based on time range AND data age
+        // 15-minute aggregates are only kept for 1 hour, then deleted
         let resolution = 15;
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            if (days > 90) {
-                resolution = 1440;
-            } else if (days > 7) {
-                resolution = 60;
+            // Check how old the data is (hours since endDate)
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
+            
+            if (days > 90 || daysSinceEndDate > 7) {
+                resolution = 1440; // daily
+            } else if (days > 7 || daysSinceEndDate > 1) {
+                resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                // Data older than 1 hour: use hourly aggregates
+                // (15-minute aggregates are deleted after 1 hour)
+                resolution = 60; // hourly
+            } else {
+                // Recent data (within last hour): use 15-minute aggregates
+                resolution = 15; // 15-minute
             }
         }
         

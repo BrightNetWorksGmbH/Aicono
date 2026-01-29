@@ -40,18 +40,29 @@ class MeasurementQueryService {
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
         
-        // Determine resolution based on time range
+        // Determine resolution based on time range AND data age
+        // 15-minute aggregates are only kept for 1 hour, then deleted
         let resolution = 0; // raw
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            if (days > 90) {
+            // Check how old the data is (hours since endDate)
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
+            
+            if (days > 90 || daysSinceEndDate > 7) {
                 resolution = 1440; // daily
-            } else if (days > 7) {
+            } else if (days > 7 || daysSinceEndDate > 1) {
+                resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                // Data older than 1 hour: use hourly aggregates
+                // (15-minute aggregates are deleted after 1 hour)
                 resolution = 60; // hourly
             } else if (days > 1) {
+                // Recent data (within last hour) but range > 1 day: use 15-minute
                 resolution = 15; // 15-minute
             }
+            // else: use raw data (resolution = 0)
         }
         
         const matchStage = {
@@ -122,17 +133,29 @@ class MeasurementQueryService {
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
         
+        // Determine resolution based on time range AND data age
+        // 15-minute aggregates are only kept for 1 hour, then deleted
         let resolution = 0;
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            if (days > 90) {
-                resolution = 1440;
-            } else if (days > 7) {
-                resolution = 60;
+            // Check how old the data is (hours since endDate)
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
+            
+            if (days > 90 || daysSinceEndDate > 7) {
+                resolution = 1440; // daily
+            } else if (days > 7 || daysSinceEndDate > 1) {
+                resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                // Data older than 1 hour: use hourly aggregates
+                // (15-minute aggregates are deleted after 1 hour)
+                resolution = 60; // hourly
             } else if (days > 1) {
-                resolution = 15;
+                // Recent data (within last hour) but range > 1 day: use 15-minute
+                resolution = 15; // 15-minute
             }
+            // else: use raw data (resolution = 0)
         }
         
         const matchStage = {
