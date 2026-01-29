@@ -6,6 +6,7 @@ const MAILJET_API_KEY = process.env.MJ_API_KEY;
 const MAILJET_SECRET_KEY = process.env.MJ_SECRET_KEY;
 const FROM_EMAIL = process.env.MJ_FROM_EMAIL;
 const FROM_NAME = process.env.FROM_NAME || "AICONO EMS";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
 // Initialize Mailjet client
 const mailjet = new Mailjet({
@@ -25,17 +26,23 @@ class ReportEmailService {
    * @param {Object} building - Building object
    * @param {Object} reportData - Generated report data
    * @param {Object} reportConfig - Reporting configuration
+   * @param {String} token - JWT token for report viewing (optional, if not provided will be generated)
    * @returns {Promise<Object>} Result object with success status
    */
-  async sendScheduledReport(recipient, building, reportData, reportConfig) {
+  async sendScheduledReport(recipient, building, reportData, reportConfig, token = null) {
     try {
       if (!recipient || !recipient.email) {
         throw new Error('Recipient email is required');
       }
 
-      // Format report as HTML and text
-      const htmlContent = this.formatReportAsHTML(reportData, reportConfig, building);
-      const textContent = this.formatReportAsText(reportData, reportConfig, building);
+      // Build report viewing URL with token
+      const viewReportUrl = token 
+        ? `${FRONTEND_URL}/view-report?token=${encodeURIComponent(token)}`
+        : `${FRONTEND_URL}/reports`;
+
+      // Format report as HTML and text (summary only)
+      const htmlContent = this.formatReportAsHTML(reportData, reportConfig, building, viewReportUrl, recipient);
+      const textContent = this.formatReportAsText(reportData, reportConfig, building, viewReportUrl, recipient);
 
       // Send email
       const subject = `${reportConfig.name} - ${building.name}`;
@@ -77,56 +84,84 @@ class ReportEmailService {
   }
 
   /**
-   * Format report as HTML
+   * Format report as HTML (summary only with "View now" button)
    * @param {Object} reportData - Generated report data
    * @param {Object} reportConfig - Reporting configuration
    * @param {Object} building - Building object
+   * @param {String} viewReportUrl - URL to view full report
    * @returns {String} HTML content
    */
-  formatReportAsHTML(reportData, reportConfig, building) {
-    const { contents, timeRange, kpis } = reportData;
-    const { reportContents } = reportConfig;
+  formatReportAsHTML(reportData, reportConfig, building, viewReportUrl, recipient = null) {
+    const { timeRange, kpis } = reportData;
 
     // Format time range
     const timeRangeStr = this.formatTimeRange(timeRange);
 
-    // Build content sections
-    let contentSections = '';
+    // Determine status (simplified - can be enhanced based on KPIs)
+    const dataQuality = kpis.average_quality || 100;
+    const hasAnomalies = kpis.data_quality_warning || false;
+    const status = hasAnomalies ? 'uncritical' : 'no issues'; // Can be enhanced with more logic
+    const statusText = hasAnomalies ? 'Kurzstatus: unkritisch' : 'Kurzstatus: keine Probleme';
 
-    // Summary section
-    contentSections += this.formatSummarySection(reportData, building);
+    // Get key metrics for summary
+    const energyUnit = kpis.energyUnit || 'kWh';
+    const powerUnit = kpis.powerUnit || 'kW';
+    const totalEnergy = kpis.total_consumption || 0;
+    const averagePower = kpis.averagePower || 0;
+    const peakPower = kpis.peak || 0;
 
-    // Generate each selected content section
-    for (const contentType of reportContents) {
-      const content = contents[contentType];
-      if (content && !content.error) {
-        contentSections += this.formatContentSection(contentType, content);
-      }
-    }
+    // Recipient name for greeting
+    const recipientName = recipient?.name || recipient?.email?.split('@')[0] || 'User';
 
     const htmlContent = buildEmailTemplate({
-      heading: "AICONO EMS",
+      heading: "BRIGHT NETWORKS",
       subheading: reportConfig.name,
       contentHtml: `
-        <h2 style="color: #214A59; margin-top: 0;">${reportConfig.name}</h2>
-        <div class="info-box">
-          <strong>Building:</strong> ${building.name}<br>
-          <strong>Report Period:</strong> ${timeRangeStr}<br>
-          <strong>Generated:</strong> ${new Date().toLocaleString()}
+        <div style="background: linear-gradient(135deg, #214A59 0%, #171C23 100%); padding: 30px 20px; border-radius: 8px; margin-bottom: 20px; color: white; text-align: center;">
+          <h2 style="color: white; margin: 0 0 10px 0; font-size: 24px;">Guten Morgen,<br>lieber ${recipientName}, Dein<br>tägliches Reporting<br>steht bereit.</h2>
+          <div style="margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+            <span style="color: white;">✓</span>
+            <span style="color: white;">${statusText}</span>
+          </div>
         </div>
-        ${contentSections}
-        <div class="notice">
-          <strong>📊 Report Information:</strong>
-          <ul>
-            <li>This is an automated ${reportConfig.interval.toLowerCase()} report from AICONO EMS.</li>
-            <li>Data is based on aggregated measurements from your building's sensors.</li>
-            <li>For detailed analysis, please visit the AICONO dashboard.</li>
-          </ul>
+        
+        <div class="info-box" style="background: #f0f9ff; border-left: 4px solid #214A59;">
+          <h3 style="color: #214A59; margin-top: 0;">Key Facts</h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Total Energy:</strong></td>
+              <td style="padding: 8px; border-bottom: 1px solid #ddd;">${totalEnergy.toFixed(3)} ${energyUnit}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Average Power:</strong></td>
+              <td style="padding: 8px; border-bottom: 1px solid #ddd;">${averagePower > 0 ? averagePower.toFixed(3) : 'N/A'} ${averagePower > 0 ? powerUnit : ''}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px;"><strong>Peak Power:</strong></td>
+              <td style="padding: 8px;">${peakPower.toFixed(3)} ${powerUnit}</td>
+            </tr>
+          </table>
         </div>
+
+        <p style="margin-top: 20px;">Lieber ${recipientName},</p>
+        <p>anbei findest Du Dein tägliches Ressourcen-Reporting zur Liegenschaft „${building.name}".</p>
+        <p>Du kannst Dich über den folgenden Link bequem – ohne Eingabe weiterer Identifikationsmerkmale – anmelden. Bitte beachte, dass der Link nicht weitergegeben werden kann und nur funktioniert, wenn er direkt aus dieser E-Mail heraus geöffnet wird.</p>
+      `,
+      buttonText: "Jetzt sofort ansehen",
+      buttonUrl: viewReportUrl,
+      postButtonHtml: `
+        <p style="margin-top: 20px;">Zusätzlich liegt das Reporting als PDF-Variante im Anhang bei.</p>
+        <p style="margin-top: 15px; font-size: 12px; color: #666;">Diese Nachricht erhältst Du on behalf of ${recipientName}, CEO BrightNetWorks GmbH und Mandant von BrightNetWorks.BryteSwitch.de.</p>
+        <p style="margin-top: 15px; font-size: 12px;">
+          Wenn Du künftig kein automatisches Reporting mehr erhalten möchtest, kannst Du es über folgenden Link abbestellen: 
+          <a href="${FRONTEND_URL}/unsubscribe?email=${encodeURIComponent(recipient?.email || '')}" style="color: #214A59;">Reporting abbestellen</a>
+        </p>
+        <p style="margin-top: 15px; font-size: 12px;">Bei Rückfragen wende Dich bitte an ${recipientName} oder das Administratoren-Team.</p>
+        <p style="margin-top: 20px;">Mit besten Grüßen<br>Dein ${recipientName}<br>BrightNetWorks GmbH</p>
       `,
       footerLines: [
-        `This ${reportConfig.interval.toLowerCase()} report was automatically generated by AICONO EMS.`,
-        "If you have any questions, please contact your system administrator.",
+        "Durch das Öffnen dieses Dokuments bestätigst Du gemäß § 126 BGB, dass Du die autorisierte Empfängerperson bist und diese elektronische Übermittlung als rechtsverbindlich anerkennst. Die Weitergabe oder Vervielfältigung des Inhalts ist ohne ausdrückliche Zustimmung der BrightNetWorks GmbH untersagt.",
+        "brightnetworks.switchboard.com"
       ],
     });
 
@@ -134,44 +169,47 @@ class ReportEmailService {
   }
 
   /**
-   * Format report as plain text
+   * Format report as plain text (summary only)
    * @param {Object} reportData - Generated report data
    * @param {Object} reportConfig - Reporting configuration
    * @param {Object} building - Building object
+   * @param {String} viewReportUrl - URL to view full report
    * @returns {String} Plain text content
    */
-  formatReportAsText(reportData, reportConfig, building) {
-    const { contents, timeRange, kpis } = reportData;
-    const { reportContents } = reportConfig;
+  formatReportAsText(reportData, reportConfig, building, viewReportUrl, recipient = null) {
+    const { timeRange, kpis } = reportData;
 
     const timeRangeStr = this.formatTimeRange(timeRange);
-    let text = `AICONO EMS - ${reportConfig.name}\n\n`;
-    text += `Building: ${building.name}\n`;
-    text += `Report Period: ${timeRangeStr}\n`;
-    text += `Generated: ${new Date().toLocaleString()}\n\n`;
+    const recipientName = recipient?.name || recipient?.email?.split('@')[0] || 'User';
+
+    let text = `BRIGHT NETWORKS - ${reportConfig.name}\n\n`;
+    text += `Guten Morgen, lieber ${recipientName}, Dein tägliches Reporting steht bereit.\n\n`;
+    text += `Kurzstatus: keine Probleme\n\n`;
     text += `${'='.repeat(50)}\n\n`;
 
     // Summary
-    text += `SUMMARY\n`;
+    text += `KEY FACTS\n`;
     const energyUnit = kpis.energyUnit || 'kWh';
     const powerUnit = kpis.powerUnit || 'kW';
     const averagePower = kpis.averagePower || 0;
-    const averageEnergy = kpis.averageEnergy || kpis.average || 0;
     text += `Total Energy: ${(kpis.total_consumption || 0).toFixed(3)} ${energyUnit}\n`;
-    text += `Average Power: ${(averagePower > 0 ? averagePower : averageEnergy).toFixed(3)} ${averagePower > 0 ? powerUnit : energyUnit}\n`;
+    text += `Average Power: ${averagePower > 0 ? averagePower.toFixed(3) : 'N/A'} ${averagePower > 0 ? powerUnit : ''}\n`;
     text += `Peak Power: ${(kpis.peak || 0).toFixed(3)} ${powerUnit}\n\n`;
 
-    // Content sections
-    for (const contentType of reportContents) {
-      const content = contents[contentType];
-      if (content && !content.error) {
-        text += this.formatContentSectionText(contentType, content);
-      }
-    }
-
-    text += `\n${'='.repeat(50)}\n`;
-    text += `This ${reportConfig.interval.toLowerCase()} report was automatically generated by AICONO EMS.\n`;
-    text += `If you have any questions, please contact your system administrator.\n`;
+    text += `Lieber ${recipientName},\n\n`;
+    text += `anbei findest Du Dein tägliches Ressourcen-Reporting zur Liegenschaft „${building.name}".\n\n`;
+    text += `Du kannst Dich über den folgenden Link bequem – ohne Eingabe weiterer Identifikationsmerkmale – anmelden:\n`;
+    text += `${viewReportUrl}\n\n`;
+    text += `Bitte beachte, dass der Link nicht weitergegeben werden kann und nur funktioniert, wenn er direkt aus dieser E-Mail heraus geöffnet wird.\n\n`;
+    text += `Zusätzlich liegt das Reporting als PDF-Variante im Anhang bei.\n\n`;
+    text += `Diese Nachricht erhältst Du on behalf of ${recipientName}, CEO BrightNetWorks GmbH und Mandant von BrightNetWorks.BryteSwitch.de.\n\n`;
+    text += `Wenn Du künftig kein automatisches Reporting mehr erhalten möchtest, kannst Du es über folgenden Link abbestellen:\n`;
+    text += `${FRONTEND_URL}/unsubscribe?email=${encodeURIComponent(recipient?.email || '')}\n\n`;
+    text += `Bei Rückfragen wende Dich bitte an ${recipientName} oder das Administratoren-Team.\n\n`;
+    text += `Mit besten Grüßen\nDein ${recipientName}\nBrightNetWorks GmbH\n\n`;
+    text += `${'='.repeat(50)}\n`;
+    text += `Durch das Öffnen dieses Dokuments bestätigst Du gemäß § 126 BGB, dass Du die autorisierte Empfängerperson bist und diese elektronische Übermittlung als rechtsverbindlich anerkennst.\n`;
+    text += `brightnetworks.switchboard.com\n`;
 
     return text;
   }

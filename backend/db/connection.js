@@ -77,8 +77,8 @@ async function connectToDatabase() {
     
     await mongoose.connect(MONGODB_URI, {
       autoIndex: true,
-      serverSelectionTimeoutMS: 30000, // Increased from 10s to 30s
-      socketTimeoutMS: 60000, // Increased from 45s to 60s
+      serverSelectionTimeoutMS: 60000, // Increased from 30s to 60s for better reliability
+      socketTimeoutMS: 120000, // Increased from 60s to 120s for long-running aggregation queries
       maxPoolSize: maxPoolSize,
       minPoolSize: minPoolSize, // Keep minimum connections alive
       maxIdleTimeMS: 60000, // Close idle connections after 60s (increased from 30s)

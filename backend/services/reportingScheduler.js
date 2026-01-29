@@ -2,8 +2,10 @@ const cron = require('node-cron');
 const BuildingReportingAssignment = require('../models/BuildingReportingAssignment');
 const Building = require('../models/Building');
 const ReportingRecipient = require('../models/ReportingRecipient');
+const ReportHistory = require('../models/ReportHistory');
 const reportGenerationService = require('./reportGenerationService');
 const reportEmailService = require('./reportEmailService');
+const reportTokenService = require('./reportTokenService');
 
 /**
  * Reporting Scheduler
@@ -149,7 +151,7 @@ class ReportingScheduler {
    */
   getStatus() {
     const now = new Date();
-    
+
     // Calculate next run times
     const nextDaily = new Date(now);
     nextDaily.setUTCHours(6, 0, 0, 0);
@@ -291,7 +293,7 @@ class ReportingScheduler {
     const { building_id, recipient_id, reporting_id } = assignment;
     console.log("generateAndSendReport's building_id is ", building_id);
     console.log("generateAndSendReport's recipient_id is ", recipient_id);
-    console.log("generateAndSendReport's reporting_id is ", reporting_id);  
+    console.log("generateAndSendReport's reporting_id is ", reporting_id);
     // Validate that reporting_id is populated and has required fields
     if (!reporting_id) {
       throw new Error(`Reporting ID is null or not populated for assignment ${assignment._id}`);
@@ -320,20 +322,55 @@ class ReportingScheduler {
 
     // Calculate time range for this interval
     const timeRange = reportGenerationService.calculateTimeRange(interval);
-    console.log("generateAndSendReport's timeRange is ", timeRange);
+    const assignmentId = assignment._id.toString();
+    // console.log(`[REPORTING-SCHEDULER] [Assignment ${assignmentId}] TimeRange: ${timeRange.startDate.toISOString()} to ${timeRange.endDate.toISOString()}`);
 
-    // Generate report data
-    const reportData = await reportGenerationService.generateFullReport(
-      building_id._id.toString(),
-      {
-        interval: reporting.interval,
-        reportContents: reporting.reportContents || [],
-        name: reporting.name,
+    // Generate report summary (KPIs only, no content types - much faster for email)
+    let reportData;
+    const summaryStartTime = Date.now();
+    console.log("generateAndSendReport's summaryStartTime is ", summaryStartTime);
+    try {
+      reportData = await reportGenerationService.generateReportSummary(
+        building_id._id.toString(),
+        {
+          interval: reporting.interval,
+          name: reporting.name,
+        },
+        timeRange,
+        { assignmentId } // Pass assignment context
+      );
+      const summaryDuration = Date.now() - summaryStartTime;
+      console.log(`[REPORTING-SCHEDULER] [Assignment ${assignmentId}] Report summary generated successfully in ${summaryDuration}ms (KPIs only for email)`);
+    } catch (error) {
+      const summaryDuration = Date.now() - summaryStartTime;
+      console.error(`[REPORTING-SCHEDULER] [Assignment ${assignmentId}] Error generating report summary after ${summaryDuration}ms:`, error);
+      console.error(`[REPORTING-SCHEDULER] [Assignment ${assignmentId}] Error stack:`, error.stack);
+      throw error; // Re-throw to be caught by outer try-catch
+    }
+    // Create ReportHistory entry (before sending email)
+    const reportHistory = await ReportHistory.create({
+      assignment_id: assignment._id,
+      recipient_id: recipient_id._id || recipient_id,
+      building_id: building_id._id || building_id,
+      reporting_id: reporting._id,
+      time_range: {
+        startDate: timeRange.startDate,
+        endDate: timeRange.endDate,
       },
-      timeRange
+      interval: reporting.interval,
+      generated_at: new Date(),
+    });
+
+    // Generate token for report viewing
+    const token = reportTokenService.generateReportToken(
+      recipient_id._id || recipient_id,
+      building_id._id || building_id,
+      reporting._id,
+      timeRange,
+      reporting.interval
     );
-    console.log("generateAndSendReport's reportData is ", reportData);
-    // Send email
+
+    // Send email with token
     const emailResult = await reportEmailService.sendScheduledReport(
       recipient_id,
       building_id,
@@ -342,11 +379,18 @@ class ReportingScheduler {
         name: reporting.name,
         interval: reporting.interval,
         reportContents: reporting.reportContents || [],
-      }
+      },
+      token
     );
 
     if (emailResult.ok) {
-      console.log(`[REPORTING-SCHEDULER] ✓ Report sent to ${recipient_id.email} for building ${building_id.name}`);
+      // Update ReportHistory with sent_at and token
+      reportHistory.sent_at = new Date();
+      reportHistory.token = token;
+      await reportHistory.save();
+
+      // console.log("the time email is sent is  ", Date.now());
+      // console.log(`[REPORTING-SCHEDULER] [Assignment ${assignmentId}] ✓ Report sent to ${recipient_id.email} for building ${building_id.name}`);
     } else {
       throw new Error(`Failed to send email: ${emailResult.error}`);
     }
@@ -361,7 +405,7 @@ class ReportingScheduler {
    */
   async triggerReportGeneration(interval) {
     const timestamp = new Date().toISOString();
-    console.log(`[REPORTING-SCHEDULER] [${timestamp}] 🔧 Manually triggering ${interval} report generation...`);
+    // console.log(`[REPORTING-SCHEDULER] [${timestamp}] 🔧 Manually triggering ${interval} report generation...`);
     const result = await this.processReportsForInterval(interval);
     if (result.processed > 0) {
       this.lastRun[interval.toLowerCase()] = timestamp;

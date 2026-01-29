@@ -581,9 +581,9 @@ class LoxoneConnectionManager {
                 
                 // Verify structure import completed successfully
                 if (!uuidMap || uuidMap.size === 0) {
-                    console.warn(`[LOXONE] [${buildingId}] ⚠️  Structure import completed but UUID mapping is empty! Measurements will be skipped until structure is properly imported.`);
+                    // console.warn(`[LOXONE] [${buildingId}] ⚠️  Structure import completed but UUID mapping is empty! Measurements will be skipped until structure is properly imported.`);
                 } else {
-                    console.log(`[LOXONE] [${buildingId}] ✓ Structure imported and mapping loaded (${uuidMap.size} UUID mappings ready)`);
+                    // console.log(`[LOXONE] [${buildingId}] ✓ Structure imported and mapping loaded (${uuidMap.size} UUID mappings ready)`);
                 }
             } catch (error) {
                 console.error(`[LOXONE] [${buildingId}] Error initializing storage:`, error.message);
@@ -592,9 +592,9 @@ class LoxoneConnectionManager {
             }
 
             // Enable live updates only after structure import is complete
-            console.log(`[LOXONE] [${buildingId}] Enabling live status updates...`);
+            // console.log(`[LOXONE] [${buildingId}] Enabling live status updates...`);
             this.send(buildingId, 'jdev/sps/enablebinstatusupdate');
-            console.log(`[LOXONE] [${buildingId}] ✓ Connection ready - receiving measurements`);
+            // console.log(`[LOXONE] [${buildingId}] ✓ Connection ready - receiving measurements`);
         } catch (error) {
             //console.error(`[LOXONE] [${buildingId}] Error handling structure file:`, error);
         }

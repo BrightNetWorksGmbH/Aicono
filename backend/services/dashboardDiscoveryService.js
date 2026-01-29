@@ -838,6 +838,7 @@ class DashboardDiscoveryService {
      */
     calculateKPIsFromResults(rawResults, options = {}) {
         // Process results: normalize units and aggregate by measurementType
+        console.log("rawResults", rawResults);
         const processedResults = new Map();
         
         for (const result of rawResults) {
@@ -1058,18 +1059,22 @@ class DashboardDiscoveryService {
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            // Check how old the data is (days since endDate)
-            const daysSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60 * 24);
+            // Check how old the data is (hours since endDate)
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
             
             if (days > 90 || daysSinceEndDate > 7) {
                 // Very old data or long periods: use daily aggregates
                 resolution = 1440; // daily
             } else if (days > 7 || daysSinceEndDate > 1) {
                 // Week-old data or periods > 7 days: use hourly aggregates
-                // (15-minute aggregates may have been deleted for old data)
+                resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                // Data older than 1 hour: use hourly aggregates
+                // (15-minute aggregates are deleted after 1 hour)
                 resolution = 60; // hourly
             } else {
-                // Recent data (last 7 days): use 15-minute aggregates
+                // Recent data (within last hour): use 15-minute aggregates
                 resolution = 15; // 15-minute
             }
         }
@@ -1215,6 +1220,9 @@ class DashboardDiscoveryService {
      * @returns {Promise<Object>} KPIs object
      */
     async getBuildingKPIs(buildingId, startDate, endDate, options = {}) {
+        const functionStartTime = Date.now();
+        console.log(`[PERF] getBuildingKPIs called at ${functionStartTime}`);
+        
         const db = mongoose.connection.db;
         if (!db) {
             throw new Error('Database connection not available');
@@ -1233,21 +1241,28 @@ class DashboardDiscoveryService {
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            // Check how old the data is (days since endDate)
-            const daysSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60 * 24);
+            // Check how old the data is (hours since endDate)
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
             
             if (days > 90 || daysSinceEndDate > 7) {
                 // Very old data or long periods: use daily aggregates
                 resolution = 1440; // daily
             } else if (days > 7 || daysSinceEndDate > 1) {
                 // Week-old data or periods > 7 days: use hourly aggregates
-                // (15-minute aggregates may have been deleted for old data)
+                resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                // Data older than 1 hour: use hourly aggregates
+                // (15-minute aggregates are deleted after 1 hour)
                 resolution = 60; // hourly
             } else {
-                // Recent data (last 7 days): use 15-minute aggregates
+                // Recent data (within last hour): use 15-minute aggregates
                 resolution = 15; // 15-minute
             }
         }
+        
+        // Start timing matchStage construction
+        const matchStageStartTime = Date.now();
         
         const matchStage = {
             'meta.buildingId': { 
@@ -1310,6 +1325,12 @@ class DashboardDiscoveryService {
             matchStage.$or = orConditions;
         }
         
+        const matchStageDuration = Date.now() - matchStageStartTime;
+        console.log(`[PERF] getBuildingKPIs: matchStage construction took ${matchStageDuration}ms`);
+        
+        // Start timing pipeline construction
+        const pipelineStartTime = Date.now();
+        
         const pipeline = [
             { $match: matchStage },
             {
@@ -1326,16 +1347,27 @@ class DashboardDiscoveryService {
             }
         ];
         
+        const pipelineDuration = Date.now() - pipelineStartTime;
+        console.log(`[PERF] getBuildingKPIs: pipeline construction took ${pipelineDuration}ms`);
+        
+        // Start timing aggregation execution
+        const aggregationStartTime = Date.now();
+        console.log(`[PERF] getBuildingKPIs: starting aggregation at ${aggregationStartTime}`);
+        
         let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
-        // console.log(`[DEBUG] getBuildingKPIs query:`, {
-        //     buildingId,
-        //     resolution,
-        //     startDate: startDate.toISOString(),
-        //     endDate: endDate.toISOString(),
-        //     matchStage,
-        //     resultCount: rawResults.length,
-        //     resultTypes: rawResults.map(r => r._id.measurementType)
-        // });
+        
+        const aggregationDuration = Date.now() - aggregationStartTime;
+        const totalDuration = Date.now() - functionStartTime;
+        console.log(`[PERF] getBuildingKPIs: aggregation completed in ${aggregationDuration}ms (total function time: ${totalDuration}ms)`);
+        console.log(`[DEBUG] getBuildingKPIs query [${aggregationDuration}ms]:`, {
+            buildingId,
+            resolution,
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            matchStage,
+            resultCount: rawResults.length,
+            resultTypes: rawResults.map(r => r._id.measurementType)
+        });
         
         // Track which measurement types we've found
         const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
@@ -1343,8 +1375,15 @@ class DashboardDiscoveryService {
         // Try fallback resolutions if:
         // 1. No results found at all, OR
         // 2. We're querying all measurement types (no measurementType filter) and might be missing some types
+        // For report summaries, we only need Energy, Power, and Heating - so we can relax the condition
         // This ensures we find Temperature, Analog, and other types that might be at different resolutions
-        const shouldTryFallback = rawResults.length === 0 || (!options.measurementType && foundMeasurementTypes.size < 5);
+        // For report summaries (when options.isReportSummary is true), only try fallback if no results or missing critical types
+        const isReportSummary = options.isReportSummary === true;
+        const shouldTryFallback = rawResults.length === 0 || (!options.measurementType && (
+            isReportSummary 
+                ? (foundMeasurementTypes.size < 2 && (!foundMeasurementTypes.has('Energy') || !foundMeasurementTypes.has('Power')))
+                : foundMeasurementTypes.size < 5
+        ));
         
         if (shouldTryFallback) {
             const fallbackResolutions = [];
@@ -1360,6 +1399,7 @@ class DashboardDiscoveryService {
             
             // Try each fallback resolution and merge results
             for (const fallbackResolution of fallbackResolutions) {
+                const fallbackStartTime = Date.now();
                 const fallbackMatchStage = {
                     ...matchStage,
                     resolution_minutes: fallbackResolution
@@ -1386,6 +1426,7 @@ class DashboardDiscoveryService {
                 ];
                 
                 const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                const fallbackDuration = Date.now() - fallbackStartTime;
                 
                 if (fallbackResults.length > 0) {
                     // Merge fallback results with existing results
@@ -1395,20 +1436,20 @@ class DashboardDiscoveryService {
                         if (!foundMeasurementTypes.has(measurementType)) {
                             rawResults.push(fallbackResult);
                             foundMeasurementTypes.add(measurementType);
-                            console.log(`[DEBUG] getBuildingKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
+                            console.log(`[DEBUG] getBuildingKPIs [${fallbackDuration}ms]: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
                         }
                     }
                     
                     // If we had no results initially, use fallback results and stop
                     if (rawResults.length === 0) {
                         rawResults = fallbackResults;
-                        console.log(`[DEBUG] getBuildingKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                        console.log(`[DEBUG] getBuildingKPIs [${fallbackDuration}ms]: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
                         break; // Found data, stop trying fallbacks
                     }
                 }
             }
         }
-        
+        console.log("after calculateKPIsFromResults the time is ", Date.now());
         return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval: options.interval });
     }
 
@@ -1438,8 +1479,10 @@ class DashboardDiscoveryService {
         };
 
         // Generate analytics (handle errors gracefully)
+        // Group into: (1) Fast synchronous (use KPIs), (2) Independent async (can parallelize)
         const analytics = {};
 
+        // Generate fast synchronous analytics first (use KPIs, no database queries)
         try {
             analytics.eui = await analyticsService.generateEUI(building, kpis, timeRange, buildingId);
         } catch (error) {
@@ -1462,51 +1505,95 @@ class DashboardDiscoveryService {
         }
 
         try {
-            analytics.inefficientUsage = await analyticsService.generateInefficientUsage(buildingId, timeRange, options.interval || null, this);
-        } catch (error) {
-            console.warn(`[DASHBOARD] Error generating inefficient usage for building ${buildingId}:`, error.message);
-            analytics.inefficientUsage = { available: false, message: error.message };
-        }
-
-        try {
-            analytics.anomalies = await analyticsService.generateAnomalies(buildingId, timeRange);
-        } catch (error) {
-            console.warn(`[DASHBOARD] Error generating anomalies for building ${buildingId}:`, error.message);
-            analytics.anomalies = { total: 0, bySeverity: { High: 0, Medium: 0, Low: 0 }, anomalies: [] };
-        }
-
-        try {
             analytics.dataQuality = analyticsService.generateDataQualityReport(kpis);
         } catch (error) {
             console.warn(`[DASHBOARD] Error generating data quality report for building ${buildingId}:`, error.message);
             analytics.dataQuality = { available: false, message: error.message };
         }
 
-        // Always include time-based analysis (works with Power data for arbitrary ranges)
-        // generateTimeBasedAnalysis can work without interval - it uses Power data when interval is null
-        try {
-            analytics.timeBasedAnalysis = await analyticsService.generateTimeBasedAnalysis(
-                buildingId, 
-                timeRange, 
-                options.interval || null
-            );
-        } catch (error) {
-            console.warn(`[DASHBOARD] Error generating time-based analysis for building ${buildingId}:`, error.message);
-            analytics.timeBasedAnalysis = { available: false, message: error.message };
-        }
+        // Generate async analytics in parallel with timeout protection
+        const asyncAnalytics = [
+            {
+                key: 'inefficientUsage',
+                generator: () => analyticsService.generateInefficientUsage(buildingId, timeRange, options.interval || null, this, kpis),
+                timeout: 10000 // 10 seconds
+            },
+            {
+                key: 'anomalies',
+                generator: () => analyticsService.generateAnomalies(buildingId, timeRange),
+                timeout: 15000 // 15 seconds
+            },
+            {
+                key: 'timeBasedAnalysis',
+                generator: () => analyticsService.generateTimeBasedAnalysis(buildingId, timeRange, options.interval || null),
+                timeout: 15000 // 15 seconds
+            },
+            {
+                key: 'buildingComparison',
+                generator: () => analyticsService.generateBuildingComparison(buildingId, timeRange, options.interval || null, this),
+                timeout: 20000 // 20 seconds (multiple buildings)
+            },
+            {
+                key: 'temperatureAnalysis',
+                generator: () => analyticsService.generateTemperatureAnalysis(buildingId, timeRange),
+                timeout: 20000 // 20 seconds
+            }
+        ];
 
-        try {
-            analytics.buildingComparison = await analyticsService.generateBuildingComparison(buildingId, timeRange, options.interval || null, this);
-        } catch (error) {
-            console.warn(`[DASHBOARD] Error generating building comparison for building ${buildingId}:`, error.message);
-            analytics.buildingComparison = { available: false, message: error.message };
-        }
+        // Helper function to generate with timeout
+        const generateWithTimeout = async (key, generator, timeoutMs) => {
+            return Promise.race([
+                generator(),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error(`Timeout: ${key} exceeded ${timeoutMs}ms`)), timeoutMs)
+                )
+            ]).catch(error => {
+                if (error.message.includes('Timeout')) {
+                    console.warn(`[DASHBOARD] Timeout generating ${key} for building ${buildingId}: ${error.message}`);
+                    return { available: false, message: error.message, timeout: true };
+                }
+                throw error;
+            });
+        };
 
-        try {
-            analytics.temperatureAnalysis = await analyticsService.generateTemperatureAnalysis(buildingId, timeRange);
-        } catch (error) {
-            console.warn(`[DASHBOARD] Error generating temperature analysis for building ${buildingId}:`, error.message);
-            analytics.temperatureAnalysis = { available: false, message: error.message };
+        // Process all async analytics in parallel
+        const asyncPromises = asyncAnalytics.map(async ({ key, generator, timeout }) => {
+            const startTime = Date.now();
+            try {
+                const result = await generateWithTimeout(key, generator, timeout);
+                const duration = Date.now() - startTime;
+                console.log(`[DASHBOARD] ${key} generated in ${duration}ms${result.timeout ? ' (timeout)' : ''}`);
+                return { key, result };
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                console.warn(`[DASHBOARD] Error generating ${key} for building ${buildingId} (${duration}ms):`, error.message);
+                return {
+                    key,
+                    result: {
+                        available: false,
+                        message: error.message,
+                        timeout: error.message.includes('Timeout')
+                    }
+                };
+            }
+        });
+
+        // Wait for all async analytics to complete (or timeout)
+        const asyncResults = await Promise.allSettled(asyncPromises);
+
+        // Process results
+        asyncResults.forEach((settled) => {
+            if (settled.status === 'fulfilled') {
+                const { key, result } = settled.value;
+                analytics[key] = result;
+            } else {
+                console.error(`[DASHBOARD] Promise rejected for analytics:`, settled.reason);
+            }
+        });
+
+        // Set default values for failed analytics
+        if (!analytics.anomalies) {
+            analytics.anomalies = { total: 0, bySeverity: { High: 0, Medium: 0, Low: 0 }, anomalies: [] };
         }
 
         return {
@@ -1541,18 +1628,25 @@ class DashboardDiscoveryService {
         const days = duration / (1000 * 60 * 60 * 24);
         
         // Determine resolution based on time range AND data age
+        // 15-minute aggregates are only kept for 1 hour, then deleted
         let resolution = 15;
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            // Check how old the data is (days since endDate)
-            const daysSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60 * 24);
+            // Check how old the data is (hours since endDate)
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
             
             if (days > 90 || daysSinceEndDate > 7) {
                 resolution = 1440; // daily
             } else if (days > 7 || daysSinceEndDate > 1) {
                 resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                // Data older than 1 hour: use hourly aggregates
+                // (15-minute aggregates are deleted after 1 hour)
+                resolution = 60; // hourly
             } else {
+                // Recent data (within last hour): use 15-minute aggregates
                 resolution = 15; // 15-minute
             }
         }
@@ -1709,15 +1803,27 @@ class DashboardDiscoveryService {
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
         
-        // Determine resolution
+        // Determine resolution based on time range AND data age
+        // 15-minute aggregates are only kept for 1 hour, then deleted
         let resolution = 15;
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            if (days > 90) {
-                resolution = 1440;
-            } else if (days > 7) {
-                resolution = 60;
+            // Check how old the data is (hours since endDate)
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
+            
+            if (days > 90 || daysSinceEndDate > 7) {
+                resolution = 1440; // daily
+            } else if (days > 7 || daysSinceEndDate > 1) {
+                resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                // Data older than 1 hour: use hourly aggregates
+                // (15-minute aggregates are deleted after 1 hour)
+                resolution = 60; // hourly
+            } else {
+                // Recent data (within last hour): use 15-minute aggregates
+                resolution = 15; // 15-minute
             }
         }
         
@@ -1883,15 +1989,27 @@ class DashboardDiscoveryService {
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
         
-        // Determine resolution
+        // Determine resolution based on time range AND data age
+        // 15-minute aggregates are only kept for 1 hour, then deleted
         let resolution = 15;
         if (options.resolution !== undefined) {
             resolution = options.resolution;
         } else {
-            if (days > 90) {
-                resolution = 1440;
-            } else if (days > 7) {
-                resolution = 60;
+            // Check how old the data is (hours since endDate)
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
+            
+            if (days > 90 || daysSinceEndDate > 7) {
+                resolution = 1440; // daily
+            } else if (days > 7 || daysSinceEndDate > 1) {
+                resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                // Data older than 1 hour: use hourly aggregates
+                // (15-minute aggregates are deleted after 1 hour)
+                resolution = 60; // hourly
+            } else {
+                // Recent data (within last hour): use 15-minute aggregates
+                resolution = 15; // 15-minute
             }
         }
         
