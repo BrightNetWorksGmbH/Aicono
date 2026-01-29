@@ -338,22 +338,53 @@ class LoxoneStorageService {
                         granularity: 'seconds'
                     }
                 });
-                console.log(`[LOXONE-STORAGE] [${buildingId}] Created Time Series collection`);
+                // console.log(`[LOXONE-STORAGE] [${buildingId}] Created Time Series collection`);
             }
 
             // Create indexes
             const collection = db.collection('measurements');
             try {
+                // Existing indexes
                 await collection.createIndex({ 'meta.sensorId': 1, timestamp: -1 });
                 await collection.createIndex({ 'meta.buildingId': 1, timestamp: -1 });
                 await collection.createIndex({ timestamp: -1 });
+                
+                // Optimized compound index for getBuildingKPIs queries
+                // Covers: buildingId (equality) → resolution_minutes (equality) → timestamp (range)
+                // This significantly speeds up queries that filter by building and resolution
+                await collection.createIndex(
+                    { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 },
+                    { background: true, name: 'buildingId_resolution_timestamp_idx' }
+                );
+                
+                // Index for aggregation queries (filters by resolution_minutes + timestamp)
+                // This speeds up countDocuments queries in aggregation service
+                await collection.createIndex(
+                    { resolution_minutes: 1, timestamp: -1 },
+                    { background: true, name: 'resolution_timestamp_idx' }
+                );
+                
+                // Index for measurementType filtering (speeds up temperature/energy/power queries)
+                await collection.createIndex(
+                    { 'meta.measurementType': 1 },
+                    { background: true, name: 'measurementType_idx' }
+                );
+                
+                // Compound index for temperature queries specifically
+                // Optimizes queries that filter by buildingId + measurementType + resolution + timestamp
+                await collection.createIndex(
+                    { 'meta.buildingId': 1, 'meta.measurementType': 1, resolution_minutes: 1, timestamp: -1 },
+                    { background: true, name: 'buildingId_measurementType_resolution_timestamp_idx' }
+                );
+                
+                // console.log(`[LOXONE-STORAGE] [${buildingId}] ✓ Created optimized compound index for building queries`);
             } catch (error) {
                 if (!error.message.includes('already exists')) {
-                    console.warn(`[LOXONE-STORAGE] [${buildingId}] Index creation warning:`, error.message);
+                    // console.warn(`[LOXONE-STORAGE] [${buildingId}] Index creation warning:`, error.message);
                 }
             }
         } catch (error) {
-            console.error(`[LOXONE-STORAGE] [${buildingId}] Error initializing:`, error.message);
+            // console.error(`[LOXONE-STORAGE] [${buildingId}] Error initializing:`, error.message);
             throw error;
         }
     }
@@ -371,7 +402,7 @@ class LoxoneStorageService {
             throw new Error(`Building ${buildingId} not found`);
         }
 
-        console.log(`[LOXONE-STORAGE] [${buildingId}] Importing structure from LoxAPP3.json...`);
+        // console.log(`[LOXONE-STORAGE] [${buildingId}] Importing structure from LoxAPP3.json...`);
 
         // 1. Import Rooms from LoxAPP3.json (Loxone rooms - with building_id, not floor_id)
         const roomMap = new Map(); // loxone_room_uuid -> room _id
@@ -392,9 +423,9 @@ class LoxoneStorageService {
                         updatedAt: new Date()
                     });
                     room = await db.collection('rooms').findOne({ _id: roomResult.insertedId });
-                    console.log(`[LOXONE-STORAGE] [${buildingId}] Created Room: ${room.name} (${roomUUID.substring(0, 8)}...)`);
+                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Created Room: ${room.name} (${roomUUID.substring(0, 8)}...)`);
                 } else {
-                    console.log(`[LOXONE-STORAGE] [${buildingId}] Room already exists: ${room.name} (${roomUUID.substring(0, 8)}...)`);
+                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Room already exists: ${room.name} (${roomUUID.substring(0, 8)}...)`);
                 }
                 roomMap.set(roomUUID, room._id);
             }
@@ -462,9 +493,9 @@ class LoxoneStorageService {
                     updatedAt: new Date()
                 });
                 sensor = await db.collection('sensors').findOne({ _id: sensorResult.insertedId });
-                console.log(`[LOXONE-STORAGE] [${buildingId}] Created Sensor: ${sensor.name} (${controlUUID.substring(0, 8)}...)`);
+                // console.log(`[LOXONE-STORAGE] [${buildingId}] Created Sensor: ${sensor.name} (${controlUUID.substring(0, 8)}...)`);
             } else {
-                console.log(`[LOXONE-STORAGE] [${buildingId}] Sensor already exists: ${sensor.name} (${controlUUID.substring(0, 8)}...)`);
+                // console.log(`[LOXONE-STORAGE] [${buildingId}] Sensor already exists: ${sensor.name} (${controlUUID.substring(0, 8)}...)`);
             }
             sensorMap.set(controlUUID, sensor._id);
             return sensor;
@@ -476,7 +507,7 @@ class LoxoneStorageService {
         let skippedControls = 0;
         const progressInterval = 50; // Log progress every 50 controls
         
-        console.log(`[LOXONE-STORAGE] [${buildingId}] Starting sensor import from ${totalControls} controls...`);
+        // console.log(`[LOXONE-STORAGE] [${buildingId}] Starting sensor import from ${totalControls} controls...`);
         
         if (loxAPP3Data.controls) {
             for (const [controlUUID, controlData] of Object.entries(loxAPP3Data.controls)) {
@@ -484,7 +515,7 @@ class LoxoneStorageService {
                 
                 // Log progress periodically
                 if (processedControls % progressInterval === 0) {
-                    console.log(`[LOXONE-STORAGE] [${buildingId}] Processing controls... ${processedControls}/${totalControls} (${sensorMap.size} sensors created so far)`);
+                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Processing controls... ${processedControls}/${totalControls} (${sensorMap.size} sensors created so far)`);
                 }
                 
                 if (!measurementTypes.includes(controlData.type)) {
@@ -510,9 +541,9 @@ class LoxoneStorageService {
             }
         }
         
-        console.log(`[LOXONE-STORAGE] [${buildingId}] Processed ${processedControls} controls (${skippedControls} skipped, ${processedControls - skippedControls} processed for sensors)`);
+        // console.log(`[LOXONE-STORAGE] [${buildingId}] Processed ${processedControls} controls (${skippedControls} skipped, ${processedControls - skippedControls} processed for sensors)`);
 
-        console.log(`[LOXONE-STORAGE] [${buildingId}] Imported ${roomMap.size} rooms and ${sensorMap.size} sensors`);
+        // console.log(`[LOXONE-STORAGE] [${buildingId}] Imported ${roomMap.size} rooms and ${sensorMap.size} sensors`);
         
         // Log sensor creation summary
         const sensorCount = sensorMap.size;
@@ -559,13 +590,13 @@ class LoxoneStorageService {
 
             if (roomCount === 0 || sensorCount.length === 0) {
                 if (loxAPP3Data) {
-                    console.log(`[LOXONE-STORAGE] [${buildingId}] Importing structure...`);
+                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Importing structure...`);
                     await this.importStructureFromLoxAPP3(buildingId, loxAPP3Data);
                 } else {
                     throw new Error('No structure data available');
                 }
             } else {
-                console.log(`[LOXONE-STORAGE] [${buildingId}] Structure already imported (${sensorCount.length} sensors found)`);
+                // console.log(`[LOXONE-STORAGE] [${buildingId}] Structure already imported (${sensorCount.length} sensors found)`);
             }
 
             // Load sensors for this building
@@ -582,7 +613,7 @@ class LoxoneStorageService {
                 { $match: { 'room.building_id': buildingObjectId } }
             ]).toArray();
 
-            console.log(`[LOXONE-STORAGE] [${buildingId}] Found ${sensors.length} sensors for this building`);
+            // console.log(`[LOXONE-STORAGE] [${buildingId}] Found ${sensors.length} sensors for this building`);
 
             // Build UUID mapping
             const uuidToSensorMap = new Map();
@@ -602,7 +633,7 @@ class LoxoneStorageService {
                     }
                 });
                 
-                console.log(`[LOXONE-STORAGE] [${buildingId}] Building UUID mapping from ${controlToSensorMap.size} sensors and ${Object.keys(loxAPP3Data.controls).length} controls`);
+                // console.log(`[LOXONE-STORAGE] [${buildingId}] Building UUID mapping from ${controlToSensorMap.size} sensors and ${Object.keys(loxAPP3Data.controls).length} controls`);
 
                 let mappedControls = 0;
                 for (const [controlUUID, controlData] of Object.entries(loxAPP3Data.controls)) {
@@ -638,7 +669,7 @@ class LoxoneStorageService {
                     }
                 }
                 
-                console.log(`[LOXONE-STORAGE] [${buildingId}] Mapped ${mappedControls} controls to sensors (created ${uuidToSensorMap.size} UUID entries so far)`);
+                // console.log(`[LOXONE-STORAGE] [${buildingId}] Mapped ${mappedControls} controls to sensors (created ${uuidToSensorMap.size} UUID entries so far)`);
                 
                 // Map subControls
                 for (const [controlUUID, controlData] of Object.entries(loxAPP3Data.controls)) {
@@ -682,10 +713,10 @@ class LoxoneStorageService {
             uuidMaps.set(buildingId, uuidToSensorMap);
             
             if (uuidToSensorMap.size === 0) {
-                console.warn(`[LOXONE-STORAGE] [${buildingId}] ⚠️  WARNING: UUID mapping is empty! No measurements can be stored for this building.`);
-                console.warn(`[LOXONE-STORAGE] [${buildingId}] Sensors found: ${sensors.length}, Controls in structure: ${loxAPP3Data?.controls ? Object.keys(loxAPP3Data.controls).length : 0}`);
+                // console.warn(`[LOXONE-STORAGE] [${buildingId}] ⚠️  WARNING: UUID mapping is empty! No measurements can be stored for this building.`);
+                // console.warn(`[LOXONE-STORAGE] [${buildingId}] Sensors found: ${sensors.length}, Controls in structure: ${loxAPP3Data?.controls ? Object.keys(loxAPP3Data.controls).length : 0}`);
             } else {
-                console.log(`[LOXONE-STORAGE] [${buildingId}] ✓ Loaded ${uuidToSensorMap.size} UUID mappings`);
+                // console.log(`[LOXONE-STORAGE] [${buildingId}] ✓ Loaded ${uuidToSensorMap.size} UUID mappings`);
             }
             return uuidToSensorMap;
         } catch (error) {
@@ -719,7 +750,7 @@ class LoxoneStorageService {
 
         const uuidToSensorMap = uuidMaps.get(buildingId);
         if (!uuidToSensorMap || uuidToSensorMap.size === 0) {
-            console.log(`[LOXONE-STORAGE] [${buildingId}] UUID map is empty, reloading...`);
+            // console.log(`[LOXONE-STORAGE] [${buildingId}] UUID map is empty, reloading...`);
             // Try to reload from structure file
             const fsPromises = require('fs').promises;
             const path = require('path');

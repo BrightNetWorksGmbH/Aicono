@@ -8,7 +8,7 @@ const { asyncHandler } = require('../middleware/errorHandler');
  * Assigns recipients and report config to multiple buildings at once
  */
 exports.handleReportSetup = asyncHandler(async (req, res) => {
-    console.log('handleReportSetup', req.body);
+    // console.log('handleReportSetup', req.body);
   const { recipients, reportConfig, buildingIds } = req.body;
 
   // Validate recipients

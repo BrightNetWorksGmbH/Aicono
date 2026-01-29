@@ -1,0 +1,126 @@
+[{
+  "_id": {
+    "$oid": "697b3bdcf472c2a8f5307abd"
+  },
+  "building_id": {
+    "$oid": "6948dcd113537bff98eb7338"
+  },
+  "recipient_id": {
+    "$oid": "697b3bd9234121f6ca541e2b"
+  },
+  "reporting_id": {
+    "$oid": "697b3bda234121f6ca542008"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-01-29T10:52:11.554Z"
+  },
+  "updatedAt": {
+    "$date": "2026-01-29T10:52:11.554Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "697b3bddf472c2a8f5307abe"
+  },
+  "reporting_id": {
+    "$oid": "697b3bdc234121f6ca5423d7"
+  },
+  "building_id": {
+    "$oid": "6948dcd113537bff98eb7338"
+  },
+  "recipient_id": {
+    "$oid": "697b3bd9234121f6ca541e2b"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-01-29T10:52:12.679Z"
+  },
+  "updatedAt": {
+    "$date": "2026-01-29T10:52:12.679Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "697b3bdef472c2a8f5307abf"
+  },
+  "building_id": {
+    "$oid": "6948dcd113537bff98eb7338"
+  },
+  "recipient_id": {
+    "$oid": "697b3bd9234121f6ca541e2b"
+  },
+  "reporting_id": {
+    "$oid": "697b3bdd234121f6ca5425b8"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-01-29T10:52:13.891Z"
+  },
+  "updatedAt": {
+    "$date": "2026-01-29T10:52:13.891Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "697b3c51f472c2a8f5307ac0"
+  },
+  "recipient_id": {
+    "$oid": "697b3c4f234121f6ca54edd4"
+  },
+  "reporting_id": {
+    "$oid": "697b3c50234121f6ca54ede8"
+  },
+  "building_id": {
+    "$oid": "6948dcd113537bff98eb7338"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-01-29T10:54:09.017Z"
+  },
+  "updatedAt": {
+    "$date": "2026-01-29T10:54:09.017Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "697b3c6bf472c2a8f5307ac1"
+  },
+  "reporting_id": {
+    "$oid": "697b3c6a234121f6ca551b2e"
+  },
+  "building_id": {
+    "$oid": "6948dcd113537bff98eb7338"
+  },
+  "recipient_id": {
+    "$oid": "697b3c69234121f6ca551b2c"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-01-29T10:54:35.130Z"
+  },
+  "updatedAt": {
+    "$date": "2026-01-29T10:54:35.130Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "697b3c8af472c2a8f5307ac2"
+  },
+  "building_id": {
+    "$oid": "6948dcd113537bff98eb7338"
+  },
+  "recipient_id": {
+    "$oid": "697b3c69234121f6ca551b2c"
+  },
+  "reporting_id": {
+    "$oid": "697b3c87234121f6ca55532f"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-01-29T10:55:05.923Z"
+  },
+  "updatedAt": {
+    "$date": "2026-01-29T10:55:05.923Z"
+  }
+}]

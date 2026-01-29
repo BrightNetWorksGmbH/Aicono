@@ -84,6 +84,24 @@ class MeasurementAggregationService {
      * @returns {Promise<Object>} Aggregation result with count of created aggregates
      */
     async aggregate15Minutes(buildingId = null, deleteAfterAggregation = true, bufferMinutes = 30) {
+        // Helper function for retrying database queries with timeout handling
+        const queryWithRetry = async (queryFn, retries = 3) => {
+            while (retries > 0) {
+                try {
+                    return await queryFn();
+                } catch (error) {
+                    if ((error.message.includes('timeout') || error.message.includes('timed out')) && retries > 1) {
+                        const remaining = retries - 1;
+                        console.warn(`[AGGREGATION] [15-min] Query timeout, retrying... (${remaining} attempts left)`);
+                        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+                        retries--;
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+        };
+        
         // Check connection health before starting heavy operations
         if (!isConnectionHealthy()) {
             throw new Error('Database connection not healthy. Please check MongoDB connection.');
@@ -382,32 +400,38 @@ class MeasurementAggregationService {
         
         try {
             // First, check if there's any data to aggregate
-            const dataCount = await db.collection('measurements').countDocuments(matchStage);
+            const dataCount = await queryWithRetry(() => 
+                db.collection('measurements').countDocuments(matchStage)
+            );
             console.log(`[AGGREGATION] [15-min] Found ${dataCount} raw data points to aggregate (${bucketStart.toISOString()} to ${safeAggregationEnd.toISOString()})`);
             
             if (dataCount === 0) {
                 // Check if there's any raw data at all (even if too recent)
-                const allRawDataCount = await db.collection('measurements').countDocuments({
-                    resolution_minutes: 0,
-                    ...(buildingId ? {
-                        'meta.buildingId': { 
-                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                        }
-                    } : {})
-                });
+                const allRawDataCount = await queryWithRetry(() =>
+                    db.collection('measurements').countDocuments({
+                        resolution_minutes: 0,
+                        ...(buildingId ? {
+                            'meta.buildingId': { 
+                                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                            }
+                        } : {})
+                    })
+                );
                 
                 // Check for data in the current incomplete window
                 const currentWindowStart = safeAggregationEnd;
                 const currentWindowEnd = new Date(safeAggregationEnd.getTime() + 15 * 60 * 1000);
-                const currentWindowCount = await db.collection('measurements').countDocuments({
-                    resolution_minutes: 0,
-                    timestamp: { $gte: currentWindowStart, $lt: currentWindowEnd },
-                    ...(buildingId ? {
-                        'meta.buildingId': { 
-                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                        }
-                    } : {})
-                });
+                const currentWindowCount = await queryWithRetry(() =>
+                    db.collection('measurements').countDocuments({
+                        resolution_minutes: 0,
+                        timestamp: { $gte: currentWindowStart, $lt: currentWindowEnd },
+                        ...(buildingId ? {
+                            'meta.buildingId': { 
+                                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                            }
+                        } : {})
+                    })
+                );
                 
                 if (allRawDataCount > 0) {
                     console.log(`[AGGREGATION] [15-min] No raw data in aggregation window, but found:`);
@@ -899,7 +923,32 @@ class MeasurementAggregationService {
                 console.log(`[AGGREGATION] [Hourly] Created ${count} aggregates for ${buildingId || 'all buildings'}`);
             }
             
-            return { success: true, count, buildingId };
+            // Delete 15-minute aggregates older than 24 hours (now that we have hourly aggregates)
+            // This prevents database bloat from accumulating 15-minute data
+            let deleted15MinCount = 0;
+            if (count > 0) {
+                const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                deleted15MinCount = await this.deleteOldAggregates(15, oneDayAgo, buildingId);
+                if (deleted15MinCount > 0) {
+                    console.log(`[AGGREGATION] [Hourly] Deleted ${deleted15MinCount} old 15-minute aggregates (older than 24 hours)`);
+                }
+            }
+            
+            console.log(`\n========================================`);
+            console.log(`✅ [AGGREGATION] [Hourly] SUCCESS!`);
+            console.log(`   Created ${count} hourly aggregates`);
+            if (deleted15MinCount > 0) {
+                console.log(`   Deleted ${deleted15MinCount} old 15-minute aggregates (older than 24 hours)`);
+            }
+            console.log(`   Building: ${buildingId || 'all buildings'}`);
+            console.log(`========================================\n`);
+            
+            return { 
+                success: true, 
+                count, 
+                deleted: deleted15MinCount,
+                buildingId 
+            };
         } catch (error) {
             console.error(`[AGGREGATION] [Hourly] Error:`, error.message);
             throw error;

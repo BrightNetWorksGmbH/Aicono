@@ -304,15 +304,25 @@ class AnalyticsService {
    * @param {String} buildingId - Building ID
    * @param {Object} timeRange - Time range object
    * @param {String} interval - Optional interval (Daily, Weekly, Monthly, Yearly) or null for arbitrary range
-   * @param {Object} dashboardDiscoveryService - Dashboard discovery service instance
+   * @param {Object} dashboardDiscoveryService - Dashboard discovery service instance (optional if kpis provided)
+   * @param {Object} kpis - Optional KPIs object (if provided, skips database query)
    * @returns {Promise<Object>} Inefficient usage data
    */
-  async generateInefficientUsage(buildingId, timeRange, interval = null, dashboardDiscoveryService) {
-    const { startDate, endDate } = timeRange;
-    const kpis = await dashboardDiscoveryService.getBuildingKPIs(buildingId, startDate, endDate, { interval });
-    
+  async generateInefficientUsage(buildingId, timeRange, interval = null, dashboardDiscoveryService = null, kpis = null) {
     // Extract KPIs values (handles both new structured and legacy formats)
-    const extracted = this.extractKPIs(kpis);
+    let extracted;
+    
+    if (kpis) {
+      // Use provided KPIs (no database query needed)
+      extracted = this.extractKPIs(kpis);
+    } else if (dashboardDiscoveryService) {
+      // Fallback: fetch KPIs if not provided (for backward compatibility)
+      const { startDate, endDate } = timeRange;
+      const fetchedKPIs = await dashboardDiscoveryService.getBuildingKPIs(buildingId, startDate, endDate, { interval });
+      extracted = this.extractKPIs(fetchedKPIs);
+    } else {
+      throw new Error('Either kpis or dashboardDiscoveryService must be provided');
+    }
     
     // Simple heuristic: if base load is very high compared to average, might indicate inefficiency
     // Both base and average are energy consumption (kWh)
@@ -377,24 +387,6 @@ class AnalyticsService {
       .lean();
 
     console.log(`[ANOMALIES] Found ${alarms.length} alarms in time range`);
-
-    // Also check if there are any alarms for these sensors outside the time range (for debugging)
-    const allAlarmsCount = await AlarmLog.countDocuments({ sensor_id: { $in: sensorIds } });
-    if (allAlarmsCount > 0 && alarms.length === 0) {
-      console.warn(`[ANOMALIES] Found ${allAlarmsCount} total alarms for these sensors, but none in the specified time range`);
-      // Get the earliest and latest alarm timestamps for debugging
-      const earliestAlarm = await AlarmLog.findOne({ sensor_id: { $in: sensorIds } })
-        .sort({ timestamp_start: 1 })
-        .select('timestamp_start')
-        .lean();
-      const latestAlarm = await AlarmLog.findOne({ sensor_id: { $in: sensorIds } })
-        .sort({ timestamp_start: -1 })
-        .select('timestamp_start')
-        .lean();
-      if (earliestAlarm && latestAlarm) {
-        console.log(`[ANOMALIES] Alarm timestamp range: ${earliestAlarm.timestamp_start?.toISOString()} to ${latestAlarm.timestamp_start?.toISOString()}`);
-      }
-    }
 
     const bySeverity = { High: 0, Medium: 0, Low: 0 };
     alarms.forEach(alarm => {
@@ -716,6 +708,7 @@ class AnalyticsService {
    * @returns {Promise<Object>} Temperature analysis data
    */
   async generateTemperatureAnalysis(buildingId, timeRange) {
+    console.log("time before generateTemperatureAnalysis is ", Date.now());
     const { startDate, endDate } = timeRange;
     
     // Get all temperature sensors for this building
@@ -733,21 +726,35 @@ class AnalyticsService {
       };
     }
 
+    console.log("rooms are ", rooms.length)
+    console.log("sensors are ", sensors.length)
     const db = mongoose.connection.db;
     if (!db) {
       throw new Error('Database connection not available');
     }
 
-    const sensorIds = sensors.map(s => s._id);
-    const matchStage = {
-      'meta.sensorId': { $in: sensorIds.map(id => new mongoose.Types.ObjectId(id)) },
-      'meta.measurementType': 'Temperature',
+    // Use two-stage match for index optimization:
+    // 1. First match uses compound index: { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 }
+    // 2. Second match filters by measurementType on already-reduced dataset
+    console.log('buildingId used in temperatureAnalysis is ', buildingId)
+    
+    // First match: Use index-optimized fields (buildingId, resolution, timestamp)
+    // This uses the compound index: { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 }
+    const firstMatchStage = {
+      'meta.buildingId': new mongoose.Types.ObjectId(buildingId),
       resolution_minutes: 60, // Hourly
       timestamp: { $gte: startDate, $lt: endDate },
     };
 
+    // Second match: Filter by measurementType (on already-reduced dataset)
+    // This filters the much smaller dataset after the first match
+    const secondMatchStage = {
+      'meta.measurementType': 'Temperature',
+    };
+
     const pipeline = [
-      { $match: matchStage },
+      { $match: firstMatchStage }, // Uses index: buildingId_resolution_timestamp_idx
+      { $match: secondMatchStage }, // Filters reduced dataset by measurementType
       {
         $group: {
           _id: '$meta.sensorId',
@@ -759,39 +766,51 @@ class AnalyticsService {
       },
     ];
 
+    const queryStartTime = Date.now();
+    console.log(`[TEMPERATURE] Starting aggregation query at ${queryStartTime}`);
+
     const tempData = await db.collection('measurements').aggregate(pipeline).toArray();
     
-    // Map sensor IDs to sensor names
-    const sensorMap = new Map(sensors.map(s => [s._id.toString(), s]));
+    const queryEndTime = Date.now();
+    const queryDuration = queryEndTime - queryStartTime;
+    console.log(`[TEMPERATURE] Query completed in ${queryDuration}ms, found ${tempData.length} sensors with data`);
 
-    const temperatureAnalysis = tempData.map(item => {
-      const sensor = sensorMap.get(item._id.toString());
+    if (tempData.length === 0) {
       return {
-        sensorId: item._id.toString(),
-        sensorName: sensor?.name || 'Unknown',
-        average: Math.round(item.avgTemp * 100) / 100,
-        min: Math.round(item.minTemp * 100) / 100,
-        max: Math.round(item.maxTemp * 100) / 100,
-        unit: '°C',
+        available: false,
+        message: 'No temperature data found for this time range',
       };
+    }
+
+    // Calculate overall statistics - weighted average by measurement count
+    let totalWeightedSum = 0;
+    let totalCount = 0;
+    let overallMin = Infinity;
+    let overallMax = -Infinity;
+
+    tempData.forEach(item => {
+      const count = item.count || 1;
+      totalWeightedSum += item.avgTemp * count;
+      totalCount += count;
+      overallMin = Math.min(overallMin, item.minTemp);
+      overallMax = Math.max(overallMax, item.maxTemp);
     });
 
-    // Calculate overall statistics
-    const allTemps = tempData.flatMap(item => [item.avgTemp, item.minTemp, item.maxTemp]);
-    const overallAvg = allTemps.reduce((sum, t) => sum + t, 0) / allTemps.length;
-    const overallMin = Math.min(...tempData.map(item => item.minTemp));
-    const overallMax = Math.max(...tempData.map(item => item.maxTemp));
+    const overallAvg = totalCount > 0 ? totalWeightedSum / totalCount : 0;
+
+    const processingEndTime = Date.now();
+    const totalDuration = processingEndTime - queryStartTime;
+    console.log(`[TEMPERATURE] Total processing time: ${totalDuration}ms (query: ${queryDuration}ms, processing: ${processingEndTime - queryEndTime}ms)`);
 
     return {
       available: true,
-      sensors: temperatureAnalysis,
       overall: {
         average: Math.round(overallAvg * 100) / 100,
         min: Math.round(overallMin * 100) / 100,
         max: Math.round(overallMax * 100) / 100,
         unit: '°C',
       },
-      totalSensors: sensors.length,
+      totalSensors: tempData.length, // Only sensors with actual data
     };
   }
 
@@ -827,13 +846,17 @@ class AnalyticsService {
     const { startDate, endDate } = timeRange;
     const rooms = await Room.find({ building_id: buildingId }).lean();
     
-    const roomConsumption = [];
-    for (const room of rooms) {
+    // Add timing for performance measurement
+    const startTime = Date.now();
+    console.log(`[ANALYTICS] generateConsumptionByRoom: Processing ${rooms.length} rooms in parallel`);
+    
+    // Process all rooms in parallel instead of sequentially
+    const roomPromises = rooms.map(async (room) => {
       try {
         // Pass interval to getRoomKPIs for proper stateType selection
         const roomKPIs = await dashboardDiscoveryService.getRoomKPIs(room._id, startDate, endDate, { interval });
         const extracted = this.extractKPIs(roomKPIs);
-        roomConsumption.push({
+        return {
           roomId: room._id.toString(),
           roomName: room.name,
           consumption: extracted.total_consumption, // Energy consumption (kWh)
@@ -845,11 +868,22 @@ class AnalyticsService {
           // Backward compatibility
           unit: extracted.energyUnit,
           average: extracted.averageEnergy,
-        });
+        };
       } catch (error) {
-        console.warn(`[ANALYTICS] Error getting KPIs for room ${room._id}:`, error.message);
+        console.warn(`[ANALYTICS] Error getting KPIs for room ${room._id} (${room.name}):`, error.message);
+        // Return null for failed rooms, will be filtered out
+        return null;
       }
-    }
+    });
+    
+    // Wait for all room queries to complete (parallel execution)
+    const roomResults = await Promise.all(roomPromises);
+    
+    // Filter out failed rooms (null values)
+    const roomConsumption = roomResults.filter(room => room !== null);
+    
+    const duration = Date.now() - startTime;
+    console.log(`[ANALYTICS] generateConsumptionByRoom: Completed ${roomConsumption.length}/${rooms.length} rooms in ${duration}ms`);
 
     // Sort by consumption descending
     roomConsumption.sort((a, b) => (b.consumption || 0) - (a.consumption || 0));
