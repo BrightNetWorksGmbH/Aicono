@@ -53,15 +53,18 @@ class _ReportSidebarSectionState extends State<ReportSidebarSection> {
   List<TreeItemEntity> _buildTreeItems({
     required List<ReportSiteEntity> sites,
     required String? buildingsSiteId,
+    required String? buildingsLoadingSiteId,
     required List<ReportBuildingEntity> buildings,
     required String? reportsBuildingId,
+    required String? reportsLoadingBuildingId,
     required List<ReportSummaryEntity> reports,
   }) {
     return sites.map((site) {
       final bool showBuildings = buildingsSiteId == site.id;
+      final bool buildingsLoading = buildingsLoadingSiteId == site.id;
       List<TreeItemEntity> buildingChildren = [];
       if (showBuildings) {
-        if (buildings.isEmpty) {
+        if (buildingsLoading) {
           buildingChildren = [
             TreeItemEntity(
               id: '_loading_site',
@@ -69,16 +72,33 @@ class _ReportSidebarSectionState extends State<ReportSidebarSection> {
               type: 'reporting',
             ),
           ];
+        } else if (buildings.isEmpty) {
+          buildingChildren = [
+            TreeItemEntity(
+              id: '_empty_buildings',
+              name: 'No buildings',
+              type: 'reporting',
+            ),
+          ];
         } else {
           buildingChildren = buildings.map((building) {
             final bool showReports = reportsBuildingId == building.id;
+            final bool reportsLoading = reportsLoadingBuildingId == building.id;
             List<TreeItemEntity> reportChildren = [];
             if (showReports) {
-              if (reports.isEmpty) {
+              if (reportsLoading) {
                 reportChildren = [
                   TreeItemEntity(
                     id: '_loading_reports',
                     name: 'Loading...',
+                    type: 'reporting',
+                  ),
+                ];
+              } else if (reports.isEmpty) {
+                reportChildren = [
+                  TreeItemEntity(
+                    id: '_empty_reports',
+                    name: 'No reports',
                     type: 'reporting',
                   ),
                 ];
@@ -113,7 +133,7 @@ class _ReportSidebarSectionState extends State<ReportSidebarSection> {
   }
 
   void _handleItemTap(TreeItemEntity item) {
-    if (item.id.startsWith('_loading')) return;
+    if (item.id.startsWith('_loading') || item.id.startsWith('_empty')) return;
 
     final reportSitesState = context.read<ReportSitesBloc>().state;
     final reportBuildingsState = context.read<ReportBuildingsBloc>().state;
@@ -175,11 +195,18 @@ class _ReportSidebarSectionState extends State<ReportSidebarSection> {
                 }
                 List<ReportSummaryEntity> reports = [];
                 String? reportsBuildingId;
+                String? reportsLoadingBuildingId;
                 if (reportsState is BuildingReportsSuccess) {
                   reports = reportsState.reports;
                   reportsBuildingId = reportsState.buildingId;
                 } else if (reportsState is BuildingReportsLoading) {
                   reportsBuildingId = reportsState.buildingId;
+                  reportsLoadingBuildingId = reportsState.buildingId;
+                }
+
+                String? buildingsLoadingSiteId;
+                if (buildingsState is ReportBuildingsLoading) {
+                  buildingsLoadingSiteId = buildingsState.siteId;
                 }
 
                 if (sitesState is ReportSitesLoading && sites.isEmpty) {
@@ -208,8 +235,10 @@ class _ReportSidebarSectionState extends State<ReportSidebarSection> {
                 final items = _buildTreeItems(
                   sites: sites,
                   buildingsSiteId: buildingsSiteId ?? _selectedSiteId,
+                  buildingsLoadingSiteId: buildingsLoadingSiteId,
                   buildings: buildings,
                   reportsBuildingId: reportsBuildingId ?? _selectedBuildingId,
+                  reportsLoadingBuildingId: reportsLoadingBuildingId,
                   reports: reports,
                 );
 
