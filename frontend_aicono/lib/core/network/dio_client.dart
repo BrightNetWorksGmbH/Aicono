@@ -11,9 +11,9 @@ class DioClient {
     dio.options = BaseOptions(
       baseUrl: // Local development
           'https://aicono-backend-etx3n.ondigitalocean.app/', // Production
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
-      sendTimeout: const Duration(seconds: 30),
+      connectTimeout: const Duration(minutes: 1),
+      receiveTimeout: const Duration(minutes: 1),
+      sendTimeout: const Duration(minutes: 1),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',

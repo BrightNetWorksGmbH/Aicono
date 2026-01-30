@@ -63,18 +63,29 @@ import 'package:frontend_aicono/features/switch_creation/data/repositories/compl
 import 'package:frontend_aicono/features/switch_creation/domain/repositories/complete_setup_repository.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/complete_setup_usecase.dart';
 import 'package:frontend_aicono/features/dashboard/data/datasources/dashboard_remote_datasource.dart';
+import 'package:frontend_aicono/features/dashboard/data/datasources/reports_remote_datasource.dart';
 import 'package:frontend_aicono/features/dashboard/data/repositories/dashboard_repository_impl.dart';
+import 'package:frontend_aicono/features/dashboard/data/repositories/reports_repository_impl.dart';
 import 'package:frontend_aicono/features/dashboard/domain/repositories/dashboard_repository.dart';
+import 'package:frontend_aicono/features/dashboard/domain/repositories/reports_repository.dart';
 import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_site_details_usecase.dart';
 import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_sites_usecase.dart';
 import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_building_details_usecase.dart';
 import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_floor_details_usecase.dart';
 import 'package:frontend_aicono/features/dashboard/domain/usecases/get_dashboard_room_details_usecase.dart';
+import 'package:frontend_aicono/features/dashboard/domain/usecases/get_report_sites_usecase.dart';
+import 'package:frontend_aicono/features/dashboard/domain/usecases/get_report_buildings_usecase.dart';
+import 'package:frontend_aicono/features/dashboard/domain/usecases/get_building_reports_usecase.dart';
+import 'package:frontend_aicono/features/dashboard/domain/usecases/get_report_detail_usecase.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_sites_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_sites_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_buildings_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/building_reports_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_detail_bloc.dart';
 import 'package:frontend_aicono/features/superadmin/data/datasources/verse_remote_datasource.dart';
 import 'package:frontend_aicono/features/superadmin/data/repositories/verse_repository_impl.dart';
 import 'package:frontend_aicono/features/superadmin/domain/repositories/verse_repository.dart';
@@ -137,6 +148,11 @@ Future<void> init() async {
     () => DashboardRemoteDataSourceImpl(dioClient: sl()),
   );
 
+  // Reports data source
+  sl.registerLazySingleton<ReportsRemoteDataSource>(
+    () => ReportsRemoteDataSourceImpl(dioClient: sl()),
+  );
+
   // Repositories - Auth is online-only, Verse is offline-first
   sl.registerLazySingleton<InvitationRepository>(
     () => InvitationRepositoryImpl(remoteDataSource: sl()),
@@ -175,6 +191,11 @@ Future<void> init() async {
     () => DashboardRepositoryImpl(remoteDataSource: sl()),
   );
 
+  // Reports repository
+  sl.registerLazySingleton<ReportsRepository>(
+    () => ReportsRepositoryImpl(remoteDataSource: sl()),
+  );
+
   // Use cases
   sl.registerLazySingleton(() => InvitationUseCase(sl()));
   sl.registerLazySingleton(() => RegisterUserUseCase(repository: sl()));
@@ -206,6 +227,10 @@ Future<void> init() async {
   sl.registerLazySingleton(
     () => GetDashboardRoomDetailsUseCase(repository: sl()),
   );
+  sl.registerLazySingleton(() => GetReportSitesUseCase(repository: sl()));
+  sl.registerLazySingleton(() => GetReportBuildingsUseCase(repository: sl()));
+  sl.registerLazySingleton(() => GetBuildingReportsUseCase(repository: sl()));
+  sl.registerLazySingleton(() => GetReportDetailUseCase(repository: sl()));
 
   // Superadmin use cases
   sl.registerLazySingleton(() => CreateVerseUseCase(repository: sl()));
@@ -277,6 +302,14 @@ Future<void> init() async {
   sl.registerFactory(
     () => DashboardRoomDetailsBloc(getDashboardRoomDetailsUseCase: sl()),
   );
+  sl.registerFactory(() => ReportSitesBloc(getReportSitesUseCase: sl()));
+  sl.registerFactory(
+    () => ReportBuildingsBloc(getReportBuildingsUseCase: sl()),
+  );
+  sl.registerFactory(
+    () => BuildingReportsBloc(getBuildingReportsUseCase: sl()),
+  );
+  sl.registerFactory(() => ReportDetailBloc(getReportDetailUseCase: sl()));
 
   // Upload dependencies
   sl.registerLazySingleton<UploadRemoteDataSource>(

@@ -18,6 +18,7 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_s
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/components/report_sidebar_section.dart';
 
 class DashboardSidebar extends StatefulWidget {
   const DashboardSidebar({
@@ -27,6 +28,7 @@ class DashboardSidebar extends StatefulWidget {
     this.isInDrawer = false,
     this.onLanguageChanged,
     this.onSwitchSelected,
+    this.onReportSelected,
     this.showSwitchSwitcher = true,
     this.verseId,
   });
@@ -46,6 +48,9 @@ class DashboardSidebar extends StatefulWidget {
   /// Callback when user selects a different organization (bryteswitch). Parent should save selected ID and reload dashboard.
   final ValueChanged<String>? onSwitchSelected;
 
+  /// Callback when user selects a report (reportId) or clears selection (null). Parent should show report detail in main content.
+  final ValueChanged<String?>? onReportSelected;
+
   /// Whether to show the switch/organization switcher in the Companies section (default true).
   final bool showSwitchSwitcher;
 
@@ -58,7 +63,6 @@ class DashboardSidebar extends StatefulWidget {
 
 class _DashboardSidebarState extends State<DashboardSidebar> {
   String? currentVerseId;
-  List<TreeItemEntity> _reportings = [];
   List<SwitchRoleEntity> _roles = [];
 
   @override
@@ -66,7 +70,6 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
     super.initState();
     _loadVerseId();
     _loadUserAndRoles();
-    _loadSampleReportings();
   }
 
   @override
@@ -99,23 +102,6 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
         }
       });
     } catch (_) {}
-  }
-
-  void _loadSampleReportings() {
-    // Keep dummy reportings for now (backend endpoints not provided yet)
-    setState(() {
-      _reportings = [
-        TreeItemEntity(
-          id: 'rep1',
-          name: 'CFO Reporting Münster',
-          type: 'reporting',
-          children: [
-            TreeItemEntity(id: 'rep1_q1', name: 'Q1 2024', type: 'reporting'),
-            TreeItemEntity(id: 'rep1_q2', name: 'Q2 2024', type: 'reporting'),
-          ],
-        ),
-      ];
-    });
   }
 
   @override
@@ -587,7 +573,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
       children: [
         InkWell(
           onTap: () {
-            // Clear selection when clicking on section title
+            widget.onReportSelected?.call(null);
           },
           hoverColor: Colors.transparent,
           splashColor: Colors.transparent,
@@ -601,24 +587,10 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
           ),
         ),
         const Divider(height: 20, thickness: 1, color: Color(0x40000000)),
-        TreeViewWidget(
-          items: _reportings,
-          onItemTap: (item) {
-            // Handle item tap
-          },
-          onAddItem: () {
-            // TODO: Navigate to add reporting page
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'dashboard.sidebar.add_reporting'.tr() +
-                      ' ' +
-                      'dashboard.main_content.coming_soon'.tr(),
-                ),
-              ),
-            );
-          },
-          addItemLabel: 'dashboard.sidebar.add_reporting'.tr(),
+        ReportSidebarSection(
+          onReportSelected: widget.onReportSelected != null
+              ? (id) => widget.onReportSelected!(id)
+              : null,
         ),
       ],
     );
