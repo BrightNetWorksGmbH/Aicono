@@ -50,11 +50,11 @@ class _AddPropertiesPageState extends State<AddPropertiesPage> {
 
   void _handleAddPropertyDetails(Map<String, String> data) {
     // Navigate to add property name page with siteId for updating
+    // Pass ONLY siteId, not switchId when navigating to single site
     context.pushNamed(
       Routelists.addPropertyName,
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
-        if (widget.switchId != null) 'switchId': widget.switchId!,
         'isSingleProperty': widget.isSingleProperty.toString(),
         'propertyName': data['propertyName'],
         'siteId': data['siteId'],

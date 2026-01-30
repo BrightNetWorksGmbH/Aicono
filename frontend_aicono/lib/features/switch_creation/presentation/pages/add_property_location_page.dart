@@ -63,16 +63,17 @@ class _AddPropertyLocationPageState extends State<AddPropertyLocationPage> {
       createSiteBloc.add(
         UpdateSiteSubmitted(siteId: widget.siteId!, request: request),
       );
-    } else {
-      // Navigate to select resources page (normal flow)
-      context.pushNamed(
-        Routelists.selectResources,
-        queryParameters: {
-          if (widget.userName != null) 'userName': widget.userName!,
-          if (widget.switchId != null) 'switchId': widget.switchId!,
-        },
-      );
     }
+    // else {
+    //   // Navigate to select resources page (normal flow)
+    //   context.pushNamed(
+    //     Routelists.selectResources,
+    //     queryParameters: {
+    //       if (widget.userName != null) 'userName': widget.userName!,
+    //       if (widget.switchId != null) 'switchId': widget.switchId!,
+    //     },
+    //   );
+    // }
   }
 
   @override
@@ -95,12 +96,13 @@ class _AddPropertyLocationPageState extends State<AddPropertyLocationPage> {
                   backgroundColor: Colors.green,
                 ),
               );
-              // Navigate to select resources page
+              // Navigate to select resources page with siteId for updating
               context.pushNamed(
                 Routelists.selectResources,
                 queryParameters: {
                   if (widget.userName != null) 'userName': widget.userName!,
                   if (widget.switchId != null) 'switchId': widget.switchId!,
+                  if (widget.siteId != null) 'siteId': widget.siteId!,
                 },
               );
             }

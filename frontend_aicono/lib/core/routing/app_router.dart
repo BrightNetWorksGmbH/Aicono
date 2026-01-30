@@ -577,10 +577,15 @@ class AppRouter {
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final switchId = state.uri.queryParameters['switchId'];
+        final siteId = state.uri.queryParameters['siteId'];
         return _buildPage(
           context,
           state,
-          SelectResourcesPage(userName: userName, switchId: switchId),
+          SelectResourcesPage(
+            userName: userName,
+            switchId: switchId,
+            siteId: siteId,
+          ),
         );
       },
     ),
