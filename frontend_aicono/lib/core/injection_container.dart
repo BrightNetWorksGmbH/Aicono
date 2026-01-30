@@ -46,6 +46,7 @@ import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_l
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/save_floor_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_floors_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/create_site_usecase.dart';
+import 'package:frontend_aicono/features/switch_creation/domain/usecases/update_site_usecase.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/get_site_usecase.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/create_buildings_usecase.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/usecases/get_buildings_usecase.dart';
@@ -205,6 +206,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => LoginUseCase(repository: sl()));
   sl.registerLazySingleton(() => CompleteSetupUseCase(repository: sl()));
   sl.registerLazySingleton(() => CreateSiteUseCase(repository: sl()));
+  sl.registerLazySingleton(() => UpdateSiteUseCase(repository: sl()));
   sl.registerLazySingleton(() => GetSiteUseCase(repository: sl()));
   sl.registerLazySingleton(() => CreateBuildingsUseCase(repository: sl()));
   sl.registerLazySingleton(() => GetBuildingsUseCase(repository: sl()));
@@ -264,7 +266,10 @@ Future<void> init() async {
   sl.registerLazySingleton(() => PropertySetupCubit());
 
   // Create Site Bloc
-  sl.registerFactory(() => CreateSiteBloc(createSiteUseCase: sl()));
+  sl.registerFactory(() => CreateSiteBloc(
+        createSiteUseCase: sl(),
+        updateSiteUseCase: sl(),
+      ));
 
   // Get Site Bloc
   sl.registerFactory(() => GetSiteBloc(getSiteUseCase: sl()));

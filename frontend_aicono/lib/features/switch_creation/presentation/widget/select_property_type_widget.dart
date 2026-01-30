@@ -11,7 +11,8 @@ class SelectPropertyTypeWidget extends StatefulWidget {
   final String? userName;
   final VoidCallback onLanguageChanged;
   final VoidCallback? onBack;
-  final ValueChanged<bool>? onContinue; // true = single, false = multiple
+  final void Function(BuildContext, bool)?
+  onContinue; // (context, isSingleProperty)
 
   const SelectPropertyTypeWidget({
     super.key,
@@ -134,7 +135,7 @@ class _SelectPropertyTypeWidgetState extends State<SelectPropertyTypeWidget> {
                       label: 'select_property_type.button_text'.tr(),
                       width: 260,
                       onPressed: widget.onContinue != null
-                          ? () => widget.onContinue!(_isSingleProperty)
+                          ? () => widget.onContinue!(context, _isSingleProperty)
                           : null,
                     ),
                   ],

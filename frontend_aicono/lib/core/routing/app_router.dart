@@ -503,10 +503,15 @@ class AppRouter {
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final switchId = state.uri.queryParameters['switchId'];
+        final siteId = state.uri.queryParameters['siteId'];
         return _buildPage(
           context,
           state,
-          SelectPropertyTypePage(userName: userName, switchId: switchId),
+          SelectPropertyTypePage(
+            userName: userName,
+            switchId: switchId,
+            siteId: siteId,
+          ),
         );
       },
     ),
@@ -535,6 +540,7 @@ class AppRouter {
         final userName = state.uri.queryParameters['userName'];
         final switchId = state.uri.queryParameters['switchId'];
         final propertyName = state.uri.queryParameters['propertyName'];
+        final siteId = state.uri.queryParameters['siteId'];
         return _buildPage(
           context,
           state,
@@ -542,6 +548,7 @@ class AppRouter {
             userName: userName,
             switchId: switchId,
             propertyName: propertyName,
+            siteId: siteId,
           ),
         );
       },
@@ -552,10 +559,15 @@ class AppRouter {
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final switchId = state.uri.queryParameters['switchId'];
+        final siteId = state.uri.queryParameters['siteId'];
         return _buildPage(
           context,
           state,
-          AddPropertyLocationPage(userName: userName, switchId: switchId),
+          AddPropertyLocationPage(
+            userName: userName,
+            switchId: switchId,
+            siteId: siteId,
+          ),
         );
       },
     ),
@@ -591,10 +603,15 @@ class AppRouter {
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final siteId = state.uri.queryParameters['siteId'];
+        final switchId = state.uri.queryParameters['switchId'];
         return _buildPage(
           context,
           state,
-          AdditionalBuildingListPage(userName: userName, siteId: siteId),
+          AdditionalBuildingListPage(
+            userName: userName,
+            siteId: siteId,
+            switchId: switchId,
+          ),
         );
       },
     ),

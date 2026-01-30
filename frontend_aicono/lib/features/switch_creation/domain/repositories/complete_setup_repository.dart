@@ -23,6 +23,11 @@ abstract class CompleteSetupRepository {
 
   Future<Either<Failure, GetSiteResponse>> getSite(String siteId);
 
+  Future<Either<Failure, CreateSiteResponse>> updateSite(
+    String siteId,
+    CreateSiteRequest request,
+  );
+
   Future<Either<Failure, CreateBuildingsResponse>> createBuildings(
     String siteId,
     CreateBuildingsRequest request,

@@ -15,20 +15,29 @@ class PropertyItem {
 
 class AddPropertiesWidget extends StatefulWidget {
   final String? userName;
+  final String? switchId;
   final bool isSingleProperty;
+  final List<Map<String, dynamic>> createdSites;
+  final bool isLoadingSites;
   final VoidCallback onLanguageChanged;
   final VoidCallback? onBack;
-  final ValueChanged<String>? onAddPropertyDetails; // propertyName
+  final ValueChanged<Map<String, String>>?
+  onAddPropertyDetails; // {propertyName, siteId}
   final VoidCallback? onGoToHome;
+  final ValueChanged<List<String>>? onConfirmProperties; // propertyNames
 
   const AddPropertiesWidget({
     super.key,
     this.userName,
+    this.switchId,
     required this.isSingleProperty,
+    this.createdSites = const [],
+    this.isLoadingSites = false,
     required this.onLanguageChanged,
     this.onBack,
     this.onAddPropertyDetails,
     this.onGoToHome,
+    this.onConfirmProperties,
   });
 
   @override
@@ -138,27 +147,20 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
                         ),
 
                         const SizedBox(height: 40),
-                        // Property text fields
-                        ...List.generate(
-                          _properties.length,
-                          (index) => Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: _buildPropertyField(index),
-                          ),
-                        ),
-                        // Add new property button (only for multiple properties)
-                        if (!widget.isSingleProperty) ...[
-                          const SizedBox(height: 8),
-                          InkWell(
-                            onTap: _addNewProperty,
-                            child: Text(
-                              'add_properties.add_new_property'.tr(),
-                              style: AppTextStyles.bodyMedium.copyWith(
-                                decoration: TextDecoration.underline,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
+                        // Show existing sites if available, otherwise show input fields
+                        if (widget.isLoadingSites) ...[
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 24),
+                        ] else if (widget.createdSites.isNotEmpty) ...[
+                          // Show existing sites
+                          _buildExistingSitesView(),
+                        ] else ...[
+                          // Show input fields for new properties
+                          _buildPropertyInputFields(),
+                        ],
+                        if (widget.isLoadingSites) ...[
+                          const SizedBox(height: 24),
+                          const CircularProgressIndicator(),
                         ],
                         const SizedBox(height: 24),
                         // Combined button: Confirm properties first, then Go to home
@@ -182,6 +184,12 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
                                   if (!hasAnyText) {
                                     return; // Don't allow confirmation without text
                                   }
+                                  // Collect all property names
+                                  final propertyNames = _properties
+                                      .map((p) => p.controller.text.trim())
+                                      .where((name) => name.isNotEmpty)
+                                      .toList();
+
                                   // Mark all non-empty properties as confirmed
                                   for (int i = 0; i < _properties.length; i++) {
                                     if (_properties[i].controller.text
@@ -191,6 +199,12 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
                                       _confirmProperty(i);
                                     }
                                   }
+
+                                  // Call the callback to create sites
+                                  widget.onConfirmProperties?.call(
+                                    propertyNames,
+                                  );
+
                                   // Change button to "Go to home"
                                   setState(() {
                                     _isConfirmed = true;
@@ -260,7 +274,20 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
               onTap: () {
                 final propertyName = property.controller.text.trim();
                 if (propertyName.isNotEmpty) {
-                  widget.onAddPropertyDetails?.call(propertyName);
+                  // Find the siteId from created sites by matching the property name
+                  final matchingSite = widget.createdSites.firstWhere(
+                    (site) => site['name']?.toString() == propertyName,
+                    orElse: () => <String, dynamic>{},
+                  );
+                  final siteId =
+                      matchingSite['_id']?.toString() ??
+                      matchingSite['id']?.toString() ??
+                      '';
+
+                  widget.onAddPropertyDetails?.call({
+                    'propertyName': propertyName,
+                    'siteId': siteId,
+                  });
                 }
               },
               child: Text(
@@ -274,6 +301,124 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildExistingSitesView() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Your Properties',
+          style: AppTextStyles.bodyMedium.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ...widget.createdSites.map(
+          (site) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF8B9A5B), width: 2),
+                borderRadius: BorderRadius.zero,
+              ),
+              child: Row(
+                children: [
+                  Image.asset(
+                    'assets/images/check.png',
+                    width: 16,
+                    height: 16,
+                    color: const Color(0xFF238636),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          site['name']?.toString() ?? '',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (site['address'] != null &&
+                            site['address'].toString().isNotEmpty)
+                          Text(
+                            site['address'].toString(),
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  InkWell(
+                    onTap: () {
+                      final propertyName = site['name']?.toString() ?? '';
+                      final siteId =
+                          site['_id']?.toString() ??
+                          site['id']?.toString() ??
+                          '';
+
+                      if (propertyName.isNotEmpty && siteId.isNotEmpty) {
+                        widget.onAddPropertyDetails?.call({
+                          'propertyName': propertyName,
+                          'siteId': siteId,
+                        });
+                      }
+                    },
+                    child: Text(
+                      'add_properties.add_property_details'.tr(),
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        decoration: TextDecoration.underline,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPropertyInputFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Property text fields
+        ...List.generate(
+          _properties.length,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildPropertyField(index),
+          ),
+        ),
+        // Add new property button (only for multiple properties)
+        if (!widget.isSingleProperty) ...[
+          const SizedBox(height: 8),
+          Center(
+            child: InkWell(
+              onTap: _addNewProperty,
+              child: Text(
+                'add_properties.add_new_property'.tr(),
+                style: AppTextStyles.bodyMedium.copyWith(
+                  decoration: TextDecoration.underline,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
