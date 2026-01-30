@@ -28,6 +28,11 @@ abstract class CompleteSetupRemoteDataSource {
 
   Future<Either<Failure, GetSiteResponse>> getSite(String siteId);
 
+  Future<Either<Failure, CreateSiteResponse>> updateSite(
+    String siteId,
+    CreateSiteRequest request,
+  );
+
   Future<Either<Failure, CreateBuildingsResponse>> createBuildings(
     String siteId,
     CreateBuildingsRequest request,
@@ -285,6 +290,92 @@ class CompleteSetupRemoteDataSourceImpl
         print('Status Code: ${e.response?.statusCode}');
         print('Response Data: ${e.response?.data}');
         print('Response Headers: ${e.response?.headers}');
+      }
+
+      return Left(ServerFailure(ErrorExtractor.extractServerMessage(e)));
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Unexpected Error: $e');
+      }
+      return Left(ServerFailure('Unexpected error: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, CreateSiteResponse>> updateSite(
+    String siteId,
+    CreateSiteRequest request,
+  ) async {
+    try {
+      final requestData = request.toJson();
+
+      // Debug: Print the exact JSON being sent
+      if (kDebugMode) {
+        print('📤 Update Site Request Data:');
+        print('Site ID: $siteId');
+        print('Request JSON: $requestData');
+        try {
+          final jsonString = jsonEncode(requestData);
+          print('Formatted JSON: $jsonString');
+        } catch (e) {
+          print('Error encoding JSON: $e');
+        }
+      }
+
+      final response = await dioClient.patch(
+        '/api/v1/sites/$siteId',
+        data: requestData,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = response.data;
+
+        // Check for success flag
+        if (responseData['success'] == true ||
+            response.statusCode == 200 ||
+            response.statusCode == 201) {
+          final updateSiteResponse = CreateSiteResponse.fromJson(
+            responseData is Map<String, dynamic>
+                ? responseData
+                : {'success': true, 'data': responseData},
+          );
+          return Right(updateSiteResponse);
+        } else {
+          return Left(
+            ServerFailure(
+              responseData['message'] ??
+                  'Site update failed. Please try again.',
+            ),
+          );
+        }
+      } else {
+        return Left(
+          ServerFailure(
+            'Site update failed with status ${response.statusCode}',
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return Left(ServerFailure('Site not found'));
+      } else if (e.type == DioExceptionType.connectionError) {
+        return Left(
+          ServerFailure(
+            'Cannot connect to server. Please check your internet connection.',
+          ),
+        );
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        return Left(ServerFailure('Request timed out. Please try again.'));
+      }
+      // Log more details about the error
+      if (kDebugMode && e.response != null) {
+        print('❌ Server Error Details:');
+        print('Status Code: ${e.response?.statusCode}');
+        print('Response Data: ${e.response?.data}');
+        print('Response Headers: ${e.response?.headers}');
+        print('Request Data: ${e.requestOptions.data}');
       }
 
       return Left(ServerFailure(ErrorExtractor.extractServerMessage(e)));

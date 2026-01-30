@@ -1,64 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
+import 'package:frontend_aicono/core/widgets/xChackbox.dart';
 
 import '../../../../core/widgets/page_header_row.dart';
 
-class AddPropertyNameWidget extends StatefulWidget {
+class SelectPropertyTypeWidget extends StatefulWidget {
   final String? userName;
-  final String? initialPropertyName;
   final VoidCallback onLanguageChanged;
-  final ValueChanged<String>? onPropertyNameChanged;
-  final VoidCallback? onSkip;
-  final VoidCallback? onContinue;
   final VoidCallback? onBack;
+  final void Function(BuildContext, bool)?
+  onContinue; // (context, isSingleProperty)
 
-  const AddPropertyNameWidget({
+  const SelectPropertyTypeWidget({
     super.key,
     this.userName,
-    this.initialPropertyName,
     required this.onLanguageChanged,
-    this.onPropertyNameChanged,
-    this.onSkip,
-    this.onContinue,
     this.onBack,
+    this.onContinue,
   });
 
   @override
-  State<AddPropertyNameWidget> createState() => _AddPropertyNameWidgetState();
+  State<SelectPropertyTypeWidget> createState() =>
+      _SelectPropertyTypeWidgetState();
 }
 
-class _AddPropertyNameWidgetState extends State<AddPropertyNameWidget> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialPropertyName ?? '');
-    // Trigger onPropertyNameChanged if initial value is provided
-    if (widget.initialPropertyName != null &&
-        widget.initialPropertyName!.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.onPropertyNameChanged?.call(widget.initialPropertyName!);
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+class _SelectPropertyTypeWidgetState extends State<SelectPropertyTypeWidget> {
+  bool _isSingleProperty = true; // Default to single property (checked)
 
   String _buildProgressText() {
     final name = widget.userName?.trim();
     if (name != null && name.isNotEmpty) {
-      return 'add_property_name.progress_text'.tr(namedArgs: {'name': name});
+      return 'select_property_type.progress_text'.tr(namedArgs: {'name': name});
     }
-    return 'add_property_name.progress_text_fallback'.tr();
+    return 'select_property_type.progress_text_fallback'.tr();
   }
 
   @override
@@ -107,7 +84,7 @@ class _AddPropertyNameWidgetState extends State<AddPropertyNameWidget> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
-                        value: 0.33,
+                        value: 0.8,
                         backgroundColor: Colors.grey.shade300,
                         valueColor: AlwaysStoppedAnimation<Color>(
                           const Color(0xFF8B9A5B), // Muted green color
@@ -117,61 +94,48 @@ class _AddPropertyNameWidgetState extends State<AddPropertyNameWidget> {
                     ),
                     const SizedBox(height: 32),
                     PageHeaderRow(
-                      title: 'add_property_name.title'.tr(),
+                      title: 'select_property_type.title'.tr(),
                       showBackButton: widget.onBack != null,
                       onBack: widget.onBack,
                     ),
 
                     const SizedBox(height: 40),
-                    TextField(
-                      controller: _controller,
-                      onChanged: (value) {
-                        widget.onPropertyNameChanged?.call(value);
-                        setState(() {}); // Update button state
+                    // Single property option
+                    _buildCheckboxOption(
+                      label: 'select_property_type.option_single'.tr(),
+                      isSelected: _isSingleProperty,
+                      onTap: () {
+                        setState(() {
+                          _isSingleProperty = true;
+                        });
                       },
-                      decoration: InputDecoration(
-                        hintText: 'add_property_name.hint'.tr(),
-                        hintStyle: AppTextStyles.bodyMedium.copyWith(
-                          color: Colors.grey.shade400,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.zero,
-                          borderSide: const BorderSide(
-                            color: Colors.black54,
-                            width: 2,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.zero,
-                          borderSide: BorderSide(
-                            color: AppTheme.primary,
-                            width: 2,
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 18,
-                        ),
-                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Multiple properties option
+                    _buildCheckboxOption(
+                      label: 'select_property_type.option_multiple'.tr(),
+                      isSelected: !_isSingleProperty,
+                      onTap: () {
+                        setState(() {
+                          _isSingleProperty = false;
+                        });
+                      },
                     ),
                     const SizedBox(height: 24),
-                    InkWell(
-                      onTap: widget.onSkip,
-                      child: Text(
-                        'add_property_name.skip_link'.tr(),
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          decoration: TextDecoration.underline,
-                          color: Colors.black87,
-                        ),
+                    // Tip text
+                    Text(
+                      'select_property_type.tip'.tr(),
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: Colors.grey.shade600,
                       ),
                     ),
                     const SizedBox(height: 32),
                     PrimaryOutlineButton(
-                      label: 'add_property_name.button_text'.tr(),
+                      label: 'select_property_type.button_text'.tr(),
                       width: 260,
-                      enabled: _controller.text.trim().isNotEmpty,
-                      onPressed: _controller.text.trim().isNotEmpty
-                          ? widget.onContinue
+                      onPressed: widget.onContinue != null
+                          ? () => widget.onContinue!(context, _isSingleProperty)
                           : null,
                     ),
                   ],
@@ -180,6 +144,28 @@ class _AddPropertyNameWidgetState extends State<AddPropertyNameWidget> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCheckboxOption({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Row(
+        children: [
+          XCheckBox(value: isSelected, onChanged: (_) => onTap()),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: AppTextStyles.bodyMedium.copyWith(color: Colors.black87),
+            ),
+          ),
+        ],
       ),
     );
   }

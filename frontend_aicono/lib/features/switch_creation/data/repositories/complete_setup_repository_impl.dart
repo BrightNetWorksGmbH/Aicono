@@ -39,6 +39,14 @@ class CompleteSetupRepositoryImpl implements CompleteSetupRepository {
   }
 
   @override
+  Future<Either<Failure, CreateSiteResponse>> updateSite(
+    String siteId,
+    CreateSiteRequest request,
+  ) async {
+    return await remoteDataSource.updateSite(siteId, request);
+  }
+
+  @override
   Future<Either<Failure, CreateBuildingsResponse>> createBuildings(
     String siteId,
     CreateBuildingsRequest request,

@@ -8,38 +8,25 @@ import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/create_site_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/create_site_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
-import 'package:frontend_aicono/features/switch_creation/presentation/widget/add_property_name_widget.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/widget/select_property_type_widget.dart';
 
-class AddPropertyNamePage extends StatefulWidget {
+class SelectPropertyTypePage extends StatefulWidget {
   final String? userName;
   final String? switchId;
-  final String? propertyName;
   final String? siteId;
 
-  const AddPropertyNamePage({
+  const SelectPropertyTypePage({
     super.key,
     this.userName,
     this.switchId,
-    this.propertyName,
     this.siteId,
   });
 
   @override
-  State<AddPropertyNamePage> createState() => _AddPropertyNamePageState();
+  State<SelectPropertyTypePage> createState() => _SelectPropertyTypePageState();
 }
 
-class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
-  String? _propertyName;
-
-  @override
-  void initState() {
-    super.initState();
-    // Initialize with property name from previous page if available
-    if (widget.propertyName != null && widget.propertyName!.isNotEmpty) {
-      _propertyName = widget.propertyName;
-    }
-  }
-
+class _SelectPropertyTypePageState extends State<SelectPropertyTypePage> {
   void _handleLanguageChanged() {
     setState(() {});
   }
@@ -50,52 +37,36 @@ class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
     }
   }
 
-  void _handlePropertyNameChanged(String value) {
-    setState(() {
-      _propertyName = value.trim().isEmpty ? null : value.trim();
-      if (_propertyName != null) {
-        sl<PropertySetupCubit>().setPropertyName(_propertyName!);
-      }
-    });
-  }
+  void _handleContinue(BuildContext blocContext, bool isSingleProperty) {
+    // If siteId exists, update the site with resource_type
+    if (widget.siteId != null && widget.siteId!.isNotEmpty) {
+      final propertyCubit = sl<PropertySetupCubit>();
+      final propertyName = propertyCubit.state.propertyName ?? '';
+      final address = propertyCubit.state.location ?? '';
+      final resourceType = propertyCubit.state.resourceTypes.isNotEmpty
+          ? propertyCubit.state.resourceTypes.join(', ')
+          : 'Commercial';
 
-  void _handleSkip() {
-    // TODO: navigate to next step or skip property setup
-    context.pushNamed(Routelists.floorPlanEditor);
-  }
+      final request = CreateSiteRequest(
+        name: propertyName,
+        address: address,
+        resourceType: resourceType,
+      );
 
-  void _handleContinue(BuildContext blocContext) {
-    if (_propertyName != null && _propertyName!.isNotEmpty) {
-      sl<PropertySetupCubit>().setPropertyName(_propertyName!);
-
-      // If siteId exists, update the site
-      if (widget.siteId != null && widget.siteId!.isNotEmpty) {
-        final propertyCubit = sl<PropertySetupCubit>();
-        final address = propertyCubit.state.location ?? '';
-        final resourceType = propertyCubit.state.resourceTypes.isNotEmpty
-            ? propertyCubit.state.resourceTypes.join(', ')
-            : 'Commercial';
-
-        final request = CreateSiteRequest(
-          name: _propertyName!,
-          address: address,
-          resourceType: resourceType,
-        );
-
-        final createSiteBloc = blocContext.read<CreateSiteBloc>();
-        createSiteBloc.add(
-          UpdateSiteSubmitted(siteId: widget.siteId!, request: request),
-        );
-      } else {
-        // Navigate to add property location page (normal flow)
-        context.pushNamed(
-          Routelists.addPropertyLocation,
-          queryParameters: {
-            if (widget.userName != null) 'userName': widget.userName!,
-            if (widget.switchId != null) 'switchId': widget.switchId!,
-          },
-        );
-      }
+      final createSiteBloc = blocContext.read<CreateSiteBloc>();
+      createSiteBloc.add(
+        UpdateSiteSubmitted(siteId: widget.siteId!, request: request),
+      );
+    } else {
+      // Navigate to add properties page (normal flow)
+      context.pushNamed(
+        Routelists.addProperties,
+        queryParameters: {
+          if (widget.userName != null) 'userName': widget.userName!,
+          if (widget.switchId != null) 'switchId': widget.switchId!,
+          'isSingleProperty': isSingleProperty.toString(),
+        },
+      );
     }
   }
 
@@ -108,7 +79,7 @@ class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
       child: BlocListener<CreateSiteBloc, CreateSiteState>(
         listener: (context, state) {
           if (state is CreateSiteSuccess) {
-            // Site updated successfully, navigate to next step
+            // Site updated successfully, navigate to add properties page
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -116,13 +87,13 @@ class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
                   backgroundColor: Colors.green,
                 ),
               );
-              // Navigate to add property location page with siteId
+              // Navigate to add properties page
               context.pushNamed(
-                Routelists.addPropertyLocation,
+                Routelists.addProperties,
                 queryParameters: {
                   if (widget.userName != null) 'userName': widget.userName!,
                   if (widget.switchId != null) 'switchId': widget.switchId!,
-                  if (widget.siteId != null) 'siteId': widget.siteId!,
+                  'isSingleProperty': 'true', // Default, can be adjusted
                 },
               );
             }
@@ -157,16 +128,12 @@ class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
                     ),
                     child: Column(
                       children: [
-                        AddPropertyNameWidget(
+                        SelectPropertyTypeWidget(
                           userName: widget.userName,
-                          initialPropertyName: widget.propertyName,
                           onLanguageChanged: _handleLanguageChanged,
-                          onPropertyNameChanged: _handlePropertyNameChanged,
                           onBack: _handleBack,
-                          onSkip: _handleSkip,
-                          onContinue: _propertyName != null
-                              ? () => _handleContinue(blocContext)
-                              : null,
+                          onContinue: (context, isSingleProperty) =>
+                              _handleContinue(blocContext, isSingleProperty),
                         ),
                         AppFooter(
                           onLanguageChanged: _handleLanguageChanged,

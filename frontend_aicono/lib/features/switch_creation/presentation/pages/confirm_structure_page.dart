@@ -32,9 +32,9 @@ class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
   }
 
   void _handleFindStructure() {
-    // Navigate to add property name page (first step in structure setup)
+    // Navigate to select property type page
     context.pushNamed(
-      Routelists.addPropertyName,
+      Routelists.selectPropertyType,
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
         if (widget.switchId != null) 'switchId': widget.switchId!,

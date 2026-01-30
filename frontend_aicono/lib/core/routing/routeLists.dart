@@ -44,6 +44,8 @@ class Routelists {
   static const setPersonalizedLook = 'set-personalized-look';
   static const structureSwitch = 'structure-switch';
   static const confirmStructure = 'confirm-structure';
+  static const selectPropertyType = 'select-property-type';
+  static const addProperties = 'add-properties';
   static const addPropertyName = 'add-property-name';
   static const addPropertyLocation = 'add-property-location';
   static const selectResources = 'select-resources';

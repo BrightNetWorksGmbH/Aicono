@@ -120,6 +120,25 @@
     "skip_link": "Überspringen",
     "button_text": "Lass uns eine Struktur finden!"
   },
+  "select_property_type": {
+    "progress_text": "Fast geschafft, {name}!",
+    "progress_text_fallback": "Fast geschafft!",
+    "title": "Wo möchtest Du Ressourcen managen?",
+    "option_single": "Wir haben eine Liegenschaft",
+    "option_multiple": "Wir haben mehrere Liegenschaften",
+    "tip": "Tipp: Du kannst innerhalb der Standorte mehrere Untereinheiten wie Gebäude oder Gebäudeteile anlegen. Du kannst später jederzeit Standorte hinzufügen.",
+    "button_text": "Das passt so"
+  },
+  "add_properties": {
+    "progress_text": "Fast geschafft, {name}!",
+    "progress_text_fallback": "Fast geschafft!",
+    "title": "Liegenschaften hinzufügen",
+    "property_name_hint": "Name der Liegenschaft",
+    "add_new_property": "Neue Liegenschaft hinzufügen",
+    "confirm_properties": "Liegenschaften bestätigen",
+    "add_property_details": "Liegenschaftsdetails hinzufügen",
+    "go_to_home": "Zur Startseite"
+  },
   "add_property_name": {
     "progress_text": "Fast geschafft, {name}!",
     "progress_text_fallback": "Fast geschafft!",
