@@ -86,16 +86,18 @@ class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
         createSiteBloc.add(
           UpdateSiteSubmitted(siteId: widget.siteId!, request: request),
         );
-      } else {
-        // Navigate to add property location page (normal flow)
-        context.pushNamed(
-          Routelists.addPropertyLocation,
-          queryParameters: {
-            if (widget.userName != null) 'userName': widget.userName!,
-            if (widget.switchId != null) 'switchId': widget.switchId!,
-          },
-        );
       }
+      // else {
+      //   // Navigate to add property location page (normal flow)
+      //   context.pushNamed(
+      //     Routelists.addPropertyLocation,
+      //     queryParameters: {
+      //       if (widget.userName != null) 'userName': widget.userName!,
+      //       if (widget.switchId != null) 'switchId': widget.switchId!,
+
+      //     },
+      //   );
+      // }
     }
   }
 

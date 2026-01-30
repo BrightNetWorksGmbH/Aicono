@@ -13,8 +13,14 @@ import 'package:frontend_aicono/features/switch_creation/presentation/widget/sel
 class SelectResourcesPage extends StatefulWidget {
   final String? userName;
   final String? switchId;
+  final String? siteId;
 
-  const SelectResourcesPage({super.key, this.userName, this.switchId});
+  const SelectResourcesPage({
+    super.key,
+    this.userName,
+    this.switchId,
+    this.siteId,
+  });
 
   @override
   State<SelectResourcesPage> createState() => _SelectResourcesPageState();
@@ -39,40 +45,9 @@ class _SelectResourcesPageState extends State<SelectResourcesPage> {
   void _handleContinue(BuildContext blocContext) {
     // Get data from PropertySetupCubit
     final propertyCubit = sl<PropertySetupCubit>();
-    final propertyName = propertyCubit.state.propertyName;
-    final location = propertyCubit.state.location;
+    final propertyName = propertyCubit.state.propertyName ?? '';
+    final location = propertyCubit.state.location ?? '';
     final resourceTypes = propertyCubit.state.resourceTypes;
-
-    // Validate required fields
-    if (propertyName == null || propertyName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Property name is required'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (location == null || location.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Location is required'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (widget.switchId == null || widget.switchId!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Switch ID is required'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
 
     // Map resource types to resource_type string
     // Join resource types with comma, or use "Commercial" as default if empty
@@ -87,10 +62,49 @@ class _SelectResourcesPageState extends State<SelectResourcesPage> {
       resourceType: resourceType,
     );
 
-    // Dispatch event to create site using the bloc context
-    blocContext.read<CreateSiteBloc>().add(
-      CreateSiteSubmitted(switchId: widget.switchId!, request: request),
-    );
+    // If siteId exists, update the site
+    if (widget.siteId != null && widget.siteId!.isNotEmpty) {
+      final createSiteBloc = blocContext.read<CreateSiteBloc>();
+      createSiteBloc.add(
+        UpdateSiteSubmitted(siteId: widget.siteId!, request: request),
+      );
+    } else {
+      // Validate required fields for creation
+      if (propertyName.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Property name is required'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      if (location.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location is required'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      if (widget.switchId == null || widget.switchId!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Switch ID is required'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Dispatch event to create site using the bloc context
+      // blocContext.read<CreateSiteBloc>().add(
+      //   CreateSiteSubmitted(switchId: widget.switchId!, request: request),
+      // );
+    }
   }
 
   @override
@@ -105,34 +119,55 @@ class _SelectResourcesPageState extends State<SelectResourcesPage> {
       child: BlocListener<CreateSiteBloc, CreateSiteState>(
         listener: (context, state) {
           if (state is CreateSiteSuccess) {
-            // Extract site ID from response
-            final siteId = state.response.data?.id;
-
-            if (siteId == null || siteId.isEmpty) {
+            // If updating, show success and navigate
+            if (widget.siteId != null && widget.siteId!.isNotEmpty) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Failed to get site ID from response'),
-                    backgroundColor: Colors.red,
+                    content: Text('Site updated successfully'),
+                    backgroundColor: Colors.green,
                   ),
                 );
+                // Navigate to add additional buildings page
+                context.pushNamed(
+                  Routelists.addAdditionalBuildings,
+                  queryParameters: {
+                    if (widget.userName != null) 'userName': widget.userName!,
+                    if (widget.switchId != null) 'switchId': widget.switchId!,
+                    'siteId': widget.siteId!,
+                  },
+                );
               }
-              return;
-            }
+            } else {
+              // Creating new site - extract site ID from response
+              final siteId = state.response.data?.id;
 
-            // Store siteId in PropertySetupCubit for use across pages
-            final propertyCubit = sl<PropertySetupCubit>();
-            propertyCubit.setSiteId(siteId);
+              if (siteId == null || siteId.isEmpty) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Failed to get site ID from response'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+                return;
+              }
 
-            // Navigate to add additional buildings page on success with site ID
-            if (mounted) {
-              context.pushNamed(
-                Routelists.addAdditionalBuildings,
-                queryParameters: {
-                  if (widget.userName != null) 'userName': widget.userName!,
-                  'siteId': siteId,
-                },
-              );
+              // Store siteId in PropertySetupCubit for use across pages
+              final propertyCubit = sl<PropertySetupCubit>();
+              propertyCubit.setSiteId(siteId);
+
+              // Navigate to add additional buildings page on success with site ID
+              if (mounted) {
+                context.pushNamed(
+                  Routelists.addAdditionalBuildings,
+                  queryParameters: {
+                    if (widget.userName != null) 'userName': widget.userName!,
+                    'siteId': siteId,
+                  },
+                );
+              }
             }
           } else if (state is CreateSiteFailure) {
             // Show error message
