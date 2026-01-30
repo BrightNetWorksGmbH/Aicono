@@ -357,6 +357,14 @@ class LoxoneStorageService {
                     { background: true, name: 'buildingId_resolution_timestamp_idx' }
                 );
                 
+                // Optimized compound index for sensorId queries
+                // Covers: sensorId (equality) → resolution_minutes (equality) → timestamp (range)
+                // This speeds up queries that filter by sensor and resolution (for getRoomKPIs, getSensorKPIs, etc.)
+                await collection.createIndex(
+                    { 'meta.sensorId': 1, resolution_minutes: 1, timestamp: -1 },
+                    { background: true, name: 'sensorId_resolution_timestamp_idx' }
+                );
+                
                 // Index for aggregation queries (filters by resolution_minutes + timestamp)
                 // This speeds up countDocuments queries in aggregation service
                 await collection.createIndex(

@@ -836,6 +836,7 @@ class AnalyticsService {
 
   /**
    * Generate Consumption By Room content
+   * Optimized to use a single building-level query instead of multiple room queries
    * @param {String} buildingId - Building ID
    * @param {Object} timeRange - Time range object
    * @param {String} interval - Optional interval (Daily, Weekly, Monthly, Yearly) or null for arbitrary range
@@ -844,46 +845,58 @@ class AnalyticsService {
    */
   async generateConsumptionByRoom(buildingId, timeRange, interval = null, dashboardDiscoveryService) {
     const { startDate, endDate } = timeRange;
-    const rooms = await Room.find({ building_id: buildingId }).lean();
-    
-    // Add timing for performance measurement
     const startTime = Date.now();
-   //console.log(`[ANALYTICS] generateConsumptionByRoom: Processing ${rooms.length} rooms in parallel`);
     
-    // Process all rooms in parallel instead of sequentially
-    const roomPromises = rooms.map(async (room) => {
-      try {
-        // Pass interval to getRoomKPIs for proper stateType selection
-        const roomKPIs = await dashboardDiscoveryService.getRoomKPIs(room._id, startDate, endDate, { interval });
-        const extracted = this.extractKPIs(roomKPIs);
-        return {
-          roomId: room._id.toString(),
+    // Get all rooms for the building (for room names and total count)
+    const rooms = await Room.find({ building_id: buildingId }).lean();
+    const roomMap = new Map(rooms.map(r => [r._id.toString(), r]));
+    
+    // Use optimized single query to get KPIs for all rooms at once
+    const roomsKPIsMap = await dashboardDiscoveryService.getRoomsKPIs(buildingId, startDate, endDate, { interval });
+    
+    // Map results to expected format
+    const roomConsumption = [];
+    for (const [roomId, roomKPIs] of roomsKPIsMap.entries()) {
+      const room = roomMap.get(roomId);
+      if (!room) continue; // Skip if room not found (shouldn't happen)
+      
+      const extracted = this.extractKPIs(roomKPIs);
+      roomConsumption.push({
+        roomId: roomId,
+        roomName: room.name,
+        consumption: extracted.total_consumption, // Energy consumption (kWh)
+        consumptionUnit: extracted.energyUnit,
+        averageEnergy: extracted.averageEnergy, // Average energy (kWh)
+        averageEnergyUnit: extracted.energyUnit,
+        peak: extracted.peak, // Peak power (kW)
+        peakUnit: extracted.powerUnit,
+        // Backward compatibility
+        unit: extracted.energyUnit,
+        average: extracted.averageEnergy,
+      });
+    }
+    
+    // Add rooms with no data (zero consumption)
+    for (const room of rooms) {
+      const roomId = room._id.toString();
+      if (!roomsKPIsMap.has(roomId)) {
+        roomConsumption.push({
+          roomId: roomId,
           roomName: room.name,
-          consumption: extracted.total_consumption, // Energy consumption (kWh)
-          consumptionUnit: extracted.energyUnit,
-          averageEnergy: extracted.averageEnergy, // Average energy (kWh)
-          averageEnergyUnit: extracted.energyUnit,
-          peak: extracted.peak, // Peak power (kW)
-          peakUnit: extracted.powerUnit,
-          // Backward compatibility
-          unit: extracted.energyUnit,
-          average: extracted.averageEnergy,
-        };
-      } catch (error) {
-        console.warn(`[ANALYTICS] Error getting KPIs for room ${room._id} (${room.name}):`, error.message);
-        // Return null for failed rooms, will be filtered out
-        return null;
+          consumption: 0,
+          consumptionUnit: 'kWh',
+          averageEnergy: 0,
+          averageEnergyUnit: 'kWh',
+          peak: 0,
+          peakUnit: 'kW',
+          unit: 'kWh',
+          average: 0,
+        });
       }
-    });
-    
-    // Wait for all room queries to complete (parallel execution)
-    const roomResults = await Promise.all(roomPromises);
-    
-    // Filter out failed rooms (null values)
-    const roomConsumption = roomResults.filter(room => room !== null);
+    }
     
     const duration = Date.now() - startTime;
-   //console.log(`[ANALYTICS] generateConsumptionByRoom: Completed ${roomConsumption.length}/${rooms.length} rooms in ${duration}ms`);
+    console.log(`[ANALYTICS] generateConsumptionByRoom: Completed ${roomConsumption.length}/${rooms.length} rooms in ${duration}ms`);
 
     // Sort by consumption descending
     roomConsumption.sort((a, b) => (b.consumption || 0) - (a.consumption || 0));
