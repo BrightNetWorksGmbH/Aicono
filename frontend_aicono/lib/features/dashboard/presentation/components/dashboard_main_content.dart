@@ -195,9 +195,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                                 TextButton(
                                   onPressed: () {
                                     context.read<DashboardSitesBloc>().add(
-                                      DashboardSitesRequested(
-                                        bryteswitchId: widget.verseId,
-                                      ),
+                                      DashboardSitesRequested(),
                                     );
                                   },
                                   child: const Text('Retry'),

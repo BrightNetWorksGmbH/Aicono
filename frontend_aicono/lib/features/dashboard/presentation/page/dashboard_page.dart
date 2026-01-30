@@ -187,9 +187,7 @@ class _DashboardPageState extends State<DashboardPage> {
       blocContext.read<DashboardRoomDetailsBloc>().add(
         DashboardRoomDetailsReset(),
       );
-      blocContext.read<DashboardSitesBloc>().add(
-        DashboardSitesRequested(bryteswitchId: verseId),
-      );
+      blocContext.read<DashboardSitesBloc>().add(DashboardSitesRequested());
     }
   }
 
@@ -218,7 +216,7 @@ class _DashboardPageState extends State<DashboardPage> {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 blocContext.read<DashboardSitesBloc>().add(
-                  DashboardSitesRequested(bryteswitchId: currentVerseId),
+                  DashboardSitesRequested(),
                 );
               }
             });

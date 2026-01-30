@@ -12,9 +12,7 @@ import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_roo
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_details_filter.dart';
 
 abstract class DashboardRemoteDataSource {
-  Future<Either<Failure, DashboardSitesResponse>> getSites(
-    String? bryteswitchId,
-  );
+  Future<Either<Failure, DashboardSitesResponse>> getSites();
 
   Future<Either<Failure, DashboardSiteDetailsResponse>> getSiteDetails(
     String siteId, {
@@ -43,22 +41,13 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   DashboardRemoteDataSourceImpl({required this.dioClient});
 
   @override
-  Future<Either<Failure, DashboardSitesResponse>> getSites(
-    String? bryteswitchId,
-  ) async {
+  Future<Either<Failure, DashboardSitesResponse>> getSites() async {
     try {
       if (kDebugMode) {
-        print('📤 Dashboard getSites request bryteswitch_id=$bryteswitchId');
+        print('📤 Dashboard getSites request');
       }
 
-      final queryParams = <String, dynamic>{};
-      if (bryteswitchId != null && bryteswitchId.isNotEmpty) {
-        queryParams['bryteswitch_id'] = bryteswitchId;
-      }
-      final response = await dioClient.get(
-        '/api/v1/dashboard/sites',
-        queryParameters: queryParams.isNotEmpty ? queryParams : null,
-      );
+      final response = await dioClient.get('/api/v1/dashboard/sites');
 
       if (response.statusCode == 200) {
         final data = response.data;

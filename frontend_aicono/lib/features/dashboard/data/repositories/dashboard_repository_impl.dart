@@ -15,10 +15,8 @@ class DashboardRepositoryImpl implements DashboardRepository {
   DashboardRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<Either<Failure, DashboardSitesResponse>> getSites(
-    String? bryteswitchId,
-  ) async {
-    return remoteDataSource.getSites(bryteswitchId);
+  Future<Either<Failure, DashboardSitesResponse>> getSites() async {
+    return remoteDataSource.getSites();
   }
 
   @override
