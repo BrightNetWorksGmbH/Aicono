@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/constant.dart';
+import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
@@ -256,15 +257,9 @@ class _ViewReportPageState extends State<ViewReportPage> {
 
   void _onProceed(BuildContext context) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'view_report.snackbar_processing'.tr(
-              namedArgs: {'length': '${widget.token.length}'},
-            ),
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+      context.pushNamed(
+        Routelists.statistics,
+        queryParameters: {'token': widget.token},
       );
     }
   }
