@@ -6,7 +6,9 @@ import 'package:frontend_aicono/features/dashboard/domain/entities/report_summar
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_detail_entity.dart';
 
 abstract class ReportsRepository {
-  Future<Either<Failure, ReportSitesResponse>> getReportSites();
+  Future<Either<Failure, ReportSitesResponse>> getReportSites({
+    String? bryteswitchId,
+  });
   Future<Either<Failure, ReportBuildingsResponse>> getReportBuildings(
     String siteId,
   );

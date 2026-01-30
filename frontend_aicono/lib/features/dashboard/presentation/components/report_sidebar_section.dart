@@ -13,10 +13,16 @@ import 'package:frontend_aicono/features/dashboard/presentation/components/tree_
 
 /// Sidebar section for Reports: Sites → Buildings → Reports.
 /// Tapping a report calls [onReportSelected].
+/// [bryteswitchId] is passed to the report sites API for switch-specific results.
 class ReportSidebarSection extends StatefulWidget {
   final ValueChanged<String>? onReportSelected;
+  final String? bryteswitchId;
 
-  const ReportSidebarSection({super.key, this.onReportSelected});
+  const ReportSidebarSection({
+    super.key,
+    this.onReportSelected,
+    this.bryteswitchId,
+  });
 
   @override
   State<ReportSidebarSection> createState() => _ReportSidebarSectionState();
@@ -29,7 +35,19 @@ class _ReportSidebarSectionState extends State<ReportSidebarSection> {
   @override
   void initState() {
     super.initState();
-    context.read<ReportSitesBloc>().add(ReportSitesRequested());
+    context.read<ReportSitesBloc>().add(
+      ReportSitesRequested(bryteswitchId: widget.bryteswitchId),
+    );
+  }
+
+  @override
+  void didUpdateWidget(ReportSidebarSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.bryteswitchId != widget.bryteswitchId) {
+      context.read<ReportSitesBloc>().add(
+        ReportSitesRequested(bryteswitchId: widget.bryteswitchId),
+      );
+    }
   }
 
   List<TreeItemEntity> _buildTreeItems({

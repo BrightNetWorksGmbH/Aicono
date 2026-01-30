@@ -10,7 +10,9 @@ import 'package:frontend_aicono/features/dashboard/domain/entities/report_summar
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_detail_entity.dart';
 
 abstract class ReportsRemoteDataSource {
-  Future<Either<Failure, ReportSitesResponse>> getReportSites();
+  Future<Either<Failure, ReportSitesResponse>> getReportSites({
+    String? bryteswitchId,
+  });
   Future<Either<Failure, ReportBuildingsResponse>> getReportBuildings(
     String siteId,
   );
@@ -28,12 +30,20 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
   ReportsRemoteDataSourceImpl({required this.dioClient});
 
   @override
-  Future<Either<Failure, ReportSitesResponse>> getReportSites() async {
+  Future<Either<Failure, ReportSitesResponse>> getReportSites({
+    String? bryteswitchId,
+  }) async {
     try {
       if (kDebugMode) {
-        print('📤 Reports getReportSites request');
+        print('📤 Reports getReportSites request bryteswitchId=$bryteswitchId');
       }
-      final response = await dioClient.get('/api/v1/dashboard/reports/sites');
+      final queryParams = bryteswitchId != null && bryteswitchId.isNotEmpty
+          ? <String, dynamic>{'bryteswitch_id': bryteswitchId}
+          : null;
+      final response = await dioClient.get(
+        '/api/v1/dashboard/reports/sites',
+        queryParameters: queryParams,
+      );
       if (response.statusCode == 200) {
         final data = response.data;
         if (data is Map<String, dynamic> && data['success'] == true) {

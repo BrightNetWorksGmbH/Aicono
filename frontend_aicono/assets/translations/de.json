@@ -53,6 +53,16 @@
     "button_text": "Alles klar, lass uns loslegen!",
     "menu": "MENU"
   },
+  "view_report": {
+    "greeting": "Lieber {name},\nDu bist fast da.",
+    "disclaimer_lead": "Dieses Reporting ist ",
+    "disclaimer_emphasis": "ausschließlich",
+    "disclaimer_body": " für {fullName},\nCEO der {companyName}, bestimmt. Der Zugriff ist personalisiert und kann nur aus seiner Inbox heraus aktiviert werden. Bitte schließen Sie dieses Fenster sofort, wenn Sie nicht {fullName} sind.",
+    "checkbox_hint": "Lieber {name}, klicke auf die Box, um juristisch verbindlich Deine Identität gemäß § 126 BGB (elektronische Willenserklärung) zu bestätigen und das Reporting zu öffnen.",
+    "button_text": "Alles klar, lass uns loslegen!",
+    "footer_legal": "Durch das Öffnen dieses Dokuments bestätigst Du gemäß § 126 BGB, dass Du die autorisierte Empfängerperson bist und diese elektronische Übermittlung als rechtsverbindlich anerkennst. Die Weitergabe oder Vervielfältigung des Inhalts ist ohne ausdrückliche Zustimmung der BrightNetWorks GmbH untersagt.",
+    "snackbar_processing": "Token wird verarbeitet (Integration folgt). Token-Länge: {length}"
+  },
   "set_organization_name": {
     "title_with_name": "{name}, für welche Organisation legst Du Bryteswitch an?",
     "title": "Für welche Organisation legst Du Bryteswitch an?",

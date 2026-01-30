@@ -13,8 +13,10 @@ class ReportsRepositoryImpl implements ReportsRepository {
   ReportsRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<Either<Failure, ReportSitesResponse>> getReportSites() async {
-    return remoteDataSource.getReportSites();
+  Future<Either<Failure, ReportSitesResponse>> getReportSites({
+    String? bryteswitchId,
+  }) async {
+    return remoteDataSource.getReportSites(bryteswitchId: bryteswitchId);
   }
 
   @override
