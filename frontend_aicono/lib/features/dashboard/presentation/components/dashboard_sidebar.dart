@@ -29,6 +29,7 @@ class DashboardSidebar extends StatefulWidget {
     this.onLanguageChanged,
     this.onSwitchSelected,
     this.onReportSelected,
+    this.onPropertySelected,
     this.showSwitchSwitcher = true,
     this.verseId,
   });
@@ -50,6 +51,9 @@ class DashboardSidebar extends StatefulWidget {
 
   /// Callback when user selects a report (reportId) or clears selection (null). Parent should show report detail in main content.
   final ValueChanged<String?>? onReportSelected;
+
+  /// Callback when user selects a property (site, building, floor, or room). Parent can clear report selection so main content shows property detail.
+  final VoidCallback? onPropertySelected;
 
   /// Whether to show the switch/organization switcher in the Companies section (default true).
   final bool showSwitchSwitcher;
@@ -424,6 +428,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                   // Check if it's a site
                   final isSite = sitesState.sites.any((s) => s.id == item.id);
                   if (isSite) {
+                    widget.onPropertySelected?.call();
                     context.read<DashboardSiteDetailsBloc>().add(
                       DashboardSiteDetailsRequested(siteId: item.id),
                     );
@@ -446,6 +451,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                       (b) => b.id == item.id,
                     );
                     if (isBuilding) {
+                      widget.onPropertySelected?.call();
                       context.read<DashboardBuildingDetailsBloc>().add(
                         DashboardBuildingDetailsRequested(buildingId: item.id),
                       );
@@ -465,6 +471,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                         (f) => f.id == item.id,
                       );
                       if (isFloor) {
+                        widget.onPropertySelected?.call();
                         context.read<DashboardFloorDetailsBloc>().add(
                           DashboardFloorDetailsRequested(floorId: item.id),
                         );
@@ -481,6 +488,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                       for (final floor in building.floors) {
                         final isRoom = floor.rooms.any((r) => r.id == item.id);
                         if (isRoom) {
+                          widget.onPropertySelected?.call();
                           context.read<DashboardRoomDetailsBloc>().add(
                             DashboardRoomDetailsRequested(roomId: item.id),
                           );
@@ -496,6 +504,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                       (f) => f.id == item.id,
                     );
                     if (isFloor) {
+                      widget.onPropertySelected?.call();
                       context.read<DashboardFloorDetailsBloc>().add(
                         DashboardFloorDetailsRequested(floorId: item.id),
                       );
@@ -508,6 +517,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                     for (final floor in buildingDetailsState.details.floors) {
                       final isRoom = floor.rooms.any((r) => r.id == item.id);
                       if (isRoom) {
+                        widget.onPropertySelected?.call();
                         context.read<DashboardRoomDetailsBloc>().add(
                           DashboardRoomDetailsRequested(roomId: item.id),
                         );
@@ -522,6 +532,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                       (r) => r.id == item.id,
                     );
                     if (isRoom) {
+                      widget.onPropertySelected?.call();
                       context.read<DashboardRoomDetailsBloc>().add(
                         DashboardRoomDetailsRequested(roomId: item.id),
                       );

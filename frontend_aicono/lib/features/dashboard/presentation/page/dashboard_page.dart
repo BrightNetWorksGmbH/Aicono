@@ -178,8 +178,10 @@ class _DashboardPageState extends State<DashboardPage> {
     if (mounted) {
       setState(() {
         currentVerseId = verseId;
+        selectedReportId = null;
       });
       // Reload dashboard data for the new switch: reset details and request sites again
+      blocContext.read<ReportDetailBloc>().add(ReportDetailReset());
       blocContext.read<DashboardSiteDetailsBloc>().add(
         DashboardSiteDetailsReset(),
       );
@@ -296,6 +298,12 @@ class _DashboardPageState extends State<DashboardPage> {
                             );
                           }
                         },
+                        onPropertySelected: () {
+                          setState(() => selectedReportId = null);
+                          blocContext.read<ReportDetailBloc>().add(
+                            ReportDetailReset(),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -395,6 +403,15 @@ class _DashboardPageState extends State<DashboardPage> {
                                                           ReportDetailReset(),
                                                         );
                                                   }
+                                                },
+                                                onPropertySelected: () {
+                                                  setState(
+                                                    () =>
+                                                        selectedReportId = null,
+                                                  );
+                                                  blocContext
+                                                      .read<ReportDetailBloc>()
+                                                      .add(ReportDetailReset());
                                                 },
                                               ),
                                             ),
