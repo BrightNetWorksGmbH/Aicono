@@ -5,6 +5,7 @@ import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
+import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_buildings_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_site_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_buildings_bloc.dart';
@@ -63,18 +64,22 @@ class _AdditionalBuildingListPageState
 
   void _handleSkip() {
     // TODO: navigate to next step or skip
-    context.pushNamed(Routelists.floorPlanEditor);
+    context.pushNamed(Routelists.addPropertyName);
   }
 
   void _handleContinue(BuildContext blocContext) {
-    // Get switchId from PropertySetupCubit (saved at login stage)
+    // Get switchId from localStorage (similar to verseId in top_part.dart)
+    final localStorage = sl<LocalStorage>();
+    final saved = localStorage.getSelectedSwitchId();
+
+    // Fallback to PropertySetupCubit if not in localStorage
     final propertyCubit = sl<PropertySetupCubit>();
-    final switchId = propertyCubit.state.switchId;
+    final switchId = saved ?? propertyCubit.state.switchId;
 
     if (switchId != null && switchId.isNotEmpty) {
-      // Navigate directly to add-property-name page with switchId
+      // Navigate directly to add-property page with switchId
       context.goNamed(
-        Routelists.addPropertyName,
+        Routelists.addProperties,
         queryParameters: {'switchId': switchId},
       );
     } else {

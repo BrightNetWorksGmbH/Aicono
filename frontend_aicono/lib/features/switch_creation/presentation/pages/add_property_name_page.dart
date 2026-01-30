@@ -10,8 +10,14 @@ import 'package:frontend_aicono/features/switch_creation/presentation/widget/add
 class AddPropertyNamePage extends StatefulWidget {
   final String? userName;
   final String? switchId;
+  final String? propertyName;
 
-  const AddPropertyNamePage({super.key, this.userName, this.switchId});
+  const AddPropertyNamePage({
+    super.key,
+    this.userName,
+    this.switchId,
+    this.propertyName,
+  });
 
   @override
   State<AddPropertyNamePage> createState() => _AddPropertyNamePageState();
@@ -19,6 +25,15 @@ class AddPropertyNamePage extends StatefulWidget {
 
 class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
   String? _propertyName;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize with property name from previous page if available
+    if (widget.propertyName != null && widget.propertyName!.isNotEmpty) {
+      _propertyName = widget.propertyName;
+    }
+  }
 
   void _handleLanguageChanged() {
     setState(() {});
@@ -82,6 +97,7 @@ class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
               children: [
                 AddPropertyNameWidget(
                   userName: widget.userName,
+                  initialPropertyName: widget.propertyName,
                   onLanguageChanged: _handleLanguageChanged,
                   onPropertyNameChanged: _handlePropertyNameChanged,
                   onBack: _handleBack,
@@ -100,4 +116,3 @@ class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
     );
   }
 }
-

@@ -127,7 +127,7 @@ class _SelectResourcesPageState extends State<SelectResourcesPage> {
             // Navigate to add additional buildings page on success with site ID
             if (mounted) {
               context.pushNamed(
-                Routelists.additionalBuildingList,
+                Routelists.addAdditionalBuildings,
                 queryParameters: {
                   if (widget.userName != null) 'userName': widget.userName!,
                   'siteId': siteId,

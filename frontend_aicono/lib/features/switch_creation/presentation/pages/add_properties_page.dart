@@ -3,19 +3,25 @@ import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
-import 'package:frontend_aicono/features/switch_creation/presentation/widget/confirm_structure_widget.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/widget/add_properties_widget.dart';
 
-class ConfirmStructurePage extends StatefulWidget {
+class AddPropertiesPage extends StatefulWidget {
   final String? userName;
   final String? switchId;
+  final bool isSingleProperty;
 
-  const ConfirmStructurePage({super.key, this.userName, this.switchId});
+  const AddPropertiesPage({
+    super.key,
+    this.userName,
+    this.switchId,
+    required this.isSingleProperty,
+  });
 
   @override
-  State<ConfirmStructurePage> createState() => _ConfirmStructurePageState();
+  State<AddPropertiesPage> createState() => _AddPropertiesPageState();
 }
 
-class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
+class _AddPropertiesPageState extends State<AddPropertiesPage> {
   void _handleLanguageChanged() {
     setState(() {});
   }
@@ -26,20 +32,22 @@ class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
     }
   }
 
-  void _handleSkip() {
-    // TODO: navigate to switchboard/dashboard directly (skip structure setup)
-    context.pushNamed(Routelists.floorPlanEditor);
-  }
-
-  void _handleFindStructure() {
-    // Navigate to select property type page
+  void _handleAddPropertyDetails(String propertyName) {
+    // Navigate to add property name page (same as select_property_type_page)
     context.pushNamed(
-      Routelists.selectPropertyType,
+      Routelists.addPropertyName,
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
         if (widget.switchId != null) 'switchId': widget.switchId!,
+        'isSingleProperty': widget.isSingleProperty.toString(),
+        'propertyName': propertyName,
       },
     );
+  }
+
+  void _handleGoToHome() {
+    // Navigate to dashboard/home page
+    context.goNamed(Routelists.dashboard);
   }
 
   @override
@@ -64,12 +72,13 @@ class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
             ),
             child: Column(
               children: [
-                ConfirmStructureWidget(
+                AddPropertiesWidget(
                   userName: widget.userName,
+                  isSingleProperty: widget.isSingleProperty,
                   onLanguageChanged: _handleLanguageChanged,
                   onBack: _handleBack,
-                  onSkip: _handleSkip,
-                  onFindStructure: _handleFindStructure,
+                  onAddPropertyDetails: _handleAddPropertyDetails,
+                  onGoToHome: _handleGoToHome,
                 ),
                 AppFooter(
                   onLanguageChanged: _handleLanguageChanged,

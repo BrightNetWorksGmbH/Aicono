@@ -3,19 +3,19 @@ import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
-import 'package:frontend_aicono/features/switch_creation/presentation/widget/confirm_structure_widget.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/widget/select_property_type_widget.dart';
 
-class ConfirmStructurePage extends StatefulWidget {
+class SelectPropertyTypePage extends StatefulWidget {
   final String? userName;
   final String? switchId;
 
-  const ConfirmStructurePage({super.key, this.userName, this.switchId});
+  const SelectPropertyTypePage({super.key, this.userName, this.switchId});
 
   @override
-  State<ConfirmStructurePage> createState() => _ConfirmStructurePageState();
+  State<SelectPropertyTypePage> createState() => _SelectPropertyTypePageState();
 }
 
-class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
+class _SelectPropertyTypePageState extends State<SelectPropertyTypePage> {
   void _handleLanguageChanged() {
     setState(() {});
   }
@@ -26,18 +26,14 @@ class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
     }
   }
 
-  void _handleSkip() {
-    // TODO: navigate to switchboard/dashboard directly (skip structure setup)
-    context.pushNamed(Routelists.floorPlanEditor);
-  }
-
-  void _handleFindStructure() {
-    // Navigate to select property type page
+  void _handleContinue(bool isSingleProperty) {
+    // Navigate to add properties page
     context.pushNamed(
-      Routelists.selectPropertyType,
+      Routelists.addProperties,
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
         if (widget.switchId != null) 'switchId': widget.switchId!,
+        'isSingleProperty': isSingleProperty.toString(),
       },
     );
   }
@@ -64,12 +60,11 @@ class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
             ),
             child: Column(
               children: [
-                ConfirmStructureWidget(
+                SelectPropertyTypeWidget(
                   userName: widget.userName,
                   onLanguageChanged: _handleLanguageChanged,
                   onBack: _handleBack,
-                  onSkip: _handleSkip,
-                  onFindStructure: _handleFindStructure,
+                  onContinue: _handleContinue,
                 ),
                 AppFooter(
                   onLanguageChanged: _handleLanguageChanged,
@@ -83,4 +78,3 @@ class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
     );
   }
 }
-

@@ -110,6 +110,25 @@
     "skip_link": "Skip",
     "button_text": "Let's find a structure!"
   },
+  "select_property_type": {
+    "progress_text": "Almost done, {name}!",
+    "progress_text_fallback": "Almost done!",
+    "title": "Where do you want to manage resources?",
+    "option_single": "We have one property",
+    "option_multiple": "We have multiple properties",
+    "tip": "Tip: You can create multiple sub-units like buildings or building parts within the locations. You can add locations at any time later.",
+    "button_text": "That's fine"
+  },
+  "add_properties": {
+    "progress_text": "Almost done, {name}!",
+    "progress_text_fallback": "Almost done!",
+    "title": "Add Properties",
+    "property_name_hint": "Property name",
+    "add_new_property": "Add new property",
+    "confirm_properties": "Confirm properties",
+    "add_property_details": "Add property details",
+    "go_to_home": "Go to home page"
+  },
   "add_property_name": {
     "progress_text": "Almost done, {name}!",
     "progress_text_fallback": "Almost done!",

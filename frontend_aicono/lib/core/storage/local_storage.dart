@@ -11,6 +11,7 @@ class LocalStorage {
   static const String _offlineQueueKey = 'offline_queue';
   // Public so other modules (e.g., AuthService) can clear it on logout
   static const String selectedVerseKey = 'selected_verse_id';
+  static const String selectedSwitchKey = 'selected_switch_id';
 
   LocalStorage(this.prefs);
 
@@ -142,5 +143,20 @@ class LocalStorage {
   /// Clear the selected verse id (e.g., on logout)
   Future<void> clearSelectedVerseId() async {
     await prefs.remove(selectedVerseKey);
+  }
+
+  /// Persist the currently selected switch id
+  Future<void> setSelectedSwitchId(String switchId) async {
+    await prefs.setString(selectedSwitchKey, switchId);
+  }
+
+  /// Get the currently selected switch id (if any)
+  String? getSelectedSwitchId() {
+    return prefs.getString(selectedSwitchKey);
+  }
+
+  /// Clear the selected switch id (e.g., on logout)
+  Future<void> clearSelectedSwitchId() async {
+    await prefs.remove(selectedSwitchKey);
   }
 }

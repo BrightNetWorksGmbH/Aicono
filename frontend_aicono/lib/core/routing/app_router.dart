@@ -20,6 +20,8 @@ import 'package:frontend_aicono/features/switch_creation/presentation/pages/set_
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/set_personalized_look_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/structure_switch_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/confirm_structure_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/select_property_type_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_properties_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_property_name_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/add_property_location_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/select_resources_page.dart';
@@ -496,15 +498,51 @@ class AppRouter {
       },
     ),
     GoRoute(
-      path: '/${Routelists.addPropertyName}',
-      name: Routelists.addPropertyName,
+      path: '/${Routelists.selectPropertyType}',
+      name: Routelists.selectPropertyType,
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final switchId = state.uri.queryParameters['switchId'];
         return _buildPage(
           context,
           state,
-          AddPropertyNamePage(userName: userName, switchId: switchId),
+          SelectPropertyTypePage(userName: userName, switchId: switchId),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.addProperties}',
+      name: Routelists.addProperties,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        final switchId = state.uri.queryParameters['switchId'];
+        final isSingleProperty = state.uri.queryParameters['isSingleProperty'] == 'true';
+        return _buildPage(
+          context,
+          state,
+          AddPropertiesPage(
+            userName: userName,
+            switchId: switchId,
+            isSingleProperty: isSingleProperty,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.addPropertyName}',
+      name: Routelists.addPropertyName,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        final switchId = state.uri.queryParameters['switchId'];
+        final propertyName = state.uri.queryParameters['propertyName'];
+        return _buildPage(
+          context,
+          state,
+          AddPropertyNamePage(
+            userName: userName,
+            switchId: switchId,
+            propertyName: propertyName,
+          ),
         );
       },
     ),
