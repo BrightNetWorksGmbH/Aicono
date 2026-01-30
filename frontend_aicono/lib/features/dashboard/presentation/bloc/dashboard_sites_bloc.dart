@@ -12,7 +12,14 @@ abstract class DashboardSitesEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class DashboardSitesRequested extends DashboardSitesEvent {}
+class DashboardSitesRequested extends DashboardSitesEvent {
+  final String? bryteswitchId;
+
+  const DashboardSitesRequested({this.bryteswitchId});
+
+  @override
+  List<Object?> get props => [bryteswitchId];
+}
 
 class DashboardSitesReset extends DashboardSitesEvent {}
 
@@ -63,7 +70,9 @@ class DashboardSitesBloc
   ) async {
     emit(DashboardSitesLoading());
 
-    final result = await getDashboardSitesUseCase();
+    final result = await getDashboardSitesUseCase(
+      bryteswitchId: event.bryteswitchId,
+    );
     result.fold(
       (failure) => emit(DashboardSitesFailure(message: _mapFailure(failure))),
       (response) => emit(DashboardSitesSuccess(sites: response.data)),

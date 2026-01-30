@@ -8,7 +8,9 @@ import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_roo
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_details_filter.dart';
 
 abstract class DashboardRepository {
-  Future<Either<Failure, DashboardSitesResponse>> getSites();
+  Future<Either<Failure, DashboardSitesResponse>> getSites({
+    String? bryteswitchId,
+  });
 
   Future<Either<Failure, DashboardSiteDetailsResponse>> getSiteDetails(
     String siteId, {

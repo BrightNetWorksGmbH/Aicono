@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
+import 'package:frontend_aicono/core/widgets/app_footer.dart';
+import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
+import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
+import 'package:frontend_aicono/core/widgets/xChackbox.dart';
 
 /// Teal accent used for the report access confirmation card (matches design).
 const Color _viewReportTeal = Color(0xFF009688);
@@ -20,6 +26,10 @@ class ViewReportPage extends StatefulWidget {
 class _ViewReportPageState extends State<ViewReportPage> {
   bool _confirmed = false;
 
+  void _handleLanguageChanged() {
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     // Placeholder recipient/company – replace with decoded token or API later
@@ -27,66 +37,94 @@ class _ViewReportPageState extends State<ViewReportPage> {
     const fullName = 'Stephan Tomat';
     const companyName = 'BrightNetWorks GmbH';
 
+    final Size screenSize = MediaQuery.of(context).size;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF37474F),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _viewReportTeal, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+      backgroundColor: AppTheme.background,
+      body: Center(
+        child: SingleChildScrollView(
+          child: Container(
+            width: screenSize.width,
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.5),
+                  blurRadius: 25,
+                  offset: const Offset(0, 10),
                 ),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(32, 24, 32, 32),
+              ],
+            ),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      // border: Border.all(color: _viewReportTeal, width: 3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const SizedBox(height: 8),
-                          _buildLogo(),
-                          const SizedBox(height: 32),
-                          _buildGreeting(recipientName),
                           const SizedBox(height: 20),
-                          _buildDisclaimer(fullName, companyName),
-                          const SizedBox(height: 24),
-                          _buildCheckboxSection(recipientName),
-                          const SizedBox(height: 28),
-                          _buildCtaButton(),
-                          const SizedBox(height: 28),
-                          _buildFooterLegal(),
+                          TopHeader(
+                            onLanguageChanged: _handleLanguageChanged,
+                            containerWidth: screenSize.width,
+                          ),
+                          const SizedBox(height: 36),
+                          SizedBox(
+                            width: screenSize.width < 600
+                                ? screenSize.width * 0.95
+                                : screenSize.width < 1200
+                                ? screenSize.width * 0.5
+                                : screenSize.width * 0.6,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildLogo(),
+                                const SizedBox(height: 32),
+                                _buildGreeting(recipientName),
+                                const SizedBox(height: 36),
+                                GestureDetector(
+                                  onTap: () => _onClose(context),
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [Icon(Icons.close)],
+                                  ),
+                                ),
+                                const SizedBox(height: 36),
+                                _buildDisclaimer(fullName, companyName),
+                                const SizedBox(height: 24),
+                                _buildCheckboxSection(recipientName),
+                                const SizedBox(height: 28),
+                                _buildCtaButton(),
+                                const SizedBox(height: 28),
+                                _buildFooterLegal(),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    Positioned(
-                      top: 16,
-                      right: 16,
-                      child: IconButton(
-                        onPressed: () => _onClose(context),
-                        icon: const Icon(Icons.close),
-                        style: IconButton.styleFrom(
-                          foregroundColor: Colors.grey[700],
-                          padding: const EdgeInsets.all(8),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                AppFooter(
+                  onLanguageChanged: _handleLanguageChanged,
+                  containerWidth: screenSize.width,
+                ),
+              ],
             ),
           ),
         ),
@@ -126,7 +164,7 @@ class _ViewReportPageState extends State<ViewReportPage> {
 
   Widget _buildGreeting(String recipientName) {
     return Text(
-      'Lieber $recipientName,\nDu bist fast da.',
+      'view_report.greeting'.tr(namedArgs: {'name': recipientName}),
       style: AppTextStyles.headlineSmall.copyWith(
         color: Colors.grey[800],
         fontWeight: FontWeight.bold,
@@ -137,6 +175,11 @@ class _ViewReportPageState extends State<ViewReportPage> {
   }
 
   Widget _buildDisclaimer(String fullName, String companyName) {
+    final lead = 'view_report.disclaimer_lead'.tr();
+    final emphasis = 'view_report.disclaimer_emphasis'.tr();
+    final body = 'view_report.disclaimer_body'.tr(
+      namedArgs: {'fullName': fullName, 'companyName': companyName},
+    );
     return RichText(
       textAlign: TextAlign.center,
       text: TextSpan(
@@ -145,18 +188,15 @@ class _ViewReportPageState extends State<ViewReportPage> {
           height: 1.5,
         ),
         children: [
-          const TextSpan(text: 'Dieses Reporting ist '),
+          TextSpan(text: lead),
           TextSpan(
-            text: 'ausschließlich',
+            text: emphasis,
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.grey[900],
             ),
           ),
-          TextSpan(
-            text:
-                ' für $fullName,\nCEO der $companyName, bestimmt. Der Zugriff ist personalisiert und kann nur aus seiner Inbox heraus aktiviert werden. Bitte schließen Sie dieses Fenster sofort, wenn Sie nicht $fullName sind.',
-          ),
+          TextSpan(text: body),
         ],
       ),
     );
@@ -166,25 +206,13 @@ class _ViewReportPageState extends State<ViewReportPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        InkWell(
-          onTap: () => setState(() => _confirmed = !_confirmed),
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: _viewReportTeal, width: 2),
-              color: _confirmed ? _viewReportTeal : Colors.transparent,
-            ),
-            child: _confirmed
-                ? const Icon(Icons.check, size: 20, color: Colors.white)
-                : null,
-          ),
+        XCheckBox(
+          value: _confirmed,
+          onChanged: (value) => setState(() => _confirmed = value ?? false),
         ),
         const SizedBox(height: 12),
         Text(
-          'Lieber $recipientName, klicke auf die Box, um juristisch verbindlich Deine Identität gemäß § 126 BGB (elektronische Willenserklärung) zu bestätigen und das Reporting zu öffnen.',
+          'view_report.checkbox_hint'.tr(namedArgs: {'name': recipientName}),
           style: AppTextStyles.bodySmall.copyWith(
             color: Colors.grey[700],
             height: 1.45,
@@ -199,33 +227,17 @@ class _ViewReportPageState extends State<ViewReportPage> {
     final enabled = _confirmed;
     return SizedBox(
       width: double.infinity,
-      child: OutlinedButton(
+      child: PrimaryOutlineButton(
+        label: 'view_report.button_text'.tr(),
+        enabled: enabled,
         onPressed: enabled ? () => _onProceed(context) : null,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: enabled ? _viewReportTeal : Colors.grey,
-          side: BorderSide(
-            color: enabled ? _viewReportTeal : Colors.grey[400]!,
-            width: 2,
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: Text(
-          'Alles klar, lass uns loslegen!',
-          style: AppTextStyles.titleSmall.copyWith(
-            fontWeight: FontWeight.bold,
-            color: enabled ? _viewReportTeal : Colors.grey[600],
-          ),
-        ),
       ),
     );
   }
 
   Widget _buildFooterLegal() {
     return Text(
-      'Durch das Öffnen dieses Dokuments bestätigst Du gemäß § 126 BGB, dass Du die autorisierte Empfängerperson bist und diese elektronische Übermittlung als rechtsverbindlich anerkennst. Die Weitergabe oder Vervielfältigung des Inhalts ist ohne ausdrückliche Zustimmung der BrightNetWorks GmbH untersagt.',
+      'view_report.footer_legal'.tr(),
       style: AppTextStyles.labelSmall.copyWith(
         color: Colors.grey[600],
         height: 1.4,
@@ -235,7 +247,6 @@ class _ViewReportPageState extends State<ViewReportPage> {
   }
 
   void _onClose(BuildContext context) {
-    // Dismiss or go back; when not in app flow, can go to login or external close
     if (context.canPop()) {
       context.pop();
     } else {
@@ -244,14 +255,13 @@ class _ViewReportPageState extends State<ViewReportPage> {
   }
 
   void _onProceed(BuildContext context) {
-    // Token is available as widget.token for later integration (e.g. validate and open report)
-    // For now just keep on same page or navigate to login/dashboard as placeholder
-    // TODO: validate token and open report content
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Token wird verarbeitet (Integration folgt). Token-Länge: ${widget.token.length}',
+            'view_report.snackbar_processing'.tr(
+              namedArgs: {'length': '${widget.token.length}'},
+            ),
           ),
           behavior: SnackBarBehavior.floating,
         ),

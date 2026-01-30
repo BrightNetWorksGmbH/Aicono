@@ -53,6 +53,16 @@
     "button_text": "Alright, let's get started!",
     "menu": "MENU"
   },
+  "view_report": {
+    "greeting": "Dear {name},\nYou're almost there.",
+    "disclaimer_lead": "This reporting is ",
+    "disclaimer_emphasis": "exclusively",
+    "disclaimer_body": " for {fullName},\nCEO of {companyName}, intended. Access is personalised and can only be activated from their inbox. Please close this window immediately if you are not {fullName}.",
+    "checkbox_hint": "Dear {name}, click the box to legally confirm your identity pursuant to § 126 BGB (electronic declaration) and to open the reporting.",
+    "button_text": "All good, let's go!",
+    "footer_legal": "By opening this document you confirm pursuant to § 126 BGB that you are the authorised recipient and accept this electronic transmission as legally binding. Sharing or copying the content without express consent of BrightNetWorks GmbH is prohibited.",
+    "snackbar_processing": "Token is being processed (integration to follow). Token length: {length}"
+  },
   "set_organization_name": {
     "title_with_name": "{name}, for which organization are you setting up Bryteswitch?",
     "title": "For which organization are you setting up Bryteswitch?",

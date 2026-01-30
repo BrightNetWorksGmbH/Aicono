@@ -8,7 +8,9 @@ class GetReportSitesUseCase {
 
   GetReportSitesUseCase({required this.repository});
 
-  Future<Either<Failure, ReportSitesResponse>> call() async {
-    return repository.getReportSites();
+  Future<Either<Failure, ReportSitesResponse>> call({
+    String? bryteswitchId,
+  }) async {
+    return repository.getReportSites(bryteswitchId: bryteswitchId);
   }
 }

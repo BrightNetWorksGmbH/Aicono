@@ -10,7 +10,14 @@ abstract class ReportSitesEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class ReportSitesRequested extends ReportSitesEvent {}
+class ReportSitesRequested extends ReportSitesEvent {
+  final String? bryteswitchId;
+
+  const ReportSitesRequested({this.bryteswitchId});
+
+  @override
+  List<Object?> get props => [bryteswitchId];
+}
 
 class ReportSitesReset extends ReportSitesEvent {}
 
@@ -52,7 +59,9 @@ class ReportSitesBloc extends Bloc<ReportSitesEvent, ReportSitesState> {
     Emitter<ReportSitesState> emit,
   ) async {
     emit(ReportSitesLoading());
-    final result = await getReportSitesUseCase();
+    final result = await getReportSitesUseCase(
+      bryteswitchId: event.bryteswitchId,
+    );
     result.fold(
       (failure) => emit(ReportSitesFailure(message: _mapFailure(failure))),
       (response) => emit(ReportSitesSuccess(sites: response.data)),

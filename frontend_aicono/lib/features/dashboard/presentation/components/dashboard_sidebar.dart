@@ -239,15 +239,12 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
               final floorDetailsState = context
                   .watch<DashboardFloorDetailsBloc>()
                   .state;
-              final roomDetailsState = context
-                  .watch<DashboardRoomDetailsBloc>()
-                  .state;
+              context.watch<DashboardRoomDetailsBloc>().state;
 
               // Get selected IDs
               String? selectedSiteId;
               String? selectedBuildingId;
               String? selectedFloorId;
-              String? selectedRoomId;
 
               if (siteDetailsState is DashboardSiteDetailsLoading ||
                   siteDetailsState is DashboardSiteDetailsSuccess ||
@@ -284,18 +281,6 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                   selectedFloorId = floorDetailsState.floorId;
                 } else if (floorDetailsState is DashboardFloorDetailsFailure) {
                   selectedFloorId = floorDetailsState.floorId;
-                }
-              }
-
-              if (roomDetailsState is DashboardRoomDetailsLoading ||
-                  roomDetailsState is DashboardRoomDetailsSuccess ||
-                  roomDetailsState is DashboardRoomDetailsFailure) {
-                if (roomDetailsState is DashboardRoomDetailsLoading) {
-                  selectedRoomId = roomDetailsState.roomId;
-                } else if (roomDetailsState is DashboardRoomDetailsSuccess) {
-                  selectedRoomId = roomDetailsState.roomId;
-                } else if (roomDetailsState is DashboardRoomDetailsFailure) {
-                  selectedRoomId = roomDetailsState.roomId;
                 }
               }
 
@@ -568,6 +553,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
   }
 
   Widget _buildReportingsSection() {
+    final effectiveVerseId = widget.verseId ?? currentVerseId;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -588,6 +574,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
         ),
         const Divider(height: 20, thickness: 1, color: Color(0x40000000)),
         ReportSidebarSection(
+          bryteswitchId: effectiveVerseId,
           onReportSelected: widget.onReportSelected != null
               ? (id) => widget.onReportSelected!(id)
               : null,
