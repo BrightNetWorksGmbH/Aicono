@@ -16,6 +16,10 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_s
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_sites_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_buildings_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/building_reports_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_detail_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/user.dart';
@@ -31,6 +35,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   String? currentVerseId;
+  String? selectedReportId;
   late DynamicThemeService _themeService;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _initialSitesRequestDone = false;
@@ -187,9 +192,7 @@ class _DashboardPageState extends State<DashboardPage> {
       blocContext.read<DashboardRoomDetailsBloc>().add(
         DashboardRoomDetailsReset(),
       );
-      blocContext.read<DashboardSitesBloc>().add(
-        DashboardSitesRequested(bryteswitchId: verseId),
-      );
+      blocContext.read<DashboardSitesBloc>().add(DashboardSitesRequested());
     }
   }
 
@@ -209,6 +212,10 @@ class _DashboardPageState extends State<DashboardPage> {
         BlocProvider(create: (context) => sl<DashboardBuildingDetailsBloc>()),
         BlocProvider(create: (context) => sl<DashboardFloorDetailsBloc>()),
         BlocProvider(create: (context) => sl<DashboardRoomDetailsBloc>()),
+        BlocProvider(create: (context) => sl<ReportSitesBloc>()),
+        BlocProvider(create: (context) => sl<ReportBuildingsBloc>()),
+        BlocProvider(create: (context) => sl<BuildingReportsBloc>()),
+        BlocProvider(create: (context) => sl<ReportDetailBloc>()),
       ],
       child: Builder(
         builder: (blocContext) {
@@ -218,7 +225,7 @@ class _DashboardPageState extends State<DashboardPage> {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 blocContext.read<DashboardSitesBloc>().add(
-                  DashboardSitesRequested(bryteswitchId: currentVerseId),
+                  DashboardSitesRequested(),
                 );
               }
             });
@@ -271,6 +278,18 @@ class _DashboardPageState extends State<DashboardPage> {
                         onLanguageChanged: _handleLanguageChanged,
                         onSwitchSelected: (verseId) =>
                             setCurrentVerse(verseId, blocContext),
+                        onReportSelected: (reportId) {
+                          setState(() => selectedReportId = reportId);
+                          if (reportId != null) {
+                            blocContext.read<ReportDetailBloc>().add(
+                              ReportDetailRequested(reportId),
+                            );
+                          } else {
+                            blocContext.read<ReportDetailBloc>().add(
+                              ReportDetailReset(),
+                            );
+                          }
+                        },
                       ),
                     ),
                   ),
@@ -346,6 +365,31 @@ class _DashboardPageState extends State<DashboardPage> {
                                                       verseId,
                                                       blocContext,
                                                     ),
+                                                onReportSelected: (reportId) {
+                                                  setState(
+                                                    () => selectedReportId =
+                                                        reportId,
+                                                  );
+                                                  if (reportId != null) {
+                                                    blocContext
+                                                        .read<
+                                                          ReportDetailBloc
+                                                        >()
+                                                        .add(
+                                                          ReportDetailRequested(
+                                                            reportId,
+                                                          ),
+                                                        );
+                                                  } else {
+                                                    blocContext
+                                                        .read<
+                                                          ReportDetailBloc
+                                                        >()
+                                                        .add(
+                                                          ReportDetailReset(),
+                                                        );
+                                                  }
+                                                },
                                               ),
                                             ),
                                           ),
@@ -372,6 +416,8 @@ class _DashboardPageState extends State<DashboardPage> {
                                                 ),
                                                 child: DashboardMainContent(
                                                   verseId: currentVerseId,
+                                                  selectedReportId:
+                                                      selectedReportId,
                                                 ),
                                               ),
                                             ),

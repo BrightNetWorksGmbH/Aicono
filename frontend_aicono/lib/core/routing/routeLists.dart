@@ -61,4 +61,5 @@ class Routelists {
   static const buildingResponsiblePersons = 'building-responsible-persons';
   static const buildingContactPerson = 'building-contact-person';
   static const buildingRecipient = 'building-recipient';
+  static const viewReport = 'view-report';
 }

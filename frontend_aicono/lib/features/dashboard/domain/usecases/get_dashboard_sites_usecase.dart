@@ -8,9 +8,7 @@ class GetDashboardSitesUseCase {
 
   GetDashboardSitesUseCase({required this.repository});
 
-  Future<Either<Failure, DashboardSitesResponse>> call(
-    String? bryteswitchId,
-  ) async {
-    return repository.getSites(bryteswitchId);
+  Future<Either<Failure, DashboardSitesResponse>> call() async {
+    return repository.getSites();
   }
 }

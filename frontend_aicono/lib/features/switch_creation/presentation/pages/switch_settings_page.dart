@@ -241,7 +241,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
         BlocProvider(
           create: (context) {
             final bloc = sl<DashboardSitesBloc>();
-            bloc.add(const DashboardSitesRequested(bryteswitchId: null));
+            bloc.add(DashboardSitesRequested());
             return bloc;
           },
         ),

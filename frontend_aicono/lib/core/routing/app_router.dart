@@ -41,6 +41,7 @@ import 'package:frontend_aicono/features/Building/presentation/pages/steps/build
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/page/dashboard_page.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/pages/statistics_dashboard_page.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/pages/view_report_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/switch_settings_page.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/pages/invite_user_page.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/pages/complete_user_invite_page.dart';
@@ -107,17 +108,20 @@ class AppRouter {
         final isInvitationValidationRoute = state.uri.path.startsWith(
           '/invitation-validation',
         );
+        final isViewReportRoute = state.uri.path == '/view-report';
 
         final isJoinVerseRoute = false; // Routes removed - not in project
 
         print(
           'AppRouter - isInvitationValidationRoute: $isInvitationValidationRoute',
         );
+        print('AppRouter - isViewReportRoute: $isViewReportRoute');
         print('AppRouter - isJoinVerseRoute: $isJoinVerseRoute');
         print('AppRouter - isAuthenticated: $isAuthenticated');
 
-        // Allow access to invitation validation, join verse, and reset password routes regardless of authentication status
+        // Allow access to invitation validation, view-report, join verse, and reset password routes regardless of authentication status
         if (isInvitationValidationRoute ||
+            isViewReportRoute ||
             isJoinVerseRoute ||
             isResetPasswordRoute ||
             isForgotPasswordRoute) {
@@ -275,11 +279,7 @@ class AppRouter {
       path: '/${Routelists.inviteUser}',
       name: Routelists.inviteUser,
       pageBuilder: (context, state) {
-        return _buildPage(
-          context,
-          state,
-          const InviteUserPage(),
-        );
+        return _buildPage(context, state, const InviteUserPage());
       },
     ),
     GoRoute(
@@ -704,6 +704,21 @@ class AppRouter {
       },
     ),
     GoRoute(
+      path: '/view-report',
+      name: Routelists.viewReport,
+      redirect: (context, state) {
+        final token = state.uri.queryParameters['token'];
+        if (token == null || token.isEmpty) {
+          return '/login';
+        }
+        return null;
+      },
+      pageBuilder: (context, state) {
+        final token = state.uri.queryParameters['token'] ?? '';
+        return _buildPage(context, state, ViewReportPage(token: token));
+      },
+    ),
+    GoRoute(
       path: '/${Routelists.dashboard}',
       name: Routelists.dashboard,
       pageBuilder: (context, state) {
@@ -728,11 +743,7 @@ class AppRouter {
       path: '/${Routelists.switchSettings}',
       name: Routelists.switchSettings,
       pageBuilder: (context, state) {
-        return _buildPage(
-          context,
-          state,
-          const SwitchSettingsScreen(),
-        );
+        return _buildPage(context, state, const SwitchSettingsScreen());
       },
     ),
     GoRoute(

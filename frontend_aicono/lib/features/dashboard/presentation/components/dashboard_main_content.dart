@@ -14,11 +14,15 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_s
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/building_reports_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/components/report_detail_view.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/report_summary_entity.dart';
 
 class DashboardMainContent extends StatefulWidget {
   final String? verseId;
+  final String? selectedReportId;
 
-  const DashboardMainContent({super.key, this.verseId});
+  const DashboardMainContent({super.key, this.verseId, this.selectedReportId});
 
   @override
   State<DashboardMainContent> createState() => _DashboardMainContentState();
@@ -69,6 +73,27 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.selectedReportId != null &&
+        widget.selectedReportId!.isNotEmpty) {
+      return BlocBuilder<BuildingReportsBloc, BuildingReportsState>(
+        builder: (context, reportsState) {
+          List<ReportRecipientEntity> recipients = [];
+          if (reportsState is BuildingReportsSuccess) {
+            final matches = reportsState.reports
+                .where((r) => r.reportId == widget.selectedReportId)
+                .toList();
+            if (matches.isNotEmpty) {
+              recipients = matches.first.recipients;
+            }
+          }
+          return ReportDetailView(
+            reportId: widget.selectedReportId,
+            recipients: recipients,
+          );
+        },
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Column(
@@ -195,9 +220,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                                 TextButton(
                                   onPressed: () {
                                     context.read<DashboardSitesBloc>().add(
-                                      DashboardSitesRequested(
-                                        bryteswitchId: widget.verseId,
-                                      ),
+                                      DashboardSitesRequested(),
                                     );
                                   },
                                   child: const Text('Retry'),
