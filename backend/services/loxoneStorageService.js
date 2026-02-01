@@ -4,6 +4,7 @@ const Sensor = require('../models/Sensor');
 const MeasurementData = require('../models/MeasurementData');
 const Building = require('../models/Building');
 const plausibilityCheckService = require('./plausibilityCheckService');
+const { getPoolStatistics, PRIORITY, canAcquireConnection, waitForConnection } = require('../db/connection');
 
 // Per-building UUID to Sensor mapping cache
 const uuidMaps = new Map(); // buildingId -> Map<uuid, sensorMapping>
@@ -296,101 +297,13 @@ function getUnitFromControl(controlData) {
 
 class LoxoneStorageService {
     /**
-     * Initialize storage for a building (create Time Series collection if needed)
+     * Initialize storage for a building (create Time Series collections if needed)
      */
     async initializeForBuilding(buildingId) {
         try {
-            const db = mongoose.connection.db;
-            
-            // Ensure Time Series collection exists
-            const collections = await db.listCollections({ name: 'measurements' }).toArray();
-            const collectionExists = collections.length > 0;
-            
-            let isTimeSeries = false;
-            let hasCorrectMetaField = false;
-            
-            if (collectionExists) {
-                const collectionInfo = collections[0];
-                const options = collectionInfo.options || {};
-                const timeseries = options.timeseries || {};
-                isTimeSeries = !!(timeseries && timeseries.timeField);
-                hasCorrectMetaField = timeseries.metaField === 'meta';
-            }
-            
-            if (collectionExists && (!isTimeSeries || !hasCorrectMetaField)) {
-                console.warn(`[LOXONE-STORAGE] [${buildingId}] Collection exists but is not valid Time Series, dropping...`);
-                try {
-                    await db.collection('measurements').drop();
-                    await db.collection('system.buckets.measurements').drop().catch(() => {});
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                } catch (error) {
-                    if (!error.message.includes('ns not found')) {
-                        throw error;
-                    }
-                }
-            }
-            
-            if (!collectionExists || !isTimeSeries || !hasCorrectMetaField) {
-                await db.createCollection('measurements', {
-                    timeseries: {
-                        timeField: 'timestamp',
-                        metaField: 'meta',
-                        granularity: 'seconds'
-                    }
-                });
-                // console.log(`[LOXONE-STORAGE] [${buildingId}] Created Time Series collection`);
-            }
-
-            // Create indexes
-            const collection = db.collection('measurements');
-            try {
-                // Existing indexes
-                await collection.createIndex({ 'meta.sensorId': 1, timestamp: -1 });
-                await collection.createIndex({ 'meta.buildingId': 1, timestamp: -1 });
-                await collection.createIndex({ timestamp: -1 });
-                
-                // Optimized compound index for getBuildingKPIs queries
-                // Covers: buildingId (equality) → resolution_minutes (equality) → timestamp (range)
-                // This significantly speeds up queries that filter by building and resolution
-                await collection.createIndex(
-                    { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 },
-                    { background: true, name: 'buildingId_resolution_timestamp_idx' }
-                );
-                
-                // Optimized compound index for sensorId queries
-                // Covers: sensorId (equality) → resolution_minutes (equality) → timestamp (range)
-                // This speeds up queries that filter by sensor and resolution (for getRoomKPIs, getSensorKPIs, etc.)
-                await collection.createIndex(
-                    { 'meta.sensorId': 1, resolution_minutes: 1, timestamp: -1 },
-                    { background: true, name: 'sensorId_resolution_timestamp_idx' }
-                );
-                
-                // Index for aggregation queries (filters by resolution_minutes + timestamp)
-                // This speeds up countDocuments queries in aggregation service
-                await collection.createIndex(
-                    { resolution_minutes: 1, timestamp: -1 },
-                    { background: true, name: 'resolution_timestamp_idx' }
-                );
-                
-                // Index for measurementType filtering (speeds up temperature/energy/power queries)
-                await collection.createIndex(
-                    { 'meta.measurementType': 1 },
-                    { background: true, name: 'measurementType_idx' }
-                );
-                
-                // Compound index for temperature queries specifically
-                // Optimizes queries that filter by buildingId + measurementType + resolution + timestamp
-                await collection.createIndex(
-                    { 'meta.buildingId': 1, 'meta.measurementType': 1, resolution_minutes: 1, timestamp: -1 },
-                    { background: true, name: 'buildingId_measurementType_resolution_timestamp_idx' }
-                );
-                
-                // console.log(`[LOXONE-STORAGE] [${buildingId}] ✓ Created optimized compound index for building queries`);
-            } catch (error) {
-                if (!error.message.includes('already exists')) {
-                    // console.warn(`[LOXONE-STORAGE] [${buildingId}] Index creation warning:`, error.message);
-                }
-            }
+            // Use measurementCollectionService to ensure both collections exist
+            const measurementCollectionService = require('./measurementCollectionService');
+            await measurementCollectionService.ensureCollectionsExist();
         } catch (error) {
             // console.error(`[LOXONE-STORAGE] [${buildingId}] Error initializing:`, error.message);
             throw error;
@@ -981,10 +894,25 @@ class LoxoneStorageService {
 
         // Step 4: Insert documents with timeout and error handling
         // Optimize: Split large batches to avoid timeouts, use write concern for better performance
+        // Write to measurements_raw collection (raw data only, resolution_minutes: 0)
+        // Use HIGH priority for real-time data storage
         let storedCount = 0;
         if (documents.length > 0) {
             try {
-                const collection = db.collection('measurements');
+                // Check connection pool availability before starting (HIGH priority)
+                // Throttle if pool usage is too high (>85%)
+                const poolStats = await getPoolStatistics(PRIORITY.HIGH);
+                if (poolStats.available && poolStats.usagePercent > 85) {
+                    // Wait for pool to free up (max 2 seconds)
+                    const canProceed = await waitForConnection(PRIORITY.HIGH, 2000);
+                    if (!canProceed) {
+                        // Pool still too high, but proceed anyway (HIGH priority)
+                        // Log but don't block - real-time data is critical
+                        // console.warn(`[LOXONE-STORAGE] [${buildingId}] Pool usage high (${poolStats.usagePercent}%) but proceeding with HIGH priority storage`);
+                    }
+                }
+                
+                const collection = db.collection('measurements_raw');
                 
                 // Split into smaller batches to avoid timeout (max 100 documents per batch)
                 const BATCH_SIZE = 100;
@@ -994,8 +922,20 @@ class LoxoneStorageService {
                 }
                 
                 let totalInserted = 0;
-                for (const batch of batches) {
+                for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+                    const batch = batches[batchIndex];
+                    
                     try {
+                        // Check pool before each batch (but don't wait too long)
+                        if (batchIndex > 0 && batchIndex % 5 === 0) {
+                            // Check every 5 batches
+                            const currentPoolStats = await getPoolStatistics(PRIORITY.HIGH);
+                            if (currentPoolStats.available && currentPoolStats.usagePercent > 90) {
+                                // Very high usage - small delay to let pool recover
+                                await new Promise(resolve => setTimeout(resolve, 100));
+                            }
+                        }
+                        
                         // Use unacknowledged write concern for better performance (w: 0)
                         // This is safe for time-series data where occasional loss is acceptable
                         // vs blocking the entire measurement pipeline

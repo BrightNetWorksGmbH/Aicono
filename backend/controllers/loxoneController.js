@@ -109,13 +109,42 @@ exports.getLoxoneRooms = asyncHandler(async (req, res) => {
 
 /**
  * GET /api/loxone/aggregation/status
- * Get aggregation scheduler status
+ * Get aggregation scheduler status with detailed diagnostics
  */
 exports.getAggregationStatus = asyncHandler(async (req, res) => {
   const status = aggregationScheduler.getStatus();
+  
+  // Add additional diagnostic information
+  const mongoose = require('mongoose');
+  const db = mongoose.connection.db;
+  let rawDataCount = 0;
+  let aggregatedDataCount = 0;
+  
+  if (db) {
+    try {
+      // Count raw data (resolution_minutes: 0)
+      rawDataCount = await db.collection('measurements_raw').countDocuments({ resolution_minutes: 0 });
+      
+      // Count aggregated data (resolution_minutes > 0)
+      aggregatedDataCount = await db.collection('measurements_aggregated').countDocuments({ 
+        resolution_minutes: { $gt: 0 } 
+      });
+    } catch (error) {
+      console.error('[DIAGNOSTIC] Error counting documents:', error.message);
+    }
+  }
+  
   res.json({
     success: true,
-    data: status
+    data: {
+      ...status,
+      diagnostics: {
+        rawDataCount,
+        aggregatedDataCount,
+        databaseConnected: mongoose.connection.readyState === 1,
+        databaseName: mongoose.connection.name || db?.databaseName || 'unknown'
+      }
+    }
   });
 });
 
@@ -124,13 +153,29 @@ exports.getAggregationStatus = asyncHandler(async (req, res) => {
  * Manually trigger 15-minute aggregation
  */
 exports.trigger15MinAggregation = asyncHandler(async (req, res) => {
+  console.log("this is the first thing that gets printed when the manual trigger is started")
   const buildingId = req.body?.buildingId || null;
-  const result = await aggregationScheduler.trigger15MinuteAggregation(buildingId);
+  
+  // Return immediately, process aggregation in background to avoid API timeouts
   res.json({
     success: true,
-    message: '15-minute aggregation triggered',
-    data: result
+    message: '15-minute aggregation triggered (processing in background)',
+    buildingId: buildingId || 'all buildings',
+    status: 'processing'
   });
+  
+  // Process aggregation in background (don't await - fire and forget)
+  aggregationScheduler.trigger15MinuteAggregation(buildingId)
+    .then(result => {
+      console.log(`[AGGREGATION] [15-min] Background aggregation completed for ${buildingId || 'all buildings'}:`, {
+        count: result.count,
+        deleted: result.deleted,
+        success: result.success
+      });
+    })
+    .catch(error => {
+      console.error(`[AGGREGATION] [15-min] Background aggregation failed for ${buildingId || 'all buildings'}:`, error.message);
+    });
 });
 
 /**
@@ -186,6 +231,144 @@ exports.triggerMonthlyAggregation = asyncHandler(async (req, res) => {
     success: true,
     message: 'Monthly aggregation triggered',
     data: result
+  });
+});
+
+/**
+ * POST /api/loxone/aggregation/trigger/daterange
+ * Manually trigger aggregation for a specific date range
+ * Body: { startDate: ISO string, endDate: ISO string, buildingId?: string, deleteAfterAggregation?: boolean }
+ */
+exports.triggerDateRangeAggregation = asyncHandler(async (req, res) => {
+  const { startDate, endDate, buildingId, deleteAfterAggregation } = req.body;
+  
+  if (!startDate || !endDate) {
+    return res.status(400).json({
+      success: false,
+      error: 'startDate and endDate are required (ISO date strings)'
+    });
+  }
+  
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid date format. Use ISO date strings (e.g., "2026-01-29T00:00:00.000Z")'
+    });
+  }
+  
+  if (start >= end) {
+    return res.status(400).json({
+      success: false,
+      error: 'startDate must be before endDate'
+    });
+  }
+  
+  const measurementAggregationService = require('../services/measurementAggregationService');
+  const result = await measurementAggregationService.aggregateDateRange(
+    start,
+    end,
+    buildingId || null,
+    deleteAfterAggregation !== false, // Default to true
+    30 // bufferMinutes
+  );
+  
+  res.json({
+    success: result.success,
+    message: result.success 
+      ? `Date range aggregation completed: ${result.count} aggregates created`
+      : `Date range aggregation completed with errors: ${result.errors?.length || 0} errors`,
+    data: result
+  });
+});
+
+/**
+ * GET /api/loxone/aggregation/unaggregated
+ * Check for unaggregated raw data
+ * Query params: buildingId (optional), startDate (optional), endDate (optional)
+ */
+exports.getUnaggregatedData = asyncHandler(async (req, res) => {
+  const mongoose = require('mongoose');
+  const db = mongoose.connection.db;
+  
+  if (!db) {
+    return res.status(500).json({
+      success: false,
+      error: 'Database connection not available'
+    });
+  }
+  
+  const { buildingId, startDate, endDate } = req.query;
+  
+  const matchStage = {
+    resolution_minutes: 0
+  };
+  
+  if (buildingId) {
+    if (!mongoose.Types.ObjectId.isValid(buildingId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid buildingId'
+      });
+    }
+    matchStage['meta.buildingId'] = new mongoose.Types.ObjectId(buildingId);
+  }
+  
+  if (startDate || endDate) {
+    matchStage.timestamp = {};
+    if (startDate) {
+      matchStage.timestamp.$gte = new Date(startDate);
+    }
+    if (endDate) {
+      matchStage.timestamp.$lt = new Date(endDate);
+    }
+  }
+  
+  // Get count and date range of unaggregated data
+  const count = await db.collection('measurements_raw').countDocuments(matchStage);
+  
+  // Get oldest and newest timestamps
+  const oldest = await db.collection('measurements_raw')
+    .find(matchStage)
+    .sort({ timestamp: 1 })
+    .limit(1)
+    .project({ timestamp: 1, _id: 0 })
+    .toArray();
+  
+  const newest = await db.collection('measurements_raw')
+    .find(matchStage)
+    .sort({ timestamp: -1 })
+    .limit(1)
+    .project({ timestamp: 1, _id: 0 })
+    .toArray();
+  
+  // Get sample document to verify structure
+  const sample = await db.collection('measurements_raw')
+    .findOne(matchStage, {
+      projection: {
+        timestamp: 1,
+        resolution_minutes: 1,
+        'meta.buildingId': 1,
+        'meta.sensorId': 1,
+        'meta.measurementType': 1,
+        source: 1,
+        _id: 0
+      }
+    });
+  
+  res.json({
+    success: true,
+    data: {
+      count,
+      dateRange: {
+        oldest: oldest.length > 0 ? oldest[0].timestamp : null,
+        newest: newest.length > 0 ? newest[0].timestamp : null
+      },
+      sample,
+      buildingId: buildingId || 'all buildings'
+    }
   });
 });
 

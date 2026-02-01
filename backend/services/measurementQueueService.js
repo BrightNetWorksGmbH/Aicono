@@ -1,4 +1,5 @@
 const loxoneStorageService = require('./loxoneStorageService');
+const { getPoolStatistics, PRIORITY } = require('../db/connection');
 
 /**
  * Measurement Queue Service
@@ -147,6 +148,19 @@ class MeasurementQueueService {
         if (shouldThrottle) {
             // Skip this processing cycle to give priority to API requests
             return;
+        }
+        
+        // Check connection pool usage - throttle if too high
+        try {
+            const poolStats = await getPoolStatistics(PRIORITY.HIGH);
+            if (poolStats.available && poolStats.usagePercent > 85) {
+                // Pool usage is high - skip this cycle to avoid overwhelming the pool
+                // Real-time storage will handle throttling internally, but we can help here too
+                return;
+            }
+        } catch (error) {
+            // If pool check fails, proceed anyway (don't block real-time storage)
+            // console.warn('[MEASUREMENT-QUEUE] Error checking pool stats:', error.message);
         }
 
         // Process buildings in parallel for better throughput

@@ -883,8 +883,9 @@ class LoxoneConnectionManager {
             let restored = 0;
             let failed = 0;
             const results = [];
+            const failedBuildings = []; // Track failed buildings for retry
 
-            // Restore each connection
+            // First pass: Try to restore all connections
             for (const building of buildings) {
                 try {
                     const buildingId = building._id.toString();
@@ -923,23 +924,30 @@ class LoxoneConnectionManager {
                     if (result.success) {
                         restored++;
                         console.log(`[LOXONE] ✓ Restored connection for building: ${building.name} (${buildingId})`);
+                        results.push({
+                            buildingId: buildingId,
+                            buildingName: building.name,
+                            success: true,
+                            message: result.message
+                        });
                     } else {
                         failed++;
+                        failedBuildings.push({ building, buildingId, attempt: 1 }); // Track for retry
                         console.warn(`[LOXONE] ✗ Failed to restore connection for building: ${building.name} (${buildingId}): ${result.message}`);
+                        results.push({
+                            buildingId: buildingId,
+                            buildingName: building.name,
+                            success: false,
+                            message: result.message
+                        });
                     }
-                    
-                    results.push({
-                        buildingId: buildingId,
-                        buildingName: building.name,
-                        success: result.success,
-                        message: result.message
-                    });
 
                     // Small delay between connections to avoid overwhelming the server
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 } catch (error) {
                     failed++;
                     const buildingId = building._id.toString();
+                    failedBuildings.push({ building, buildingId, attempt: 1 }); // Track for retry
                     console.error(`[LOXONE] Error restoring connection for building ${buildingId}:`, error.message);
                     results.push({
                         buildingId: buildingId,
@@ -947,6 +955,84 @@ class LoxoneConnectionManager {
                         success: false,
                         message: error.message
                     });
+                }
+            }
+
+            // Retry failed connections with exponential backoff (3-4 attempts)
+            const maxRetries = 3;
+            if (failedBuildings.length > 0) {
+                console.log(`[LOXONE] Retrying ${failedBuildings.length} failed connection(s) (up to ${maxRetries} attempts)...`);
+                
+                for (let retryAttempt = 1; retryAttempt <= maxRetries; retryAttempt++) {
+                    const delay = Math.pow(2, retryAttempt) * 1000; // 2s, 4s, 8s
+                    console.log(`[LOXONE] Retry attempt ${retryAttempt}/${maxRetries} starting in ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    
+                    const stillFailed = [];
+                    
+                    for (const { building, buildingId } of failedBuildings) {
+                        try {
+                            // Skip if already connected (might have been restored by another process)
+                            if (this.connections.has(buildingId)) {
+                                const existingState = this.connections.get(buildingId);
+                                if (existingState.ws && existingState.ws.readyState === WebSocket.OPEN) {
+                                    restored++;
+                                    failed--;
+                                    console.log(`[LOXONE] ✓ Connection restored on retry ${retryAttempt} for building: ${building.name} (${buildingId})`);
+                                    
+                                    // Update result
+                                    const resultIndex = results.findIndex(r => r.buildingId === buildingId);
+                                    if (resultIndex !== -1) {
+                                        results[resultIndex].success = true;
+                                        results[resultIndex].message = `Restored on retry ${retryAttempt}`;
+                                    }
+                                    continue;
+                                } else {
+                                    // Connection exists but is not open, remove it first
+                                    this.connections.delete(buildingId);
+                                }
+                            }
+                            
+                            const credentials = {
+                                ip: building.miniserver_ip,
+                                port: building.miniserver_port,
+                                protocol: building.miniserver_protocol,
+                                user: building.miniserver_user,
+                                pass: building.miniserver_pass,
+                                externalAddress: building.miniserver_external_address,
+                                serialNumber: building.miniserver_serial
+                            };
+
+                            const result = await this.connect(buildingId, credentials);
+                            
+                            if (result.success) {
+                                restored++;
+                                failed--;
+                                console.log(`[LOXONE] ✓ Connection restored on retry ${retryAttempt} for building: ${building.name} (${buildingId})`);
+                                
+                                // Update result
+                                const resultIndex = results.findIndex(r => r.buildingId === buildingId);
+                                if (resultIndex !== -1) {
+                                    results[resultIndex].success = true;
+                                    results[resultIndex].message = `Restored on retry ${retryAttempt}`;
+                                }
+                            } else {
+                                stillFailed.push({ building, buildingId, attempt: retryAttempt + 1 });
+                                console.warn(`[LOXONE] ✗ Retry ${retryAttempt} failed for building: ${building.name} (${buildingId}): ${result.message}`);
+                            }
+                        } catch (error) {
+                            stillFailed.push({ building, buildingId, attempt: retryAttempt + 1 });
+                            console.error(`[LOXONE] Error on retry ${retryAttempt} for building ${buildingId}:`, error.message);
+                        }
+                    }
+                    
+                    failedBuildings.length = 0;
+                    failedBuildings.push(...stillFailed);
+                    
+                    if (failedBuildings.length === 0) {
+                        console.log(`[LOXONE] ✓ All connections restored successfully after ${retryAttempt} retry attempt(s)`);
+                        break; // All connections restored
+                    }
                 }
             }
 

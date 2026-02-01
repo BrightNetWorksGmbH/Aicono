@@ -554,7 +554,8 @@ class AnalyticsService {
         { $sort: { '_id.hour': 1, '_id.dayOfWeek': 1 } },
       ];
 
-      hourlyData = await db.collection('measurements').aggregate(pipeline).toArray();
+      // Query measurements_aggregated for hourly data
+      hourlyData = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
     } else {
       // For arbitrary ranges (dashboard): Use Power data to calculate consumption
       // Power values are instantaneous (kW), so we calculate: consumption = average_power × 1_hour
@@ -582,7 +583,8 @@ class AnalyticsService {
         { $sort: { '_id.hour': 1, '_id.dayOfWeek': 1 } },
       ];
 
-      const powerData = await db.collection('measurements').aggregate(pipeline).toArray();
+      // Query measurements_aggregated for power data
+      const powerData = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
       
       // Convert power (kW) to energy consumption (kWh) for each hour
       // consumption = average_power × 1_hour
@@ -769,7 +771,8 @@ class AnalyticsService {
     const queryStartTime = Date.now();
    //console.log(`[TEMPERATURE] Starting aggregation query at ${queryStartTime}`);
 
-    const tempData = await db.collection('measurements').aggregate(pipeline).toArray();
+    // Query measurements_aggregated for temperature data
+    const tempData = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
     
     const queryEndTime = Date.now();
     const queryDuration = queryEndTime - queryStartTime;
@@ -896,7 +899,7 @@ class AnalyticsService {
     }
     
     const duration = Date.now() - startTime;
-    console.log(`[ANALYTICS] generateConsumptionByRoom: Completed ${roomConsumption.length}/${rooms.length} rooms in ${duration}ms`);
+    // console.log(`[ANALYTICS] generateConsumptionByRoom: Completed ${roomConsumption.length}/${rooms.length} rooms in ${duration}ms`);
 
     // Sort by consumption descending
     roomConsumption.sort((a, b) => (b.consumption || 0) - (a.consumption || 0));

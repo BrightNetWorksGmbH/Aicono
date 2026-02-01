@@ -1045,7 +1045,6 @@ class DashboardDiscoveryService {
      * @returns {Promise<Object>} KPIs object
      */
     async getSiteKPIs(siteId, startDate, endDate, options = {}) {
-        console.log('getSiteKPIs', siteId, startDate, endDate, options);
         const buildings = await Building.find({ site_id: siteId }).select('_id').lean();
         const buildingIds = buildings.map(b => b._id);
         
@@ -1149,7 +1148,8 @@ class DashboardDiscoveryService {
             }
         ];
         
-        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        // Query measurements_aggregated for aggregated data
+        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
         
         // Track which measurement types we've found
         const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
@@ -1195,7 +1195,7 @@ class DashboardDiscoveryService {
                     }
                 ];
                 
-                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
                 
                 if (fallbackResults.length > 0) {
                     // Merge fallback results with existing results
@@ -1205,14 +1205,14 @@ class DashboardDiscoveryService {
                         if (!foundMeasurementTypes.has(measurementType)) {
                             rawResults.push(fallbackResult);
                             foundMeasurementTypes.add(measurementType);
-                            console.log(`[DEBUG] getSiteKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
+                            // console.log(`[DEBUG] getSiteKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
                         }
                     }
                     
                     // If we had no results initially, use fallback results and stop
                     if (rawResults.length === 0) {
                         rawResults = fallbackResults;
-                        console.log(`[DEBUG] getSiteKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                        // console.log(`[DEBUG] getSiteKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
                         break; // Found data, stop trying fallbacks
                     }
                 }
@@ -1233,7 +1233,7 @@ class DashboardDiscoveryService {
      */
     async getBuildingKPIs(buildingId, startDate, endDate, options = {}) {
         const functionStartTime = Date.now();
-        console.log(`[PERF] getBuildingKPIs called at ${functionStartTime}`);
+        // console.log(`[PERF] getBuildingKPIs called at ${functionStartTime}`);
         
         const db = mongoose.connection.db;
         if (!db) {
@@ -1338,7 +1338,7 @@ class DashboardDiscoveryService {
         }
         
         const matchStageDuration = Date.now() - matchStageStartTime;
-        console.log(`[PERF] getBuildingKPIs: matchStage construction took ${matchStageDuration}ms`);
+        // console.log(`[PERF] getBuildingKPIs: matchStage construction took ${matchStageDuration}ms`);
         
         // Start timing pipeline construction
         const pipelineStartTime = Date.now();
@@ -1360,26 +1360,59 @@ class DashboardDiscoveryService {
         ];
         
         const pipelineDuration = Date.now() - pipelineStartTime;
-        console.log(`[PERF] getBuildingKPIs: pipeline construction took ${pipelineDuration}ms`);
+        // console.log(`[PERF] getBuildingKPIs: pipeline construction took ${pipelineDuration}ms`);
         
         // Start timing aggregation execution
         const aggregationStartTime = Date.now();
-        console.log(`[PERF] getBuildingKPIs: starting aggregation at ${aggregationStartTime}`);
+        // console.log(`[PERF] getBuildingKPIs: starting aggregation at ${aggregationStartTime}`);
         
-        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        // Query measurements_aggregated for aggregated data
+        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
+        
+        // If no results and querying recent data (resolution 15 or 0), try measurements_raw as fallback
+        if (rawResults.length === 0 && (resolution === 15 || resolution === 0)) {
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            if (hoursSinceEndDate < 1) {
+                // Recent data - try measurements_raw
+                const rawMatchStage = {
+                    ...matchStage,
+                    resolution_minutes: 0
+                };
+                const rawPipeline = [
+                    { $match: rawMatchStage },
+                    {
+                        $group: {
+                            _id: {
+                                measurementType: '$meta.measurementType',
+                                unit: '$unit'
+                            },
+                            values: { $push: '$value' },
+                            units: { $first: '$unit' },
+                            avgQuality: { $avg: '$quality' },
+                            count: { $sum: 1 }
+                        }
+                    }
+                ];
+                const rawDataResults = await db.collection('measurements_raw').aggregate(rawPipeline).toArray();
+                if (rawDataResults.length > 0) {
+                    rawResults = rawDataResults;
+                    // console.log(`[DEBUG] getBuildingKPIs: Found ${rawResults.length} results in measurements_raw for recent data`);
+                }
+            }
+        }
         
         const aggregationDuration = Date.now() - aggregationStartTime;
         const totalDuration = Date.now() - functionStartTime;
-        console.log(`[PERF] getBuildingKPIs: aggregation completed in ${aggregationDuration}ms (total function time: ${totalDuration}ms)`);
-        console.log(`[DEBUG] getBuildingKPIs query [${aggregationDuration}ms]:`, {
-            buildingId,
-            resolution,
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            matchStage,
-            resultCount: rawResults.length,
-            resultTypes: rawResults.map(r => r._id.measurementType)
-        });
+        // console.log(`[PERF] getBuildingKPIs: aggregation completed in ${aggregationDuration}ms (total function time: ${totalDuration}ms)`);
+        // console.log(`[DEBUG] getBuildingKPIs query [${aggregationDuration}ms]:`, {
+        //     buildingId,
+        //     resolution,
+        //     startDate: startDate.toISOString(),
+        //     endDate: endDate.toISOString(),
+        //     matchStage,
+        //     resultCount: rawResults.length,
+        //     resultTypes: rawResults.map(r => r._id.measurementType)
+        // });
         
         // Track which measurement types we've found
         const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
@@ -1437,7 +1470,7 @@ class DashboardDiscoveryService {
                     }
                 ];
                 
-                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
                 const fallbackDuration = Date.now() - fallbackStartTime;
                 
                 if (fallbackResults.length > 0) {
@@ -1448,20 +1481,20 @@ class DashboardDiscoveryService {
                         if (!foundMeasurementTypes.has(measurementType)) {
                             rawResults.push(fallbackResult);
                             foundMeasurementTypes.add(measurementType);
-                            console.log(`[DEBUG] getBuildingKPIs [${fallbackDuration}ms]: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
+                            // console.log(`[DEBUG] getBuildingKPIs [${fallbackDuration}ms]: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
                         }
                     }
                     
                     // If we had no results initially, use fallback results and stop
                     if (rawResults.length === 0) {
                         rawResults = fallbackResults;
-                        console.log(`[DEBUG] getBuildingKPIs [${fallbackDuration}ms]: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                        // console.log(`[DEBUG] getBuildingKPIs [${fallbackDuration}ms]: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
                         break; // Found data, stop trying fallbacks
                     }
                 }
             }
         }
-        console.log("after calculateKPIsFromResults the time is ", Date.now());
+        // console.log("after calculateKPIsFromResults the time is ", Date.now());
         return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval: options.interval });
     }
 
@@ -1574,11 +1607,11 @@ class DashboardDiscoveryService {
             try {
                 const result = await generateWithTimeout(key, generator, timeout);
                 const duration = Date.now() - startTime;
-                console.log(`[DASHBOARD] ${key} generated in ${duration}ms${result.timeout ? ' (timeout)' : ''}`);
+                // console.log(`[DASHBOARD] ${key} generated in ${duration}ms${result.timeout ? ' (timeout)' : ''}`);
                 return { key, result };
             } catch (error) {
                 const duration = Date.now() - startTime;
-                console.warn(`[DASHBOARD] Error generating ${key} for building ${buildingId} (${duration}ms):`, error.message);
+                // console.warn(`[DASHBOARD] Error generating ${key} for building ${buildingId} (${duration}ms):`, error.message);
                 return {
                     key,
                     result: {
@@ -1718,7 +1751,8 @@ class DashboardDiscoveryService {
             }
         ];
         
-        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        // Query measurements_aggregated for aggregated data
+        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
         
         // Track which measurement types we've found
         const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
@@ -1767,7 +1801,7 @@ class DashboardDiscoveryService {
                     }
                 ];
                 
-                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
                 
                 if (fallbackResults.length > 0) {
                     // Merge fallback results with existing results
@@ -1777,14 +1811,14 @@ class DashboardDiscoveryService {
                         if (!foundMeasurementTypes.has(measurementType)) {
                             rawResults.push(fallbackResult);
                             foundMeasurementTypes.add(measurementType);
-                            console.log(`[DEBUG] getRoomKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
+                            // console.log(`[DEBUG] getRoomKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
                         }
                     }
                     
                     // If we had no results initially, use fallback results and stop
                     if (rawResults.length === 0) {
                         rawResults = fallbackResults;
-                        console.log(`[DEBUG] getRoomKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                        // console.log(`[DEBUG] getRoomKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
                         break; // Found data, stop trying fallbacks
                     }
                 }
@@ -1904,7 +1938,8 @@ class DashboardDiscoveryService {
             }
         ];
 
-        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        // Query measurements_aggregated for aggregated data
+        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
 
         // Try fallback resolutions if no results
         if (rawResults.length === 0) {
@@ -1947,7 +1982,7 @@ class DashboardDiscoveryService {
                     }
                 ];
 
-                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
                 if (fallbackResults.length > 0) {
                     rawResults = fallbackResults;
                     break;
@@ -2084,7 +2119,8 @@ class DashboardDiscoveryService {
             }
         ];
 
-        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        // Query measurements_aggregated for aggregated data
+        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
 
         // Try fallback resolutions if no results
         if (rawResults.length === 0) {
@@ -2118,7 +2154,7 @@ class DashboardDiscoveryService {
                     }
                 ];
 
-                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
                 if (fallbackResults.length > 0) {
                     rawResults = fallbackResults;
                     break;
@@ -2248,7 +2284,8 @@ class DashboardDiscoveryService {
             }
         ];
         
-        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        // Query measurements_aggregated for aggregated data
+        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
         
         // Track which measurement types we've found
         const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
@@ -2297,7 +2334,7 @@ class DashboardDiscoveryService {
                     }
                 ];
                 
-                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
                 
                 if (fallbackResults.length > 0) {
                     // Merge fallback results with existing results
@@ -2307,14 +2344,14 @@ class DashboardDiscoveryService {
                         if (!foundMeasurementTypes.has(measurementType)) {
                             rawResults.push(fallbackResult);
                             foundMeasurementTypes.add(measurementType);
-                            console.log(`[DEBUG] getSensorKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
+                            // console.log(`[DEBUG] getSensorKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
                         }
                     }
                     
                     // If we had no results initially, use fallback results and stop
                     if (rawResults.length === 0) {
                         rawResults = fallbackResults;
-                        console.log(`[DEBUG] getSensorKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                        // console.log(`[DEBUG] getSensorKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
                         break; // Found data, stop trying fallbacks
                     }
                 }
@@ -2401,7 +2438,9 @@ class DashboardDiscoveryService {
                 { $limit: options.limit || 1000 }
             ];
             
-            measurements = await db.collection('measurements').aggregate(pipeline).toArray();
+            // Query measurements_aggregated (or measurements_raw for resolution 0)
+            const collectionName = resolution === 0 ? 'measurements_raw' : 'measurements_aggregated';
+            measurements = await db.collection(collectionName).aggregate(pipeline).toArray();
         } else {
             // Fallback: Use sensorId query (original implementation)
             const sensors = await Sensor.find({ room_id: roomId }).select('_id').lean();
@@ -2426,7 +2465,9 @@ class DashboardDiscoveryService {
                 matchStage['meta.measurementType'] = options.measurementType;
             }
             
-            measurements = await db.collection('measurements')
+            // Query appropriate collection based on resolution
+            const collectionName = resolution === 0 ? 'measurements_raw' : 'measurements_aggregated';
+            measurements = await db.collection(collectionName)
                 .find(matchStage)
                 .sort({ timestamp: 1 })
                 .limit(options.limit || 1000)
