@@ -279,6 +279,9 @@ class DashboardDiscoveryService {
             sensorMap.get(rid).push(sensor);
         });
         
+        // Get KPIs for all buildings in a single optimized query
+        const buildingsKPIsMap = await this.getBuildingsKPIs(buildingIds, startDate, endDate, options);
+        
         // Build nested structure
         const buildingData = await Promise.all(buildings.map(async (building) => {
             const buildingFloors = floorMap.get(building._id.toString()) || [];
@@ -330,8 +333,9 @@ class DashboardDiscoveryService {
                 };
             }));
             
-            // Get building KPIs
-            const kpis = await this.getBuildingKPIs(building._id, startDate, endDate, options);
+            // Get building KPIs from the pre-fetched map
+            const buildingIdStr = building._id.toString();
+            const kpis = buildingsKPIsMap.get(buildingIdStr) || this.getEmptyKPIs();
             
             return {
                 _id: building._id,
@@ -703,7 +707,12 @@ class DashboardDiscoveryService {
         // Get measurement data for room sensors if requested
         let measurements = null;
         if (options.includeMeasurements !== false && loxoneRoom && loxoneRoom._id) {
-            measurements = await this.getRoomMeasurements(loxoneRoom._id, startDate, endDate, options);
+            // Pass buildingId for optimization if available
+            const roomOptions = {
+                ...options,
+                buildingId: loxoneRoom.building_id || building._id
+            };
+            measurements = await this.getRoomMeasurements(loxoneRoom._id, startDate, endDate, roomOptions);
         }
         
         return {
@@ -1036,7 +1045,6 @@ class DashboardDiscoveryService {
      * @returns {Promise<Object>} KPIs object
      */
     async getSiteKPIs(siteId, startDate, endDate, options = {}) {
-        console.log('getSiteKPIs', siteId, startDate, endDate, options);
         const buildings = await Building.find({ site_id: siteId }).select('_id').lean();
         const buildingIds = buildings.map(b => b._id);
         
@@ -1079,7 +1087,10 @@ class DashboardDiscoveryService {
             }
         }
         
-        const matchStage = {
+        // Two-stage match for index optimization:
+        // 1. First match uses compound index: { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 }
+        // 2. Second match filters by measurementType/stateType on already-reduced dataset
+        const firstMatchStage = {
             'meta.buildingId': { $in: buildingIds.map(id => new mongoose.Types.ObjectId(id)) },
             resolution_minutes: resolution,
             timestamp: { $gte: startDate, $lt: endDate }
@@ -1089,19 +1100,21 @@ class DashboardDiscoveryService {
         const interval = options.interval || null;
         const energyStateType = getStateTypeForInterval(interval);
         
+        // Build second match stage for measurement types
+        const secondMatchStage = {};
         if (options.measurementType) {
-            matchStage['meta.measurementType'] = options.measurementType;
+            secondMatchStage['meta.measurementType'] = options.measurementType;
             if (options.measurementType === 'Energy') {
                 if (energyStateType) {
-                    matchStage['meta.stateType'] = energyStateType;
+                    secondMatchStage['meta.stateType'] = energyStateType;
                 } else {
-                    matchStage['meta.measurementType'] = 'Power';
-                    matchStage['meta.stateType'] = { $regex: '^actual' };
+                    secondMatchStage['meta.measurementType'] = 'Power';
+                    secondMatchStage['meta.stateType'] = { $regex: '^actual' };
                 }
             } else if (options.measurementType === 'Power') {
-                matchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
+                secondMatchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
             } else if (options.stateType) {
-                matchStage['meta.stateType'] = options.stateType;
+                secondMatchStage['meta.stateType'] = options.stateType;
             }
         } else {
             const orConditions = [];
@@ -1115,11 +1128,12 @@ class DashboardDiscoveryService {
             orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
             orConditions.push({ 'meta.measurementType': { $nin: ['Energy', 'Power'] } });
             
-            matchStage.$or = orConditions;
+            secondMatchStage.$or = orConditions;
         }
         
         const pipeline = [
-            { $match: matchStage },
+            { $match: firstMatchStage }, // Uses compound index
+            { $match: secondMatchStage }, // Filters reduced dataset
             {
                 $group: {
                     _id: {
@@ -1134,7 +1148,8 @@ class DashboardDiscoveryService {
             }
         ];
         
-        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        // Query measurements_aggregated for aggregated data
+        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
         
         // Track which measurement types we've found
         const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
@@ -1158,17 +1173,14 @@ class DashboardDiscoveryService {
             
             // Try each fallback resolution and merge results
             for (const fallbackResolution of fallbackResolutions) {
-                const fallbackMatchStage = {
-                    ...matchStage,
+                const fallbackFirstMatch = {
+                    ...firstMatchStage,
                     resolution_minutes: fallbackResolution
                 };
-                // Preserve $or structure if it exists
-                if (matchStage.$or) {
-                    fallbackMatchStage.$or = matchStage.$or;
-                }
                 
                 const fallbackPipeline = [
-                    { $match: fallbackMatchStage },
+                    { $match: fallbackFirstMatch },
+                    { $match: secondMatchStage },
                     {
                         $group: {
                             _id: {
@@ -1183,7 +1195,7 @@ class DashboardDiscoveryService {
                     }
                 ];
                 
-                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
                 
                 if (fallbackResults.length > 0) {
                     // Merge fallback results with existing results
@@ -1193,14 +1205,14 @@ class DashboardDiscoveryService {
                         if (!foundMeasurementTypes.has(measurementType)) {
                             rawResults.push(fallbackResult);
                             foundMeasurementTypes.add(measurementType);
-                            console.log(`[DEBUG] getSiteKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
+                            // console.log(`[DEBUG] getSiteKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
                         }
                     }
                     
                     // If we had no results initially, use fallback results and stop
                     if (rawResults.length === 0) {
                         rawResults = fallbackResults;
-                        console.log(`[DEBUG] getSiteKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                        // console.log(`[DEBUG] getSiteKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
                         break; // Found data, stop trying fallbacks
                     }
                 }
@@ -1221,7 +1233,7 @@ class DashboardDiscoveryService {
      */
     async getBuildingKPIs(buildingId, startDate, endDate, options = {}) {
         const functionStartTime = Date.now();
-        console.log(`[PERF] getBuildingKPIs called at ${functionStartTime}`);
+        // console.log(`[PERF] getBuildingKPIs called at ${functionStartTime}`);
         
         const db = mongoose.connection.db;
         if (!db) {
@@ -1326,7 +1338,7 @@ class DashboardDiscoveryService {
         }
         
         const matchStageDuration = Date.now() - matchStageStartTime;
-        console.log(`[PERF] getBuildingKPIs: matchStage construction took ${matchStageDuration}ms`);
+        // console.log(`[PERF] getBuildingKPIs: matchStage construction took ${matchStageDuration}ms`);
         
         // Start timing pipeline construction
         const pipelineStartTime = Date.now();
@@ -1348,26 +1360,59 @@ class DashboardDiscoveryService {
         ];
         
         const pipelineDuration = Date.now() - pipelineStartTime;
-        console.log(`[PERF] getBuildingKPIs: pipeline construction took ${pipelineDuration}ms`);
+        // console.log(`[PERF] getBuildingKPIs: pipeline construction took ${pipelineDuration}ms`);
         
         // Start timing aggregation execution
         const aggregationStartTime = Date.now();
-        console.log(`[PERF] getBuildingKPIs: starting aggregation at ${aggregationStartTime}`);
+        // console.log(`[PERF] getBuildingKPIs: starting aggregation at ${aggregationStartTime}`);
         
-        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        // Query measurements_aggregated for aggregated data
+        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
+        
+        // If no results and querying recent data (resolution 15 or 0), try measurements_raw as fallback
+        if (rawResults.length === 0 && (resolution === 15 || resolution === 0)) {
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            if (hoursSinceEndDate < 1) {
+                // Recent data - try measurements_raw
+                const rawMatchStage = {
+                    ...matchStage,
+                    resolution_minutes: 0
+                };
+                const rawPipeline = [
+                    { $match: rawMatchStage },
+                    {
+                        $group: {
+                            _id: {
+                                measurementType: '$meta.measurementType',
+                                unit: '$unit'
+                            },
+                            values: { $push: '$value' },
+                            units: { $first: '$unit' },
+                            avgQuality: { $avg: '$quality' },
+                            count: { $sum: 1 }
+                        }
+                    }
+                ];
+                const rawDataResults = await db.collection('measurements_raw').aggregate(rawPipeline).toArray();
+                if (rawDataResults.length > 0) {
+                    rawResults = rawDataResults;
+                    // console.log(`[DEBUG] getBuildingKPIs: Found ${rawResults.length} results in measurements_raw for recent data`);
+                }
+            }
+        }
         
         const aggregationDuration = Date.now() - aggregationStartTime;
         const totalDuration = Date.now() - functionStartTime;
-        console.log(`[PERF] getBuildingKPIs: aggregation completed in ${aggregationDuration}ms (total function time: ${totalDuration}ms)`);
-        console.log(`[DEBUG] getBuildingKPIs query [${aggregationDuration}ms]:`, {
-            buildingId,
-            resolution,
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            matchStage,
-            resultCount: rawResults.length,
-            resultTypes: rawResults.map(r => r._id.measurementType)
-        });
+        // console.log(`[PERF] getBuildingKPIs: aggregation completed in ${aggregationDuration}ms (total function time: ${totalDuration}ms)`);
+        // console.log(`[DEBUG] getBuildingKPIs query [${aggregationDuration}ms]:`, {
+        //     buildingId,
+        //     resolution,
+        //     startDate: startDate.toISOString(),
+        //     endDate: endDate.toISOString(),
+        //     matchStage,
+        //     resultCount: rawResults.length,
+        //     resultTypes: rawResults.map(r => r._id.measurementType)
+        // });
         
         // Track which measurement types we've found
         const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
@@ -1425,7 +1470,7 @@ class DashboardDiscoveryService {
                     }
                 ];
                 
-                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
                 const fallbackDuration = Date.now() - fallbackStartTime;
                 
                 if (fallbackResults.length > 0) {
@@ -1436,20 +1481,20 @@ class DashboardDiscoveryService {
                         if (!foundMeasurementTypes.has(measurementType)) {
                             rawResults.push(fallbackResult);
                             foundMeasurementTypes.add(measurementType);
-                            console.log(`[DEBUG] getBuildingKPIs [${fallbackDuration}ms]: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
+                            // console.log(`[DEBUG] getBuildingKPIs [${fallbackDuration}ms]: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
                         }
                     }
                     
                     // If we had no results initially, use fallback results and stop
                     if (rawResults.length === 0) {
                         rawResults = fallbackResults;
-                        console.log(`[DEBUG] getBuildingKPIs [${fallbackDuration}ms]: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                        // console.log(`[DEBUG] getBuildingKPIs [${fallbackDuration}ms]: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
                         break; // Found data, stop trying fallbacks
                     }
                 }
             }
         }
-        console.log("after calculateKPIsFromResults the time is ", Date.now());
+        // console.log("after calculateKPIsFromResults the time is ", Date.now());
         return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval: options.interval });
     }
 
@@ -1562,11 +1607,11 @@ class DashboardDiscoveryService {
             try {
                 const result = await generateWithTimeout(key, generator, timeout);
                 const duration = Date.now() - startTime;
-                console.log(`[DASHBOARD] ${key} generated in ${duration}ms${result.timeout ? ' (timeout)' : ''}`);
+                // console.log(`[DASHBOARD] ${key} generated in ${duration}ms${result.timeout ? ' (timeout)' : ''}`);
                 return { key, result };
             } catch (error) {
                 const duration = Date.now() - startTime;
-                console.warn(`[DASHBOARD] Error generating ${key} for building ${buildingId} (${duration}ms):`, error.message);
+                // console.warn(`[DASHBOARD] Error generating ${key} for building ${buildingId} (${duration}ms):`, error.message);
                 return {
                     key,
                     result: {
@@ -1706,7 +1751,8 @@ class DashboardDiscoveryService {
             }
         ];
         
-        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        // Query measurements_aggregated for aggregated data
+        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
         
         // Track which measurement types we've found
         const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
@@ -1755,7 +1801,7 @@ class DashboardDiscoveryService {
                     }
                 ];
                 
-                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
                 
                 if (fallbackResults.length > 0) {
                     // Merge fallback results with existing results
@@ -1765,14 +1811,14 @@ class DashboardDiscoveryService {
                         if (!foundMeasurementTypes.has(measurementType)) {
                             rawResults.push(fallbackResult);
                             foundMeasurementTypes.add(measurementType);
-                            console.log(`[DEBUG] getRoomKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
+                            // console.log(`[DEBUG] getRoomKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
                         }
                     }
                     
                     // If we had no results initially, use fallback results and stop
                     if (rawResults.length === 0) {
                         rawResults = fallbackResults;
-                        console.log(`[DEBUG] getRoomKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                        // console.log(`[DEBUG] getRoomKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
                         break; // Found data, stop trying fallbacks
                     }
                 }
@@ -1780,6 +1826,362 @@ class DashboardDiscoveryService {
         }
         
         return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval: options.interval });
+    }
+
+    /**
+     * Get KPIs for all rooms in a building (optimized single query)
+     * Uses meta.buildingId compound index instead of multiple meta.sensorId queries
+     * @param {String} buildingId - Building ID
+     * @param {Date} startDate - Start date
+     * @param {Date} endDate - End date
+     * @param {Object} options - Query options
+     * @returns {Promise<Map>} Map of roomId -> KPIs object
+     */
+    async getRoomsKPIs(buildingId, startDate, endDate, options = {}) {
+        const db = mongoose.connection.db;
+        if (!db) {
+            throw new Error('Database connection not available');
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(buildingId)) {
+            throw new Error(`Invalid buildingId: ${buildingId}`);
+        }
+
+        const duration = endDate - startDate;
+        const days = duration / (1000 * 60 * 60 * 24);
+
+        // Determine resolution based on time range AND data age
+        let resolution = 15;
+        if (options.resolution !== undefined) {
+            resolution = options.resolution;
+        } else {
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
+
+            if (days > 90 || daysSinceEndDate > 7) {
+                resolution = 1440; // daily
+            } else if (days > 7 || daysSinceEndDate > 1) {
+                resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                resolution = 60; // hourly
+            } else {
+                resolution = 15; // 15-minute
+            }
+        }
+
+        // Two-stage match for index optimization:
+        // 1. First match uses compound index: { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 }
+        // 2. Second match filters by measurementType/stateType on already-reduced dataset
+        const firstMatchStage = {
+            'meta.buildingId': new mongoose.Types.ObjectId(buildingId),
+            resolution_minutes: resolution,
+            timestamp: { $gte: startDate, $lt: endDate },
+        };
+
+        // Determine stateType filtering based on options
+        const interval = options.interval || null;
+        const energyStateType = getStateTypeForInterval(interval);
+
+        // Build second match stage for measurement types
+        const secondMatchStage = {};
+        if (options.measurementType) {
+            secondMatchStage['meta.measurementType'] = options.measurementType;
+            if (options.measurementType === 'Energy') {
+                if (energyStateType) {
+                    secondMatchStage['meta.stateType'] = energyStateType;
+                } else {
+                    secondMatchStage['meta.measurementType'] = 'Power';
+                    secondMatchStage['meta.stateType'] = { $regex: '^actual' };
+                }
+            } else if (options.measurementType === 'Power') {
+                secondMatchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
+            } else if (options.stateType) {
+                secondMatchStage['meta.stateType'] = options.stateType;
+            }
+        } else {
+            const orConditions = [];
+            if (energyStateType) {
+                orConditions.push({ 'meta.measurementType': 'Energy', 'meta.stateType': energyStateType });
+            } else {
+                orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+            }
+            orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+            orConditions.push({ 'meta.measurementType': { $nin: ['Energy', 'Power'] } });
+            secondMatchStage.$or = orConditions;
+        }
+
+        // Pipeline: match -> lookup sensors -> group by room and measurementType
+        const pipeline = [
+            { $match: firstMatchStage }, // Uses compound index
+            { $match: secondMatchStage }, // Filters reduced dataset
+            {
+                $lookup: {
+                    from: 'sensors',
+                    localField: 'meta.sensorId',
+                    foreignField: '_id',
+                    as: 'sensor'
+                }
+            },
+            { $unwind: { path: '$sensor', preserveNullAndEmptyArrays: false } }, // Only keep measurements with valid sensors
+            {
+                $group: {
+                    _id: {
+                        roomId: '$sensor.room_id',
+                        measurementType: '$meta.measurementType',
+                        unit: '$unit'
+                    },
+                    values: { $push: '$value' },
+                    units: { $first: '$unit' },
+                    avgQuality: { $avg: '$quality' },
+                    count: { $sum: 1 }
+                }
+            }
+        ];
+
+        // Query measurements_aggregated for aggregated data
+        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
+
+        // Try fallback resolutions if no results
+        if (rawResults.length === 0) {
+            const fallbackResolutions = [];
+            if (resolution === 15) {
+                fallbackResolutions.push(60, 1440);
+            } else if (resolution === 60) {
+                fallbackResolutions.push(1440);
+            }
+
+            for (const fallbackResolution of fallbackResolutions) {
+                const fallbackFirstMatch = {
+                    ...firstMatchStage,
+                    resolution_minutes: fallbackResolution
+                };
+                const fallbackPipeline = [
+                    { $match: fallbackFirstMatch },
+                    { $match: secondMatchStage },
+                    {
+                        $lookup: {
+                            from: 'sensors',
+                            localField: 'meta.sensorId',
+                            foreignField: '_id',
+                            as: 'sensor'
+                        }
+                    },
+                    { $unwind: { path: '$sensor', preserveNullAndEmptyArrays: false } },
+                    {
+                        $group: {
+                            _id: {
+                                roomId: '$sensor.room_id',
+                                measurementType: '$meta.measurementType',
+                                unit: '$unit'
+                            },
+                            values: { $push: '$value' },
+                            units: { $first: '$unit' },
+                            avgQuality: { $avg: '$quality' },
+                            count: { $sum: 1 }
+                        }
+                    }
+                ];
+
+                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
+                if (fallbackResults.length > 0) {
+                    rawResults = fallbackResults;
+                    break;
+                }
+            }
+        }
+
+        // Group results by roomId
+        const roomResultsMap = new Map();
+        for (const result of rawResults) {
+            const roomId = result._id.roomId?.toString();
+            if (!roomId) continue;
+
+            if (!roomResultsMap.has(roomId)) {
+                roomResultsMap.set(roomId, []);
+            }
+            roomResultsMap.get(roomId).push(result);
+        }
+
+        // Calculate KPIs for each room
+        const roomsKPIsMap = new Map();
+        for (const [roomId, roomResults] of roomResultsMap.entries()) {
+            const kpis = this.calculateKPIsFromResults(roomResults, { startDate, endDate, interval });
+            roomsKPIsMap.set(roomId, kpis);
+        }
+
+        return roomsKPIsMap;
+    }
+
+    /**
+     * Get KPIs for all buildings in a site (optimized single query)
+     * Uses meta.buildingId compound index instead of multiple parallel queries
+     * @param {Array<String>} buildingIds - Array of Building IDs
+     * @param {Date} startDate - Start date
+     * @param {Date} endDate - End date
+     * @param {Object} options - Query options
+     * @returns {Promise<Map>} Map of buildingId -> KPIs object
+     */
+    async getBuildingsKPIs(buildingIds, startDate, endDate, options = {}) {
+        if (!buildingIds || buildingIds.length === 0) {
+            return new Map();
+        }
+
+        const db = mongoose.connection.db;
+        if (!db) {
+            throw new Error('Database connection not available');
+        }
+
+        // Validate all building IDs
+        const validBuildingIds = buildingIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+        if (validBuildingIds.length === 0) {
+            return new Map();
+        }
+
+        const duration = endDate - startDate;
+        const days = duration / (1000 * 60 * 60 * 24);
+
+        // Determine resolution based on time range AND data age
+        let resolution = 15;
+        if (options.resolution !== undefined) {
+            resolution = options.resolution;
+        } else {
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
+
+            if (days > 90 || daysSinceEndDate > 7) {
+                resolution = 1440; // daily
+            } else if (days > 7 || daysSinceEndDate > 1) {
+                resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                resolution = 60; // hourly
+            } else {
+                resolution = 15; // 15-minute
+            }
+        }
+
+        // Two-stage match for index optimization:
+        // 1. First match uses compound index: { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 }
+        // 2. Second match filters by measurementType/stateType on already-reduced dataset
+        const firstMatchStage = {
+            'meta.buildingId': { $in: validBuildingIds.map(id => new mongoose.Types.ObjectId(id)) },
+            resolution_minutes: resolution,
+            timestamp: { $gte: startDate, $lt: endDate },
+        };
+
+        // Determine stateType filtering based on options
+        const interval = options.interval || null;
+        const energyStateType = getStateTypeForInterval(interval);
+
+        // Build second match stage for measurement types
+        const secondMatchStage = {};
+        if (options.measurementType) {
+            secondMatchStage['meta.measurementType'] = options.measurementType;
+            if (options.measurementType === 'Energy') {
+                if (energyStateType) {
+                    secondMatchStage['meta.stateType'] = energyStateType;
+                } else {
+                    secondMatchStage['meta.measurementType'] = 'Power';
+                    secondMatchStage['meta.stateType'] = { $regex: '^actual' };
+                }
+            } else if (options.measurementType === 'Power') {
+                secondMatchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
+            } else if (options.stateType) {
+                secondMatchStage['meta.stateType'] = options.stateType;
+            }
+        } else {
+            const orConditions = [];
+            if (energyStateType) {
+                orConditions.push({ 'meta.measurementType': 'Energy', 'meta.stateType': energyStateType });
+            } else {
+                orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+            }
+            orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+            orConditions.push({ 'meta.measurementType': { $nin: ['Energy', 'Power'] } });
+            secondMatchStage.$or = orConditions;
+        }
+
+        // Pipeline: match -> group by building and measurementType
+        const pipeline = [
+            { $match: firstMatchStage }, // Uses compound index
+            { $match: secondMatchStage }, // Filters reduced dataset
+            {
+                $group: {
+                    _id: {
+                        buildingId: '$meta.buildingId',
+                        measurementType: '$meta.measurementType',
+                        unit: '$unit'
+                    },
+                    values: { $push: '$value' },
+                    units: { $first: '$unit' },
+                    avgQuality: { $avg: '$quality' },
+                    count: { $sum: 1 }
+                }
+            }
+        ];
+
+        // Query measurements_aggregated for aggregated data
+        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
+
+        // Try fallback resolutions if no results
+        if (rawResults.length === 0) {
+            const fallbackResolutions = [];
+            if (resolution === 15) {
+                fallbackResolutions.push(60, 1440);
+            } else if (resolution === 60) {
+                fallbackResolutions.push(1440);
+            }
+
+            for (const fallbackResolution of fallbackResolutions) {
+                const fallbackFirstMatch = {
+                    ...firstMatchStage,
+                    resolution_minutes: fallbackResolution
+                };
+                const fallbackPipeline = [
+                    { $match: fallbackFirstMatch },
+                    { $match: secondMatchStage },
+                    {
+                        $group: {
+                            _id: {
+                                buildingId: '$meta.buildingId',
+                                measurementType: '$meta.measurementType',
+                                unit: '$unit'
+                            },
+                            values: { $push: '$value' },
+                            units: { $first: '$unit' },
+                            avgQuality: { $avg: '$quality' },
+                            count: { $sum: 1 }
+                        }
+                    }
+                ];
+
+                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
+                if (fallbackResults.length > 0) {
+                    rawResults = fallbackResults;
+                    break;
+                }
+            }
+        }
+
+        // Group results by buildingId
+        const buildingResultsMap = new Map();
+        for (const result of rawResults) {
+            const buildingId = result._id.buildingId?.toString();
+            if (!buildingId) continue;
+
+            if (!buildingResultsMap.has(buildingId)) {
+                buildingResultsMap.set(buildingId, []);
+            }
+            buildingResultsMap.get(buildingId).push(result);
+        }
+
+        // Calculate KPIs for each building
+        const buildingsKPIsMap = new Map();
+        for (const [buildingId, buildingResults] of buildingResultsMap.entries()) {
+            const kpis = this.calculateKPIsFromResults(buildingResults, { startDate, endDate, interval });
+            buildingsKPIsMap.set(buildingId, kpis);
+        }
+
+        return buildingsKPIsMap;
     }
 
     /**
@@ -1882,7 +2284,8 @@ class DashboardDiscoveryService {
             }
         ];
         
-        let rawResults = await db.collection('measurements').aggregate(pipeline).toArray();
+        // Query measurements_aggregated for aggregated data
+        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
         
         // Track which measurement types we've found
         const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
@@ -1931,7 +2334,7 @@ class DashboardDiscoveryService {
                     }
                 ];
                 
-                const fallbackResults = await db.collection('measurements').aggregate(fallbackPipeline).toArray();
+                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
                 
                 if (fallbackResults.length > 0) {
                     // Merge fallback results with existing results
@@ -1941,14 +2344,14 @@ class DashboardDiscoveryService {
                         if (!foundMeasurementTypes.has(measurementType)) {
                             rawResults.push(fallbackResult);
                             foundMeasurementTypes.add(measurementType);
-                            console.log(`[DEBUG] getSensorKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
+                            // console.log(`[DEBUG] getSensorKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
                         }
                     }
                     
                     // If we had no results initially, use fallback results and stop
                     if (rawResults.length === 0) {
                         rawResults = fallbackResults;
-                        console.log(`[DEBUG] getSensorKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
+                        // console.log(`[DEBUG] getSensorKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
                         break; // Found data, stop trying fallbacks
                     }
                 }
@@ -1969,18 +2372,6 @@ class DashboardDiscoveryService {
      */
     async getRoomMeasurements(roomId, startDate, endDate, options = {}) {
         // roomId is a Loxone Room ID (for sensor queries)
-        const sensors = await Sensor.find({ room_id: roomId }).select('_id').lean();
-        const sensorIds = sensors.map(s => s._id);
-        
-        if (sensorIds.length === 0) {
-            return {
-                data: [],
-                count: 0,
-                resolution: 15,
-                resolution_label: '15-minute'
-            };
-        }
-        
         const db = mongoose.connection.db;
         if (!db) {
             throw new Error('Database connection not available');
@@ -2013,21 +2404,75 @@ class DashboardDiscoveryService {
             }
         }
         
-        const matchStage = {
-            'meta.sensorId': { $in: sensorIds.map(id => new mongoose.Types.ObjectId(id)) },
-            resolution_minutes: resolution,
-            timestamp: { $gte: startDate, $lt: endDate }
-        };
+        let measurements = [];
         
-        if (options.measurementType) {
-            matchStage['meta.measurementType'] = options.measurementType;
+        // Optimize: If buildingId is provided, use buildingId query with sensor lookup
+        // This uses the compound index and is faster than sensorId queries
+        if (options.buildingId && mongoose.Types.ObjectId.isValid(options.buildingId)) {
+            // Two-stage match for index optimization
+            const firstMatchStage = {
+                'meta.buildingId': new mongoose.Types.ObjectId(options.buildingId),
+                resolution_minutes: resolution,
+                timestamp: { $gte: startDate, $lt: endDate },
+            };
+            
+            const secondMatchStage = {};
+            if (options.measurementType) {
+                secondMatchStage['meta.measurementType'] = options.measurementType;
+            }
+            
+            const pipeline = [
+                { $match: firstMatchStage }, // Uses compound index
+                { $match: secondMatchStage }, // Filters reduced dataset
+                {
+                    $lookup: {
+                        from: 'sensors',
+                        localField: 'meta.sensorId',
+                        foreignField: '_id',
+                        as: 'sensor'
+                    }
+                },
+                { $unwind: { path: '$sensor', preserveNullAndEmptyArrays: false } },
+                { $match: { 'sensor.room_id': new mongoose.Types.ObjectId(roomId) } }, // Filter by room
+                { $sort: { timestamp: 1 } },
+                { $limit: options.limit || 1000 }
+            ];
+            
+            // Query measurements_aggregated (or measurements_raw for resolution 0)
+            const collectionName = resolution === 0 ? 'measurements_raw' : 'measurements_aggregated';
+            measurements = await db.collection(collectionName).aggregate(pipeline).toArray();
+        } else {
+            // Fallback: Use sensorId query (original implementation)
+            const sensors = await Sensor.find({ room_id: roomId }).select('_id').lean();
+            const sensorIds = sensors.map(s => s._id);
+            
+            if (sensorIds.length === 0) {
+                return {
+                    data: [],
+                    count: 0,
+                    resolution: 15,
+                    resolution_label: '15-minute'
+                };
+            }
+            
+            const matchStage = {
+                'meta.sensorId': { $in: sensorIds.map(id => new mongoose.Types.ObjectId(id)) },
+                resolution_minutes: resolution,
+                timestamp: { $gte: startDate, $lt: endDate }
+            };
+            
+            if (options.measurementType) {
+                matchStage['meta.measurementType'] = options.measurementType;
+            }
+            
+            // Query appropriate collection based on resolution
+            const collectionName = resolution === 0 ? 'measurements_raw' : 'measurements_aggregated';
+            measurements = await db.collection(collectionName)
+                .find(matchStage)
+                .sort({ timestamp: 1 })
+                .limit(options.limit || 1000)
+                .toArray();
         }
-        
-        const measurements = await db.collection('measurements')
-            .find(matchStage)
-            .sort({ timestamp: 1 })
-            .limit(options.limit || 1000)
-            .toArray();
         
         return {
             data: measurements,

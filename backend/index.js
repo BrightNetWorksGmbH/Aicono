@@ -156,14 +156,40 @@ const loxoneConnectionManager = require('./services/loxoneConnectionManager');
 // Start server after DB is connected
 connectToDatabase()
   .then(async () => {
+    // Initialize measurement collections once at startup (before restoring connections)
+    // This prevents redundant initialization checks during connection restoration
+    try {
+      const measurementCollectionService = require('./services/measurementCollectionService');
+      await measurementCollectionService.ensureCollectionsExist();
+      console.log('[STARTUP] ✓ Measurement collections initialized');
+    } catch (error) {
+      console.error('[STARTUP] ❌ Failed to initialize measurement collections:', error.message);
+      // Don't fail server startup, but log the error clearly
+    }
+    
     // Start aggregation scheduler after DB connection
-    aggregationScheduler.start();
+    try {
+      aggregationScheduler.start();
+      console.log('[STARTUP] ✓ Aggregation scheduler started successfully');
+    } catch (error) {
+      console.error('[STARTUP] ❌ Failed to start aggregation scheduler:', error.message);
+      console.error('[STARTUP] Stack trace:', error.stack);
+      // Don't fail server startup, but log the error clearly
+    }
     
     // Start reporting scheduler after aggregation scheduler (to ensure clean data)
-    reportingScheduler.start();
+    try {
+      reportingScheduler.start();
+      console.log('[STARTUP] ✓ Reporting scheduler started successfully');
+    } catch (error) {
+      console.error('[STARTUP] ❌ Failed to start reporting scheduler:', error.message);
+      console.error('[STARTUP] Stack trace:', error.stack);
+      // Don't fail server startup, but log the error clearly
+    }
     
     // Restore Loxone connections from database (non-blocking)
     // This ensures connections persist across server restarts/deployments
+    // Collections are already initialized above, so no redundant checks during restoration
     loxoneConnectionManager.restoreConnections()
       .then((result) => {
         if (result.restored > 0 || result.failed > 0) {

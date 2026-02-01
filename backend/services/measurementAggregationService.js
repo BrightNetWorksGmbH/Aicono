@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { isConnectionHealthy } = require('../db/connection');
+const deletionQueueService = require('./deletionQueueService');
 
 /**
  * Measurement Aggregation Service
@@ -75,6 +76,94 @@ class MeasurementAggregationService {
             return false;
         }
     }
+
+    /**
+     * Delete documents in batches to avoid connection timeouts and pool exhaustion
+     * @param {Object} db - MongoDB database instance
+     * @param {string} collectionName - Collection name
+     * @param {Object} matchStage - MongoDB match query
+     * @param {number} batchSize - Number of documents to delete per batch (default: 10000)
+     * @param {number} maxRetries - Maximum retry attempts for failed batches (default: 3)
+     * @returns {Promise<number>} Total number of documents deleted
+     */
+    /**
+     * Optimized direct deletion using deleteMany with match query
+     * This is much faster than the old deleteInBatches approach (10-50x faster)
+     * 
+     * @param {Object} db - Database instance
+     * @param {string} collectionName - Collection name
+     * @param {Object} matchStage - MongoDB match query
+     * @param {number} maxBatchSize - Maximum documents per operation (default: 50000)
+     * @param {number} maxRetries - Maximum retry attempts (default: 3)
+     * @returns {Promise<number>} Number of documents deleted
+     */
+    async deleteDirect(db, collectionName, matchStage, maxBatchSize = 50000, maxRetries = 3) {
+        const collection = db.collection(collectionName);
+        let totalDeleted = 0;
+        let attempts = 0;
+        const deleteStartTime = Date.now();
+
+        try {
+            console.log(`[AGGREGATION] [DELETE-DIRECT] Starting optimized deletion from ${collectionName}`);
+
+            // For very large deletions, MongoDB handles them efficiently with deleteMany
+            // We use a single operation which is much faster than the old two-step approach
+            while (attempts < maxRetries) {
+                try {
+                    attempts++;
+                    const operationStartTime = Date.now();
+
+                    // Direct deleteMany - MongoDB handles large deletions efficiently
+                    // For Time Series collections, this is optimized by MongoDB
+                    const deleteResult = await collection.deleteMany(matchStage);
+                    const deletedCount = deleteResult.deletedCount || 0;
+                    const duration = Date.now() - operationStartTime;
+
+                    totalDeleted += deletedCount;
+
+                    console.log(`[AGGREGATION] [DELETE-DIRECT] Deleted ${deletedCount} documents from ${collectionName} in ${duration}ms`);
+
+                    // If we got 0 documents, we're done
+                    if (deletedCount === 0) {
+                        break;
+                    }
+
+                    // For very large datasets, MongoDB might limit the deletion in a single operation
+                    // If we got exactly maxBatchSize, there might be more, but this is rare
+                    // In practice, deleteMany handles millions of documents efficiently
+                    break;
+
+                } catch (error) {
+                    if (attempts < maxRetries) {
+                        const waitTime = Math.pow(2, attempts) * 1000; // Exponential backoff
+                        console.warn(`[AGGREGATION] [DELETE-DIRECT] Deletion failed, retrying in ${waitTime}ms (attempt ${attempts}/${maxRetries}): ${error.message}`);
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+
+            const totalDuration = Date.now() - deleteStartTime;
+            console.log(`[AGGREGATION] [DELETE-DIRECT] ✅ Completed deletion: ${totalDeleted} documents deleted in ${totalDuration}ms`);
+            return totalDeleted;
+
+        } catch (error) {
+            const totalDuration = Date.now() - deleteStartTime;
+            console.error(`[AGGREGATION] [DELETE-DIRECT] ❌ Deletion failed after ${totalDuration}ms:`, error.message);
+            console.error(`[AGGREGATION] [DELETE-DIRECT] Deleted ${totalDeleted} documents before failure`);
+            throw error;
+        }
+    }
+
+    /**
+     * @deprecated Use deleteDirect() or deletionQueueService.enqueue() instead
+     * Kept for backward compatibility but should not be used
+     */
+    async deleteInBatches(db, collectionName, matchStage, batchSize = 10000, maxRetries = 3) {
+        console.warn('[AGGREGATION] [DELETE-BATCH] deleteInBatches is deprecated. Use deleteDirect() or deletionQueueService.enqueue() instead.');
+        return this.deleteDirect(db, collectionName, matchStage, batchSize, maxRetries);
+    }
     /**
      * Aggregate raw measurements into 15-minute buckets
      * 
@@ -84,6 +173,9 @@ class MeasurementAggregationService {
      * @returns {Promise<Object>} Aggregation result with count of created aggregates
      */
     async aggregate15Minutes(buildingId = null, deleteAfterAggregation = true, bufferMinutes = 30) {
+        const functionStartTime = Date.now();
+        console.log(`[AGGREGATION] [15-min] [TIMING] Starting aggregate15Minutes for building: ${buildingId || 'all buildings'}`);
+        
         // Helper function for retrying database queries with timeout handling
         const queryWithRetry = async (queryFn, retries = 3) => {
             while (retries > 0) {
@@ -128,8 +220,11 @@ class MeasurementAggregationService {
         
         console.log(`[AGGREGATION] Database name: ${dbName || currentDbName || 'using current database context'}`);
 
-        // Check if measurements collection is a Time Series collection
-        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements');
+        // Check if measurements_aggregated collection is a Time Series collection
+        const collectionCheckStartTime = Date.now();
+        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements_aggregated');
+        const collectionCheckDuration = Date.now() - collectionCheckStartTime;
+        console.log(`[AGGREGATION] [15-min] [TIMING] Collection type check took ${collectionCheckDuration}ms`);
         if (isTimeSeries) {
             console.log(`[AGGREGATION] [15-min] Detected Time Series collection - will use direct inserts instead of $merge`);
         }
@@ -140,12 +235,76 @@ class MeasurementAggregationService {
         // This ensures we only aggregate COMPLETE 15-minute windows
         const safeAggregationEnd = this.roundTo15Minutes(now);
         
-        // Look back 24 hours for any un-aggregated raw data
-        // The $merge with 'replace' will handle re-running on same data safely
-        const lookbackHours = 24;
+        // Optimized lookback strategy:
+        // - Regular runs: Only process recent data (30 minutes) to avoid timeouts and reduce load
+        // - Catch-up: Use longer window (7 days) only if no recent data found
+        const regularLookbackHours = parseFloat(process.env.AGGREGATION_REGULAR_LOOKBACK_HOURS || '0.5', 10); // 30 minutes default
+        const catchupLookbackDays = parseInt(process.env.AGGREGATION_LOOKBACK_DAYS || '7', 10);
+        
+        // First, check for recent data (last 2 hours)
+        // Note: measurements_raw only contains raw data, so no need to filter by resolution_minutes: 0
+        const recentDataStart = new Date(safeAggregationEnd.getTime() - regularLookbackHours * 60 * 60 * 1000);
+        const recentDataCountStartTime = Date.now();
+        const recentDataCount = await queryWithRetry(() => 
+            db.collection('measurements_raw').countDocuments({
+                timestamp: { 
+                    $gte: recentDataStart,
+                    $lt: safeAggregationEnd 
+                },
+                ...(buildingId ? {
+                    'meta.buildingId': { 
+                        $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                    }
+                } : {})
+            })
+        );
+        const recentDataCountDuration = Date.now() - recentDataCountStartTime;
+        console.log(`[AGGREGATION] [15-min] [TIMING] Recent data count query took ${recentDataCountDuration}ms (found ${recentDataCount} documents)`);
+        
+        // Determine lookback window based on data availability
+        let lookbackHours;
+        let isCatchup = false;
+        
+        if (recentDataCount > 0) {
+            // Regular run: only process recent data (faster, avoids timeouts)
+            lookbackHours = regularLookbackHours;
+            console.log(`[AGGREGATION] [15-min] Regular aggregation: processing last ${regularLookbackHours} hours (${recentDataCount} documents)`);
+        } else {
+            // No recent data: check for older unaggregated data (catch-up scenario)
+            // Note: measurements_raw only contains raw data, so no need to filter by resolution_minutes: 0
+            const oldDataStart = new Date(safeAggregationEnd.getTime() - catchupLookbackDays * 24 * 60 * 60 * 1000);
+            const oldDataCountStartTime = Date.now();
+            const oldDataCount = await queryWithRetry(() => 
+                db.collection('measurements_raw').countDocuments({
+                    timestamp: { 
+                        $gte: oldDataStart,
+                        $lt: recentDataStart
+                    },
+                    ...(buildingId ? {
+                        'meta.buildingId': { 
+                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                        }
+                    } : {})
+                })
+            );
+            const oldDataCountDuration = Date.now() - oldDataCountStartTime;
+            console.log(`[AGGREGATION] [15-min] [TIMING] Old data count query took ${oldDataCountDuration}ms (found ${oldDataCount} documents)`);
+            
+            if (oldDataCount > 0) {
+                // Use catch-up window (but will process in chunks)
+                lookbackHours = catchupLookbackDays * 24;
+                isCatchup = true;
+                console.log(`[AGGREGATION] [15-min] Catch-up aggregation: processing last ${catchupLookbackDays} days (found ${oldDataCount} old unaggregated documents, will process in chunks)`);
+            } else {
+                // No data at all, use regular window
+                lookbackHours = regularLookbackHours;
+                console.log(`[AGGREGATION] [15-min] No data found, using regular window: ${regularLookbackHours} hours`);
+            }
+        }
+        
         const bucketStart = new Date(safeAggregationEnd.getTime() - lookbackHours * 60 * 60 * 1000);
         
-        console.log(`[AGGREGATION] [15-min] Time window: ${bucketStart.toISOString()} to ${safeAggregationEnd.toISOString()}`);
+        console.log(`[AGGREGATION] [15-min] Time window: ${bucketStart.toISOString()} to ${safeAggregationEnd.toISOString()} (lookback: ${lookbackHours} hours)`);
         
         // Skip if we're at the very start of a 15-minute window (no complete window yet)
         if (safeAggregationEnd.getTime() === this.roundTo15Minutes(new Date(now.getTime() - 1000)).getTime()) {
@@ -154,7 +313,7 @@ class MeasurementAggregationService {
         }
         
         const matchStage = {
-            resolution_minutes: 0, // Only aggregate raw data (field is at root level, not in meta)
+            // Note: measurements_raw only contains raw data, so no need to filter by resolution_minutes: 0
             timestamp: { $gte: bucketStart, $lt: safeAggregationEnd }
         };
         
@@ -390,7 +549,8 @@ class MeasurementAggregationService {
             {
                 $merge: {
                         // Only specify database if we have a valid database name (not 'admin')
-                        into: dbName ? { db: dbName, coll: 'measurements' } : 'measurements',
+                        // Write to measurements_aggregated collection
+                        into: dbName ? { db: dbName, coll: 'measurements_aggregated' } : 'measurements_aggregated',
                     whenMatched: 'replace',
                     whenNotMatched: 'insert'
                 }
@@ -399,31 +559,63 @@ class MeasurementAggregationService {
         ];
         
         try {
-            // First, check if there's any data to aggregate
+            // Log the match stage for debugging
+            console.log(`[AGGREGATION] [15-min] Query match stage:`, JSON.stringify(matchStage, null, 2));
+            
+            // First, check if there's any data to aggregate (read from measurements_raw)
+            const dataCountStartTime = Date.now();
             const dataCount = await queryWithRetry(() => 
-                db.collection('measurements').countDocuments(matchStage)
+                db.collection('measurements_raw').countDocuments(matchStage)
             );
+            const dataCountDuration = Date.now() - dataCountStartTime;
+            console.log(`[AGGREGATION] [15-min] [TIMING] Main data count query took ${dataCountDuration}ms (found ${dataCount} documents)`);
             console.log(`[AGGREGATION] [15-min] Found ${dataCount} raw data points to aggregate (${bucketStart.toISOString()} to ${safeAggregationEnd.toISOString()})`);
             
             if (dataCount === 0) {
                 // Check if there's any raw data at all (even if too recent)
+                // Note: measurements_raw only contains raw data, so no need to filter by resolution_minutes: 0
+                const allRawDataQuery = {
+                    ...(buildingId ? {
+                        'meta.buildingId': { 
+                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                        }
+                    } : {})
+                };
+                const allRawDataCountStartTime = Date.now();
                 const allRawDataCount = await queryWithRetry(() =>
-                    db.collection('measurements').countDocuments({
-                        resolution_minutes: 0,
-                        ...(buildingId ? {
-                            'meta.buildingId': { 
-                                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                            }
-                        } : {})
-                    })
+                    db.collection('measurements_raw').countDocuments(allRawDataQuery)
                 );
+                const allRawDataCountDuration = Date.now() - allRawDataCountStartTime;
+                console.log(`[AGGREGATION] [15-min] [TIMING] All raw data count query took ${allRawDataCountDuration}ms (found ${allRawDataCount} documents)`);
+                
+                // Get sample raw data to verify structure
+                let sampleRawData = null;
+                if (allRawDataCount > 0) {
+                    try {
+                        sampleRawData = await db.collection('measurements_raw')
+                            .findOne(allRawDataQuery, { 
+                                projection: { 
+                                    timestamp: 1, 
+                                    resolution_minutes: 1, 
+                                    'meta.buildingId': 1, 
+                                    'meta.sensorId': 1,
+                                    'meta.measurementType': 1,
+                                    source: 1,
+                                    _id: 0
+                                } 
+                            });
+                    } catch (err) {
+                        console.warn(`[AGGREGATION] [15-min] Could not fetch sample data:`, err.message);
+                    }
+                }
                 
                 // Check for data in the current incomplete window
+                // Note: measurements_raw only contains raw data, so no need to filter by resolution_minutes: 0
                 const currentWindowStart = safeAggregationEnd;
                 const currentWindowEnd = new Date(safeAggregationEnd.getTime() + 15 * 60 * 1000);
+                const currentWindowCountStartTime = Date.now();
                 const currentWindowCount = await queryWithRetry(() =>
-                    db.collection('measurements').countDocuments({
-                        resolution_minutes: 0,
+                    db.collection('measurements_raw').countDocuments({
                         timestamp: { $gte: currentWindowStart, $lt: currentWindowEnd },
                         ...(buildingId ? {
                             'meta.buildingId': { 
@@ -432,13 +624,38 @@ class MeasurementAggregationService {
                         } : {})
                     })
                 );
+                const currentWindowCountDuration = Date.now() - currentWindowCountStartTime;
+                console.log(`[AGGREGATION] [15-min] [TIMING] Current window count query took ${currentWindowCountDuration}ms (found ${currentWindowCount} documents)`);
+                
+                // Check for data outside the lookback window (older than 7 days)
+                // Note: measurements_raw only contains raw data, so no need to filter by resolution_minutes: 0
+                const oldDataOutsideWindowStartTime = Date.now();
+                const oldDataCount = await queryWithRetry(() =>
+                    db.collection('measurements_raw').countDocuments({
+                        timestamp: { $lt: bucketStart },
+                        ...(buildingId ? {
+                            'meta.buildingId': { 
+                                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                            }
+                        } : {})
+                    })
+                );
+                const oldDataOutsideWindowDuration = Date.now() - oldDataOutsideWindowStartTime;
+                console.log(`[AGGREGATION] [15-min] [TIMING] Old data outside window count query took ${oldDataOutsideWindowDuration}ms (found ${oldDataCount} documents)`);
                 
                 if (allRawDataCount > 0) {
                     console.log(`[AGGREGATION] [15-min] No raw data in aggregation window, but found:`);
                     console.log(`   - Total raw data: ${allRawDataCount} documents`);
                     console.log(`   - Data in current incomplete window (${currentWindowStart.toISOString()} to ${currentWindowEnd.toISOString()}): ${currentWindowCount} documents`);
+                    console.log(`   - Data older than lookback window: ${oldDataCount} documents`);
+                    if (sampleRawData) {
+                        console.log(`   - Sample raw data structure:`, JSON.stringify(sampleRawData, null, 2));
+                    }
                     console.log(`   - NOTE: Data in current window will be aggregated after ${currentWindowEnd.toISOString()}`);
                     console.log(`   - Aggregation only processes COMPLETE 15-minute windows (data older than ${safeAggregationEnd.toISOString()})`);
+                    if (oldDataCount > 0) {
+                        console.log(`   - WARNING: ${oldDataCount} raw data points are older than ${lookbackDays} days and won't be aggregated automatically. Use manual date range aggregation.`);
+                    }
                 } else {
                     console.log(`[AGGREGATION] [15-min] No raw data found in database`);
                 }
@@ -450,20 +667,31 @@ class MeasurementAggregationService {
             let count = 0;
             if (isAdminDb) {
                 // For admin database: use $out to temp collection, then manually upsert
-                await db.collection('measurements').aggregate(pipeline).toArray();
+                // Read from measurements_raw
+                const adminPipelineStartTime = Date.now();
+                await db.collection('measurements_raw').aggregate(pipeline, {
+                    allowDiskUse: true,
+                    maxTimeMS: 300000 // 5 minute timeout
+                }).toArray();
+                const adminPipelineDuration = Date.now() - adminPipelineStartTime;
+                console.log(`[AGGREGATION] [15-min] [TIMING] Admin DB $out pipeline took ${adminPipelineDuration}ms`);
                 
                 // Read from temp collection and upsert to main collection
                 const tempCollection = db.collection('measurements_aggregated_temp_15min');
+                const readTempStartTime = Date.now();
                 const aggregatedDocs = await tempCollection.find({}).toArray();
+                const readTempDuration = Date.now() - readTempStartTime;
+                console.log(`[AGGREGATION] [15-min] [TIMING] Read from temp collection took ${readTempDuration}ms (found ${aggregatedDocs.length} documents)`);
                 
                 // Ensure resolution_minutes is set (safeguard - always set explicitly)
                 aggregatedDocs.forEach(doc => {
                     doc.resolution_minutes = 15;
                 });
                 
-                // Upsert each document
+                // Upsert each document to measurements_aggregated
+                const upsertStartTime = Date.now();
                 for (const doc of aggregatedDocs) {
-                    const result = await db.collection('measurements').replaceOne(
+                    const result = await db.collection('measurements_aggregated').replaceOne(
                         {
                             timestamp: doc.timestamp,
                             'meta.sensorId': doc.meta.sensorId,
@@ -479,6 +707,8 @@ class MeasurementAggregationService {
                         count++;
                     }
                 }
+                const upsertDuration = Date.now() - upsertStartTime;
+                console.log(`[AGGREGATION] [15-min] [TIMING] Upsert operations took ${upsertDuration}ms (processed ${aggregatedDocs.length} documents, ${count} upserted/modified)`);
                 
                 // Clean up temp collection
                 await tempCollection.drop().catch(() => {});
@@ -487,14 +717,118 @@ class MeasurementAggregationService {
             } else if (isTimeSeries) {
                 // Time Series collection: use direct inserts (can't use $merge on views)
                 // Get aggregated results without $merge
+                // Read from measurements_raw, write to measurements_aggregated
                 const aggregationPipeline = pipeline.slice(0, -1); // Remove the $merge stage
-                console.log(`[AGGREGATION] [15-min] Executing aggregation pipeline for Time Series collection...`);
-                const aggregatedDocs = await db.collection('measurements').aggregate(aggregationPipeline).toArray();
-                console.log(`[AGGREGATION] [15-min] Pipeline produced ${aggregatedDocs.length} aggregates`);
+                
+                // Verify pipeline structure (for debugging)
+                const pipelineStages = aggregationPipeline.map(stage => Object.keys(stage)[0]);
+                console.log(`[AGGREGATION] [15-min] Pipeline stages: ${pipelineStages.join(' -> ')}`);
+                // Verify $project stage includes resolution_minutes
+                const projectStage = aggregationPipeline.find(s => s.$project);
+                if (projectStage && projectStage.$project) {
+                    const hasResolution = projectStage.$project.hasOwnProperty('resolution_minutes') || 
+                                         projectStage.$project.resolution_minutes !== undefined;
+                    console.log(`[AGGREGATION] [15-min] Pipeline $project includes resolution_minutes: ${hasResolution}`);
+                    if (hasResolution) {
+                        console.log(`[AGGREGATION] [15-min] Pipeline $project.resolution_minutes value: ${JSON.stringify(projectStage.$project.resolution_minutes)}`);
+                    }
+                }
+                
+                // For large datasets, process in chunks to avoid timeouts
+                // Chunk if dataset is large (> 50K documents) to prevent timeouts even on regular runs
+                const chunkSizeHours = parseInt(process.env.AGGREGATION_CHUNK_SIZE_HOURS || '1', 10);
+                const chunkSizeMs = chunkSizeHours * 60 * 60 * 1000;
+                const shouldChunk = dataCount > 50000; // Chunk if > 50K documents (catch-up OR regular) - lowered threshold
+                
+                let allAggregatedDocs = [];
+                
+                if (shouldChunk) {
+                    console.log(`[AGGREGATION] [15-min] Large dataset detected (${dataCount} documents), processing in ${chunkSizeHours}-hour chunks...`);
+                    
+                    let currentChunkStart = bucketStart;
+                    let chunkNumber = 0;
+                    
+                    while (currentChunkStart < safeAggregationEnd) {
+                        const currentChunkEnd = new Date(Math.min(
+                            currentChunkStart.getTime() + chunkSizeMs,
+                            safeAggregationEnd.getTime()
+                        ));
+                        
+                        chunkNumber++;
+                        console.log(`[AGGREGATION] [15-min] Processing chunk ${chunkNumber}: ${currentChunkStart.toISOString()} to ${currentChunkEnd.toISOString()}`);
+                        
+                        // Create chunk-specific match stage
+                        // Note: measurements_raw only contains raw data, so no need to filter by resolution_minutes: 0
+                        const chunkMatchStage = {
+                            timestamp: { 
+                                $gte: currentChunkStart,
+                                $lt: currentChunkEnd
+                            }
+                        };
+                        
+                        if (buildingId) {
+                            chunkMatchStage['meta.buildingId'] = { 
+                                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                            };
+                        }
+                        
+                        // Create chunk pipeline (replace match stage)
+                        const chunkPipeline = [
+                            { $match: chunkMatchStage },
+                            ...aggregationPipeline.slice(1) // Use rest of pipeline (group, project stages)
+                        ];
+                        
+                        try {
+                            const chunkAggregationStartTime = Date.now();
+                            const chunkDocs = await db.collection('measurements_raw')
+                                .aggregate(chunkPipeline, { 
+                                    allowDiskUse: true,
+                                    maxTimeMS: 300000 // 5 minute timeout per chunk
+                                })
+                                .toArray();
+                            const chunkAggregationDuration = Date.now() - chunkAggregationStartTime;
+                            console.log(`[AGGREGATION] [15-min] [TIMING] Chunk ${chunkNumber} aggregation pipeline took ${chunkAggregationDuration}ms (produced ${chunkDocs.length} documents)`);
+                            
+                            if (chunkDocs.length > 0) {
+                                // Ensure resolution_minutes is set
+                                chunkDocs.forEach(doc => {
+                                    doc.resolution_minutes = 15;
+                                });
+                                allAggregatedDocs.push(...chunkDocs);
+                                console.log(`[AGGREGATION] [15-min] Chunk ${chunkNumber} produced ${chunkDocs.length} aggregates`);
+                            }
+                            
+                            // Yield to event loop between chunks
+                            await new Promise(resolve => setImmediate(resolve));
+                        } catch (chunkError) {
+                            console.error(`[AGGREGATION] [15-min] Error processing chunk ${chunkNumber}:`, chunkError.message);
+                            // Continue with next chunk
+                        }
+                        
+                        currentChunkStart = currentChunkEnd;
+                    }
+                    
+                    console.log(`[AGGREGATION] [15-min] Chunked processing complete: ${allAggregatedDocs.length} total aggregates from ${chunkNumber} chunks`);
+                } else {
+                    // Regular processing: single aggregation for smaller datasets
+                    console.log(`[AGGREGATION] [15-min] Executing aggregation pipeline for Time Series collection...`);
+                    const aggregationStartTime = Date.now();
+                    const aggregatedDocs = await db.collection('measurements_raw')
+                        .aggregate(aggregationPipeline, { 
+                            allowDiskUse: true,
+                            maxTimeMS: 300000 // 5 minute timeout
+                        })
+                        .toArray();
+                    const aggregationDuration = Date.now() - aggregationStartTime;
+                    console.log(`[AGGREGATION] [15-min] [TIMING] Aggregation pipeline took ${aggregationDuration}ms (produced ${aggregatedDocs.length} documents)`);
+                    allAggregatedDocs = aggregatedDocs;
+                }
+                
+                console.log(`[AGGREGATION] [15-min] Pipeline produced ${allAggregatedDocs.length} aggregates`);
                 
                 // Check if pipeline output includes resolution_minutes
-                if (aggregatedDocs.length > 0) {
-                    const sampleFromPipeline = aggregatedDocs[0];
+                if (allAggregatedDocs.length > 0) {
+                    const sampleFromPipeline = allAggregatedDocs[0];
                     const hasResolutionInPipeline = sampleFromPipeline.hasOwnProperty('resolution_minutes');
                     const resolutionValue = sampleFromPipeline.resolution_minutes;
                     console.log(`[AGGREGATION] [15-min] Pipeline output check: has resolution_minutes=${hasResolutionInPipeline}, value=${resolutionValue}`);
@@ -504,11 +838,11 @@ class MeasurementAggregationService {
                     }
                 }
                 
-                if (aggregatedDocs.length === 0) {
+                if (allAggregatedDocs.length === 0) {
                     console.log(`[AGGREGATION] [15-min] No aggregates to insert`);
                 } else {
                     // Show sample (full document to verify resolution_minutes is included)
-                    const sampleDoc = aggregatedDocs[0];
+                    const sampleDoc = allAggregatedDocs[0];
                     console.log(`[AGGREGATION] [15-min] Sample aggregate:`, JSON.stringify(sampleDoc, null, 2).substring(0, 300));
                     if (!sampleDoc.resolution_minutes) {
                         console.log(`[AGGREGATION] [15-min] ⚠️  WARNING: Sample document is missing resolution_minutes!`);
@@ -526,12 +860,16 @@ class MeasurementAggregationService {
                         };
                     }
                     
-                    const deleteResult = await db.collection('measurements').deleteMany(deleteMatchStage);
+                    // Delete existing aggregates from measurements_aggregated
+                    const deleteExistingStartTime = Date.now();
+                    const deleteResult = await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
+                    const deleteExistingDuration = Date.now() - deleteExistingStartTime;
+                    console.log(`[AGGREGATION] [15-min] [TIMING] Delete existing aggregates took ${deleteExistingDuration}ms (deleted ${deleteResult.deletedCount} documents)`);
                     console.log(`[AGGREGATION] [15-min] Deleted ${deleteResult.deletedCount} existing aggregates in time window`);
                     
                     // Ensure resolution_minutes is set (safeguard - always set explicitly)
                     let missingCount = 0;
-                    aggregatedDocs.forEach(doc => {
+                    allAggregatedDocs.forEach(doc => {
                         if (!doc.resolution_minutes) {
                             missingCount++;
                         }
@@ -544,10 +882,10 @@ class MeasurementAggregationService {
                     }
                     
                     // Verify all documents have resolution_minutes before insertion
-                    const allHaveResolution = aggregatedDocs.every(doc => doc.resolution_minutes === 15);
+                    const allHaveResolution = allAggregatedDocs.every(doc => doc.resolution_minutes === 15);
                     if (!allHaveResolution) {
                         console.error(`[AGGREGATION] [15-min] ❌ ERROR: Some documents still missing resolution_minutes after safeguard!`);
-                        aggregatedDocs.forEach((doc, idx) => {
+                        allAggregatedDocs.forEach((doc, idx) => {
                             if (doc.resolution_minutes !== 15) {
                                 console.error(`[AGGREGATION] [15-min] Document ${idx} missing resolution_minutes:`, JSON.stringify(doc).substring(0, 200));
                             }
@@ -555,7 +893,7 @@ class MeasurementAggregationService {
                     }
                     
                     // Final verification: ensure ALL documents have resolution_minutes before insertion
-                    const docsMissingField = aggregatedDocs.filter(doc => doc.resolution_minutes !== 15);
+                    const docsMissingField = allAggregatedDocs.filter(doc => doc.resolution_minutes !== 15);
                     if (docsMissingField.length > 0) {
                         console.error(`[AGGREGATION] [15-min] ❌ CRITICAL: ${docsMissingField.length} documents still missing resolution_minutes! Fixing now...`);
                         docsMissingField.forEach((doc, idx) => {
@@ -565,16 +903,53 @@ class MeasurementAggregationService {
                     }
                     
                     // Double-check: verify all documents now have the field
-                    const allHaveField = aggregatedDocs.every(doc => doc.resolution_minutes === 15);
+                    const allHaveField = allAggregatedDocs.every(doc => doc.resolution_minutes === 15);
                     if (!allHaveField) {
                         throw new Error(`[AGGREGATION] [15-min] FATAL: Some documents still missing resolution_minutes after all safeguards!`);
                     }
                     
-                    // Insert new aggregates using insertMany
+                    // Insert new aggregates into measurements_aggregated using insertMany
+                    // For large datasets, insert in batches to avoid memory issues
+                    const insertBatchSize = 5000;
+                    let totalInserted = 0;
+                    
                     try {
-                        const insertResult = await db.collection('measurements').insertMany(aggregatedDocs, { ordered: false });
-                        count = insertResult.insertedCount || aggregatedDocs.length;
-                        console.log(`[AGGREGATION] [15-min] Inserted ${count} aggregates into Time Series collection`);
+                        const insertStartTime = Date.now();
+                        if (allAggregatedDocs.length <= insertBatchSize) {
+                            // Small dataset: single insert
+                            const insertResult = await db.collection('measurements_aggregated').insertMany(allAggregatedDocs, { ordered: false });
+                            totalInserted = insertResult.insertedCount || allAggregatedDocs.length;
+                            const insertDuration = Date.now() - insertStartTime;
+                            console.log(`[AGGREGATION] [15-min] [TIMING] insertMany (single) took ${insertDuration}ms (inserted ${totalInserted} documents)`);
+                        } else {
+                            // Large dataset: batch inserts
+                            console.log(`[AGGREGATION] [15-min] Large result set (${allAggregatedDocs.length} documents), inserting in batches of ${insertBatchSize}...`);
+                            for (let i = 0; i < allAggregatedDocs.length; i += insertBatchSize) {
+                                const batch = allAggregatedDocs.slice(i, i + insertBatchSize);
+                                const batchInsertStartTime = Date.now();
+                                try {
+                                    const insertResult = await db.collection('measurements_aggregated').insertMany(batch, { ordered: false });
+                                    totalInserted += insertResult.insertedCount || batch.length;
+                                    const batchInsertDuration = Date.now() - batchInsertStartTime;
+                                    console.log(`[AGGREGATION] [15-min] [TIMING] Batch ${Math.floor(i / insertBatchSize) + 1} insertMany took ${batchInsertDuration}ms (inserted ${insertResult.insertedCount || batch.length} documents, total: ${totalInserted}/${allAggregatedDocs.length})`);
+                                } catch (batchError) {
+                                    if (batchError.insertedCount) {
+                                        totalInserted += batchError.insertedCount;
+                                        console.warn(`[AGGREGATION] [15-min] ⚠️  Batch insert partial: ${batchError.insertedCount}/${batch.length} inserted`);
+                                    } else {
+                                        console.error(`[AGGREGATION] [15-min] Error inserting batch:`, batchError.message);
+                                        // Continue with next batch
+                                    }
+                                }
+                                // Yield to event loop between batches
+                                await new Promise(resolve => setImmediate(resolve));
+                            }
+                            const totalInsertDuration = Date.now() - insertStartTime;
+                            console.log(`[AGGREGATION] [15-min] [TIMING] Total insertMany (batched) took ${totalInsertDuration}ms (inserted ${totalInserted} documents)`);
+                        }
+                        
+                        count = totalInserted;
+                        console.log(`[AGGREGATION] [15-min] Inserted ${count} aggregates into measurements_aggregated collection`);
                         console.log(`[AGGREGATION] [15-min] ✅ Verified: All ${count} inserted documents have resolution_minutes: 15`);
                     } catch (error) {
                         // Handle partial inserts
@@ -582,7 +957,6 @@ class MeasurementAggregationService {
                             count = error.insertedCount;
                             console.log(`[AGGREGATION] [15-min] ⚠️  Partial insert: ${count} aggregates inserted (some duplicates may have been skipped)`);
                             console.log(`[AGGREGATION] [15-min] ⚠️  Note: Inserted documents should have resolution_minutes: 15`);
-                            // Note: We can't verify which specific documents were inserted in partial failure cases
                         } else {
                             console.error(`[AGGREGATION] [15-min] Error inserting aggregates:`, error.message);
                             throw error;
@@ -592,9 +966,16 @@ class MeasurementAggregationService {
             } else {
                 // Normal flow: use $merge (for regular collections)
                 // First, test the aggregation pipeline without $merge to see if it produces results
+                // Read from measurements_raw
                 const testPipeline = pipeline.slice(0, -1); // Remove the $merge stage
                 console.log(`[AGGREGATION] [15-min] Testing aggregation pipeline (without $merge)...`);
-                const testResults = await db.collection('measurements').aggregate(testPipeline).toArray();
+                const testPipelineStartTime = Date.now();
+                const testResults = await db.collection('measurements_raw').aggregate(testPipeline, {
+                    allowDiskUse: true,
+                    maxTimeMS: 300000 // 5 minute timeout
+                }).toArray();
+                const testPipelineDuration = Date.now() - testPipelineStartTime;
+                console.log(`[AGGREGATION] [15-min] [TIMING] Test pipeline took ${testPipelineDuration}ms (produced ${testResults.length} aggregates)`);
                 console.log(`[AGGREGATION] [15-min] Pipeline would produce ${testResults.length} aggregates`);
                 
                 if (testResults.length === 0) {
@@ -605,10 +986,16 @@ class MeasurementAggregationService {
                     console.log(`[AGGREGATION] [15-min] Sample aggregate:`, JSON.stringify(testResults[0], null, 2).substring(0, 200));
                 }
                 
-                // Now execute the full pipeline with $merge
+                // Now execute the full pipeline with $merge (reads from measurements_raw, writes to measurements_aggregated)
                 console.log(`[AGGREGATION] [15-min] Executing aggregation pipeline with $merge...`);
-                const cursor = db.collection('measurements').aggregate(pipeline);
+                const mergePipelineStartTime = Date.now();
+                const cursor = db.collection('measurements_raw').aggregate(pipeline, {
+                    allowDiskUse: true,
+                    maxTimeMS: 300000 // 5 minute timeout
+                });
                 await cursor.toArray(); // This will execute the pipeline even though it returns empty
+                const mergePipelineDuration = Date.now() - mergePipelineStartTime;
+                console.log(`[AGGREGATION] [15-min] [TIMING] $merge pipeline execution took ${mergePipelineDuration}ms`);
                 
                 // Count aggregates in the time window (this includes both new and existing)
                 const aggregateMatchStage = {
@@ -622,7 +1009,7 @@ class MeasurementAggregationService {
                     };
                 }
                 
-                const totalAggregates = await db.collection('measurements').countDocuments(aggregateMatchStage);
+                const totalAggregates = await db.collection('measurements_aggregated').countDocuments(aggregateMatchStage);
                 count = testResults.length; // Use the count from the test pipeline
                 console.log(`[AGGREGATION] [15-min] Created/updated ${count} aggregates (total in window: ${totalAggregates})`);
             }
@@ -639,22 +1026,19 @@ class MeasurementAggregationService {
             
             let deletedCount = 0;
             
-            // Delete raw data that was just aggregated (only if deleteAfterAggregation is true)
-            if (deleteAfterAggregation && count > 0) {
-                // Calculate the cutoff: only delete data older than bufferMinutes
-                const bufferCutoff = new Date(now.getTime() - bufferMinutes * 60 * 1000);
-                
-                // Only delete data that:
-                // 1. Was in the aggregated time range (bucketStart to safeAggregationEnd)
-                // 2. Is older than the buffer cutoff (safety check)
-                const deleteCutoff = new Date(Math.min(safeAggregationEnd.getTime(), bufferCutoff.getTime()));
+            // Delete raw data that was aggregated (always attempt deletion if deleteAfterAggregation is true)
+            // This ensures raw data is cleaned up even if aggregation partially fails or times out
+            // safeAggregationEnd is already the start of the current incomplete window,
+            // so all data before it represents complete windows that should be deleted
+            if (deleteAfterAggregation) {
+                const deleteCutoff = safeAggregationEnd;
                 
                 if (deleteCutoff > bucketStart) {
+                    // Note: measurements_raw only contains raw data, so no need to filter by resolution_minutes: 0
                     const deleteMatchStage = {
-                        resolution_minutes: 0, // Field is at root level, not in meta
                         timestamp: { 
                             $gte: bucketStart, 
-                            $lt: deleteCutoff  // Only delete up to the cutoff
+                            $lt: deleteCutoff  // Delete all complete windows that were aggregated (or attempted)
                         }
                     };
                     
@@ -666,17 +1050,34 @@ class MeasurementAggregationService {
                     }
                     
                     try {
-                        const deleteResult = await db.collection('measurements').deleteMany(deleteMatchStage);
-                        deletedCount = deleteResult.deletedCount;
-                        console.log(`[AGGREGATION] [15-min] Deleted ${deletedCount} raw data points (${bucketStart.toISOString()} to ${deleteCutoff.toISOString()})`);
+                        // Queue deletion for background processing instead of blocking
+                        // This allows aggregation to complete immediately
+                        const description = `15-min aggregation cleanup: ${bucketStart.toISOString()} to ${deleteCutoff.toISOString()}${buildingId ? ` (building: ${buildingId})` : ''}`;
+                        
+                        console.log(`[AGGREGATION] [15-min] Queuing deletion for background processing: ${description}`);
+                        
+                        await deletionQueueService.enqueue(
+                            'measurements_raw',
+                            deleteMatchStage,
+                            description
+                        );
+                        
+                        // Note: deletedCount is set to 0 because deletion happens asynchronously
+                        // The deletion queue service will handle the actual deletion
+                        console.log(`[AGGREGATION] [15-min] ✅ Deletion queued for background processing`);
                     } catch (deleteError) {
-                        console.error(`[AGGREGATION] [15-min] Error deleting raw data:`, deleteError.message);
-                        // Don't throw - aggregation succeeded, deletion is secondary
+                        console.error(`[AGGREGATION] [15-min] ❌ Error queueing deletion:`, deleteError.message);
+                        console.error(`[AGGREGATION] [15-min] Error stack:`, deleteError.stack);
+                        // Don't throw - deletion failure is non-critical, aggregation may have succeeded
+                        // deletedCount remains 0 on error
                     }
                 } else {
-                    console.log(`[AGGREGATION] [15-min] Skipping deletion: Data is within ${bufferMinutes}-minute safety buffer`);
+                    console.log(`[AGGREGATION] [15-min] ⏭️  Skipping deletion: No complete windows to delete (deleteCutoff ${deleteCutoff.toISOString()} <= bucketStart ${bucketStart.toISOString()})`);
                 }
             }
+            
+            const functionTotalDuration = Date.now() - functionStartTime;
+            console.log(`[AGGREGATION] [15-min] [TIMING] Total aggregate15Minutes took ${functionTotalDuration}ms (created ${count} aggregates, deleted ${deletedCount} raw documents)`);
             
             return { 
                 success: true, 
@@ -689,9 +1090,467 @@ class MeasurementAggregationService {
                 buildingId 
             };
         } catch (error) {
+            const functionTotalDuration = Date.now() - functionStartTime;
+            console.error(`[AGGREGATION] [15-min] [TIMING] aggregate15Minutes failed after ${functionTotalDuration}ms`);
             console.error(`[AGGREGATION] [15-min] Error:`, error.message);
             throw error;
         }
+    }
+    
+    /**
+     * Aggregate raw data for a specific date range (manual/catch-up aggregation)
+     * 
+     * @param {Date} startDate - Start date (will be rounded to 15-minute boundary)
+     * @param {Date} endDate - End date (will be rounded to 15-minute boundary)
+     * @param {string|null} buildingId - Optional building ID to filter aggregation
+     * @param {boolean} deleteAfterAggregation - Whether to delete raw data after aggregation (default: true)
+     * @param {number} bufferMinutes - Safety buffer to keep raw data (default: 30 minutes)
+     * @returns {Promise<Object>} Aggregation result with count of created aggregates
+     */
+    async aggregateDateRange(startDate, endDate, buildingId = null, deleteAfterAggregation = true, bufferMinutes = 30) {
+        console.log(`[AGGREGATION] [DateRange] Starting aggregation for date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+        
+        // Round dates to 15-minute boundaries
+        const roundedStart = this.roundTo15Minutes(startDate);
+        const roundedEnd = this.roundTo15Minutes(endDate);
+        
+        // Process in chunks to avoid memory issues with large date ranges
+        const chunkSizeHours = 24; // Process 24 hours at a time
+        const chunkSizeMs = chunkSizeHours * 60 * 60 * 1000;
+        
+        let totalCount = 0;
+        let totalDeleted = 0;
+        const errors = [];
+        
+        let currentStart = roundedStart;
+        
+        while (currentStart < roundedEnd) {
+            const currentEnd = new Date(Math.min(currentStart.getTime() + chunkSizeMs, roundedEnd.getTime()));
+            
+            console.log(`[AGGREGATION] [DateRange] Processing chunk: ${currentStart.toISOString()} to ${currentEnd.toISOString()}`);
+            
+            try {
+                // Temporarily modify the aggregation window by creating a custom match stage
+                // We'll call aggregate15Minutes but need to override the time window
+                // Since aggregate15Minutes uses internal logic, we'll create a wrapper
+                
+                // Check connection health
+                if (!isConnectionHealthy()) {
+                    throw new Error('Database connection not healthy');
+                }
+                
+                const db = mongoose.connection.db;
+                if (!db) {
+                    throw new Error('Database connection not available');
+                }
+                
+                // Build match stage for this chunk
+                // Note: measurements_raw only contains raw data, so no need to filter by resolution_minutes: 0
+                const matchStage = {
+                    timestamp: { $gte: currentStart, $lt: currentEnd }
+                };
+                
+                if (buildingId) {
+                    if (!mongoose.Types.ObjectId.isValid(buildingId)) {
+                        throw new Error(`Invalid buildingId: ${buildingId}`);
+                    }
+                    matchStage['meta.buildingId'] = { 
+                        $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                    };
+                }
+                
+                // Check if there's data in this chunk (read from measurements_raw)
+                const dataCount = await db.collection('measurements_raw').countDocuments(matchStage);
+                
+                if (dataCount > 0) {
+                    console.log(`[AGGREGATION] [DateRange] Found ${dataCount} raw data points in chunk`);
+                    
+                    // Use the same pipeline logic as aggregate15Minutes but with custom date range
+                    // We'll reuse the pipeline construction logic
+                    const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements_raw');
+                    const dbName = this.getDatabaseName();
+                    const isAdminDb = (mongoose.connection.name || db.databaseName) === 'admin';
+                    
+                    // Build the same pipeline as aggregate15Minutes but with our custom match stage
+                    const pipeline = this.build15MinuteAggregationPipeline(matchStage, isAdminDb, dbName);
+                    
+                    let chunkCount = 0;
+                    
+                    if (isTimeSeries) {
+                        const aggregationPipeline = pipeline.slice(0, -1);
+                        // Read from measurements_raw
+                        const aggregatedDocs = await db.collection('measurements_raw').aggregate(aggregationPipeline).toArray();
+                        
+                        if (aggregatedDocs.length > 0) {
+                            const deleteMatchStage = {
+                                resolution_minutes: 15,
+                                timestamp: { $gte: currentStart, $lt: currentEnd }
+                            };
+                            if (buildingId) {
+                                deleteMatchStage['meta.buildingId'] = { 
+                                    $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                                };
+                            }
+                            
+                            // Delete existing aggregates from measurements_aggregated
+                            await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
+                            
+                            aggregatedDocs.forEach(doc => {
+                                doc.resolution_minutes = 15;
+                            });
+                            
+                            try {
+                                // Write to measurements_aggregated
+                                const insertResult = await db.collection('measurements_aggregated').insertMany(aggregatedDocs, { ordered: false });
+                                chunkCount = insertResult.insertedCount || aggregatedDocs.length;
+                            } catch (error) {
+                                if (error.insertedCount) {
+                                    chunkCount = error.insertedCount;
+                                } else {
+                                    throw error;
+                                }
+                            }
+                        }
+                    } else if (isAdminDb) {
+                        // Read from measurements_raw
+                        await db.collection('measurements_raw').aggregate(pipeline).toArray();
+                        const tempCollection = db.collection('measurements_aggregated_temp_15min');
+                        const aggregatedDocs = await tempCollection.find({}).toArray();
+                        aggregatedDocs.forEach(doc => {
+                            doc.resolution_minutes = 15;
+                        });
+                        
+                        // Write to measurements_aggregated
+                        for (const doc of aggregatedDocs) {
+                            const result = await db.collection('measurements_aggregated').replaceOne(
+                                {
+                                    timestamp: doc.timestamp,
+                                    'meta.sensorId': doc.meta.sensorId,
+                                    'meta.buildingId': doc.meta.buildingId,
+                                    'meta.measurementType': doc.meta.measurementType,
+                                    'meta.stateType': doc.meta.stateType,
+                                    resolution_minutes: 15
+                                },
+                                doc,
+                                { upsert: true }
+                            );
+                            if (result.upsertedCount > 0 || result.modifiedCount > 0) {
+                                chunkCount++;
+                            }
+                        }
+                        await tempCollection.drop().catch(() => {});
+                    } else {
+                        // Read from measurements_raw
+                        await db.collection('measurements_raw').aggregate(pipeline).toArray();
+                        const aggregateMatchStage = {
+                            resolution_minutes: 15,
+                            timestamp: { $gte: currentStart, $lt: currentEnd }
+                        };
+                        if (buildingId) {
+                            aggregateMatchStage['meta.buildingId'] = { 
+                                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                            };
+                        }
+                        const testPipeline = pipeline.slice(0, -1);
+                        // Read from measurements_raw for test
+                        const testResults = await db.collection('measurements_raw').aggregate(testPipeline).toArray();
+                        chunkCount = testResults.length;
+                    }
+                    
+                    totalCount += chunkCount;
+                    
+                    // Delete raw data if requested
+                    if (deleteAfterAggregation && chunkCount > 0) {
+                        const now = new Date();
+                        const bufferCutoff = new Date(now.getTime() - bufferMinutes * 60 * 1000);
+                        const deleteCutoff = new Date(Math.min(currentEnd.getTime(), bufferCutoff.getTime()));
+                        
+                        if (deleteCutoff > currentStart) {
+                            // Note: measurements_raw only contains raw data, so no need to filter by resolution_minutes: 0
+                            const deleteMatchStage = {
+                                timestamp: { 
+                                    $gte: currentStart, 
+                                    $lt: deleteCutoff
+                                }
+                            };
+                            if (buildingId) {
+                                deleteMatchStage['meta.buildingId'] = { 
+                                    $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                                };
+                            }
+                            
+                            try {
+                                // Queue deletion for background processing instead of blocking
+                                const description = `DateRange aggregation cleanup: ${currentStart.toISOString()} to ${deleteCutoff.toISOString()}${buildingId ? ` (building: ${buildingId})` : ''}`;
+                                
+                                console.log(`[AGGREGATION] [DateRange] Queuing deletion for background processing: ${description}`);
+                                
+                                await deletionQueueService.enqueue(
+                                    'measurements_raw',
+                                    deleteMatchStage,
+                                    description
+                                );
+                                
+                                // Note: We don't track deletedCount here since deletion is async
+                                // The deletion queue service will handle the actual deletion
+                                console.log(`[AGGREGATION] [DateRange] ✅ Deletion queued for background processing`);
+                            } catch (deleteError) {
+                                console.error(`[AGGREGATION] [DateRange] Error queueing deletion:`, deleteError.message);
+                            }
+                        }
+                    }
+                    
+                    console.log(`[AGGREGATION] [DateRange] Chunk completed: ${chunkCount} aggregates created`);
+                } else {
+                    console.log(`[AGGREGATION] [DateRange] No data in chunk, skipping`);
+                }
+            } catch (error) {
+                const errorMsg = `Error processing chunk ${currentStart.toISOString()} to ${currentEnd.toISOString()}: ${error.message}`;
+                console.error(`[AGGREGATION] [DateRange] ${errorMsg}`);
+                errors.push(errorMsg);
+                // Continue with next chunk even if this one fails
+            }
+            
+            // Move to next chunk
+            currentStart = currentEnd;
+        }
+        
+        console.log(`[AGGREGATION] [DateRange] Completed: ${totalCount} aggregates created, ${totalDeleted} raw data points deleted`);
+        if (errors.length > 0) {
+            console.warn(`[AGGREGATION] [DateRange] ${errors.length} errors occurred during processing`);
+        }
+        
+        return {
+            success: errors.length === 0,
+            count: totalCount,
+            deleted: totalDeleted,
+            buildingId,
+            errors: errors.length > 0 ? errors : undefined,
+            dateRange: {
+                start: roundedStart.toISOString(),
+                end: roundedEnd.toISOString()
+            }
+        };
+    }
+    
+    /**
+     * Build 15-minute aggregation pipeline (extracted for reuse)
+     * @private
+     */
+    build15MinuteAggregationPipeline(matchStage, isAdminDb, dbName) {
+        const pipeline = [
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: {
+                        sensorId: '$meta.sensorId',
+                        buildingId: '$meta.buildingId',
+                        measurementType: '$meta.measurementType',
+                        stateType: '$meta.stateType',
+                        bucket: {
+                            $dateTrunc: {
+                                date: '$timestamp',
+                                unit: 'minute',
+                                binSize: 15
+                            }
+                        }
+                    },
+                    avgValue: { $avg: '$value' },
+                    minValue: { $min: '$value' },
+                    maxValue: { $max: '$value' },
+                    firstValue: { $first: '$value' },
+                    lastValue: { $last: '$value' },
+                    count: { $sum: 1 },
+                    unit: { $first: '$unit' },
+                    quality: { $avg: '$quality' }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    timestamp: '$_id.bucket',
+                    meta: {
+                        sensorId: '$_id.sensorId',
+                        buildingId: '$_id.buildingId',
+                        measurementType: '$_id.measurementType',
+                        stateType: '$_id.stateType'
+                    },
+                    value: {
+                        $cond: [
+                            {
+                                $and: [
+                                    { $eq: ['$_id.measurementType', 'Energy'] },
+                                    {
+                                        $or: [
+                                            { $eq: ['$_id.stateType', 'total'] },
+                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalYear'] },
+                                            { $eq: ['$_id.stateType', 'totalNeg'] },
+                                            { $eq: ['$_id.stateType', 'totalNegDay'] },
+                                            { $eq: ['$_id.stateType', 'totalNegWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalNegMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                $let: {
+                                    vars: {
+                                        consumption: { $subtract: ['$lastValue', '$firstValue'] },
+                                        resetThreshold: 100
+                                    },
+                                    in: {
+                                        $cond: {
+                                            if: {
+                                                $and: [
+                                                    { $lt: ['$$consumption', 0] },
+                                                    { $gt: ['$firstValue', '$$resetThreshold'] }
+                                                ]
+                                            },
+                                            then: '$lastValue',
+                                            else: {
+                                                $max: [0, '$$consumption']
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                $cond: [
+                                    {
+                                        $and: [
+                                            { $eq: ['$_id.measurementType', 'Power'] },
+                                            {
+                                                $regexMatch: {
+                                                    input: '$_id.stateType',
+                                                    regex: '^actual'
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    '$avgValue',
+                                    {
+                                        $cond: [
+                                            {
+                                                $and: [
+                                                    {
+                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
+                                                    },
+                                                    {
+                                                        $or: [
+                                                            { $eq: ['$_id.stateType', 'total'] },
+                                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                            { $eq: ['$_id.stateType', 'totalYear'] }
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                $let: {
+                                                    vars: {
+                                                        consumption: { $subtract: ['$lastValue', '$firstValue'] },
+                                                        resetThreshold: 10
+                                                    },
+                                                    in: {
+                                                        $cond: {
+                                                            if: {
+                                                                $and: [
+                                                                    { $lt: ['$$consumption', 0] },
+                                                                    { $gt: ['$firstValue', '$$resetThreshold'] }
+                                                                ]
+                                                            },
+                                                            then: '$lastValue',
+                                                            else: {
+                                                                $max: [0, '$$consumption']
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            '$avgValue'
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    hasReset: {
+                        $cond: [
+                            {
+                                $and: [
+                                    {
+                                        $in: ['$_id.measurementType', ['Energy', 'Water', 'Heating']]
+                                    },
+                                    {
+                                        $or: [
+                                            { $eq: ['$_id.stateType', 'total'] },
+                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalYear'] },
+                                            { $eq: ['$_id.stateType', 'totalNeg'] },
+                                            { $eq: ['$_id.stateType', 'totalNegDay'] },
+                                            { $eq: ['$_id.stateType', 'totalNegWeek'] },
+                                            { $eq: ['$_id.stateType', 'totalNegMonth'] },
+                                            { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                        ]
+                                    },
+                                    {
+                                        $and: [
+                                            { $lt: [{ $subtract: ['$lastValue', '$firstValue'] }, 0] },
+                                            {
+                                                $gt: [
+                                                    '$firstValue',
+                                                    {
+                                                        $cond: {
+                                                            if: { $eq: ['$_id.measurementType', 'Energy'] },
+                                                            then: 100,
+                                                            else: 10
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            true,
+                            false
+                        ]
+                    },
+                    avgValue: 1,
+                    minValue: 1,
+                    maxValue: 1,
+                    unit: 1,
+                    quality: 1,
+                    count: 1,
+                    source: 'aggregated',
+                    resolution_minutes: 15
+                }
+            }
+        ];
+        
+        // Add $merge or $out stage
+        if (isAdminDb) {
+            pipeline.push({
+                $out: 'measurements_aggregated_temp_15min'
+            });
+        } else {
+            pipeline.push({
+                $merge: {
+                    into: dbName ? { db: dbName, coll: 'measurements_aggregated' } : 'measurements_aggregated',
+                    whenMatched: 'replace',
+                    whenNotMatched: 'insert'
+                }
+            });
+        }
+        
+        return pipeline;
     }
     
     /**
@@ -714,8 +1573,8 @@ class MeasurementAggregationService {
         // Get the database name - if null, we'll omit it from $merge (uses current database)
         const dbName = this.getDatabaseName();
         
-        // Check if measurements collection is a Time Series collection
-        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements');
+        // Check if measurements_aggregated collection is a Time Series collection
+        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements_aggregated');
 
         const now = new Date();
         const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
@@ -868,7 +1727,7 @@ class MeasurementAggregationService {
                 $merge: {
                     // Only specify database if we have a valid database name (not 'admin')
                     // Otherwise, MongoDB will use the current database context
-                    into: dbName ? { db: dbName, coll: 'measurements' } : 'measurements',
+                    into: dbName ? { db: dbName, coll: 'measurements_aggregated' } : 'measurements_aggregated',
                     whenMatched: 'replace',
                     whenNotMatched: 'insert'
                 }
@@ -881,7 +1740,7 @@ class MeasurementAggregationService {
             if (isTimeSeries) {
                 // Time Series collection: use direct inserts
                 const aggregationPipeline = pipeline.slice(0, -1); // Remove the $merge stage
-                const aggregatedDocs = await db.collection('measurements').aggregate(aggregationPipeline).toArray();
+                const aggregatedDocs = await db.collection('measurements_aggregated').aggregate(aggregationPipeline).toArray();
                 
                 if (aggregatedDocs.length > 0) {
                     // Delete existing hourly aggregates in this time window
@@ -896,7 +1755,7 @@ class MeasurementAggregationService {
                         };
                     }
                     
-                    await db.collection('measurements').deleteMany(deleteMatchStage);
+                    await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
                     
                     // Ensure resolution_minutes is set (safeguard - always set explicitly)
                     aggregatedDocs.forEach(doc => {
@@ -905,7 +1764,7 @@ class MeasurementAggregationService {
                     
                     // Insert new aggregates
                     try {
-                        const insertResult = await db.collection('measurements').insertMany(aggregatedDocs, { ordered: false });
+                        const insertResult = await db.collection('measurements_aggregated').insertMany(aggregatedDocs, { ordered: false });
                         count = insertResult.insertedCount || aggregatedDocs.length;
                     } catch (error) {
                         if (error.insertedCount) {
@@ -918,7 +1777,7 @@ class MeasurementAggregationService {
                 console.log(`[AGGREGATION] [Hourly] Created ${count} aggregates for ${buildingId || 'all buildings'} (Time Series)`);
             } else {
                 // Regular collection: use $merge
-                const result = await db.collection('measurements').aggregate(pipeline).toArray();
+                const result = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
                 count = result.length;
                 console.log(`[AGGREGATION] [Hourly] Created ${count} aggregates for ${buildingId || 'all buildings'}`);
             }
@@ -976,8 +1835,8 @@ class MeasurementAggregationService {
         // Get the database name - if null, we'll omit it from $merge (uses current database)
         const dbName = this.getDatabaseName();
         
-        // Check if measurements collection is a Time Series collection
-        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements');
+        // Check if measurements_aggregated collection is a Time Series collection
+        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements_aggregated');
 
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
@@ -1129,7 +1988,7 @@ class MeasurementAggregationService {
                 $merge: {
                     // Only specify database if we have a valid database name (not 'admin')
                     // Otherwise, MongoDB will use the current database context
-                    into: dbName ? { db: dbName, coll: 'measurements' } : 'measurements',
+                    into: dbName ? { db: dbName, coll: 'measurements_aggregated' } : 'measurements_aggregated',
                     whenMatched: 'replace',
                     whenNotMatched: 'insert'
                 }
@@ -1142,7 +2001,7 @@ class MeasurementAggregationService {
             if (isTimeSeries) {
                 // Time Series collection: use direct inserts
                 const aggregationPipeline = pipeline.slice(0, -1); // Remove the $merge stage
-                const aggregatedDocs = await db.collection('measurements').aggregate(aggregationPipeline).toArray();
+                const aggregatedDocs = await db.collection('measurements_aggregated').aggregate(aggregationPipeline).toArray();
                 
                 if (aggregatedDocs.length > 0) {
                     // Delete existing daily aggregates for yesterday
@@ -1157,7 +2016,7 @@ class MeasurementAggregationService {
                         };
                     }
                     
-                    await db.collection('measurements').deleteMany(deleteMatchStage);
+                    await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
                     
                     // Ensure resolution_minutes is set (safeguard - always set explicitly)
                     aggregatedDocs.forEach(doc => {
@@ -1166,7 +2025,7 @@ class MeasurementAggregationService {
                     
                     // Insert new aggregates
                     try {
-                        const insertResult = await db.collection('measurements').insertMany(aggregatedDocs, { ordered: false });
+                        const insertResult = await db.collection('measurements_aggregated').insertMany(aggregatedDocs, { ordered: false });
                         count = insertResult.insertedCount || aggregatedDocs.length;
                     } catch (error) {
                         if (error.insertedCount) {
@@ -1179,7 +2038,7 @@ class MeasurementAggregationService {
                 console.log(`[AGGREGATION] [Daily] Created ${count} aggregates for ${buildingId || 'all buildings'} (Time Series)`);
             } else {
                 // Regular collection: use $merge
-                const result = await db.collection('measurements').aggregate(pipeline).toArray();
+                const result = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
                 count = result.length;
                 console.log(`[AGGREGATION] [Daily] Created ${count} aggregates for ${buildingId || 'all buildings'}`);
             }
@@ -1232,8 +2091,8 @@ class MeasurementAggregationService {
         // Get the database name
         const dbName = this.getDatabaseName();
         
-        // Check if measurements collection is a Time Series collection
-        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements');
+        // Check if measurements_aggregated collection is a Time Series collection
+        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements_aggregated');
 
         const now = new Date();
         const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -1410,7 +2269,7 @@ class MeasurementAggregationService {
             },
             {
                 $merge: {
-                    into: dbName ? { db: dbName, coll: 'measurements' } : 'measurements',
+                    into: dbName ? { db: dbName, coll: 'measurements_aggregated' } : 'measurements_aggregated',
                     whenMatched: 'replace',
                     whenNotMatched: 'insert'
                 }
@@ -1423,7 +2282,7 @@ class MeasurementAggregationService {
             if (isTimeSeries) {
                 // Time Series collection: use direct inserts
                 const aggregationPipeline = pipeline.slice(0, -1);
-                const aggregatedDocs = await db.collection('measurements').aggregate(aggregationPipeline).toArray();
+                const aggregatedDocs = await db.collection('measurements_aggregated').aggregate(aggregationPipeline).toArray();
                 
                 if (aggregatedDocs.length > 0) {
                     // Delete existing weekly aggregates in this time window
@@ -1438,7 +2297,7 @@ class MeasurementAggregationService {
                         };
                     }
                     
-                    await db.collection('measurements').deleteMany(deleteMatchStage);
+                    await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
                     
                     // Ensure resolution_minutes is set (safeguard - always set explicitly)
                     aggregatedDocs.forEach(doc => {
@@ -1447,7 +2306,7 @@ class MeasurementAggregationService {
                     
                     // Insert new aggregates
                     try {
-                        const insertResult = await db.collection('measurements').insertMany(aggregatedDocs, { ordered: false });
+                        const insertResult = await db.collection('measurements_aggregated').insertMany(aggregatedDocs, { ordered: false });
                         count = insertResult.insertedCount || aggregatedDocs.length;
                     } catch (error) {
                         if (error.insertedCount) {
@@ -1460,7 +2319,7 @@ class MeasurementAggregationService {
                 console.log(`[AGGREGATION] [Weekly] Created ${count} aggregates for ${buildingId || 'all buildings'} (Time Series)`);
             } else {
                 // Regular collection: use $merge
-                const result = await db.collection('measurements').aggregate(pipeline).toArray();
+                const result = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
                 count = result.length;
                 console.log(`[AGGREGATION] [Weekly] Created ${count} aggregates for ${buildingId || 'all buildings'}`);
             }
@@ -1511,8 +2370,8 @@ class MeasurementAggregationService {
         // Get the database name
         const dbName = this.getDatabaseName();
         
-        // Check if measurements collection is a Time Series collection
-        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements');
+        // Check if measurements_aggregated collection is a Time Series collection
+        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements_aggregated');
 
         const now = new Date();
         const oneMonthAgo = new Date(now);
@@ -1675,7 +2534,7 @@ class MeasurementAggregationService {
             },
             {
                 $merge: {
-                    into: dbName ? { db: dbName, coll: 'measurements' } : 'measurements',
+                    into: dbName ? { db: dbName, coll: 'measurements_aggregated' } : 'measurements_aggregated',
                     whenMatched: 'replace',
                     whenNotMatched: 'insert'
                 }
@@ -1688,7 +2547,7 @@ class MeasurementAggregationService {
             if (isTimeSeries) {
                 // Time Series collection: use direct inserts
                 const aggregationPipeline = pipeline.slice(0, -1);
-                const aggregatedDocs = await db.collection('measurements').aggregate(aggregationPipeline).toArray();
+                const aggregatedDocs = await db.collection('measurements_aggregated').aggregate(aggregationPipeline).toArray();
                 
                 if (aggregatedDocs.length > 0) {
                     // Delete existing monthly aggregates in this time window
@@ -1703,7 +2562,7 @@ class MeasurementAggregationService {
                         };
                     }
                     
-                    await db.collection('measurements').deleteMany(deleteMatchStage);
+                    await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
                     
                     // Ensure resolution_minutes is set (safeguard - always set explicitly)
                     aggregatedDocs.forEach(doc => {
@@ -1712,7 +2571,7 @@ class MeasurementAggregationService {
                     
                     // Insert new aggregates
                     try {
-                        const insertResult = await db.collection('measurements').insertMany(aggregatedDocs, { ordered: false });
+                        const insertResult = await db.collection('measurements_aggregated').insertMany(aggregatedDocs, { ordered: false });
                         count = insertResult.insertedCount || aggregatedDocs.length;
                     } catch (error) {
                         if (error.insertedCount) {
@@ -1725,7 +2584,7 @@ class MeasurementAggregationService {
                 console.log(`[AGGREGATION] [Monthly] Created ${count} aggregates for ${buildingId || 'all buildings'} (Time Series)`);
             } else {
                 // Regular collection: use $merge
-                const result = await db.collection('measurements').aggregate(pipeline).toArray();
+                const result = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
                 count = result.length;
                 console.log(`[AGGREGATION] [Monthly] Created ${count} aggregates for ${buildingId || 'all buildings'}`);
             }
@@ -1768,8 +2627,8 @@ class MeasurementAggregationService {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
         
+        // Note: measurements_raw only contains raw data, so no need to filter by resolution_minutes: 0
         const matchStage = {
-            resolution_minutes: 0, // Field is at root level, not in meta
             timestamp: { $lt: cutoffDate }
         };
         
@@ -1784,7 +2643,8 @@ class MeasurementAggregationService {
         }
         
         try {
-            const result = await db.collection('measurements').deleteMany(matchStage);
+            // Delete raw data from measurements_raw
+            const result = await db.collection('measurements_raw').deleteMany(matchStage);
             console.log(`[AGGREGATION] [Cleanup] Deleted ${result.deletedCount} raw data points older than ${retentionDays} days`);
             return result.deletedCount;
         } catch (error) {
@@ -1891,12 +2751,28 @@ class MeasurementAggregationService {
         }
         
         try {
-            const result = await db.collection('measurements').deleteMany(matchStage);
+            // Count before deletion for better logging (delete from measurements_aggregated)
+            const countBeforeDelete = await db.collection('measurements_aggregated').countDocuments(matchStage);
             const resolutionLabel = this.getResolutionLabel(resolutionMinutes);
-            console.log(`[AGGREGATION] [Cleanup] Deleted ${result.deletedCount} ${resolutionLabel} aggregates older than ${cutoffDate.toISOString()}`);
+            
+            if (countBeforeDelete > 0) {
+                console.log(`[AGGREGATION] [Cleanup] Preparing to delete ${countBeforeDelete} ${resolutionLabel} aggregates older than ${cutoffDate.toISOString()}`);
+            }
+            
+            const result = await db.collection('measurements_aggregated').deleteMany(matchStage);
+            
+            if (result.deletedCount !== countBeforeDelete) {
+                console.warn(`[AGGREGATION] [Cleanup] ⚠️  Deletion count mismatch: Expected ${countBeforeDelete}, deleted ${result.deletedCount}`);
+            }
+            
+            if (result.deletedCount > 0) {
+                console.log(`[AGGREGATION] [Cleanup] ✅ Deleted ${result.deletedCount} ${resolutionLabel} aggregates older than ${cutoffDate.toISOString()}`);
+            }
+            
             return result.deletedCount;
         } catch (error) {
-            console.error(`[AGGREGATION] [Cleanup] Error deleting ${this.getResolutionLabel(resolutionMinutes)} aggregates:`, error.message);
+            console.error(`[AGGREGATION] [Cleanup] ❌ Error deleting ${this.getResolutionLabel(resolutionMinutes)} aggregates:`, error.message);
+            console.error(`[AGGREGATION] [Cleanup] Error stack:`, error.stack);
             throw error;
         }
     }

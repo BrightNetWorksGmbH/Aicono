@@ -34,7 +34,6 @@ class ZeroConsumptionTracker {
 
         // Value is zero - check tracking
         const tracking = this.zeroTracking.get(sensorIdStr);
-        console.log('tracking', tracking);
         if (!tracking) {
             // First zero value detected - start tracking
             this.zeroTracking.set(sensorIdStr, {

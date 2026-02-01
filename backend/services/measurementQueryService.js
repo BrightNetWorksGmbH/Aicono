@@ -86,7 +86,9 @@ class MeasurementQueryService {
             matchStage['meta.stateType'] = options.stateType;
         }
         
-        let query = db.collection('measurements')
+        // Query appropriate collection based on resolution
+        const collectionName = resolution === 0 ? 'measurements_raw' : 'measurements_aggregated';
+        let query = db.collection(collectionName)
             .find(matchStage)
             .sort({ timestamp: 1 });
         
@@ -214,7 +216,9 @@ class MeasurementQueryService {
             matchStage['meta.stateType'] = options.stateType;
         }
         
-        const measurements = await db.collection('measurements')
+        // Query appropriate collection based on resolution
+        const collectionName = resolution === 0 ? 'measurements_raw' : 'measurements_aggregated';
+        const measurements = await db.collection(collectionName)
             .find(matchStage)
             .sort({ timestamp: 1 })
             .toArray();
@@ -311,7 +315,8 @@ class MeasurementQueryService {
             { $sort: { measurementType: 1, stateType: 1 } }
         ];
         
-        return await db.collection('measurements').aggregate(pipeline).toArray();
+        // Query measurements_aggregated for statistics
+        return await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
     }
     
     /**
@@ -331,7 +336,9 @@ class MeasurementQueryService {
             throw new Error(`Invalid sensorId: ${sensorId}`);
         }
 
-        const measurement = await db.collection('measurements')
+        // Query appropriate collection based on resolution
+        const collectionName = resolution === 0 ? 'measurements_raw' : 'measurements_aggregated';
+        const measurement = await db.collection(collectionName)
             .findOne(
                 {
                     'meta.sensorId': new mongoose.Types.ObjectId(sensorId),
@@ -402,7 +409,8 @@ class MeasurementQueryService {
             }
         ];
         
-        const summary = await db.collection('measurements').aggregate(pipeline).toArray();
+        // Query measurements_aggregated for daily summary
+        const summary = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
         
         return {
             date: startDate.toISOString().split('T')[0],

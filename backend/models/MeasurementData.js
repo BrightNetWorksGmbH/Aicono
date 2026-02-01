@@ -51,5 +51,10 @@ measurementDataSchema.index({ 'meta.sensorId': 1, timestamp: -1 });
 measurementDataSchema.index({ 'meta.buildingId': 1, timestamp: -1 });
 measurementDataSchema.index({ timestamp: -1 });
 
+// Static helper method to get collection name based on resolution
+measurementDataSchema.statics.getCollectionName = function(resolution_minutes) {
+  return resolution_minutes === 0 ? 'measurements_raw' : 'measurements_aggregated';
+};
+
 module.exports = mongoose.model('MeasurementData', measurementDataSchema);
 

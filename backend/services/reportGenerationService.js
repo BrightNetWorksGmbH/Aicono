@@ -280,15 +280,15 @@ class ReportGenerationService {
         resolutionOptions.resolution = 15; // 15-minute for recent data (within last hour)
     }
     
-    console.log(`[REPORT] Generating ${interval} report for building ${buildingId}: timeRange=${startDate.toISOString()} to ${endDate.toISOString()}, daysSinceEndDate=${daysSinceEndDate.toFixed(1)}, preferredResolution=${resolutionOptions.resolution || 'auto'} minutes`);
+    // console.log(`[REPORT] Generating ${interval} report for building ${buildingId}: timeRange=${startDate.toISOString()} to ${endDate.toISOString()}, daysSinceEndDate=${daysSinceEndDate.toFixed(1)}, preferredResolution=${resolutionOptions.resolution || 'auto'} minutes`);
     
     // Pass preferred resolution and interval, but getBuildingKPIs will fallback to other resolutions if no data found
     // Interval is used to select appropriate total* stateType for Energy measurements
     resolutionOptions.interval = interval;
-    console.log("time before calling getBuildingKPIs is ", Date.now());
+    // console.log("time before calling getBuildingKPIs is ", Date.now());
     const kpis = await dashboardDiscoveryService.getBuildingKPIs(buildingId, startDate, endDate, resolutionOptions);
-    console.log("time after calling getBuildingKPIs is ", Date.now());
-    console.log("kpis is itelf is also ", kpis);
+    // console.log("time after calling getBuildingKPIs is ", Date.now());
+    // console.log("kpis is itelf is also ", kpis);
     // Generate each selected content
     const reportData = {
       building: {
@@ -324,9 +324,9 @@ class ReportGenerationService {
           { building, kpis, interval: reportConfig.interval, timeRange }
         );
         const duration = Date.now() - startTime;
-        console.log(`[REPORT] ${contentType} generated in ${duration}ms`);
+        // console.log(`[REPORT] ${contentType} generated in ${duration}ms`);
       } catch (error) {
-        console.error(`[REPORT] Error generating ${contentType} for building ${buildingId}:`, error.message);
+        // console.error(`[REPORT] Error generating ${contentType} for building ${buildingId}:`, error.message);
         reportData.contents[contentType] = {
           error: error.message,
           available: false,
@@ -360,11 +360,11 @@ class ReportGenerationService {
             timeout
           );
           const duration = Date.now() - startTime;
-          console.log(`[REPORT] ${contentType} generated in ${duration}ms${result.timeout ? ' (timeout)' : ''}`);
+          // console.log(`[REPORT] ${contentType} generated in ${duration}ms${result.timeout ? ' (timeout)' : ''}`);
           return { contentType, result };
         } catch (error) {
           const duration = Date.now() - startTime;
-          console.error(`[REPORT] Error generating ${contentType} for building ${buildingId} (${duration}ms):`, error.message);
+          // console.error(`[REPORT] Error generating ${contentType} for building ${buildingId} (${duration}ms):`, error.message);
           return {
             contentType,
             result: {
