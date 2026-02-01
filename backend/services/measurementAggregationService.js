@@ -848,24 +848,48 @@ class MeasurementAggregationService {
                         console.log(`[AGGREGATION] [15-min] ⚠️  WARNING: Sample document is missing resolution_minutes!`);
                     }
                     
-                    // Delete existing aggregates in this time window first (to avoid duplicates)
-                    const deleteMatchStage = {
-                        resolution_minutes: 15,
-                        timestamp: { $gte: bucketStart, $lt: safeAggregationEnd }
-                    };
+                    // Extract unique bucket timestamps from aggregated results
+                    // Only delete aggregates for buckets that will be recreated (prevents data loss)
+                    const bucketsToRecreate = new Set();
+                    allAggregatedDocs.forEach(doc => {
+                        if (doc.timestamp) {
+                            // Normalize timestamp to Date object if it's not already
+                            const bucketTimestamp = doc.timestamp instanceof Date 
+                                ? doc.timestamp 
+                                : new Date(doc.timestamp);
+                            // Use ISO string for consistent comparison
+                            bucketsToRecreate.add(bucketTimestamp.toISOString());
+                        }
+                    });
                     
-                    if (buildingId) {
-                        deleteMatchStage['meta.buildingId'] = { 
-                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                    const uniqueBuckets = Array.from(bucketsToRecreate).map(iso => new Date(iso));
+                    console.log(`[AGGREGATION] [15-min] Will recreate aggregates for ${uniqueBuckets.length} unique bucket(s): ${uniqueBuckets.map(b => b.toISOString()).join(', ')}`);
+                    
+                    // Only delete existing aggregates for buckets that will be recreated
+                    // This prevents data loss when raw data for some buckets was already deleted
+                    let deletedCount = 0;
+                    if (uniqueBuckets.length > 0) {
+                        const deleteMatchStage = {
+                            resolution_minutes: 15,
+                            timestamp: { $in: uniqueBuckets }
                         };
+                        
+                        if (buildingId) {
+                            deleteMatchStage['meta.buildingId'] = { 
+                                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                            };
+                        }
+                        
+                        // Delete existing aggregates from measurements_aggregated
+                        const deleteExistingStartTime = Date.now();
+                        const deleteResult = await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
+                        const deleteExistingDuration = Date.now() - deleteExistingStartTime;
+                        deletedCount = deleteResult.deletedCount || 0;
+                        console.log(`[AGGREGATION] [15-min] [TIMING] Delete existing aggregates took ${deleteExistingDuration}ms (deleted ${deletedCount} documents)`);
+                        console.log(`[AGGREGATION] [15-min] Deleted ${deletedCount} existing aggregates for ${uniqueBuckets.length} bucket(s) that will be recreated`);
+                    } else {
+                        console.log(`[AGGREGATION] [15-min] No bucket timestamps found in aggregated results, skipping deletion`);
                     }
-                    
-                    // Delete existing aggregates from measurements_aggregated
-                    const deleteExistingStartTime = Date.now();
-                    const deleteResult = await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
-                    const deleteExistingDuration = Date.now() - deleteExistingStartTime;
-                    console.log(`[AGGREGATION] [15-min] [TIMING] Delete existing aggregates took ${deleteExistingDuration}ms (deleted ${deleteResult.deletedCount} documents)`);
-                    console.log(`[AGGREGATION] [15-min] Deleted ${deleteResult.deletedCount} existing aggregates in time window`);
                     
                     // Ensure resolution_minutes is set (safeguard - always set explicitly)
                     let missingCount = 0;
@@ -1182,18 +1206,36 @@ class MeasurementAggregationService {
                         const aggregatedDocs = await db.collection('measurements_raw').aggregate(aggregationPipeline).toArray();
                         
                         if (aggregatedDocs.length > 0) {
-                            const deleteMatchStage = {
-                                resolution_minutes: 15,
-                                timestamp: { $gte: currentStart, $lt: currentEnd }
-                            };
-                            if (buildingId) {
-                                deleteMatchStage['meta.buildingId'] = { 
-                                    $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                                };
-                            }
+                            // Extract unique bucket timestamps from aggregated results
+                            // Only delete aggregates for buckets that will be recreated (prevents data loss)
+                            const bucketsToRecreate = new Set();
+                            aggregatedDocs.forEach(doc => {
+                                if (doc.timestamp) {
+                                    const bucketTimestamp = doc.timestamp instanceof Date 
+                                        ? doc.timestamp 
+                                        : new Date(doc.timestamp);
+                                    bucketsToRecreate.add(bucketTimestamp.toISOString());
+                                }
+                            });
                             
-                            // Delete existing aggregates from measurements_aggregated
-                            await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
+                            const uniqueBuckets = Array.from(bucketsToRecreate).map(iso => new Date(iso));
+                            
+                            // Only delete existing aggregates for buckets that will be recreated
+                            if (uniqueBuckets.length > 0) {
+                                const deleteMatchStage = {
+                                    resolution_minutes: 15,
+                                    timestamp: { $in: uniqueBuckets }
+                                };
+                                if (buildingId) {
+                                    deleteMatchStage['meta.buildingId'] = { 
+                                        $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
+                                    };
+                                }
+                                
+                                // Delete existing aggregates from measurements_aggregated
+                                await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
+                                console.log(`[AGGREGATION] [DateRange] Deleted existing aggregates for ${uniqueBuckets.length} bucket(s) that will be recreated`);
+                            }
                             
                             aggregatedDocs.forEach(doc => {
                                 doc.resolution_minutes = 15;
