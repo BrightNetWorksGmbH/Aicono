@@ -8,6 +8,8 @@ const { getPoolStatistics, PRIORITY, canAcquireConnection, waitForConnection } =
 
 // Per-building UUID to Sensor mapping cache
 const uuidMaps = new Map(); // buildingId -> Map<uuid, sensorMapping>
+// Track last warning time for UUID empty warnings (to avoid spam)
+const lastUuidEmptyWarning = new Map(); // buildingId -> timestamp
 
 // Normalize UUID format
 function normalizeUUID(uuid) {
@@ -671,7 +673,16 @@ class LoxoneStorageService {
 
         const uuidToSensorMap = uuidMaps.get(buildingId);
         if (!uuidToSensorMap || uuidToSensorMap.size === 0) {
-            // console.log(`[LOXONE-STORAGE] [${buildingId}] UUID map is empty, reloading...`);
+            // Log when UUID map is empty (throttled to once per minute per building to avoid spam)
+            const now = Date.now();
+            const lastWarning = lastUuidEmptyWarning.get(buildingId) || 0;
+            
+            // Only log once per minute per building
+            if (now - lastWarning > 60000) {
+                console.warn(`[LOXONE-STORAGE] [${buildingId}] UUID map is empty, attempting to reload from structure file...`);
+                lastUuidEmptyWarning.set(buildingId, now);
+            }
+            
             // Try to reload from structure file
             const fsPromises = require('fs').promises;
             const path = require('path');
@@ -687,7 +698,10 @@ class LoxoneStorageService {
                 // Verify the map was loaded
                 const reloadedMap = uuidMaps.get(buildingId);
                 if (!reloadedMap || reloadedMap.size === 0) {
-                    console.warn(`[LOXONE-STORAGE] [${buildingId}] Structure mapping still empty after reload, skipping measurements`);
+                    console.warn(`[LOXONE-STORAGE] [${buildingId}] ⚠️  Structure mapping still empty after reload, skipping ${measurements.length} measurement(s)`);
+                    console.warn(`[LOXONE-STORAGE] [${buildingId}] This means measurements are being received from WebSocket but cannot be stored.`);
+                    console.warn(`[LOXONE-STORAGE] [${buildingId}] Possible causes: 1) Structure file not loaded, 2) No sensors mapped to UUIDs, 3) Structure import failed.`);
+                    console.warn(`[LOXONE-STORAGE] [${buildingId}] Check structure file at: data/loxone-structure/LoxAPP3_${buildingId}.json`);
                     return { stored: 0, skipped: measurements.length };
                 }
             } catch (reloadError) {
