@@ -39,4 +39,11 @@ class ReportsRepositoryImpl implements ReportsRepository {
   ) async {
     return remoteDataSource.getReportDetail(reportId);
   }
+
+  @override
+  Future<Either<Failure, ReportDetailResponse>> getReportViewByToken(
+    String token,
+  ) async {
+    return remoteDataSource.getReportViewByToken(token);
+  }
 }

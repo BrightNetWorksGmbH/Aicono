@@ -109,6 +109,7 @@ class AppRouter {
           '/invitation-validation',
         );
         final isViewReportRoute = state.uri.path == '/view-report';
+        final isStatisticsRoute = state.uri.path == '/statistics';
 
         final isJoinVerseRoute = false; // Routes removed - not in project
 
@@ -119,9 +120,10 @@ class AppRouter {
         print('AppRouter - isJoinVerseRoute: $isJoinVerseRoute');
         print('AppRouter - isAuthenticated: $isAuthenticated');
 
-        // Allow access to invitation validation, view-report, join verse, and reset password routes regardless of authentication status
+        // Allow access to invitation validation, view-report, statistics (token-based), join verse, and reset password routes regardless of authentication status
         if (isInvitationValidationRoute ||
             isViewReportRoute ||
+            isStatisticsRoute ||
             isJoinVerseRoute ||
             isResetPasswordRoute ||
             isForgotPasswordRoute) {
@@ -729,13 +731,27 @@ class AppRouter {
     GoRoute(
       path: '/statistics',
       name: Routelists.statistics,
+      redirect: (context, state) {
+        // When accessed via token (from view-report), token is required
+        final token = state.uri.queryParameters['token'];
+        if (token != null && token.isNotEmpty) {
+          return null; // Allow access with token
+        }
+        // When accessed from dashboard (authenticated), no token needed
+        return null;
+      },
       pageBuilder: (context, state) {
+        final token = state.uri.queryParameters['token'];
         final verseId = state.uri.queryParameters['verseId'];
         final userName = state.uri.queryParameters['userName'];
         return _buildPage(
           context,
           state,
-          StatisticsDashboardPage(verseId: verseId, userName: userName),
+          StatisticsDashboardPage(
+            token: token,
+            verseId: verseId,
+            userName: userName,
+          ),
         );
       },
     ),

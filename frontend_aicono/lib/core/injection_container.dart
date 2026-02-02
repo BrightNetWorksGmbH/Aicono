@@ -77,6 +77,7 @@ import 'package:frontend_aicono/features/dashboard/domain/usecases/get_report_si
 import 'package:frontend_aicono/features/dashboard/domain/usecases/get_report_buildings_usecase.dart';
 import 'package:frontend_aicono/features/dashboard/domain/usecases/get_building_reports_usecase.dart';
 import 'package:frontend_aicono/features/dashboard/domain/usecases/get_report_detail_usecase.dart';
+import 'package:frontend_aicono/features/dashboard/domain/usecases/get_report_view_by_token_usecase.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_sites_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
@@ -86,6 +87,7 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_site
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_buildings_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/building_reports_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_detail_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_view_bloc.dart';
 import 'package:frontend_aicono/features/superadmin/data/datasources/verse_remote_datasource.dart';
 import 'package:frontend_aicono/features/superadmin/data/repositories/verse_repository_impl.dart';
 import 'package:frontend_aicono/features/superadmin/domain/repositories/verse_repository.dart';
@@ -231,6 +233,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetReportBuildingsUseCase(repository: sl()));
   sl.registerLazySingleton(() => GetBuildingReportsUseCase(repository: sl()));
   sl.registerLazySingleton(() => GetReportDetailUseCase(repository: sl()));
+  sl.registerLazySingleton(() => GetReportViewByTokenUseCase(repository: sl()));
 
   // Superadmin use cases
   sl.registerLazySingleton(() => CreateVerseUseCase(repository: sl()));
@@ -310,6 +313,7 @@ Future<void> init() async {
     () => BuildingReportsBloc(getBuildingReportsUseCase: sl()),
   );
   sl.registerFactory(() => ReportDetailBloc(getReportDetailUseCase: sl()));
+  sl.registerFactory(() => ReportViewBloc(getReportViewByTokenUseCase: sl()));
 
   // Upload dependencies
   sl.registerLazySingleton<UploadRemoteDataSource>(

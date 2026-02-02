@@ -22,6 +22,11 @@ abstract class ReportsRemoteDataSource {
   Future<Either<Failure, ReportDetailResponse>> getReportDetail(
     String reportId,
   );
+
+  /// Fetches report view by token (public link, no auth required).
+  Future<Either<Failure, ReportDetailResponse>> getReportViewByToken(
+    String token,
+  );
 }
 
 class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
@@ -209,6 +214,55 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     } catch (e) {
       if (kDebugMode) {
         print('❌ Reports getReportDetail error: $e');
+      }
+      return Left(ServerFailure('Unexpected error: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, ReportDetailResponse>> getReportViewByToken(
+    String token,
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('📤 Reports getReportViewByToken (token-based)');
+      }
+      final response = await dioClient.get(
+        '/api/v1/reports/view',
+        queryParameters: {'token': token},
+      );
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is Map<String, dynamic> && data['success'] == true) {
+          return Right(ReportDetailResponse.fromJson(data));
+        }
+        return Left(
+          ServerFailure(
+            (data is Map ? (data as Map)['message'] : null)?.toString() ??
+                'Failed to load report.',
+          ),
+        );
+      }
+      return Left(
+        ServerFailure('Failed to load report (HTTP ${response.statusCode})'),
+      );
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError) {
+        return Left(
+          ServerFailure(
+            'Cannot connect to server. Please check your internet connection.',
+          ),
+        );
+      }
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        return Left(ServerFailure('Request timed out. Please try again.'));
+      }
+      return Left(ServerFailure(ErrorExtractor.extractServerMessage(e)));
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Reports getReportViewByToken error: $e');
       }
       return Left(ServerFailure('Unexpected error: $e'));
     }

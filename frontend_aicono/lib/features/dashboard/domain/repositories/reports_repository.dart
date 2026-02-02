@@ -18,4 +18,9 @@ abstract class ReportsRepository {
   Future<Either<Failure, ReportDetailResponse>> getReportDetail(
     String reportId,
   );
+
+  /// Fetches report view by token (public link, no auth required).
+  Future<Either<Failure, ReportDetailResponse>> getReportViewByToken(
+    String token,
+  );
 }

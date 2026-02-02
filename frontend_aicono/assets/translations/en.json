@@ -363,7 +363,13 @@
     "report_created": "Reporting created on 07.11 at 10:38 based on 31 days of measurement data.",
     "report_disclaimer": "This reporting is part of the ESG data room of BrightNetWorks GmbH.",
     "average": "AVERAGE",
-    "now": "NOW"
+    "now": "NOW",
+    "retry": "Retry",
+    "back_to_report": "Back to report",
+    "peak_load": "Peak load",
+    "consumption_by_room": "Consumption by room",
+    "no_report_token": "No report token available. Please open the report via the link in your email.",
+    "go_to_login": "Go to login"
   },
   "common": {
     "cancel": "Cancel",
