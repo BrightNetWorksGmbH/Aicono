@@ -15,4 +15,7 @@ router.get('/scheduler/status', requireAuth, reportingController.getSchedulerSta
 // Get all reporting recipients (with optional filtering)
 router.get('/recipients', requireAuth, reportingController.getRecipients);
 
+// Get report information from token (no auth required - token provides authentication)
+router.get('/token/info', reportingController.getReportInfoFromToken);
+
 module.exports = router;
