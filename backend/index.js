@@ -195,10 +195,23 @@ connectToDatabase()
         if (result.restored > 0 || result.failed > 0) {
           console.log(`[LOXONE] Connection restoration: ${result.restored} restored, ${result.failed} failed`);
         }
+        // Start periodic health check after initial restoration
+        try {
+          loxoneConnectionManager.startHealthCheck();
+        } catch (error) {
+          console.error('[LOXONE] Failed to start health check:', error.message);
+          // Don't fail server startup if health check fails to start
+        }
       })
       .catch((error) => {
         console.error('[LOXONE] Failed to restore connections:', error.message);
         // Don't fail server startup if connection restoration fails
+        // Still try to start health check even if restoration failed
+        try {
+          loxoneConnectionManager.startHealthCheck();
+        } catch (healthCheckError) {
+          console.error('[LOXONE] Failed to start health check:', healthCheckError.message);
+        }
       });
     
     app.listen(port, () => {

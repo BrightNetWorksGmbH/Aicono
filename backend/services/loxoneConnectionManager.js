@@ -5,6 +5,7 @@ const fsPromises = require('fs').promises;
 const path = require('path');
 const mongoose = require('mongoose');
 const loxoneStorageService = require('./loxoneStorageService');
+const { getPoolStatistics, PRIORITY } = require('../db/connection');
 
 class LoxoneConnectionManager {
     constructor() {
@@ -12,6 +13,8 @@ class LoxoneConnectionManager {
         this.connections = new Map();
         // Map of buildingId -> reconnect timers
         this.reconnectTimers = new Map();
+        // Health check timer for periodic connection restoration
+        this.healthCheckTimer = null;
         // Structure files directory
         // Keep inside backend folder for deployment compatibility
         this.structureFilesDir = path.join(__dirname, '../data/loxone-structure');
@@ -581,12 +584,14 @@ class LoxoneConnectionManager {
                 
                 // Verify structure import completed successfully
                 if (!uuidMap || uuidMap.size === 0) {
-                    // console.warn(`[LOXONE] [${buildingId}] ⚠️  Structure import completed but UUID mapping is empty! Measurements will be skipped until structure is properly imported.`);
+                    console.warn(`[LOXONE] [${buildingId}] ⚠️  Structure import completed but UUID mapping is empty! Measurements will be skipped until structure is properly imported.`);
+                    console.warn(`[LOXONE] [${buildingId}] Check if sensors exist in database and are properly linked to Loxone controls.`);
                 } else {
-                    // console.log(`[LOXONE] [${buildingId}] ✓ Structure imported and mapping loaded (${uuidMap.size} UUID mappings ready)`);
+                    console.log(`[LOXONE] [${buildingId}] ✓ Structure imported and mapping loaded (${uuidMap.size} UUID mappings ready)`);
                 }
             } catch (error) {
                 console.error(`[LOXONE] [${buildingId}] Error initializing storage:`, error.message);
+                console.error(`[LOXONE] [${buildingId}] Stack trace:`, error.stack);
                 // Don't enable live updates if structure import failed
                 return;
             }
@@ -594,6 +599,11 @@ class LoxoneConnectionManager {
             // Enable live updates only after structure import is complete
             // console.log(`[LOXONE] [${buildingId}] Enabling live status updates...`);
             this.send(buildingId, 'jdev/sps/enablebinstatusupdate');
+            
+            // Reset reconnect attempts and ping failures on successful connection
+            state.reconnectAttempts = 0;
+            state.pingFailures = 0;
+            
             // console.log(`[LOXONE] [${buildingId}] ✓ Connection ready - receiving measurements`);
         } catch (error) {
             //console.error(`[LOXONE] [${buildingId}] Error handling structure file:`, error);
@@ -716,7 +726,7 @@ class LoxoneConnectionManager {
     }
 
     /**
-     * Start keepalive
+     * Start keepalive with enhanced ping detection
      */
     startKeepalive(buildingId) {
         const state = this.connections.get(buildingId);
@@ -726,12 +736,51 @@ class LoxoneConnectionManager {
             clearInterval(state.keepaliveTimer);
         }
 
+        // Track consecutive ping failures
+        if (!state.pingFailures) {
+            state.pingFailures = 0;
+        }
+        const maxPingFailures = 3; // Force reconnect after 3 consecutive ping failures
+
         state.keepaliveTimer = setInterval(() => {
             if (state.authenticated && state.ws && state.ws.readyState === WebSocket.OPEN) {
+                // Use WebSocket ping to detect dead connections
+                try {
+                    const pingSent = state.ws.ping();
+                    if (!pingSent) {
+                        // Ping failed - connection may be dead
+                        state.pingFailures++;
+                        if (state.pingFailures >= maxPingFailures) {
+                            console.warn(`[LOXONE] [${buildingId}] Multiple ping failures detected (${state.pingFailures}), forcing reconnection`);
+                            // Force disconnection to trigger reconnection logic
+                            if (state.ws) {
+                                state.ws.terminate();
+                            }
+                            return;
+                        }
+                    } else {
+                        // Ping sent successfully, reset failure counter
+                        state.pingFailures = 0;
+                    }
+                } catch (error) {
+                    // Ping error - connection likely dead
+                    state.pingFailures++;
+                    if (state.pingFailures >= maxPingFailures) {
+                        console.warn(`[LOXONE] [${buildingId}] Ping error detected (${state.pingFailures} failures), forcing reconnection:`, error.message);
+                        if (state.ws) {
+                            state.ws.terminate();
+                        }
+                        return;
+                    }
+                }
+                
+                // Also send keepalive command (Loxone protocol)
                 this.send(buildingId, 'keepalive');
             }
         }, state.config.keepaliveInterval);
 
+        // Reset ping failures on successful keepalive start
+        state.pingFailures = 0;
         //console.log(`[LOXONE] [${buildingId}] Keepalive started`);
     }
 
@@ -751,6 +800,7 @@ class LoxoneConnectionManager {
         state.structureLoaded = false;
         state.ws = null;
         state.pendingBinaryHeader = null;
+        state.pingFailures = 0; // Reset ping failures
 
         if (code === 1000) {
             // Manual disconnect
@@ -774,7 +824,9 @@ class LoxoneConnectionManager {
             this.reconnectTimers.set(buildingId, timer);
         } else {
             //console.error(`[LOXONE] [${buildingId}] Max reconnection attempts reached`);
-            this.connections.delete(buildingId);
+            // Don't delete connection - let health check restore it
+            // Reset reconnect attempts to allow health check to retry
+            state.reconnectAttempts = 0;
             // Update building connection status when max attempts reached
             this.updateBuildingConnectionStatus(buildingId, false).catch(() => {});
         }
@@ -1042,6 +1094,183 @@ class LoxoneConnectionManager {
             console.error('[LOXONE] Error during connection restoration:', error.message);
             // Don't throw - allow server to start even if restoration fails
             return { restored: 0, failed: 0, results: [], error: error.message };
+        }
+    }
+
+    /**
+     * Check and restore connections periodically
+     * This method checks all buildings in the database and restores any dead connections
+     * Uses LOW priority to avoid interfering with real-time data processing
+     */
+    async checkAndRestoreConnections() {
+        try {
+            // Wait for mongoose to be ready
+            if (mongoose.connection.readyState !== 1) {
+                return;
+            }
+
+            // Check pool statistics (LOW priority) - skip if pool is busy
+            try {
+                const poolStats = await getPoolStatistics(PRIORITY.LOW);
+                if (!poolStats.available) {
+                    return; // Database not available
+                }
+                // Skip health check if pool usage is too high (>85% for LOW priority)
+                if (poolStats.effectiveUsagePercent > 85) {
+                    // Silently skip - don't log to avoid spam
+                    return;
+                }
+            } catch (poolError) {
+                // If pool check fails, proceed anyway (non-critical)
+                // console.warn('[LOXONE] [HEALTH-CHECK] Error checking pool stats:', poolError.message);
+            }
+
+            const Building = require('../models/Building');
+            
+            // Find all buildings with Loxone configuration (LOW priority operation)
+            const buildings = await Building.find({
+                $and: [
+                    { miniserver_user: { $exists: true, $ne: null, $ne: '' } },
+                    { miniserver_pass: { $exists: true, $ne: null, $ne: '' } },
+                    {
+                        $or: [
+                            { miniserver_ip: { $exists: true, $ne: null, $ne: '' } },
+                            { miniserver_external_address: { $exists: true, $ne: null, $ne: '' } }
+                        ]
+                    }
+                ]
+            });
+
+            if (buildings.length === 0) {
+                return;
+            }
+
+            let restored = 0;
+            let checked = 0;
+
+            // Process buildings sequentially with delays to avoid overwhelming the system
+            for (const building of buildings) {
+                try {
+                    // Yield to event loop before processing each building
+                    await new Promise(resolve => setImmediate(resolve));
+                    
+                    const buildingId = building._id.toString();
+                    checked++;
+                    
+                    const state = this.connections.get(buildingId);
+                    // Check if connection is fully ready: WebSocket open, authenticated, and structure loaded
+                    const isConnected = state && 
+                        state.ws && 
+                        state.ws.readyState === WebSocket.OPEN && 
+                        state.authenticated && 
+                        state.structureLoaded;
+                    
+                    // Also check if connection is partially ready (authenticated but structure not loaded)
+                    const isPartiallyConnected = state && 
+                        state.ws && 
+                        state.ws.readyState === WebSocket.OPEN && 
+                        state.authenticated && 
+                        !state.structureLoaded;
+                    
+                    if (isPartiallyConnected) {
+                        // Connection is authenticated but structure not loaded - this means measurements will be skipped
+                        console.warn(`[LOXONE] [HEALTH-CHECK] [${buildingId}] Connection authenticated but structure not loaded for building: ${building.name}. Measurements will be skipped until structure loads.`);
+                        // Don't restore - let it complete structure loading, but log the issue
+                    }
+                    
+                    if (!isConnected) {
+                        // Connection is dead or missing - attempt to restore
+                        if (state) {
+                            // Clean up dead connection state
+                            if (state.keepaliveTimer) {
+                                clearInterval(state.keepaliveTimer);
+                                state.keepaliveTimer = null;
+                            }
+                            if (state.ws) {
+                                try {
+                                    state.ws.terminate();
+                                } catch (err) {
+                                    // Ignore errors when terminating dead connection
+                                }
+                            }
+                            // Remove stale state
+                            this.connections.delete(buildingId);
+                        }
+                        
+                        // Reset reconnect attempts for fresh start
+                        const credentials = {
+                            ip: building.miniserver_ip,
+                            port: building.miniserver_port,
+                            protocol: building.miniserver_protocol,
+                            user: building.miniserver_user,
+                            pass: building.miniserver_pass,
+                            externalAddress: building.miniserver_external_address,
+                            serialNumber: building.miniserver_serial
+                        };
+
+                        // Fire-and-forget connection attempt (non-blocking)
+                        // Don't await to avoid blocking health check
+                        this.connect(buildingId, credentials)
+                            .then(result => {
+                                if (result.success) {
+                                    restored++;
+                                    console.log(`[LOXONE] [HEALTH-CHECK] ✓ Restored connection for building: ${building.name} (${buildingId})`);
+                                }
+                            })
+                            .catch(error => {
+                                // Log but don't throw - continue with other buildings
+                                console.error(`[LOXONE] [HEALTH-CHECK] Error restoring connection for building ${building.name} (${buildingId}):`, error.message);
+                            });
+                    }
+                    
+                    // Small delay between buildings to avoid overwhelming the server
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } catch (error) {
+                    // Log but continue checking other buildings
+                    console.error(`[LOXONE] [HEALTH-CHECK] Error checking building ${building._id}:`, error.message);
+                }
+            }
+
+            if (restored > 0) {
+                console.log(`[LOXONE] [HEALTH-CHECK] Restored ${restored} connection(s) out of ${checked} checked`);
+            }
+        } catch (error) {
+            console.error('[LOXONE] [HEALTH-CHECK] Error during health check:', error.message);
+        }
+    }
+
+    /**
+     * Start periodic health check
+     * Checks every 5 minutes for dead connections and restores them
+     */
+    startHealthCheck() {
+        if (this.healthCheckTimer) {
+            clearInterval(this.healthCheckTimer);
+        }
+
+        // Check every 5 minutes
+        const healthCheckInterval = 5 * 60 * 1000; // 5 minutes
+        
+        this.healthCheckTimer = setInterval(() => {
+            // Use setImmediate to yield to event loop before starting health check
+            setImmediate(() => {
+                this.checkAndRestoreConnections().catch(err => {
+                    console.error('[LOXONE] [HEALTH-CHECK] Error in health check:', err.message);
+                });
+            });
+        }, healthCheckInterval);
+
+        console.log('[LOXONE] [HEALTH-CHECK] Periodic health check started (every 5 minutes)');
+    }
+
+    /**
+     * Stop periodic health check
+     */
+    stopHealthCheck() {
+        if (this.healthCheckTimer) {
+            clearInterval(this.healthCheckTimer);
+            this.healthCheckTimer = null;
+            console.log('[LOXONE] [HEALTH-CHECK] Periodic health check stopped');
         }
     }
 }
