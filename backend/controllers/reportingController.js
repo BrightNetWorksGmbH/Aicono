@@ -1,6 +1,10 @@
 const reportingService = require('../services/reportingService');
 const reportingScheduler = require('../services/reportingScheduler');
+const reportTokenService = require('../services/reportTokenService');
 const { asyncHandler } = require('../middleware/errorHandler');
+const ReportingRecipient = require('../models/ReportingRecipient');
+const Building = require('../models/Building');
+const Reporting = require('../models/Reporting');
 
 /**
  * POST /api/v1/reporting/setup
@@ -228,4 +232,105 @@ exports.getRecipients = asyncHandler(async (req, res) => {
     data: recipients,
     count: recipients.length
   });
+});
+
+/**
+ * GET /api/v1/reporting/token/info
+ * Get report information from token
+ * Query parameters:
+ * - token (required): JWT token from report link
+ * @returns {Object} Report details including recipient, building, and reporting information
+ */
+exports.getReportInfoFromToken = asyncHandler(async (req, res) => {
+  const { token } = req.query;
+
+  // Validate token parameter
+  if (!token || typeof token !== 'string' || token.trim() === '') {
+    return res.status(400).json({
+      success: false,
+      error: 'Token parameter is required'
+    });
+  }
+
+  try {
+    // Extract report information from token
+    const reportInfo = reportTokenService.extractReportInfo(token);
+
+    // Fetch related entities in parallel for better performance
+    const [recipient, building, reporting] = await Promise.all([
+      ReportingRecipient.findById(reportInfo.recipientId).lean(),
+      Building.findById(reportInfo.buildingId).lean(),
+      Reporting.findById(reportInfo.reportingId).lean()
+    ]);
+
+    // Validate that all entities exist
+    if (!recipient) {
+      return res.status(404).json({
+        success: false,
+        error: 'Recipient not found'
+      });
+    }
+
+    if (!building) {
+      return res.status(404).json({
+        success: false,
+        error: 'Building not found'
+      });
+    }
+
+    if (!reporting) {
+      return res.status(404).json({
+        success: false,
+        error: 'Reporting not found'
+      });
+    }
+
+    // Return structured response
+    res.json({
+      success: true,
+      data: {
+        recipient: {
+          id: recipient._id.toString(),
+          name: recipient.name || recipient.email.split('@')[0], // Fallback to email prefix if name not set
+          email: recipient.email
+        },
+        building: {
+          id: building._id.toString(),
+          name: building.name
+        },
+        reporting: {
+          id: reporting._id.toString(),
+          name: reporting.name,
+          interval: reporting.interval,
+          reportContents: reporting.reportContents || []
+        },
+        timeRange: {
+          startDate: reportInfo.timeRange.startDate,
+          endDate: reportInfo.timeRange.endDate
+        },
+        interval: reportInfo.interval,
+        generatedAt: reportInfo.generatedAt
+      }
+    });
+  } catch (error) {
+    // Handle token verification errors
+    if (error.message.includes('expired')) {
+      return res.status(401).json({
+        success: false,
+        error: 'Report link has expired. Please request a new report.'
+      });
+    } else if (error.message.includes('Invalid')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid report link. Please check the URL.'
+      });
+    } else {
+      // Log unexpected errors for debugging
+      console.error('[REPORTING] Error getting report info from token:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve report information'
+      });
+    }
+  }
 });
