@@ -9,44 +9,65 @@ import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_detail_entity.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/report_token_info_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_view_bloc.dart';
 
 /// Statistics / daily reporting dashboard UI.
 /// When [token] is provided (from view-report flow), fetches and displays real report data.
+/// [tokenInfo] is passed from view-report page when user proceeds; used for recipient name etc.
 /// Uses clean architecture: Bloc + UseCase + Repository.
 class StatisticsDashboardPage extends StatelessWidget {
   final String? token;
+  final ReportTokenInfoEntity? tokenInfo;
   final String? verseId;
   final String? userName;
 
   const StatisticsDashboardPage({
     super.key,
     this.token,
+    this.tokenInfo,
     this.verseId,
     this.userName,
   });
 
   @override
   Widget build(BuildContext context) {
-    final name = userName?.trim().isNotEmpty == true ? userName! : 'Stephan';
+    final name = tokenInfo?.recipient.name.trim().isNotEmpty == true
+        ? tokenInfo!.recipient.name
+        : (tokenInfo?.recipient.email.trim().isNotEmpty == true
+              ? tokenInfo!.recipient.email
+              : (userName?.trim().isNotEmpty == true ? userName! : 'Stephan'));
 
     if (token != null && token!.isNotEmpty) {
       return BlocProvider(
         create: (context) =>
             sl<ReportViewBloc>()..add(ReportViewRequested(token!)),
-        child: _StatisticsDashboardContent(token: token!, userName: name),
+        child: _StatisticsDashboardContent(
+          token: token!,
+          tokenInfo: tokenInfo,
+          userName: name,
+        ),
       );
     }
 
-    return _StatisticsDashboardContent(token: null, userName: name);
+    return _StatisticsDashboardContent(
+      token: null,
+      tokenInfo: null,
+      userName: name,
+    );
   }
 }
 
 class _StatisticsDashboardContent extends StatelessWidget {
   final String? token;
+  final ReportTokenInfoEntity? tokenInfo;
   final String userName;
 
-  const _StatisticsDashboardContent({this.token, required this.userName});
+  const _StatisticsDashboardContent({
+    this.token,
+    this.tokenInfo,
+    required this.userName,
+  });
 
   static const Color _cardBackground = Color(0xFFE8F0E8);
   static const Color _accentBlue = Color(0xFF1565C0);

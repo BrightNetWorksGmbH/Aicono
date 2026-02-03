@@ -192,6 +192,11 @@ class AuthInterceptor extends Interceptor {
       return true;
     }
 
+    // Public report token info: /api/v1/reporting/token/info?token=...
+    if (path.contains('/api/v1/reporting/token/info')) {
+      return true;
+    }
+
     return false;
   }
 

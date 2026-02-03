@@ -40,6 +40,7 @@ import 'package:frontend_aicono/features/Building/presentation/pages/floor_plan_
 import 'package:frontend_aicono/features/Building/presentation/pages/steps/building_contact_person_step.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/page/dashboard_page.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/report_token_info_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/pages/statistics_dashboard_page.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/pages/view_report_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/switch_settings_page.dart';
@@ -744,11 +745,13 @@ class AppRouter {
         final token = state.uri.queryParameters['token'];
         final verseId = state.uri.queryParameters['verseId'];
         final userName = state.uri.queryParameters['userName'];
+        final tokenInfo = state.extra as ReportTokenInfoEntity?;
         return _buildPage(
           context,
           state,
           StatisticsDashboardPage(
             token: token,
+            tokenInfo: tokenInfo,
             verseId: verseId,
             userName: userName,
           ),

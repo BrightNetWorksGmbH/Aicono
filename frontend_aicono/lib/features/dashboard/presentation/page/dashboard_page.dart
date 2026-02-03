@@ -20,6 +20,7 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_site
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_buildings_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/building_reports_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_detail_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/trigger_report_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/user.dart';
@@ -224,6 +225,7 @@ class _DashboardPageState extends State<DashboardPage> {
         BlocProvider(create: (context) => sl<ReportBuildingsBloc>()),
         BlocProvider(create: (context) => sl<BuildingReportsBloc>()),
         BlocProvider(create: (context) => sl<ReportDetailBloc>()),
+        BlocProvider(create: (context) => sl<TriggerReportBloc>()),
       ],
       child: Builder(
         builder: (blocContext) {

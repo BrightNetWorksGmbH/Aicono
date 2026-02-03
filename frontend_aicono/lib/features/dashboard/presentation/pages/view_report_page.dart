@@ -1,30 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/constant.dart';
+import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
-import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
+import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/core/widgets/xChackbox.dart';
-
-/// Teal accent used for the report access confirmation card (matches design).
-const Color _viewReportTeal = Color(0xFF009688);
+import 'package:frontend_aicono/features/dashboard/domain/entities/report_token_info_entity.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_token_info_bloc.dart';
 
 /// Report access confirmation page shown when user opens report link from email.
 /// Path: /view-report?token=...
-/// Token is read from URL for later integration (validation, opening report).
-class ViewReportPage extends StatefulWidget {
+/// Fetches token info (recipient, building, reporting) and displays real data.
+/// Uses clean architecture: Bloc + UseCase + Repository.
+class ViewReportPage extends StatelessWidget {
   final String token;
 
   const ViewReportPage({super.key, required this.token});
 
   @override
-  State<ViewReportPage> createState() => _ViewReportPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) =>
+          sl<ReportTokenInfoBloc>()..add(ReportTokenInfoRequested(token)),
+      child: _ViewReportContent(token: token),
+    );
+  }
 }
 
-class _ViewReportPageState extends State<ViewReportPage> {
+class _ViewReportContent extends StatefulWidget {
+  final String token;
+
+  const _ViewReportContent({required this.token});
+
+  @override
+  State<_ViewReportContent> createState() => _ViewReportContentState();
+}
+
+class _ViewReportContentState extends State<_ViewReportContent> {
   bool _confirmed = false;
 
   void _handleLanguageChanged() {
@@ -33,11 +50,6 @@ class _ViewReportPageState extends State<ViewReportPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Placeholder recipient/company – replace with decoded token or API later
-    const recipientName = 'Stephan';
-    const fullName = 'Stephan Tomat';
-    const companyName = 'BrightNetWorks GmbH';
-
     final Size screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
@@ -64,7 +76,6 @@ class _ViewReportPageState extends State<ViewReportPage> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      // border: Border.all(color: _viewReportTeal, width: 3),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.15),
@@ -90,31 +101,37 @@ class _ViewReportPageState extends State<ViewReportPage> {
                                 : screenSize.width < 1200
                                 ? screenSize.width * 0.5
                                 : screenSize.width * 0.6,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _buildLogo(),
-                                const SizedBox(height: 32),
-                                _buildGreeting(recipientName),
-                                const SizedBox(height: 36),
-                                GestureDetector(
-                                  onTap: () => _onClose(context),
-                                  child: const Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [Icon(Icons.close)],
-                                  ),
+                            child:
+                                BlocBuilder<
+                                  ReportTokenInfoBloc,
+                                  ReportTokenInfoState
+                                >(
+                                  builder: (context, state) {
+                                    if (state is ReportTokenInfoLoading) {
+                                      return const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 48.0,
+                                        ),
+                                        child: Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                      );
+                                    }
+                                    if (state is ReportTokenInfoFailure) {
+                                      return _buildErrorContent(
+                                        context,
+                                        state.message,
+                                      );
+                                    }
+                                    if (state is ReportTokenInfoSuccess) {
+                                      return _buildSuccessContent(
+                                        context,
+                                        state.info,
+                                      );
+                                    }
+                                    return const SizedBox.shrink();
+                                  },
                                 ),
-                                const SizedBox(height: 36),
-                                _buildDisclaimer(fullName, companyName),
-                                const SizedBox(height: 24),
-                                _buildCheckboxSection(recipientName),
-                                const SizedBox(height: 28),
-                                _buildCtaButton(),
-                                const SizedBox(height: 28),
-                                _buildFooterLegal(),
-                              ],
-                            ),
                           ),
                         ],
                       ),
@@ -130,6 +147,80 @@ class _ViewReportPageState extends State<ViewReportPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildErrorContent(BuildContext context, String message) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+        const SizedBox(height: 16),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.bodyMedium.copyWith(color: Colors.grey[800]),
+        ),
+        const SizedBox(height: 24),
+        PrimaryOutlineButton(
+          label: 'common.retry'.tr(),
+          onPressed: () {
+            context.read<ReportTokenInfoBloc>().add(
+              ReportTokenInfoRequested(widget.token),
+            );
+          },
+        ),
+        const SizedBox(height: 24),
+        GestureDetector(
+          onTap: () => _onClose(context),
+          child: Text(
+            'common.close'.tr(),
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: Colors.grey[700],
+              decoration: TextDecoration.underline,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSuccessContent(
+    BuildContext context,
+    ReportTokenInfoEntity info,
+  ) {
+    final recipientName = info.recipient.name.trim().isNotEmpty
+        ? info.recipient.name
+        : info.recipient.email;
+    final fullName = info.recipient.name;
+    final companyName = info.building.name.trim().isNotEmpty
+        ? info.building.name
+        : 'view_report.company_fallback'.tr();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildLogo(),
+        const SizedBox(height: 32),
+        _buildGreeting(recipientName),
+        const SizedBox(height: 36),
+        GestureDetector(
+          onTap: () => _onClose(context),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [Icon(Icons.close)],
+          ),
+        ),
+        const SizedBox(height: 36),
+        _buildDisclaimer(fullName, companyName),
+        const SizedBox(height: 24),
+        _buildCheckboxSection(recipientName),
+        const SizedBox(height: 28),
+        _buildCtaButton(context, info),
+        const SizedBox(height: 28),
+        _buildFooterLegal(),
+      ],
     );
   }
 
@@ -192,9 +283,9 @@ class _ViewReportPageState extends State<ViewReportPage> {
           TextSpan(text: lead),
           TextSpan(
             text: emphasis,
-            style: TextStyle(
+            style: const TextStyle(
               fontWeight: FontWeight.bold,
-              color: Colors.grey[900],
+              color: Colors.black87,
             ),
           ),
           TextSpan(text: body),
@@ -224,14 +315,14 @@ class _ViewReportPageState extends State<ViewReportPage> {
     );
   }
 
-  Widget _buildCtaButton() {
+  Widget _buildCtaButton(BuildContext context, ReportTokenInfoEntity info) {
     final enabled = _confirmed;
     return SizedBox(
       width: double.infinity,
       child: PrimaryOutlineButton(
         label: 'view_report.button_text'.tr(),
         enabled: enabled,
-        onPressed: enabled ? () => _onProceed(context) : null,
+        onPressed: enabled ? () => _onProceed(context, info) : null,
       ),
     );
   }
@@ -255,11 +346,12 @@ class _ViewReportPageState extends State<ViewReportPage> {
     }
   }
 
-  void _onProceed(BuildContext context) {
+  void _onProceed(BuildContext context, ReportTokenInfoEntity tokenInfo) {
     if (context.mounted) {
       context.pushNamed(
         Routelists.statistics,
         queryParameters: {'token': widget.token},
+        extra: tokenInfo,
       );
     }
   }
