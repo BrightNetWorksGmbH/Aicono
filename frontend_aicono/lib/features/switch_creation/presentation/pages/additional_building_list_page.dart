@@ -225,10 +225,12 @@ class _AdditionalBuildingListPageState
     }
   }
 
-  void _handleAddBuildingDetails(BuildingData building) {
+  void _handleAddBuildingDetails(BuildingData building) async {
     // Store buildingId in PropertySetupCubit for global access
     final propertyCubit = sl<PropertySetupCubit>();
     propertyCubit.setBuildingId(building.id);
+    final localStorage = sl<LocalStorage>();
+    await localStorage.setSelectedBuildingId(building.id);
 
     // Navigate to building details page with building information
     // context.pushNamed(

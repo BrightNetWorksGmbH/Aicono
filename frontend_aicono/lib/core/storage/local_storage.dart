@@ -12,7 +12,8 @@ class LocalStorage {
   // Public so other modules (e.g., AuthService) can clear it on logout
   static const String selectedVerseKey = 'selected_verse_id';
   static const String selectedSwitchKey = 'selected_switch_id';
-
+  static const String selectedBuildingId = 'selected_building_id';
+  static const String selectedSiteId = 'selected_site_id';
   LocalStorage(this.prefs);
 
   /// Cache user data for offline access
@@ -135,6 +136,16 @@ class LocalStorage {
     await prefs.setString(selectedVerseKey, verseId);
   }
 
+  /// Persist the currently selected building id
+  Future<void> setSelectedBuildingId(String buildingId) async {
+    await prefs.setString(selectedBuildingId, buildingId);
+  }
+
+  /// Get the currently selected building id (if any)
+  String? getSelectedBuildingId() {
+    return prefs.getString(selectedBuildingId);
+  }
+
   /// Get the currently selected verse id (if any)
   String? getSelectedVerseId() {
     return prefs.getString(selectedVerseKey);
@@ -158,5 +169,15 @@ class LocalStorage {
   /// Clear the selected switch id (e.g., on logout)
   Future<void> clearSelectedSwitchId() async {
     await prefs.remove(selectedSwitchKey);
+  }
+
+  /// Persist the currently selected site id
+  Future<void> setSelectedSiteId(String siteId) async {
+    await prefs.setString(selectedSiteId, siteId);
+  }
+
+  /// Get the currently selected site id (if any)
+  String? getSelectedSiteId() {
+    return prefs.getString(selectedSiteId);
   }
 }

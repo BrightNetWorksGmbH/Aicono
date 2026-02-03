@@ -14,6 +14,7 @@ import 'package:frontend_aicono/features/switch_creation/presentation/bloc/prope
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 
+import '../../../../../core/storage/local_storage.dart';
 import '../../../../../core/widgets/page_header_row.dart';
 
 class RoomAssignmentPage extends StatefulWidget {
@@ -101,8 +102,9 @@ class _RoomAssignmentPageState extends State<RoomAssignmentPage> {
 
   void _handleSave(BuildContext blocContext) {
     final propertyCubit = sl<PropertySetupCubit>();
+    final localStorage = sl<LocalStorage>();
     final storedBuildingId =
-        propertyCubit.state.buildingId ?? widget.buildingId;
+        localStorage.getSelectedBuildingId() ?? propertyCubit.state.buildingId;
 
     if (storedBuildingId == null || storedBuildingId.isEmpty) {
       ScaffoldMessenger.of(blocContext).showSnackBar(
@@ -193,8 +195,10 @@ class _RoomAssignmentPageState extends State<RoomAssignmentPage> {
             // Use goNamed to ensure we have the correct parameters and state
             // This allows users to select another floor and repeat the process (A>B>C>D back to A)
             final propertyCubit = sl<PropertySetupCubit>();
+            final localStorage = sl<LocalStorage>();
             final storedBuildingId =
-                propertyCubit.state.buildingId ?? widget.buildingId;
+                localStorage.getSelectedBuildingId() ??
+                propertyCubit.state.buildingId;
 
             // Ensure numberOfFloors is preserved - use cached value, widget value, route params, or fetch from API
             // This is critical to show all floors (e.g., 4 floors, not just 1)

@@ -12,6 +12,7 @@ import 'package:frontend_aicono/core/network/dio_client.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
 
+import '../../../../../core/storage/local_storage.dart';
 import '../../../../../core/widgets/page_header_row.dart';
 
 class BuildingResponsiblePersonsPage extends StatefulWidget {
@@ -153,19 +154,16 @@ class _BuildingResponsiblePersonsPageState
     // Get switchId from PropertySetupCubit (saved at login stage)
     final propertyCubit = sl<PropertySetupCubit>();
     final switchId = propertyCubit.state.switchId;
-
-    if (switchId != null && switchId.isNotEmpty) {
+    final localStorage = sl<LocalStorage>();
+    final siteId =
+        localStorage.getSelectedSiteId() ?? propertyCubit.state.siteId;
+    if (siteId == null && switchId != null && switchId.isNotEmpty) {
       context.goNamed(
         Routelists.addPropertyName,
         queryParameters: {'switchId': switchId},
       );
     } else {
       // Fallback: navigate to additional building list if switchId not available
-      final siteId =
-          propertyCubit.state.siteId ??
-          widget.siteId ??
-          GoRouterState.of(context).uri.queryParameters['siteId'] ??
-          "6967410283b8ba4cdd805855";
 
       context.goNamed(
         Routelists.additionalBuildingList,

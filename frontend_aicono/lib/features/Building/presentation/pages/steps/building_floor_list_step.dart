@@ -3,13 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:frontend_aicono/core/widgets/page_header_row.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_floors_entity.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_places_api_flutter/google_places_api_flutter.dart';
 import 'package:dio/dio.dart';
 
+import '../../../../../core/routing/routeLists.dart';
+import '../../../../../core/storage/local_storage.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/primary_outline_button.dart';
 import '../../../../../core/network/dio_client.dart';
 import '../../../../../core/injection_container.dart';
+import '../../../../switch_creation/presentation/bloc/property_setup_cubit.dart';
 
 class BuildingFloorListStep extends StatefulWidget {
   final BuildingEntity building;
@@ -46,6 +50,7 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
   // Local state for floors fetched from backend
   List<FloorDetail> _localFetchedFloors = [];
   bool _isLoadingFloors = false;
+  int? _numFloorsFromBackend; // Store num_floors from building data response
 
   // TODO: Replace with your Google Places API key
   // You should store this securely, e.g., in environment variables or secure storage
@@ -80,6 +85,40 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
     });
 
     try {
+      // First, fetch building data to get num_floors
+      try {
+        final buildingResponse = await _dioClient.get(
+          '/api/v1/buildings/$buildingId',
+        );
+
+        if (buildingResponse.statusCode == 200 &&
+            buildingResponse.data != null) {
+          final buildingData = buildingResponse.data;
+          // Extract num_floors from building data
+          if (buildingData is Map<String, dynamic>) {
+            final data = buildingData['data'] ?? buildingData;
+            if (data is Map<String, dynamic>) {
+              // Try different field names for number of floors
+              final numFloors =
+                  data['num_floors'] ??
+                  data['numberOfFloors'] ??
+                  data['num_students_employees'];
+
+              if (numFloors != null) {
+                final parsedFloors = int.tryParse(numFloors.toString());
+                if (parsedFloors != null && parsedFloors > 0) {
+                  _numFloorsFromBackend = parsedFloors;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching building data: $e');
+        // Continue with floors fetch even if building data fetch fails
+      }
+
+      // Fetch floors
       final response = await _dioClient.get(
         '/api/v1/floors/building/$buildingId',
       );
@@ -156,7 +195,8 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
   }
 
   void _initializeFloorNames() {
-    final totalFloors = widget.building.numberOfFloors ?? 1;
+    // Use _totalFloors which prioritizes backend floors length
+    final totalFloors = _totalFloors;
 
     // Dispose existing controllers first to prevent memory leaks
     for (final controller in _floorNameControllers.values) {
@@ -178,11 +218,36 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
     }
 
     // Initialize controllers with existing names from backend or default values
-    // If numberOfFloors > fetchedFloors.length, add default floors for the remaining
+    // Use totalFloors which is based on backend floors length
     for (int i = 1; i <= totalFloors; i++) {
       final floorDetail = floorMap[i];
       final defaultName = floorDetail?.name ?? 'Etage $i';
       _floorNameControllers[i] = TextEditingController(text: defaultName);
+    }
+  }
+
+  void _navigateAfterCompletion() {
+    // Get switchId from PropertySetupCubit (saved at login stage)
+    final propertyCubit = sl<PropertySetupCubit>();
+    final switchId = propertyCubit.state.switchId;
+    final localStorage = sl<LocalStorage>();
+    final siteId =
+        localStorage.getSelectedSiteId() ?? propertyCubit.state.siteId;
+    if (siteId == null && switchId != null && switchId.isNotEmpty) {
+      context.goNamed(
+        Routelists.addPropertyName,
+        queryParameters: {'switchId': switchId},
+      );
+    } else {
+      // Fallback: navigate to additional building list if switchId not available
+
+      context.goNamed(
+        Routelists.additionalBuildingList,
+        queryParameters: {
+          // if (widget.userName != null) 'userName': widget.userName!,
+          if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
+        },
+      );
     }
   }
 
@@ -222,6 +287,22 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
   }
 
   int get _totalFloors {
+    // Priority 1: Use num_floors from building data response (num_students_employees or num_floors)
+    if (_numFloorsFromBackend != null && _numFloorsFromBackend! > 0) {
+      return _numFloorsFromBackend!;
+    }
+
+    // Priority 2: Use floors from backend if available
+    final floorsToUse = _localFetchedFloors.isNotEmpty
+        ? _localFetchedFloors
+        : widget.fetchedFloors;
+
+    if (floorsToUse.isNotEmpty) {
+      // Use the length of floors from backend
+      return floorsToUse.length;
+    }
+
+    // Priority 3: Fallback to building.numberOfFloors if no floors from backend
     return widget.building.numberOfFloors ?? 1;
   }
 
@@ -308,7 +389,7 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
                     Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: widget.onSkip,
+                        onTap: _navigateAfterCompletion,
                         child: Text(
                           'Schritt überspringen',
                           style: AppTextStyles.bodyMedium.copyWith(

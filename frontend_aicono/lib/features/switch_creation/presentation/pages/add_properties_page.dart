@@ -11,6 +11,8 @@ import 'package:frontend_aicono/features/switch_creation/domain/entities/create_
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/create_site_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/widget/add_properties_widget.dart';
 
+import '../../../../core/storage/local_storage.dart';
+
 class AddPropertiesPage extends StatefulWidget {
   final String? userName;
   final String? switchId;
@@ -48,7 +50,9 @@ class _AddPropertiesPageState extends State<AddPropertiesPage> {
     }
   }
 
-  void _handleAddPropertyDetails(Map<String, String> data) {
+  void _handleAddPropertyDetails(Map<String, String> data) async {
+    final localStorage = sl<LocalStorage>();
+    localStorage.setSelectedSiteId(data['siteId']!);
     // Navigate to add property name page with siteId for updating
     // Pass ONLY siteId, not switchId when navigating to single site
     context.pushNamed(
