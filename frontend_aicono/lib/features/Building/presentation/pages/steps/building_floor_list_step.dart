@@ -1,7 +1,10 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:frontend_aicono/core/widgets/page_header_row.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_floors_entity.dart';
+import 'package:google_places_api_flutter/google_places_api_flutter.dart';
+import 'package:dio/dio.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/primary_outline_button.dart';
@@ -35,6 +38,12 @@ class BuildingFloorListStep extends StatefulWidget {
 class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
   late Set<int> _completedFloors;
   final Map<int, TextEditingController> _floorNameControllers = {};
+  final Dio _dio = Dio();
+
+  // TODO: Replace with your Google Places API key
+  // You should store this securely, e.g., in environment variables or secure storage
+  static const String _googlePlacesApiKey =
+      'AIzaSyD80OmYALzbGTF3k9s_6UbAIrdhvEdQXV4';
 
   @override
   void initState() {
@@ -94,6 +103,7 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
     for (final controller in _floorNameControllers.values) {
       controller.dispose();
     }
+    _dio.close();
     super.dispose();
   }
 
@@ -439,6 +449,20 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
                 ],
               ),
             ),
+            // TextButton(
+            //   onPressed: () {
+            //     _showPlaceSearchDialog(floorNumber);
+            //   },
+            //   child: const Text(
+            //     'Places',
+            //     style: TextStyle(
+            //       decoration: TextDecoration.underline,
+            //       color: Colors.black87,
+            //       fontSize: 14,
+            //       fontWeight: FontWeight.w500,
+            //     ),
+            //   ),
+            // ),
             // Edit button
             TextButton(
               onPressed: () {
@@ -458,6 +482,123 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showPlaceSearchDialog(int floorNumber) async {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          height: MediaQuery.of(context).size.height * 0.7,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // Header
+              Row(
+                children: [
+                  Text(
+                    'Search Places - Floor $floorNumber',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // PlaceSearchField widget
+              Expanded(
+                child: PlaceSearchField(
+                  apiKey: _googlePlacesApiKey,
+                  isLatLongRequired: true,
+                  // Optional: Add CORS proxy URL for web if needed
+                  webCorsProxyUrl: "https://cors-anywhere.herokuapp.com",
+                  onPlaceSelected: (placeId, latLng) async {
+                    developer.log('Place ID: $placeId');
+                    developer.log('Latitude and Longitude: $latLng');
+
+                    // Get place details to get the name
+                    try {
+                      // Use the new Places API (New) REST endpoint to get place details
+                      final response = await _dio.get(
+                        'https://places.googleapis.com/v1/places/$placeId',
+                        options: Options(
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'X-Goog-Api-Key': _googlePlacesApiKey,
+                            'X-Goog-FieldMask':
+                                'id,displayName,formattedAddress',
+                          },
+                        ),
+                      );
+
+                      if (response.statusCode == 200 &&
+                          response.data != null &&
+                          mounted) {
+                        final place = response.data;
+
+                        // Handle displayName which can be an object with 'text' property or a string
+                        final displayName = place['displayName'];
+                        final displayNameText = displayName is Map
+                            ? (displayName['text'] ?? displayName.toString())
+                            : (displayName?.toString() ?? '');
+
+                        // Update the floor name with the place name
+                        final placeName = displayNameText.isNotEmpty
+                            ? displayNameText
+                            : (place['formattedAddress'] ?? '');
+
+                        if (_floorNameControllers.containsKey(floorNumber)) {
+                          _floorNameControllers[floorNumber]!.text = placeName;
+                          // Call onEditFloor to save the change
+                          widget.onEditFloor(floorNumber, placeName);
+                        }
+
+                        Navigator.of(context).pop();
+                      }
+                    } catch (e) {
+                      developer.log('Error getting place details: $e');
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error loading place details: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  decorationBuilder: (context, child) {
+                    return Material(
+                      type: MaterialType.card,
+                      elevation: 4,
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      child: child,
+                    );
+                  },
+                  itemBuilder: (context, prediction) => ListTile(
+                    leading: const Icon(Icons.location_on),
+                    title: Text(
+                      prediction.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

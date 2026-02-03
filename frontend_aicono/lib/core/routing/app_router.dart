@@ -48,6 +48,8 @@ import 'package:frontend_aicono/features/switch_creation/presentation/pages/swit
 import 'package:frontend_aicono/features/user_invite/presentation/pages/invite_user_page.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/pages/complete_user_invite_page.dart';
 
+import '../../features/FloorPlan/presentation/pages/floor_plan_backup.dart';
+
 /// App router configuration using go_router
 class AppRouter {
   /// Singleton instance
@@ -521,7 +523,8 @@ class AppRouter {
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final switchId = state.uri.queryParameters['switchId'];
-        final isSingleProperty = state.uri.queryParameters['isSingleProperty'] == 'true';
+        final isSingleProperty =
+            state.uri.queryParameters['isSingleProperty'] == 'true';
         return _buildPage(
           context,
           state,
@@ -696,7 +699,8 @@ class AppRouter {
       path: '/${Routelists.floorPlanEditor}',
       name: Routelists.floorPlanEditor,
       pageBuilder: (context, state) {
-        return _buildPage(context, state, const FloorPlanPage());
+        // return _buildPage(context, state, const FloorPlanPage());
+        return _buildPage(context, state, const FloorPlanBackupPage());
       },
     ),
     GoRoute(
