@@ -100,14 +100,14 @@ class TopHeader extends StatelessWidget {
       TextSpan(
         children: [
           TextSpan(
-            text: 'BRYTE',
+            text: 'AI',
             style: AppTextStyles.appTitle.copyWith(
               color: Colors.black,
               fontWeight: FontWeight.bold,
             ),
           ),
           TextSpan(
-            text: 'SWITCH',
+            text: 'CONO',
             style: AppTextStyles.appTitle.copyWith(
               color: const Color(0xFF636F57),
               fontWeight: FontWeight.bold,
