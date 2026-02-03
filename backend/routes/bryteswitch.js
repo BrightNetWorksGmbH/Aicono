@@ -9,6 +9,9 @@ router.post('/create-initial', requireAuth, bryteswitchController.createInitialS
 // Complete BryteSwitch setup (owner only)
 router.post('/:bryteswitchId/complete-setup', requireAuth, bryteswitchController.completeSwitchSetup);
 
+// Join BryteSwitch (for users who registered via invitation)
+router.post('/:bryteswitchId/join', requireAuth, bryteswitchController.joinSwitch);
+
 // Get BryteSwitch by ID
 router.get('/:bryteswitchId', requireAuth, bryteswitchController.getBryteSwitch);
 
