@@ -112,12 +112,12 @@ class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
           if (state is CreateSiteSuccess) {
             // Site updated successfully, navigate to next step
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Site updated successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
+              // ScaffoldMessenger.of(context).showSnackBar(
+              //   const SnackBar(
+              //     content: Text('Site updated successfully'),
+              //     backgroundColor: Colors.green,
+              //   ),
+              // );
               // Navigate to add property location page with siteId
               context.pushNamed(
                 Routelists.addPropertyLocation,

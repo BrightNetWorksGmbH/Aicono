@@ -42,7 +42,8 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
 
   // TODO: Replace with your Google Places API key
   // You should store this securely, e.g., in environment variables or secure storage
-  static const String _googlePlacesApiKey = '';
+  static const String _googlePlacesApiKey =
+      'AIzaSyD80OmYALzbGTF3k9s_6UbAIrdhvEdQXV4';
 
   @override
   void initState() {
@@ -63,28 +64,8 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
     // Create a map of floor numbers to floor details from backend
     final Map<int, FloorDetail> floorMap = {};
     if (widget.fetchedFloors.isNotEmpty) {
-      for (final floor in widget.fetchedFloors) {
-        final floorName = floor.name.toLowerCase();
-        int? floorNumber;
-
-        // Extract floor number from name
-        if (floorName.contains('ground') || floorName.contains('floor 0')) {
-          floorNumber = 1;
-        } else {
-          final match = RegExp(r'(\d+)').firstMatch(floorName);
-          if (match != null) {
-            floorNumber = int.tryParse(match.group(1) ?? '');
-          }
-        }
-
-        if (floorNumber != null && floorNumber <= totalFloors) {
-          // If multiple floors have same number, keep the one with floor_plan_link
-          if (!floorMap.containsKey(floorNumber) ||
-              (floor.floorPlanLink != null &&
-                  floor.floorPlanLink!.isNotEmpty)) {
-            floorMap[floorNumber] = floor;
-          }
-        }
+      for (int j = 0; j < widget.fetchedFloors.length; j++) {
+        floorMap[j] = widget.fetchedFloors[j];
       }
     }
 

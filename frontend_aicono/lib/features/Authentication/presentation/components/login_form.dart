@@ -7,6 +7,7 @@ import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/services/auth_service.dart';
 import 'package:frontend_aicono/core/services/saved_accounts_service.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
 
@@ -146,6 +147,8 @@ class _LoginFormState extends State<LoginForm> {
                 return;
               }
 
+              final localStorage = sl<LocalStorage>();
+              localStorage.setSelectedVerseId(widget.invitation!.verseId);
               final invitedVerseId = widget.invitation!.verseId;
               final alreadyMember = user.joinedVerse.contains(invitedVerseId);
               if (!alreadyMember) {
