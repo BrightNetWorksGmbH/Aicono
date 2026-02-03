@@ -295,11 +295,12 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
                       matchingSite['_id']?.toString() ??
                       matchingSite['id']?.toString() ??
                       '';
-
-                  widget.onAddPropertyDetails?.call({
-                    'propertyName': propertyName,
-                    'siteId': siteId,
-                  });
+                  if (siteId != '') {
+                    widget.onAddPropertyDetails?.call({
+                      'propertyName': propertyName,
+                      'siteId': siteId,
+                    });
+                  }
                 }
               },
               child: Text(
