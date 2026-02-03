@@ -38,7 +38,6 @@ class _BuildingFloorManagementPageState
   int? _editingFloorNumber;
   String? _editingFloorName;
   Set<int> _completedFloors = {};
-  bool _hasFetchedFloors = false;
   List<FloorDetail> _fetchedFloors = [];
   bool _isLoadingFloors = false;
   final DioClient _dioClient = sl<DioClient>();
@@ -53,7 +52,9 @@ class _BuildingFloorManagementPageState
   }
 
   Future<void> _fetchFloorsFromBackend() async {
-    if (_hasFetchedFloors || widget.buildingId == null) return;
+    if (widget.buildingId == null || widget.buildingId!.isEmpty) {
+      return;
+    }
 
     setState(() {
       _isLoadingFloors = true;
@@ -65,24 +66,66 @@ class _BuildingFloorManagementPageState
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        final data = response.data;
-        if (data['success'] == true && data['data'] != null) {
-          final floorsList = (data['data'] as List)
-              .map((f) => FloorDetail.fromJson(f as Map<String, dynamic>))
-              .toList();
+        final responseData = response.data;
+        List<FloorDetail> floorsList = [];
 
+        try {
+          // Handle different response formats
+          if (responseData is List) {
+            // Direct array response: [{...}, {...}]
+            floorsList = responseData
+                .whereType<Map<String, dynamic>>()
+                .map((f) => FloorDetail.fromJson(f))
+                .toList();
+          } else if (responseData is Map<String, dynamic>) {
+            // Wrapped response: {success: true, data: [...]}
+            dynamic floorsData;
+
+            // Check for 'data' field first (most common)
+            if (responseData.containsKey('data') &&
+                responseData['data'] != null) {
+              floorsData = responseData['data'];
+            }
+            // Fallback to 'floors' field
+            else if (responseData.containsKey('floors') &&
+                responseData['floors'] != null) {
+              floorsData = responseData['floors'];
+            }
+
+            // Parse floors if we found them
+            if (floorsData is List) {
+              floorsList = floorsData
+                  .whereType<Map<String, dynamic>>()
+                  .map((f) => FloorDetail.fromJson(f))
+                  .toList();
+            }
+          }
+        } catch (parseError) {
+          // Log parsing error but continue with empty list
+          debugPrint('Error parsing floors response: $parseError');
+          debugPrint('Response data: $responseData');
+        }
+
+        if (mounted) {
           setState(() {
             _fetchedFloors = floorsList;
-            _hasFetchedFloors = true;
             // Update completed floors based on floors with floor_plan_link
             _updateCompletedFloorsFromBackend(floorsList);
           });
         }
       }
     } catch (e) {
-      // Silently fail - user can still add floors manually
+      // Log error but allow user to still add floors manually
       if (mounted) {
-        debugPrint('Error fetching floors: $e');
+        debugPrint('Error fetching floors from backend: $e');
+        // Optionally show a snackbar to inform user
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not load floors from server: ${e.toString()}'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
     } finally {
       if (mounted) {

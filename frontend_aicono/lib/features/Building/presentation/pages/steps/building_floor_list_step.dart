@@ -8,6 +8,8 @@ import 'package:dio/dio.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/primary_outline_button.dart';
+import '../../../../../core/network/dio_client.dart';
+import '../../../../../core/injection_container.dart';
 
 class BuildingFloorListStep extends StatefulWidget {
   final BuildingEntity building;
@@ -39,6 +41,11 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
   late Set<int> _completedFloors;
   final Map<int, TextEditingController> _floorNameControllers = {};
   final Dio _dio = Dio();
+  final DioClient _dioClient = sl<DioClient>();
+
+  // Local state for floors fetched from backend
+  List<FloorDetail> _localFetchedFloors = [];
+  bool _isLoadingFloors = false;
 
   // TODO: Replace with your Google Places API key
   // You should store this securely, e.g., in environment variables or secure storage
@@ -49,7 +56,103 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
   void initState() {
     super.initState();
     _completedFloors = Set<int>.from(widget.completedFloors);
-    _initializeFloorNames();
+    // Use fetched floors from widget if available, otherwise fetch from backend
+    if (widget.fetchedFloors.isNotEmpty) {
+      _localFetchedFloors = List.from(widget.fetchedFloors);
+      _initializeFloorNames();
+    } else {
+      // Fetch floors from backend if building has an ID
+      _fetchFloorsFromBackend();
+    }
+  }
+
+  Future<void> _fetchFloorsFromBackend() async {
+    // Get buildingId from building entity
+    final buildingId = widget.building.id;
+    if (buildingId == null || buildingId.isEmpty) {
+      // No building ID, initialize with default floors
+      _initializeFloorNames();
+      return;
+    }
+
+    setState(() {
+      _isLoadingFloors = true;
+    });
+
+    try {
+      final response = await _dioClient.get(
+        '/api/v1/floors/building/$buildingId',
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        List<FloorDetail> floorsList = [];
+
+        // Handle different response formats
+        if (data is List) {
+          // Direct array response
+          floorsList = data
+              .map((f) => FloorDetail.fromJson(f as Map<String, dynamic>))
+              .toList();
+        } else if (data is Map<String, dynamic>) {
+          // Wrapped response - check multiple possible structures
+          if (data['data'] != null && data['data'] is List) {
+            floorsList = (data['data'] as List)
+                .map((f) => FloorDetail.fromJson(f as Map<String, dynamic>))
+                .toList();
+          } else if (data['floors'] != null && data['floors'] is List) {
+            floorsList = (data['floors'] as List)
+                .map((f) => FloorDetail.fromJson(f as Map<String, dynamic>))
+                .toList();
+          } else if (data['success'] == true && data['data'] != null) {
+            floorsList = (data['data'] as List)
+                .map((f) => FloorDetail.fromJson(f as Map<String, dynamic>))
+                .toList();
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _localFetchedFloors = floorsList;
+            // Update completed floors based on floors with floor_plan_link
+            _updateCompletedFloorsFromBackend(floorsList);
+            _initializeFloorNames();
+          });
+        }
+      }
+    } catch (e) {
+      // Log error but allow user to still add floors manually
+      if (mounted) {
+        debugPrint('Error fetching floors from backend: $e');
+        // Initialize with default floors even if fetch fails
+        _initializeFloorNames();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingFloors = false;
+        });
+      }
+    }
+  }
+
+  void _updateCompletedFloorsFromBackend(List<FloorDetail> floors) {
+    // Mark floors as completed if they have a floor_plan_link
+    final completedFloorsSet = <int>{};
+    final totalFloors = widget.building.numberOfFloors ?? 1;
+
+    for (int i = 0; i < floors.length && i < totalFloors; i++) {
+      final floor = floors[i];
+      // Only mark as completed if floor has a floor plan link
+      if (floor.floorPlanLink != null && floor.floorPlanLink!.isNotEmpty) {
+        // Use index + 1 as floor number (floors are 1-indexed)
+        completedFloorsSet.add(i + 1);
+      }
+    }
+
+    setState(() {
+      _completedFloors = completedFloorsSet;
+    });
   }
 
   void _initializeFloorNames() {
@@ -61,15 +164,21 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
     }
     _floorNameControllers.clear();
 
-    // Create a map of floor numbers to floor details from backend
+    // Use local fetched floors if available, otherwise use widget's fetched floors
+    final floorsToUse = _localFetchedFloors.isNotEmpty
+        ? _localFetchedFloors
+        : widget.fetchedFloors;
+
+    // Create a map of floor indices to floor details from backend
+    // Floors from backend are indexed by their position (0-indexed)
     final Map<int, FloorDetail> floorMap = {};
-    if (widget.fetchedFloors.isNotEmpty) {
-      for (int j = 0; j < widget.fetchedFloors.length; j++) {
-        floorMap[j] = widget.fetchedFloors[j];
-      }
+    for (int i = 0; i < floorsToUse.length; i++) {
+      // Map backend floor at index i to floor number i+1
+      floorMap[i + 1] = floorsToUse[i];
     }
 
-    // Initialize controllers with existing names or default values
+    // Initialize controllers with existing names from backend or default values
+    // If numberOfFloors > fetchedFloors.length, add default floors for the remaining
     for (int i = 1; i <= totalFloors; i++) {
       final floorDetail = floorMap[i];
       final defaultName = floorDetail?.name ?? 'Etage $i';
@@ -98,9 +207,17 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
     // Update controllers if fetched floors changed or total floors changed
     if (widget.fetchedFloors != oldWidget.fetchedFloors ||
         widget.building.numberOfFloors != oldWidget.building.numberOfFloors) {
-      setState(() {
-        _initializeFloorNames();
-      });
+      // If widget provides new fetched floors, use them
+      if (widget.fetchedFloors.isNotEmpty) {
+        setState(() {
+          _localFetchedFloors = List.from(widget.fetchedFloors);
+          _initializeFloorNames();
+        });
+      } else {
+        setState(() {
+          _initializeFloorNames();
+        });
+      }
     }
   }
 
@@ -151,10 +268,11 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
 
                   const SizedBox(height: 32),
                   // Loading state
-                  if (widget.isLoadingFloors)
+                  if (_isLoadingFloors || widget.isLoadingFloors)
                     const Center(child: CircularProgressIndicator())
                   // Floor list - show fetched floors if available, otherwise show default list
-                  else if (widget.fetchedFloors.isNotEmpty)
+                  else if (_localFetchedFloors.isNotEmpty ||
+                      widget.fetchedFloors.isNotEmpty)
                     ..._buildFloorsFromBackend(screenSize)
                   else if (_totalFloors > 0)
                     ...List.generate(_totalFloors, (index) {
@@ -275,34 +393,23 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
   List<Widget> _buildFloorsFromBackend(Size screenSize) {
     final List<Widget> floorWidgets = [];
 
-    // Create a map of floor numbers to floor details
+    // Use local fetched floors if available, otherwise use widget's fetched floors
+    final floorsToUse = _localFetchedFloors.isNotEmpty
+        ? _localFetchedFloors
+        : widget.fetchedFloors;
+
+    // Create a map of floor numbers (1-indexed) to floor details from backend
     final Map<int, FloorDetail> floorMap = {};
-    for (final floor in widget.fetchedFloors) {
-      final floorName = floor.name.toLowerCase();
-      int? floorNumber;
-
-      // Extract floor number from name
-      if (floorName.contains('ground') || floorName.contains('floor 0')) {
-        floorNumber = 1;
-      } else {
-        final match = RegExp(r'(\d+)').firstMatch(floorName);
-        if (match != null) {
-          floorNumber = int.tryParse(match.group(1) ?? '');
-        }
-      }
-
-      if (floorNumber != null && floorNumber <= _totalFloors) {
-        // If multiple floors have same number, keep the one with floor_plan_link
-        if (!floorMap.containsKey(floorNumber) ||
-            (floor.floorPlanLink != null && floor.floorPlanLink!.isNotEmpty)) {
-          floorMap[floorNumber] = floor;
-        }
-      }
+    for (int i = 0; i < floorsToUse.length; i++) {
+      // Map backend floor at index i to floor number i+1
+      floorMap[i + 1] = floorsToUse[i];
     }
 
     // Generate floor list based on total floors
+    // If numberOfFloors > fetchedFloors.length, show additional floors with default names
     for (int i = 1; i <= _totalFloors; i++) {
       final floorDetail = floorMap[i];
+      // Use name from backend if available, otherwise use default "Etage i"
       final floorName = floorDetail?.name ?? 'Etage $i';
       final isCompleted =
           floorDetail != null &&
