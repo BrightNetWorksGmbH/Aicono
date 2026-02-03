@@ -77,6 +77,10 @@ dependencies:
   flutter_colorpicker: ^1.0.3
   fl_chart: ^0.69.0
 
+  # Maps
+  google_maps_flutter: ^2.9.0
+  google_places_api_flutter: ^2.0.0
+
   # Math utilities
   vector_math: ^2.1.4
   file_picker: ^10.3.8
