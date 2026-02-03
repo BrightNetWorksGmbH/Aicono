@@ -42,8 +42,7 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
 
   // TODO: Replace with your Google Places API key
   // You should store this securely, e.g., in environment variables or secure storage
-  static const String _googlePlacesApiKey =
-      'AIzaSyD80OmYALzbGTF3k9s_6UbAIrdhvEdQXV4';
+  static const String _googlePlacesApiKey = '';
 
   @override
   void initState() {
