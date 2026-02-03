@@ -1182,7 +1182,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
         final isLoading = state is TriggerReportLoading;
         return Center(
           child: SizedBox(
-            width: 220,
+            width: 270,
             height: 40,
             child: Material(
               color: Colors.white,
@@ -1195,7 +1195,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                         );
                       },
                 child: Container(
-                  width: 220,
+                  width: 270,
                   height: 40,
                   decoration: BoxDecoration(
                     border: Border.all(
