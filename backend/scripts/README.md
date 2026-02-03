@@ -1,11 +1,198 @@
-# Aggregation Migration Script
+# Database Scripts
 
-## Overview
+This directory contains various utility scripts for database operations.
 
-The `aggregateExistingData.js` script aggregates existing unaggregated data in the MongoDB `measurements` collection. This is useful for:
+## Scripts Overview
+
+### 1. `copyDatabaseToTest.js` - Copy Database to Test Environment
+
+Copies all collections from the `aicono` database to `aicono-test` database. Useful for creating a test environment that mirrors production data.
+
+### 2. `aggregateExistingData.js` - Aggregate Existing Data
+
+Aggregates existing unaggregated data in the MongoDB `measurements` collection. This is useful for:
 - Migrating existing raw data to aggregated format
 - Reducing database size by aggregating old data
 - Optimizing query performance
+
+---
+
+## copyDatabaseToTest.js
+
+### Overview
+
+The `copyDatabaseToTest.js` script copies all collections (including data and indexes) from the `aicono` database to `aicono-test` database. This is useful when you need a separate test database that mirrors your production data structure.
+
+### What It Does
+
+- Connects to MongoDB using `MONGODB_URI` from `.env`
+- Lists all collections in the source database (`aicono`)
+- Copies all documents from each collection to the target database (`aicono-test`)
+- Copies all indexes from each collection
+- Verifies the copy operation was successful
+- Provides a detailed summary of the operation
+
+### Prerequisites
+
+1. **Environment Setup**
+   - Ensure `.env` file exists in the backend root directory
+   - `MONGODB_URI` must be set in `.env` (pointing to your MongoDB cluster)
+   - Target database (`aicono-test`) should exist (can be empty)
+
+2. **Database Connection**
+   - MongoDB must be accessible
+   - User must have read permissions on source database
+   - User must have write permissions on target database
+
+### Usage
+
+#### Basic Usage
+
+```bash
+cd Aicono/backend
+node scripts/copyDatabaseToTest.js
+```
+
+#### With Options
+
+```bash
+# Use custom batch size (default: 10000)
+node scripts/copyDatabaseToTest.js --batch-size=5000
+
+# Skip copying indexes (faster, but indexes won't be copied)
+node scripts/copyDatabaseToTest.js --skip-indexes
+```
+
+### Options
+
+- `--batch-size=N`: Number of documents to copy at a time (default: 10000). Use smaller values if you encounter memory issues.
+- `--skip-indexes`: Skip copying indexes. Use this if you want faster copying and will recreate indexes manually later.
+
+### What to Expect
+
+The script will:
+- Connect to MongoDB
+- List all collections in the source database
+- Copy each collection's data in batches
+- Copy indexes for each collection
+- Verify the copy was successful
+- Provide a detailed summary
+
+### Example Output
+
+```
+========================================
+[COPY DB] Starting database copy operation...
+[COPY DB] Source: aicono
+[COPY DB] Target: aicono-test
+========================================
+
+[COPY DB] Connecting to MongoDB...
+[COPY DB] ✓ Connected to MongoDB
+
+[COPY DB] ✓ Source database 'aicono' found
+[COPY DB] ✓ Target database 'aicono-test' ready
+
+[COPY DB] Found 15 collection(s) to copy:
+
+  1. buildings
+  2. measurements
+  3. sensors
+  ...
+
+[COPY DB] Processing collection: buildings
+  [COPY DB]   Found 10 document(s)
+  [COPY DB]   ✓ Copied 10 document(s)
+  [COPY DB]   Copying indexes...
+  [COPY DB]   ✓ Copied 3 index(es)
+  [COPY DB]   ✅ Verification passed: 10 documents in target
+  [COPY DB]   ✓ Collection 'buildings' copied successfully
+
+...
+
+========================================
+[COPY DB] Copy operation complete!
+========================================
+Collections processed: 15/15
+Total documents copied: 1,234,567
+Total time: 120.45s
+
+Collection Summary:
+----------------------------------------
+✅ buildings: 10 documents
+✅ measurements: 1,200,000 documents
+✅ sensors: 500 documents
+...
+
+========================================
+
+[COPY DB] ✅ All collections copied successfully!
+[COPY DB] You can now use 'aicono-test' database in your .env file
+[COPY DB] Update MONGODB_URI to use 'aicono-test' instead of 'aicono'
+```
+
+### Important Notes
+
+1. **Target Collection Clearing**: The script will clear existing data in target collections before copying. This ensures a clean copy.
+
+2. **Batch Processing**: Large collections are processed in batches to avoid memory issues and timeouts.
+
+3. **Index Copying**: Indexes are copied with their original settings (unique, sparse, TTL, etc.). The `_id` index is automatically created by MongoDB, so it's skipped.
+
+4. **Error Handling**: If a collection fails to copy, the script logs the error and continues with the next collection.
+
+5. **Verification**: After copying each collection, the script verifies that the document count matches between source and target.
+
+### Safety Recommendations
+
+Before running:
+
+1. **Backup**: Always backup your databases before running this script
+2. **Test Connection**: Verify you can connect to both databases
+3. **Check Permissions**: Ensure your MongoDB user has necessary permissions
+4. **Monitor Progress**: Watch the logs to ensure copying is working correctly
+5. **Verify Results**: Check the summary to ensure all collections were copied successfully
+
+### Troubleshooting
+
+#### Connection Errors
+- Verify `MONGODB_URI` is correct in `.env`
+- Check MongoDB is running and accessible
+- Verify network connectivity
+- Ensure the connection string format is correct
+
+#### Permission Errors
+- Verify your MongoDB user has read permissions on source database
+- Verify your MongoDB user has write permissions on target database
+- Check if your user has access to list databases
+
+#### Memory Issues
+- Use a smaller `--batch-size` value (e.g., `--batch-size=1000`)
+- Process collections one at a time if needed
+
+#### Timeout Errors
+- Increase MongoDB connection timeout settings
+- Use smaller batch sizes
+- Check network latency
+
+### After Running
+
+Once the script completes successfully:
+
+1. Update your `.env` file to use the test database:
+   ```
+   MONGODB_URI=mongodb+srv://{username}:{password}@db-mongodb-fra1-38814-2d181fd3.mongo.ondigitalocean.com/aicono-test?authSource=admin&replicaSet=db-mongodb-fra1-38814&tls=true
+   ```
+
+2. Test your application with the new database
+
+3. Keep the production database (`aicono`) unchanged for your deployed version
+
+---
+
+## aggregateExistingData.js
+
+### Overview
 
 ## What It Does
 

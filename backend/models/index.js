@@ -24,5 +24,6 @@ module.exports = {
   RenovationProject: require('./RenovationProject'),
   Benchmark: require('./Benchmark'),
   ActivityLog: require('./ActivityLog'),
+  Notification: require('./Notification'),
 };
 

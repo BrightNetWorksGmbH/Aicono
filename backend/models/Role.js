@@ -78,10 +78,10 @@ roleSchema.statics.getDefaultPermissions = function(roleName) {
     Admin: {
       manage_users: true,
       invite_users: true,
-      manage_roles: false,
+      manage_roles: true,
       manage_buildings: true,
       manage_sites: true,
-      manage_bryteswitch: false,
+      manage_bryteswitch: true,
       view_reports: true,
       manage_alarms: true,
       manage_loxone: true,
