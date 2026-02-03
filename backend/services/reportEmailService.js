@@ -1,4 +1,3 @@
-const { buildEmailTemplate } = require('./emailService');
 const Mailjet = require("node-mailjet");
 
 // Mailjet configuration
@@ -13,6 +12,245 @@ const mailjet = new Mailjet({
   apiKey: MAILJET_API_KEY,
   apiSecret: MAILJET_SECRET_KEY,
 });
+
+/**
+ * Build custom report email template
+ * @param {Object} params - Template parameters
+ * @returns {String} HTML content
+ */
+function buildReportEmailTemplate({
+  recipientName,
+  statusText,
+  progressBarPercent,
+  totalEnergy,
+  energyUnit,
+  averagePower,
+  powerUnit,
+  peakPower,
+  buildingName,
+  viewReportUrl,
+  unsubscribeUrl,
+  reportConfigName
+}) {
+  // Progress bar HTML (static data for now - 25-30% for unkritisch)
+  const progressBarFill = progressBarPercent || 28;
+  const progressBarHtml = `
+    <div style="width: 100%; background-color: rgba(255, 255, 255, 0.3); height: 8px; border-radius: 4px; margin-top: 10px; overflow: hidden;">
+      <div style="width: ${progressBarFill}%; background-color: #90EE90; height: 100%; transition: width 0.3s ease;"></div>
+    </div>
+  `;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${reportConfigName || 'Daily Report'} - BRIGHT NETWORKS</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          line-height: 1.6; 
+          color: #333; 
+          margin: 0; 
+          padding: 20px; 
+          background-color: #f4f4f4; 
+        }
+        .email-container { 
+          max-width: 600px; 
+          margin: 0 auto; 
+          background: #ffffff; 
+          border-radius: 8px; 
+          overflow: hidden; 
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+        }
+        .header-section { 
+          background: linear-gradient(135deg, #2596be 0%, #30b3e2 100%); 
+          padding: 20px; 
+          border-radius: 16px; 
+          color: white; 
+          text-align: center; 
+          margin-bottom: 20px; 
+        }
+        .header-greeting { 
+          color: white; 
+          margin: 0 0 20px 0; 
+          font-size: 24px; 
+          font-weight: normal; 
+          line-height: 1.4; 
+        }
+        .status-section { 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          gap: 10px; 
+          margin-bottom: 10px; 
+        }
+        .status-text { 
+          color: white; 
+          font-size: 14px; 
+        }
+        .header-button { 
+          display: inline-block; 
+          border: 5px solid white !important; 
+          border-radius: 0 !important; 
+          background: transparent; 
+          color: white !important; 
+          font-weight: bold; 
+          padding: 12px 24px; 
+          text-decoration: none !important; 
+          margin-top: 20px; 
+          font-size: 16px; 
+        }
+        .header-button:hover { 
+          background: rgba(255, 255, 255, 0.1); 
+        }
+        .content-section { 
+          padding: 0 20px 20px; 
+        }
+        .key-facts { 
+          background: #f0f9ff; 
+          border-left: 4px solid #2596be; 
+          padding: 15px; 
+          margin: 20px 0; 
+          border-radius: 4px; 
+        }
+        .key-facts h3 { 
+          color: #2596be; 
+          margin-top: 0; 
+          margin-bottom: 10px; 
+        }
+        .key-facts table { 
+          width: 100%; 
+          border-collapse: collapse; 
+        }
+        .key-facts td { 
+          padding: 8px; 
+          border-bottom: 1px solid #ddd; 
+        }
+        .key-facts tr:last-child td { 
+          border-bottom: none; 
+        }
+        .content-button { 
+          display: inline-block; 
+          border: 5px solid #2596be !important; 
+          border-radius: 0 !important; 
+          background: transparent; 
+          color: #2596be !important; 
+          font-weight: bold; 
+          padding: 12px 24px; 
+          text-decoration: none !important; 
+          margin: 20px 0; 
+          font-size: 16px; 
+          text-align: center; 
+        }
+        .content-button:hover { 
+          background: rgba(37, 150, 190, 0.1); 
+        }
+        .button-container { 
+          text-align: center; 
+          margin: 20px 0; 
+        }
+        .link-fallback { 
+          word-break: break-all; 
+          background: #f8f9fa; 
+          padding: 10px; 
+          border-radius: 4px; 
+          font-family: monospace; 
+          font-size: 12px; 
+          margin-top: 10px; 
+          color: #2596be; 
+        }
+        .footer-section { 
+          background: #f8f9fa; 
+          padding: 20px; 
+          text-align: center; 
+          color: #666; 
+          font-size: 12px; 
+          border-top: 1px solid #eee; 
+        }
+        .footer-section p { 
+          margin: 5px 0; 
+        }
+        a { 
+          color: #2596be; 
+          text-decoration: none; 
+        }
+        a:hover { 
+          text-decoration: underline; 
+        }
+        p { 
+          margin: 15px 0; 
+        }
+      </style>
+    </head>
+    <body>
+      <div class="email-container">
+        <div class="content-section">
+          <!-- Header Section -->
+          <div class="header-section">
+            <h2 class="header-greeting">Guten Morgen,<br>lieber ${recipientName}, Dein<br>tägliches Reporting<br>steht bereit</h2>
+            <div class="status-section">
+              <span class="status-text">${statusText}</span>
+            </div>
+            ${progressBarHtml}
+            <div style="margin-top: 20px;">
+              <a href="${viewReportUrl}" class="header-button">Jetzt sofort ansehen</a>
+            </div>
+          </div>
+
+          <!-- Key Facts Section -->
+          <div class="key-facts">
+            <h3>Key Facts</h3>
+            <table>
+              <tr>
+                <td><strong>Total Energy:</strong></td>
+                <td style="text-align: right;">${totalEnergy.toFixed(3)} ${energyUnit}</td>
+              </tr>
+              <tr>
+                <td><strong>Average Power:</strong></td>
+                <td style="text-align: right;">${averagePower > 0 ? averagePower.toFixed(3) : 'N/A'} ${averagePower > 0 ? powerUnit : ''}</td>
+              </tr>
+              <tr>
+                <td><strong>Peak Power:</strong></td>
+                <td style="text-align: right;">${peakPower.toFixed(3)} ${powerUnit}</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Content Text Before Button -->
+          <p>Lieber ${recipientName},</p>
+          <p>anbei findest Du Dein tägliches Ressourcen-Reporting zur Liegenschaft „${buildingName}".</p>
+          <p>Du kannst Dich über den folgenden Link bequem – ohne Eingabe weiterer Identifikationsmerkmale – anmelden. Bitte beachte, dass der Link nicht weitergegeben werden kann und nur funktioniert, wenn er direkt aus dieser E-Mail heraus geöffnet wird.</p>
+
+          <!-- Outside Button -->
+          <div class="button-container">
+            <a href="${viewReportUrl}" class="content-button">Jetzt sofort ansehen</a>
+          </div>
+
+          <!-- Post-Button Text -->
+          <p>If the button doesn't work, copy and paste this link into your browser:</p>
+          <div class="link-fallback">${viewReportUrl}</div>
+          <p>Zusätzlich liegt das Reporting als PDF-Variante im Anhang bei.</p>
+          <p>Diese Nachricht erhältst Du on behalf of ${recipientName}, CEO BrightNetWorks GmbH und Mandant von BrightNetWorks.BryteSwitch.de.</p>
+          <p>
+            Wenn Du künftig kein automatisches Reporting mehr erhalten möchtest, kannst Du es über folgenden Link abbestellen: 
+            <a href="${unsubscribeUrl}">👉 Reporting abbestellen</a>
+          </p>
+          <p>Bei Rückfragen wende Dich bitte an ${recipientName} oder das Administratoren-Team.</p>
+          <p style="margin-top: 20px;">Mit besten Grüßen<br>Dein ${recipientName}<br>BrightNetWorks GmbH</p>
+        </div>
+
+        <!-- Footer Section -->
+        <div class="footer-section">
+          <p>Durch das Öffnen dieses Dokuments bestätigst Du gemäß § 126 BGB, dass Du die autorisierte Empfängerperson bist und diese elektronische Übermittlung als rechtsverbindlich anerkennst. Die Weitergabe oder Vervielfältigung des Inhalts ist ohne ausdrückliche Zustimmung der BrightNetWorks GmbH untersagt.</p>
+          <p>brightnetworks.switchboard.com</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
 
 /**
  * Report Email Service
@@ -89,6 +327,7 @@ class ReportEmailService {
    * @param {Object} reportConfig - Reporting configuration
    * @param {Object} building - Building object
    * @param {String} viewReportUrl - URL to view full report
+   * @param {Object} recipient - Recipient object
    * @returns {String} HTML content
    */
   formatReportAsHTML(reportData, reportConfig, building, viewReportUrl, recipient = null) {
@@ -113,56 +352,26 @@ class ReportEmailService {
     // Recipient name for greeting
     const recipientName = recipient?.name || recipient?.email?.split('@')[0] || 'User';
 
-    const htmlContent = buildEmailTemplate({
-      heading: "BRIGHT NETWORKS",
-      subheading: reportConfig.name,
-      contentHtml: `
-        <div style="background: linear-gradient(135deg, #214A59 0%, #171C23 100%); padding: 30px 20px; border-radius: 8px; margin-bottom: 20px; color: white; text-align: center;">
-          <h2 style="color: white; margin: 0 0 10px 0; font-size: 24px;">Guten Morgen,<br>lieber ${recipientName}, Dein<br>tägliches Reporting<br>steht bereit.</h2>
-          <div style="margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 10px;">
-            <span style="color: white;">✓</span>
-            <span style="color: white;">${statusText}</span>
-          </div>
-        </div>
-        
-        <div class="info-box" style="background: #f0f9ff; border-left: 4px solid #214A59;">
-          <h3 style="color: #214A59; margin-top: 0;">Key Facts</h3>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Total Energy:</strong></td>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;">${totalEnergy.toFixed(3)} ${energyUnit}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Average Power:</strong></td>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;">${averagePower > 0 ? averagePower.toFixed(3) : 'N/A'} ${averagePower > 0 ? powerUnit : ''}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px;"><strong>Peak Power:</strong></td>
-              <td style="padding: 8px;">${peakPower.toFixed(3)} ${powerUnit}</td>
-            </tr>
-          </table>
-        </div>
+    // Progress bar percentage (static data for now - 25-30% for unkritisch)
+    const progressBarPercent = hasAnomalies ? 28 : 30;
 
-        <p style="margin-top: 20px;">Lieber ${recipientName},</p>
-        <p>anbei findest Du Dein tägliches Ressourcen-Reporting zur Liegenschaft „${building.name}".</p>
-        <p>Du kannst Dich über den folgenden Link bequem – ohne Eingabe weiterer Identifikationsmerkmale – anmelden. Bitte beachte, dass der Link nicht weitergegeben werden kann und nur funktioniert, wenn er direkt aus dieser E-Mail heraus geöffnet wird.</p>
-      `,
-      buttonText: "Jetzt sofort ansehen",
-      buttonUrl: viewReportUrl,
-      postButtonHtml: `
-        <p style="margin-top: 20px;">Zusätzlich liegt das Reporting als PDF-Variante im Anhang bei.</p>
-        <p style="margin-top: 15px; font-size: 12px; color: #666;">Diese Nachricht erhältst Du on behalf of ${recipientName}, CEO BrightNetWorks GmbH und Mandant von BrightNetWorks.BryteSwitch.de.</p>
-        <p style="margin-top: 15px; font-size: 12px;">
-          Wenn Du künftig kein automatisches Reporting mehr erhalten möchtest, kannst Du es über folgenden Link abbestellen: 
-          <a href="${FRONTEND_URL}/unsubscribe?email=${encodeURIComponent(recipient?.email || '')}" style="color: #214A59;">Reporting abbestellen</a>
-        </p>
-        <p style="margin-top: 15px; font-size: 12px;">Bei Rückfragen wende Dich bitte an ${recipientName} oder das Administratoren-Team.</p>
-        <p style="margin-top: 20px;">Mit besten Grüßen<br>Dein ${recipientName}<br>BrightNetWorks GmbH</p>
-      `,
-      footerLines: [
-        "Durch das Öffnen dieses Dokuments bestätigst Du gemäß § 126 BGB, dass Du die autorisierte Empfängerperson bist und diese elektronische Übermittlung als rechtsverbindlich anerkennst. Die Weitergabe oder Vervielfältigung des Inhalts ist ohne ausdrückliche Zustimmung der BrightNetWorks GmbH untersagt.",
-        "brightnetworks.switchboard.com"
-      ],
+    // Unsubscribe URL
+    const unsubscribeUrl = `${FRONTEND_URL}/unsubscribe?email=${encodeURIComponent(recipient?.email || '')}`;
+
+    // Build custom email template
+    const htmlContent = buildReportEmailTemplate({
+      recipientName,
+      statusText,
+      progressBarPercent,
+      totalEnergy,
+      energyUnit,
+      averagePower,
+      powerUnit,
+      peakPower,
+      buildingName: building.name,
+      viewReportUrl,
+      unsubscribeUrl,
+      reportConfigName: reportConfig.name
     });
 
     return htmlContent;

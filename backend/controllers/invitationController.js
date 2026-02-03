@@ -2,6 +2,7 @@ const invitationService = require('../services/invitationService');
 const ActivityLog = require('../models/ActivityLog');
 const User = require('../models/User');
 const UserRole = require('../models/UserRole');
+const NotificationService = require('../services/notificationService');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 /**
@@ -39,17 +40,77 @@ const createInvitation = asyncHandler(async (req, res) => {
     });
   }
 
-  // Create invitation
-  const invitation = await invitationService.createInvitation({
-    bryteswitch_id,
-    role_id,
-    recipient_email,
-    first_name,
-    last_name,
-    position,
-    invited_by_user_id: inviterId,
-    expires_in_days,
-  });
+  // Check if user is already a member (for notification purposes)
+  const membershipStatus = await invitationService.checkUserMembership(recipient_email, bryteswitch_id);
+  
+  if (membershipStatus.exists && membershipStatus.isMember) {
+    return res.status(400).json({
+      success: false,
+      message: 'User is already a member of this BryteSwitch',
+      details: {
+        email: recipient_email.toLowerCase(),
+        user_id: membershipStatus.user_id,
+        bryteswitch_id: bryteswitch_id,
+        has_active_role: membershipStatus.hasActiveRole,
+        role_id: membershipStatus.role_id
+      }
+    });
+  }
+
+  // Create invitation with proper error handling
+  let invitation;
+  try {
+    invitation = await invitationService.createInvitation({
+      bryteswitch_id,
+      role_id,
+      recipient_email,
+      first_name,
+      last_name,
+      position,
+      invited_by_user_id: inviterId,
+      expires_in_days,
+    });
+  } catch (error) {
+    // Handle specific error cases
+    if (error.message === 'User is already a member of this BryteSwitch') {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    
+    if (error.message === 'There is already a pending invitation for this email to this BryteSwitch') {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    
+    if (error.message === 'BryteSwitch not found') {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    
+    if (error.message === 'Invalid role for the specified BryteSwitch') {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    
+    // For any other errors, return 500
+    console.error('Error creating invitation:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error creating invitation',
+      error: error.message,
+    });
+  }
+
+  // Populate invitation for notifications (need role_id populated)
+  const populatedInvitation = await invitationService.getInvitationById(invitation._id);
 
   // Log activity
   try {
@@ -69,6 +130,15 @@ const createInvitation = asyncHandler(async (req, res) => {
   } catch (logError) {
     console.error('Failed to log invitation creation:', logError);
     // Don't fail if logging fails
+  }
+
+  // Create notifications
+  try {
+    const existingUser = membershipStatus.exists ? membershipStatus.user_id : null;
+    await NotificationService.notifyInvitationSent(populatedInvitation, inviterId, existingUser);
+  } catch (notifError) {
+    console.error('Error creating invitation notifications:', notifError);
+    // Don't fail the request if notification fails
   }
 
   res.status(201).json({
