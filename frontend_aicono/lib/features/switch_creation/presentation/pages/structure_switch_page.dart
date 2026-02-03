@@ -22,7 +22,7 @@ class _StructureSwitchPageState extends State<StructureSwitchPage> {
 
   void _handleStartDirectly() {
     // TODO: navigate to switchboard/dashboard directly
-    context.pushNamed(Routelists.floorPlanEditor);
+    // context.pushNamed(Routelists.floorPlanEditor);
   }
 
   void _handleFindStructure() {
@@ -76,4 +76,3 @@ class _StructureSwitchPageState extends State<StructureSwitchPage> {
     );
   }
 }
-

@@ -5,6 +5,9 @@ import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/widget/confirm_structure_widget.dart';
 
+import '../../../../core/injection_container.dart';
+import '../../../../core/storage/local_storage.dart';
+
 class ConfirmStructurePage extends StatefulWidget {
   final String? userName;
   final String? switchId;
@@ -31,8 +34,10 @@ class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
     context.pushNamed(Routelists.floorPlanEditor);
   }
 
-  void _handleFindStructure() {
+  void _handleFindStructure() async {
     // Navigate to select property type page
+    final localStorage = sl<LocalStorage>();
+    await localStorage.setSelectedVerseId(widget.switchId!);
     context.pushNamed(
       Routelists.selectPropertyType,
       queryParameters: {
@@ -83,4 +88,3 @@ class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
     );
   }
 }
-

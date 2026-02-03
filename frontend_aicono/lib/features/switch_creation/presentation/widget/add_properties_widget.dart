@@ -53,6 +53,21 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
     super.initState();
     // Initialize with one property field
     _properties.add(PropertyItem(controller: TextEditingController()));
+    // If sites already exist (returning from responsible persons page), show "Go to home" button
+    if (widget.createdSites.isNotEmpty) {
+      _isConfirmed = true;
+    }
+  }
+
+  @override
+  void didUpdateWidget(AddPropertiesWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If sites are loaded after widget initialization, show "Go to home" button
+    if (widget.createdSites.isNotEmpty && !_isConfirmed) {
+      setState(() {
+        _isConfirmed = true;
+      });
+    }
   }
 
   @override
@@ -158,10 +173,7 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
                           // Show input fields for new properties
                           _buildPropertyInputFields(),
                         ],
-                        if (widget.isLoadingSites) ...[
-                          const SizedBox(height: 24),
-                          const CircularProgressIndicator(),
-                        ],
+
                         const SizedBox(height: 24),
                         // Combined button: Confirm properties first, then Go to home
                         PrimaryOutlineButton(

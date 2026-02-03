@@ -15,6 +15,8 @@ import 'package:frontend_aicono/features/upload/presentation/bloc/upload_event.d
 import 'package:frontend_aicono/features/upload/presentation/bloc/upload_state.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
 
+import '../../../../core/storage/local_storage.dart';
+
 class SetSwitchImagePage extends StatefulWidget {
   final String? userName;
   final String? organizationName;
@@ -87,6 +89,8 @@ class _SetSwitchImagePageState extends State<SetSwitchImagePage> {
     if (_skipLogo) {
       sl<SwitchCreationCubit>().setLogoUrl(null);
     }
+    final localStorage = sl<LocalStorage>();
+    await localStorage.setSelectedVerseId(widget.invitation!.verseId);
 
     // If image is set, upload it first
     if (_selectedImageFile != null && widget.invitation != null) {

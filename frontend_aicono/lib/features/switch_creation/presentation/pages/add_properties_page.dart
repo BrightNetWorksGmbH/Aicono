@@ -94,9 +94,12 @@ class _AddPropertiesPageState extends State<AddPropertiesPage> {
     int index,
     List<String> createdSiteIds,
   ) async {
+    // Base case: All sites created, now fetch them to refresh the page with IDs
     if (index >= propertyNames.length) {
-      // All sites created, now fetch them
-      _fetchSites(showSuccessMessage: true);
+      // Wait a bit to ensure backend has processed all creations
+      await Future.delayed(const Duration(milliseconds: 500));
+      // Fetch sites to refresh the page with backend IDs
+      await _fetchSites(showSuccessMessage: true);
       return;
     }
 

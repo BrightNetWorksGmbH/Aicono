@@ -92,7 +92,7 @@ class _AdditionalBuildingListPageState
     }
   }
 
-  void _processUserSwitchData(User? user, LocalStorage localStorage) {
+  void _processUserSwitchData(User? user, LocalStorage localStorage) async {
     if (user == null) {
       // No user - should not happen but handle gracefully
       if (mounted) {
@@ -113,9 +113,11 @@ class _AdditionalBuildingListPageState
         print('Dashboard: Using passed verseId: $initialVerseId');
         localStorage.setSelectedVerseId(initialVerseId!);
       } else {
+        // await localStorage.setSelectedVerseId(user.joinedVerse.first);
         // Fall back to saved or first verse
         final saved = localStorage.getSelectedVerseId();
-        initialVerseId = (saved != null && user.joinedVerse.contains(saved))
+        initialVerseId = (saved != null)
+            // && user.joinedVerse.contains(saved))
             ? saved
             : user.joinedVerse.first;
         print('Dashboard: Using fallback verseId: $initialVerseId');
