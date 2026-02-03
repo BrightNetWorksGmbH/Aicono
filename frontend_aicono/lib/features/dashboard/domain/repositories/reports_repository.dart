@@ -4,6 +4,7 @@ import 'package:frontend_aicono/features/dashboard/domain/entities/report_site_e
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_building_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_summary_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_detail_entity.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/report_token_info_entity.dart';
 
 abstract class ReportsRepository {
   Future<Either<Failure, ReportSitesResponse>> getReportSites({
@@ -17,5 +18,15 @@ abstract class ReportsRepository {
   );
   Future<Either<Failure, ReportDetailResponse>> getReportDetail(
     String reportId,
+  );
+
+  /// Fetches report view by token (public link, no auth required).
+  Future<Either<Failure, ReportDetailResponse>> getReportViewByToken(
+    String token,
+  );
+
+  /// Fetches report token info (recipient, building, reporting) by token.
+  Future<Either<Failure, ReportTokenInfoResponse>> getReportTokenInfo(
+    String token,
   );
 }

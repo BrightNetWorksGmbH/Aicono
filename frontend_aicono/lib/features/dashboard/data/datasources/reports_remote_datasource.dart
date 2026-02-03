@@ -8,6 +8,7 @@ import 'package:frontend_aicono/features/dashboard/domain/entities/report_site_e
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_building_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_summary_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_detail_entity.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/report_token_info_entity.dart';
 
 abstract class ReportsRemoteDataSource {
   Future<Either<Failure, ReportSitesResponse>> getReportSites({
@@ -21,6 +22,16 @@ abstract class ReportsRemoteDataSource {
   );
   Future<Either<Failure, ReportDetailResponse>> getReportDetail(
     String reportId,
+  );
+
+  /// Fetches report view by token (public link, no auth required).
+  Future<Either<Failure, ReportDetailResponse>> getReportViewByToken(
+    String token,
+  );
+
+  /// Fetches report token info (recipient, building, reporting) by token.
+  Future<Either<Failure, ReportTokenInfoResponse>> getReportTokenInfo(
+    String token,
   );
 }
 
@@ -209,6 +220,106 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     } catch (e) {
       if (kDebugMode) {
         print('❌ Reports getReportDetail error: $e');
+      }
+      return Left(ServerFailure('Unexpected error: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, ReportDetailResponse>> getReportViewByToken(
+    String token,
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('📤 Reports getReportViewByToken (token-based)');
+      }
+      final response = await dioClient.get(
+        '/api/v1/reports/view',
+        queryParameters: {'token': token},
+      );
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is Map<String, dynamic> && data['success'] == true) {
+          return Right(ReportDetailResponse.fromJson(data));
+        }
+        return Left(
+          ServerFailure(
+            (data is Map ? (data as Map)['message'] : null)?.toString() ??
+                'Failed to load report.',
+          ),
+        );
+      }
+      return Left(
+        ServerFailure('Failed to load report (HTTP ${response.statusCode})'),
+      );
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError) {
+        return Left(
+          ServerFailure(
+            'Cannot connect to server. Please check your internet connection.',
+          ),
+        );
+      }
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        return Left(ServerFailure('Request timed out. Please try again.'));
+      }
+      return Left(ServerFailure(ErrorExtractor.extractServerMessage(e)));
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Reports getReportViewByToken error: $e');
+      }
+      return Left(ServerFailure('Unexpected error: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, ReportTokenInfoResponse>> getReportTokenInfo(
+    String token,
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('📤 Reports getReportTokenInfo (token-based)');
+      }
+      final response = await dioClient.get(
+        '/api/v1/reporting/token/info',
+        queryParameters: {'token': token},
+      );
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is Map<String, dynamic> && data['success'] == true) {
+          return Right(ReportTokenInfoResponse.fromJson(data));
+        }
+        return Left(
+          ServerFailure(
+            (data is Map ? (data as Map)['message'] : null)?.toString() ??
+                'Failed to load report info.',
+          ),
+        );
+      }
+      return Left(
+        ServerFailure(
+          'Failed to load report info (HTTP ${response.statusCode})',
+        ),
+      );
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError) {
+        return Left(
+          ServerFailure(
+            'Cannot connect to server. Please check your internet connection.',
+          ),
+        );
+      }
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        return Left(ServerFailure('Request timed out. Please try again.'));
+      }
+      return Left(ServerFailure(ErrorExtractor.extractServerMessage(e)));
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Reports getReportTokenInfo error: $e');
       }
       return Left(ServerFailure('Unexpected error: $e'));
     }

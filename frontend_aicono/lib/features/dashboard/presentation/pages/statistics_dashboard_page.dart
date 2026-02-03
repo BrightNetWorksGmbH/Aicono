@@ -1,41 +1,79 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/constant.dart';
+import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/report_detail_entity.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/report_token_info_entity.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_view_bloc.dart';
 
 /// Statistics / daily reporting dashboard UI.
-/// Shown when user taps "Reporting Preview" on the dashboard main view.
-/// Uses the same shell (background, top header, footer)
-/// as the main dashboard page for visual consistency.
-class StatisticsDashboardPage extends StatefulWidget {
+/// When [token] is provided (from view-report flow), fetches and displays real report data.
+/// [tokenInfo] is passed from view-report page when user proceeds; used for recipient name etc.
+/// Uses clean architecture: Bloc + UseCase + Repository.
+class StatisticsDashboardPage extends StatelessWidget {
+  final String? token;
+  final ReportTokenInfoEntity? tokenInfo;
   final String? verseId;
   final String? userName;
 
   const StatisticsDashboardPage({
     super.key,
+    this.token,
+    this.tokenInfo,
     this.verseId,
     this.userName,
   });
 
   @override
-  State<StatisticsDashboardPage> createState() =>
-      _StatisticsDashboardPageState();
+  Widget build(BuildContext context) {
+    final name = tokenInfo?.recipient.name.trim().isNotEmpty == true
+        ? tokenInfo!.recipient.name
+        : (tokenInfo?.recipient.email.trim().isNotEmpty == true
+              ? tokenInfo!.recipient.email
+              : (userName?.trim().isNotEmpty == true ? userName! : 'Stephan'));
+
+    if (token != null && token!.isNotEmpty) {
+      return BlocProvider(
+        create: (context) =>
+            sl<ReportViewBloc>()..add(ReportViewRequested(token!)),
+        child: _StatisticsDashboardContent(
+          token: token!,
+          tokenInfo: tokenInfo,
+          userName: name,
+        ),
+      );
+    }
+
+    return _StatisticsDashboardContent(
+      token: null,
+      tokenInfo: null,
+      userName: name,
+    );
+  }
 }
 
-class _StatisticsDashboardPageState extends State<StatisticsDashboardPage> {
+class _StatisticsDashboardContent extends StatelessWidget {
+  final String? token;
+  final ReportTokenInfoEntity? tokenInfo;
+  final String userName;
+
+  const _StatisticsDashboardContent({
+    this.token,
+    this.tokenInfo,
+    required this.userName,
+  });
+
   static const Color _cardBackground = Color(0xFFE8F0E8);
-  static const Color _accentGreen = Color(0xFF2E7D32);
   static const Color _accentBlue = Color(0xFF1565C0);
 
   @override
   Widget build(BuildContext context) {
-    final name = widget.userName?.trim().isNotEmpty == true
-        ? widget.userName!
-        : 'Stephan';
-
     final Size screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
@@ -46,7 +84,6 @@ class _StatisticsDashboardPageState extends State<StatisticsDashboardPage> {
           color: AppTheme.primary,
           child: ListView(
             children: [
-              // White card container matching dashboard shell
               Container(
                 margin: const EdgeInsets.all(8),
                 padding: const EdgeInsets.all(16),
@@ -56,39 +93,34 @@ class _StatisticsDashboardPageState extends State<StatisticsDashboardPage> {
                 ),
                 child: Column(
                   children: [
-                    // Top header (same as dashboard)
                     Padding(
                       padding: const EdgeInsets.only(top: 24.0),
                       child: TopHeader(
-                        onLanguageChanged: () {
-                          // Just rebuild this page when language changes
-                          setState(() {});
-                        },
+                        onLanguageChanged: () {},
                         containerWidth: screenSize.width,
                       ),
                     ),
                     const SizedBox(height: 24),
-                    // Page-specific reporting content
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 8,
                       ),
-                      child: _buildReportContent(context, name),
+                      child: token != null
+                          ? _buildTokenBasedContent(context)
+                          : _buildPlaceholderContent(context),
                     ),
                   ],
                 ),
               ),
-              // Global app footer, same as dashboard
               Container(
                 color: AppTheme.primary,
                 constraints: const BoxConstraints(maxWidth: 1920),
                 child: AppFooter(
-                  onLanguageChanged: () {
-                    setState(() {});
-                  },
-                  containerWidth:
-                      screenSize.width > 1920 ? 1920 : screenSize.width,
+                  onLanguageChanged: () {},
+                  containerWidth: screenSize.width > 1920
+                      ? 1920
+                      : screenSize.width,
                 ),
               ),
             ],
@@ -98,7 +130,90 @@ class _StatisticsDashboardPageState extends State<StatisticsDashboardPage> {
     );
   }
 
-  Widget _buildReportContent(BuildContext context, String name) {
+  Widget _buildTokenBasedContent(BuildContext context) {
+    return BlocBuilder<ReportViewBloc, ReportViewState>(
+      builder: (context, state) {
+        if (state is ReportViewLoading) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(48.0),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        if (state is ReportViewFailure) {
+          return _buildErrorContent(context, state.message);
+        }
+        if (state is ReportViewSuccess) {
+          return _buildReportContent(context, state.report);
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  Widget _buildErrorContent(BuildContext context, String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(48.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodyMedium.copyWith(color: Colors.black87),
+            ),
+            const SizedBox(height: 24),
+            PrimaryOutlineButton(
+              label: 'common.retry'.tr(),
+              onPressed: () {
+                context.read<ReportViewBloc>().add(ReportViewRequested(token!));
+              },
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => context.go('/view-report?token=$token'),
+              child: Text('statistics_dashboard.back_to_report'.tr()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReportContent(BuildContext context, ReportDetailEntity report) {
+    final reportData = report.reportData;
+    final kpis = reportData['kpis'] as Map<String, dynamic>? ?? {};
+    final contents = reportData['contents'] as Map<String, dynamic>? ?? {};
+    final timeRange = report.timeRange ?? reportData['timeRange'];
+
+    final energyKpi = kpis['energy'] as Map<String, dynamic>? ?? {};
+    final powerKpi = kpis['power'] as Map<String, dynamic>? ?? {};
+    final totalConsumption =
+        contents['TotalConsumption'] as Map<String, dynamic>?;
+    final consumptionByRoom =
+        contents['ConsumptionByRoom'] as Map<String, dynamic>?;
+    final rooms =
+        (consumptionByRoom?['rooms'] as List?)?.cast<Map<String, dynamic>>() ??
+        [];
+
+    final totalConsumptionVal =
+        (totalConsumption?['totalConsumption'] ??
+                energyKpi['total_consumption'])
+            as num? ??
+        0;
+    final peakPower =
+        (totalConsumption?['peak'] ?? powerKpi['peak']) as num? ?? 0;
+    final avgPower =
+        (totalConsumption?['averagePower'] ?? powerKpi['average']) as num? ?? 0;
+    final unit =
+        (totalConsumption?['totalConsumptionUnit'] ?? energyKpi['unit'])
+            as String? ??
+        'kWh';
+
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 900),
@@ -106,29 +221,34 @@ class _StatisticsDashboardPageState extends State<StatisticsDashboardPage> {
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _buildHeader(name),
+            _buildHeader(report.building.name, report.reporting.name),
             const SizedBox(height: 32),
-            _buildExecutiveSummary(),
+            _buildTimeRangeInfo(timeRange),
             const SizedBox(height: 24),
-            _buildKeyFactsCard(context),
+            _buildKeyFactsCard(
+              totalConsumption: totalConsumptionVal,
+              peakPower: peakPower,
+              avgPower: avgPower,
+              unit: unit,
+            ),
             const SizedBox(height: 24),
-            _buildPeakLoadCard(context),
-            const SizedBox(height: 24),
-            _buildHandlungsempfehlung(context),
-            const SizedBox(height: 48),
-            _buildFooter(context, name),
+            if (rooms.isNotEmpty) ...[
+              _buildConsumptionByRoomCard(rooms),
+              const SizedBox(height: 24),
+            ],
+            _buildFooter(context, report.building.name),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(String name) {
+  Widget _buildHeader(String buildingName, String reportName) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
-          'statistics_dashboard.dear_name'.tr(namedArgs: {'name': name}),
+          'statistics_dashboard.dear_name'.tr(namedArgs: {'name': userName}),
           style: AppTextStyles.headlineLarge.copyWith(
             fontWeight: FontWeight.bold,
             color: Colors.black87,
@@ -137,58 +257,66 @@ class _StatisticsDashboardPageState extends State<StatisticsDashboardPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'statistics_dashboard.daily_reporting'.tr(),
+          reportName,
           style: AppTextStyles.headlineMedium.copyWith(
             fontWeight: FontWeight.bold,
             color: Colors.black87,
           ),
           textAlign: TextAlign.center,
         ),
-      ],
-    );
-  }
-
-  Widget _buildExecutiveSummary() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+        const SizedBox(height: 4),
         Text(
-          'statistics_dashboard.executive_summary'.tr(),
-          style: AppTextStyles.titleLarge.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
+          buildingName,
+          style: AppTextStyles.bodyMedium.copyWith(color: Colors.black54),
+          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 12),
-        _summaryItem('statistics_dashboard.summary_resource_status'.tr()),
-        _summaryItem('statistics_dashboard.summary_cost_targets'.tr()),
-        _summaryItem('statistics_dashboard.summary_forecast_targets'.tr()),
-        const SizedBox(height: 16),
-        Divider(color: Colors.grey[300], height: 1),
       ],
     );
   }
 
-  Widget _summaryItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+  Widget _buildTimeRangeInfo(Map<String, dynamic>? timeRange) {
+    if (timeRange == null) return const SizedBox.shrink();
+    final start = timeRange['startDate'] ?? timeRange['start'] ?? '';
+    final end = timeRange['endDate'] ?? timeRange['end'] ?? '';
+    final interval = timeRange['interval'] ?? '';
+    if (start.toString().isEmpty) return const SizedBox.shrink();
+
+    String formatDate(String? s) {
+      if (s == null || s.toString().isEmpty) return '';
+      try {
+        final dt = DateTime.tryParse(s.toString());
+        return dt != null ? '${dt.day}.${dt.month}.${dt.year}' : s.toString();
+      } catch (_) {
+        return s.toString();
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: _cardBackground,
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.check_circle, color: _accentGreen, size: 20),
+          Icon(Icons.calendar_today, size: 18, color: Colors.grey[700]),
           const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: AppTextStyles.bodyMedium.copyWith(color: Colors.black87),
-            ),
+          Text(
+            '${formatDate(start.toString())} – ${formatDate(end.toString())}${interval.toString().isNotEmpty ? ' ($interval)' : ''}',
+            style: AppTextStyles.bodyMedium.copyWith(color: Colors.black87),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildKeyFactsCard(BuildContext context) {
+  Widget _buildKeyFactsCard({
+    required num totalConsumption,
+    required num peakPower,
+    required num avgPower,
+    required String unit,
+  }) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -220,21 +348,21 @@ class _StatisticsDashboardPageState extends State<StatisticsDashboardPage> {
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _keyFactEnergy(),
+                        _keyFactEnergy(totalConsumption, unit),
                         const SizedBox(height: 20),
-                        _keyFactCostChart(),
+                        _keyFactPeak(peakPower),
                         const SizedBox(height: 20),
-                        _keyFactCo2Chart(),
+                        _keyFactAverage(avgPower, unit),
                       ],
                     )
                   : Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(child: _keyFactEnergy()),
+                        Expanded(child: _keyFactEnergy(totalConsumption, unit)),
                         const SizedBox(width: 20),
-                        Expanded(child: _keyFactCostChart()),
+                        Expanded(child: _keyFactPeak(peakPower)),
                         const SizedBox(width: 20),
-                        Expanded(child: _keyFactCo2Chart()),
+                        Expanded(child: _keyFactAverage(avgPower, unit)),
                       ],
                     );
             },
@@ -244,7 +372,7 @@ class _StatisticsDashboardPageState extends State<StatisticsDashboardPage> {
     );
   }
 
-  Widget _keyFactEnergy() {
+  Widget _keyFactEnergy(num total, String unit) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -258,103 +386,82 @@ class _StatisticsDashboardPageState extends State<StatisticsDashboardPage> {
           textBaseline: TextBaseline.alphabetic,
           children: [
             Text(
-              '132480',
+              total.toStringAsFixed(total.truncateToDouble() == total ? 0 : 2),
               style: AppTextStyles.headlineMedium.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
             ),
             const SizedBox(width: 4),
-            Text('kWh', style: AppTextStyles.bodySmall),
+            Text(unit, style: AppTextStyles.bodySmall),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _keyFactPeak(num peak) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'statistics_dashboard.peak_load'.tr(),
+          style: AppTextStyles.titleSmall.copyWith(color: Colors.black54),
         ),
         const SizedBox(height: 4),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
           children: [
-            Icon(Icons.trending_down, color: _accentGreen, size: 18),
-            const SizedBox(width: 4),
             Text(
-              'statistics_dashboard.below_plan_2025'.tr(),
-              style: AppTextStyles.bodySmall.copyWith(color: _accentGreen),
+              peak.toStringAsFixed(2),
+              style: AppTextStyles.headlineMedium.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
+            const SizedBox(width: 4),
+            Text('kW', style: AppTextStyles.bodySmall),
           ],
         ),
       ],
     );
   }
 
-  Widget _keyFactCostChart() {
+  Widget _keyFactAverage(num avg, String unit) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'statistics_dashboard.consumption_costs_forecast'.tr(),
+          'statistics_dashboard.average'.tr(),
           style: AppTextStyles.titleSmall.copyWith(color: Colors.black54),
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 60,
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(
-                6,
-                (i) => Container(
-                  width: 24,
-                  height: 20 + (i % 3) * 12.0,
-                  decoration: BoxDecoration(
-                    color: _accentGreen.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+        const SizedBox(height: 4),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              avg.toStringAsFixed(2),
+              style: AppTextStyles.headlineMedium.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
               ),
             ),
-          ),
-        ),
-        Text(
-          'statistics_dashboard.months_jan_jun'.tr(),
-          style: AppTextStyles.labelSmall.copyWith(color: Colors.black54),
+            const SizedBox(width: 4),
+            Text(unit, style: AppTextStyles.bodySmall),
+          ],
         ),
       ],
     );
   }
 
-  Widget _keyFactCo2Chart() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'statistics_dashboard.co2_emission_forecast'.tr(),
-          style: AppTextStyles.titleSmall.copyWith(color: Colors.black54),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: 80,
-          height: 80,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              CircularProgressIndicator(
-                value: 0.92,
-                strokeWidth: 8,
-                backgroundColor: _accentGreen.withOpacity(0.3),
-                valueColor: const AlwaysStoppedAnimation<Color>(_accentBlue),
-              ),
-              Text(
-                '-8%',
-                style: AppTextStyles.titleSmall.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildConsumptionByRoomCard(List<Map<String, dynamic>> rooms) {
+    final roomsWithConsumption = rooms
+        .where((r) => ((r['consumption'] ?? 0) as num) > 0)
+        .toList();
+    if (roomsWithConsumption.isEmpty) return const SizedBox.shrink();
 
-  Widget _buildPeakLoadCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -372,391 +479,55 @@ class _StatisticsDashboardPageState extends State<StatisticsDashboardPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'statistics_dashboard.peak_load_analysis_title'.tr(),
+            'statistics_dashboard.consumption_by_room'.tr(),
             style: AppTextStyles.titleMedium.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 20),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 600;
-              return isNarrow
-                  ? Column(
-                      children: [
-                        _peakDonut(),
-                        const SizedBox(height: 20),
-                        _peakChartAndList(),
-                      ],
-                    )
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(width: 160, child: _peakDonut()),
-                        const SizedBox(width: 24),
-                        Expanded(child: _peakChartAndList()),
-                      ],
-                    );
-            },
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'statistics_dashboard.peak_load_analysis_subtitle'.tr(),
-            style: AppTextStyles.bodySmall.copyWith(color: Colors.black54),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _peakDonut() {
-    return Column(
-      children: [
-        Text(
-          'statistics_dashboard.production_peak'.tr(),
-          style: AppTextStyles.titleSmall.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: 100,
-          height: 100,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              CircularProgressIndicator(
-                value: 0.47,
-                strokeWidth: 10,
-                backgroundColor: const Color(0xFFFFC107).withOpacity(0.4),
-                valueColor: const AlwaysStoppedAnimation<Color>(_accentBlue),
-              ),
-              Text(
-                '47%',
-                style: AppTextStyles.titleMedium.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'statistics_dashboard.last_peak_detail'.tr(),
-          style: AppTextStyles.bodySmall.copyWith(color: Colors.black54),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _peakChartAndList() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: 80,
-          child: CustomPaint(
-            size: const Size(double.infinity, 80),
-            painter: _SimpleLineChartPainter(),
-          ),
-        ),
-        const SizedBox(height: 12),
-        _summaryItem('statistics_dashboard.peak_as_forecast'.tr()),
-        _summaryItem('statistics_dashboard.according_to_calculation'.tr()),
-        _summaryItem('statistics_dashboard.normalized_as_planned'.tr()),
-      ],
-    );
-  }
-
-  Widget _buildHandlungsempfehlung(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'statistics_dashboard.recommendation_title'.tr(),
-          style: AppTextStyles.titleMedium.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 16),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isNarrow = constraints.maxWidth < 600;
-            return isNarrow
-                ? Column(
-                    children: [
-                      _waterWarehouseCard(),
-                      const SizedBox(height: 16),
-                      _consumptionIncreaseCard(),
-                    ],
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _waterWarehouseCard()),
-                      const SizedBox(width: 16),
-                      Expanded(child: _consumptionIncreaseCard()),
-                    ],
-                  );
-          },
-        ),
-        const SizedBox(height: 16),
-        _waterMeterDetailBox(),
-        const SizedBox(height: 16),
-        _summaryItem('statistics_dashboard.targets_covered'.tr()),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange[700], size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'statistics_dashboard.savings_potential'.tr(),
-                  style: AppTextStyles.bodyMedium.copyWith(color: Colors.black87),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange[700], size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'statistics_dashboard.device_malfunction_risk'.tr(),
-                  style: AppTextStyles.bodyMedium.copyWith(color: Colors.black87),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            PrimaryOutlineButton(
-              label: 'statistics_dashboard.request_check'.tr(),
-              width: 180,
-              onPressed: () {},
-            ),
-            const SizedBox(width: 12),
-            PrimaryOutlineButton(
-              label: 'statistics_dashboard.observe_for_now'.tr(),
-              width: 180,
-              onPressed: () {},
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Center(
-          child: GestureDetector(
-            onTap: () {},
-            child: Text(
-              'statistics_dashboard.hide_anomaly_future'.tr(),
-              style: AppTextStyles.bodySmall.copyWith(
-                color: Colors.black54,
-                decoration: TextDecoration.underline,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _waterWarehouseCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'statistics_dashboard.water_warehouse'.tr(),
-            style: AppTextStyles.titleSmall.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: 70,
-            height: 70,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CircularProgressIndicator(
-                  value: 0.86,
-                  strokeWidth: 8,
-                  backgroundColor: const Color(0xFFFFC107).withOpacity(0.4),
-                  valueColor: const AlwaysStoppedAnimation<Color>(_accentBlue),
-                ),
-                Text(
-                  '14%',
-                  style: AppTextStyles.titleSmall.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'statistics_dashboard.warehouse_water_increase'.tr(),
-            style: AppTextStyles.bodySmall.copyWith(color: Colors.black87),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _consumptionIncreaseCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '14%',
-            style: AppTextStyles.headlineSmall.copyWith(
-              fontWeight: FontWeight.bold,
-              color: _accentBlue,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Column(
+          const SizedBox(height: 16),
+          ...roomsWithConsumption.take(10).map((r) {
+            final name = (r['roomName'] ?? r['roomId'] ?? '').toString();
+            final consumption = (r['consumption'] ?? 0) as num;
+            final unit = (r['consumptionUnit'] ?? 'kWh').toString();
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    width: 24,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: _accentGreen.withOpacity(0.7),
-                      borderRadius: BorderRadius.circular(2),
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: Colors.black87,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text('statistics_dashboard.average'.tr(), style: AppTextStyles.labelSmall),
-                  Text('20%', style: AppTextStyles.labelSmall),
-                ],
-              ),
-              Column(
-                children: [
-                  Container(
-                    width: 24,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _accentGreen.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(2),
+                  Text(
+                    '${consumption.toStringAsFixed(2)} $unit',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text('statistics_dashboard.now'.tr(), style: AppTextStyles.labelSmall),
-                  Text('24%', style: AppTextStyles.labelSmall),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'statistics_dashboard.sudden_increase_since'.tr(),
-            style: AppTextStyles.bodySmall.copyWith(color: Colors.black87),
-          ),
+            );
+          }),
         ],
       ),
     );
   }
 
-  Widget _waterMeterDetailBox() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[350]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.water_drop_outlined, size: 32, color: _accentBlue),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'statistics_dashboard.water_meter_warehouse'.tr(),
-                  style: AppTextStyles.titleSmall.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                Text(
-                  'statistics_dashboard.meter_number'.tr(),
-                  style: AppTextStyles.bodySmall.copyWith(color: Colors.black54),
-                ),
-                Text(
-                  'statistics_dashboard.ground_floor_reception'.tr(),
-                  style: AppTextStyles.bodySmall.copyWith(color: Colors.black54),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: _accentGreen.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'statistics_dashboard.active'.tr(),
-              style: AppTextStyles.labelSmall.copyWith(
-                color: _accentGreen,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooter(BuildContext context, String name) {
+  Widget _buildFooter(BuildContext context, String buildingName) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
-          'statistics_dashboard.thanks_goodbye'.tr(namedArgs: {'name': name}),
+          'statistics_dashboard.thanks_goodbye'.tr(
+            namedArgs: {'name': userName},
+          ),
           style: AppTextStyles.headlineSmall.copyWith(
             fontWeight: FontWeight.bold,
             color: Colors.black87,
@@ -764,16 +535,17 @@ class _StatisticsDashboardPageState extends State<StatisticsDashboardPage> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 12),
-        GestureDetector(
-          onTap: () {},
-          child: Text(
-            'statistics_dashboard.request_interval_change'.tr(),
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: _accentBlue,
-              decoration: TextDecoration.underline,
+        if (token != null)
+          TextButton(
+            onPressed: () => context.go('/view-report?token=$token'),
+            child: Text(
+              'statistics_dashboard.back_to_report'.tr(),
+              style: const TextStyle(
+                color: _accentBlue,
+                decoration: TextDecoration.underline,
+              ),
             ),
           ),
-        ),
         const SizedBox(height: 24),
         Text(
           'statistics_dashboard.report_created'.tr(),
@@ -789,27 +561,39 @@ class _StatisticsDashboardPageState extends State<StatisticsDashboardPage> {
       ],
     );
   }
-}
 
-class _SimpleLineChartPainter extends CustomPainter {
-  static const _green = Color(0xFF2E7D32);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = _green.withOpacity(0.6)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    final path = Path();
-    final w = size.width;
-    final h = size.height;
-    path.moveTo(0, h * 0.7);
-    path.quadraticBezierTo(w * 0.25, h * 0.3, w * 0.5, h * 0.5);
-    path.quadraticBezierTo(w * 0.75, h * 0.2, w, h * 0.4);
-    canvas.drawPath(path, paint);
+  Widget _buildPlaceholderContent(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'statistics_dashboard.dear_name'.tr(
+                namedArgs: {'name': userName},
+              ),
+              style: AppTextStyles.headlineLarge.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'statistics_dashboard.no_report_token'.tr(),
+              style: AppTextStyles.bodyMedium.copyWith(color: Colors.black54),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            TextButton(
+              onPressed: () => context.go('/login'),
+              child: Text('statistics_dashboard.go_to_login'.tr()),
+            ),
+          ],
+        ),
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -5,6 +5,7 @@ import 'package:frontend_aicono/features/dashboard/domain/entities/report_site_e
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_building_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_summary_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_detail_entity.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/report_token_info_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/repositories/reports_repository.dart';
 
 class ReportsRepositoryImpl implements ReportsRepository {
@@ -38,5 +39,19 @@ class ReportsRepositoryImpl implements ReportsRepository {
     String reportId,
   ) async {
     return remoteDataSource.getReportDetail(reportId);
+  }
+
+  @override
+  Future<Either<Failure, ReportDetailResponse>> getReportViewByToken(
+    String token,
+  ) async {
+    return remoteDataSource.getReportViewByToken(token);
+  }
+
+  @override
+  Future<Either<Failure, ReportTokenInfoResponse>> getReportTokenInfo(
+    String token,
+  ) async {
+    return remoteDataSource.getReportTokenInfo(token);
   }
 }

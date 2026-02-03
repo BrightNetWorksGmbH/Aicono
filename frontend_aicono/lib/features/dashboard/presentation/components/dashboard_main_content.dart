@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
-import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
@@ -15,6 +13,7 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_b
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/building_reports_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/trigger_report_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/report_detail_view.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_summary_entity.dart';
 
@@ -109,8 +108,8 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
 
           const SizedBox(height: 32),
 
-          // Reporting Preview Button
-          _buildReportingPreviewButton(),
+          // Trigger Manual Report Button
+          _buildTriggerManualReportButton(),
 
           const SizedBox(height: 32),
 
@@ -1155,23 +1154,98 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     );
   }
 
-  Widget _buildReportingPreviewButton() {
-    return Center(
-      child: PrimaryOutlineButton(
-        onPressed: () {
-          context.pushNamed(
-            Routelists.statistics,
-            queryParameters: {
-              if (widget.verseId != null && widget.verseId!.isNotEmpty)
-                'verseId': widget.verseId!,
-              if (_userFirstName != null && _userFirstName!.isNotEmpty)
-                'userName': _userFirstName!,
-            },
+  Widget _buildTriggerManualReportButton() {
+    return BlocConsumer<TriggerReportBloc, TriggerReportState>(
+      listener: (context, state) {
+        if (state is TriggerReportSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                state.response.message.isNotEmpty
+                    ? state.response.message
+                    : 'dashboard.main_content.trigger_report_success'.tr(),
+              ),
+              backgroundColor: Colors.green[700],
+            ),
           );
-        },
-        label: 'dashboard.main_content.reporting_preview'.tr(),
-        width: 200,
-      ),
+        }
+        if (state is TriggerReportFailure) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.red[700],
+            ),
+          );
+        }
+      },
+      builder: (context, state) {
+        final isLoading = state is TriggerReportLoading;
+        return Center(
+          child: SizedBox(
+            width: 220,
+            height: 40,
+            child: Material(
+              color: Colors.white,
+              child: InkWell(
+                onTap: isLoading
+                    ? null
+                    : () {
+                        context.read<TriggerReportBloc>().add(
+                          const TriggerReportRequested('Daily'),
+                        );
+                      },
+                child: Container(
+                  width: 220,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: isLoading
+                          ? Colors.grey.shade400
+                          : const Color(0xFF636F57),
+                      width: 4,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Center(
+                    child: isLoading
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'dashboard.main_content.trigger_report_loading'
+                                    .tr(),
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          )
+                        : Text(
+                            'dashboard.main_content.trigger_manual_report'.tr(),
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -61,7 +61,8 @@
     "checkbox_hint": "Dear {name}, click the box to legally confirm your identity pursuant to § 126 BGB (electronic declaration) and to open the reporting.",
     "button_text": "All good, let's go!",
     "footer_legal": "By opening this document you confirm pursuant to § 126 BGB that you are the authorised recipient and accept this electronic transmission as legally binding. Sharing or copying the content without express consent of BrightNetWorks GmbH is prohibited.",
-    "snackbar_processing": "Token is being processed (integration to follow). Token length: {length}"
+    "snackbar_processing": "Token is being processed (integration to follow). Token length: {length}",
+    "company_fallback": "Company"
   },
   "set_organization_name": {
     "title_with_name": "{name}, for which organization are you setting up Bryteswitch?",
@@ -332,6 +333,9 @@
       "greeting_fallback": "Hello, User!",
       "welcome_back": "Nice to have you back. Let's make your company a bit greener and more resilient together.",
       "reporting_preview": "Reporting Preview",
+      "trigger_manual_report": "Trigger Manual Report",
+      "trigger_report_loading": "Triggering...",
+      "trigger_report_success": "Report generation started. Check email for results.",
       "what_do_you_need": "What do you need right now?",
       "enter_measurement_data": "+ Enter measurement data",
       "add_building": "+ Add building",
@@ -382,7 +386,13 @@
     "report_created": "Reporting created on 07.11 at 10:38 based on 31 days of measurement data.",
     "report_disclaimer": "This reporting is part of the ESG data room of BrightNetWorks GmbH.",
     "average": "AVERAGE",
-    "now": "NOW"
+    "now": "NOW",
+    "retry": "Retry",
+    "back_to_report": "Back to report",
+    "peak_load": "Peak load",
+    "consumption_by_room": "Consumption by room",
+    "no_report_token": "No report token available. Please open the report via the link in your email.",
+    "go_to_login": "Go to login"
   },
   "common": {
     "cancel": "Cancel",

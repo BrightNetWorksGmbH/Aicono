@@ -61,7 +61,8 @@
     "checkbox_hint": "Lieber {name}, klicke auf die Box, um juristisch verbindlich Deine Identität gemäß § 126 BGB (elektronische Willenserklärung) zu bestätigen und das Reporting zu öffnen.",
     "button_text": "Alles klar, lass uns loslegen!",
     "footer_legal": "Durch das Öffnen dieses Dokuments bestätigst Du gemäß § 126 BGB, dass Du die autorisierte Empfängerperson bist und diese elektronische Übermittlung als rechtsverbindlich anerkennst. Die Weitergabe oder Vervielfältigung des Inhalts ist ohne ausdrückliche Zustimmung der BrightNetWorks GmbH untersagt.",
-    "snackbar_processing": "Token wird verarbeitet (Integration folgt). Token-Länge: {length}"
+    "snackbar_processing": "Token wird verarbeitet (Integration folgt). Token-Länge: {length}",
+    "company_fallback": "Unternehmen"
   },
   "set_organization_name": {
     "title_with_name": "{name}, für welche Organisation legst Du Bryteswitch an?",
@@ -332,6 +333,9 @@
       "greeting_fallback": "Hallo, User!",
       "welcome_back": "Schön, dass Du zurück bist. Lass uns Dein Unternehmen gemeinsam ein bisschen grüner und resilienter machen.",
       "reporting_preview": "Reporting Preview",
+      "trigger_manual_report": "Manuelles Reporting auslösen",
+      "trigger_report_loading": "Wird ausgelöst...",
+      "trigger_report_success": "Reporting wurde gestartet. E-Mail wird versendet.",
       "what_do_you_need": "Was brauchst Du gerade?",
       "enter_measurement_data": "+ Messdaten eingeben",
       "add_building": "+ Gebäude ergänzen",
@@ -382,7 +386,13 @@
     "report_created": "Reporting erstellt am 07.11 um 10:38 basierend auf 31 Tagen Messdaten.",
     "report_disclaimer": "Dieses Reporting ist Bestandteil des ESG Datenraums der BrightNetWorks GmbH.",
     "average": "MITTEL",
-    "now": "JETZT"
+    "now": "JETZT",
+    "retry": "Erneut versuchen",
+    "back_to_report": "Zurück zum Bericht",
+    "peak_load": "Spitzenlast",
+    "consumption_by_room": "Verbrauch nach Raum",
+    "no_report_token": "Kein Berichtstoken vorhanden. Bitte öffnen Sie den Bericht über den Link in Ihrer E-Mail.",
+    "go_to_login": "Zum Login"
   },
   "common": {
     "cancel": "Abbrechen",
