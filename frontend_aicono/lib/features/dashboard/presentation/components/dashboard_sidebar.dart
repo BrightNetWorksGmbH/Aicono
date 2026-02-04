@@ -765,8 +765,11 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
         const Divider(height: 20, thickness: 1, color: Color(0x40000000)),
         InkWell(
           onTap: () {
-            // UI-only: just navigate to invite user page
-            context.pushNamed(Routelists.inviteUser);
+            final switchId = widget.verseId ?? currentVerseId;
+            context.pushNamed(
+              Routelists.inviteUser,
+              queryParameters: {'switchId': switchId ?? ''},
+            );
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
