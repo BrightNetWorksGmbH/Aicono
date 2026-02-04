@@ -46,6 +46,7 @@ import 'package:frontend_aicono/features/dashboard/presentation/pages/view_repor
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/switch_settings_page.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/pages/invite_user_page.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/pages/complete_user_invite_page.dart';
+import 'package:frontend_aicono/features/join_invite/presentation/pages/join_switch_almost_done_page.dart';
 
 /// App router configuration using go_router
 class AppRouter {
@@ -279,10 +280,27 @@ class AppRouter {
       },
     ),
     GoRoute(
+      path: '/${Routelists.almostJoinVerse}',
+      name: Routelists.almostJoinVerse,
+      pageBuilder: (context, state) {
+        final invitation = state.extra as InvitationEntity?;
+        if (invitation == null) {
+          // If no invitation, redirect to login
+          return _buildPage(context, state, const LoginPage());
+        }
+        return _buildPage(
+          context,
+          state,
+          JoinSwitchAlmostDonePage(invitation: invitation),
+        );
+      },
+    ),
+    GoRoute(
       path: '/${Routelists.inviteUser}',
       name: Routelists.inviteUser,
       pageBuilder: (context, state) {
-        return _buildPage(context, state, const InviteUserPage());
+        final switchId = state.uri.queryParameters['switchId'];
+        return _buildPage(context, state, InviteUserPage(switchId: switchId));
       },
     ),
     GoRoute(

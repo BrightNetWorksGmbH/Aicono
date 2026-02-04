@@ -390,6 +390,40 @@
     "retry": "Erneut versuchen",
     "submit": "Absenden"
   },
+  "invite_user": {
+    "title": "Nutzer hinzufügen",
+    "complete": {
+      "greeting": "Lieber {name},",
+      "invitation_received": "{invitedName} hat Deine Einladung erhalten.",
+      "notification_hint": "Du wirst informiert, sobald diese Person diese angenommen hat.",
+      "to_dashboard": "zum Dashboard",
+      "invited_user_fallback": "Eingeladener Nutzer",
+      "inviter_fallback": "Nutzer"
+    },
+    "network_error": "Netzwerkfehler. Bitte überprüfe Deine Verbindung.",
+    "cache_error": "Cache-Fehler aufgetreten.",
+    "unexpected_error": "Ein unerwarteter Fehler ist aufgetreten.",
+    "select_company_first_snackbar": "Bitte wähle zuerst ein Unternehmen aus dem Dashboard.",
+    "select_company_first_warning": "Bitte wähle zuerst ein Unternehmen im Dashboard aus.",
+    "email_label": "Mail",
+    "name_position_label": "Vor- und Nachname, Position",
+    "select_role_label": "Bitte wähle die Rolle aus:",
+    "no_roles_available": "Keine Rollen verfügbar.",
+    "employee_profile_info": "Was muss Deine Organisation wissen?\nWenn {name} ein Mitarbeiter Deiner Organisation ist, kannst Du sein Mitarbeiterprofil verknüpfen.",
+    "send_invitation_button": "Einladung senden"
+  },
+  "join_invite": {
+    "almost": {
+      "headline": "Fast geschafft!",
+      "invited_to_switch": "Du wurdest eingeladen, dem Switch \"{organization}\" beizutreten.",
+      "welcome_user": "Willkommen, {name}.",
+      "invited_by": "Du wurdest eingeladen von:\n{name}",
+      "role_title": "Deine Rolle im Switch:",
+      "role_fallback": "Rolle: {roleId}",
+      "permissions_hint": "Mit dem Beitritt zum Switch erhältst Du Zugriff auf die Daten und Funktionen, die Dir von der Administration freigegeben wurden.",
+      "join_button": "Dem Switch beitreten"
+    }
+  },
   "superadmin": {
     "title": "Bryteswitch Verwaltung",
     "description": "Verwalte und konfiguriere alle Bryteswitch-Instanzen",

@@ -104,6 +104,18 @@ import 'package:frontend_aicono/features/superadmin/domain/usecases/delete_verse
 import 'package:frontend_aicono/features/superadmin/presentation/bloc/verse_create_bloc/verse_create_bloc.dart';
 import 'package:frontend_aicono/features/superadmin/presentation/bloc/verse_list_bloc/verse_list_bloc.dart';
 import 'package:frontend_aicono/features/superadmin/presentation/bloc/delete_verse_bloc/delete_verse_bloc.dart';
+import 'package:frontend_aicono/features/user_invite/data/datasources/user_invite_remote_datasource.dart';
+import 'package:frontend_aicono/features/user_invite/data/repositories/user_invite_repository_impl.dart';
+import 'package:frontend_aicono/features/user_invite/domain/repositories/user_invite_repository.dart';
+import 'package:frontend_aicono/features/user_invite/domain/usecases/get_roles_usecase.dart';
+import 'package:frontend_aicono/features/user_invite/domain/usecases/send_invitation_usecase.dart';
+import 'package:frontend_aicono/features/user_invite/presentation/bloc/roles_bloc/roles_bloc.dart';
+import 'package:frontend_aicono/features/user_invite/presentation/bloc/send_invitation_bloc/send_invitation_bloc.dart';
+import 'package:frontend_aicono/features/join_invite/data/datasources/join_invite_remote_datasource.dart';
+import 'package:frontend_aicono/features/join_invite/data/repositories/join_invite_repository_impl.dart';
+import 'package:frontend_aicono/features/join_invite/domain/repositories/join_invite_repository.dart';
+import 'package:frontend_aicono/features/join_invite/domain/usecases/join_switch_usecase.dart';
+import 'package:frontend_aicono/features/join_invite/presentation/bloc/join_invite_bloc.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -167,6 +179,16 @@ Future<void> init() async {
     () => ReportingRemoteDataSourceImpl(dioClient: sl()),
   );
 
+  // Join invite data source
+  sl.registerLazySingleton<JoinInviteRemoteDataSource>(
+    () => JoinInviteRemoteDataSourceImpl(dioClient: sl()),
+  );
+
+  // User invite data source
+  sl.registerLazySingleton<UserInviteRemoteDataSource>(
+    () => UserInviteRemoteDataSourceImpl(dioClient: sl()),
+  );
+
   // Repositories - Auth is online-only, Verse is offline-first
   sl.registerLazySingleton<InvitationRepository>(
     () => InvitationRepositoryImpl(remoteDataSource: sl()),
@@ -215,6 +237,16 @@ Future<void> init() async {
     () => ReportingRepositoryImpl(remoteDataSource: sl()),
   );
 
+  // Join invite repository
+  sl.registerLazySingleton<JoinInviteRepository>(
+    () => JoinInviteRepositoryImpl(remoteDataSource: sl()),
+  );
+
+  // User invite repository
+  sl.registerLazySingleton<UserInviteRepository>(
+    () => UserInviteRepositoryImpl(remoteDataSource: sl()),
+  );
+
   // Use cases
   sl.registerLazySingleton(() => InvitationUseCase(sl()));
   sl.registerLazySingleton(() => RegisterUserUseCase(repository: sl()));
@@ -255,6 +287,13 @@ Future<void> init() async {
   sl.registerLazySingleton(
     () => TriggerReportUseCase(repository: sl<ReportingRepository>()),
   );
+
+  // Join invite use cases
+  sl.registerLazySingleton(() => JoinSwitchUseCase(repository: sl()));
+
+  // User invite use cases
+  sl.registerLazySingleton(() => GetRolesUseCase(repository: sl()));
+  sl.registerLazySingleton(() => SendInvitationUseCase(repository: sl()));
 
   // Superadmin use cases
   sl.registerLazySingleton(() => CreateVerseUseCase(repository: sl()));
@@ -339,6 +378,13 @@ Future<void> init() async {
     () => ReportTokenInfoBloc(getReportTokenInfoUseCase: sl()),
   );
   sl.registerFactory(() => TriggerReportBloc(triggerReportUseCase: sl()));
+
+  // User invite blocs
+  sl.registerFactory(() => RolesBloc(getRolesUseCase: sl()));
+  sl.registerFactory(() => SendInvitationBloc(sendInvitationUseCase: sl()));
+
+  // Join invite bloc
+  sl.registerFactory(() => JoinInviteBloc(joinSwitchUseCase: sl()));
 
   // Upload dependencies
   sl.registerLazySingleton<UploadRemoteDataSource>(

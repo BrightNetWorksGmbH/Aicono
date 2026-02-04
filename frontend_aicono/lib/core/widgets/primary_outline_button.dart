@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 
-/// Reusable primary action button used across onboarding / switch creation flows.
-///
-/// By default this renders as a fixed–height, outline–style button that
-/// matches the BryteSwitch design (thick dark border, neutral background).
 class PrimaryOutlineButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -12,6 +8,10 @@ class PrimaryOutlineButton extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final TextStyle? textStyle;
   final bool enabled;
+
+  /// When true, shows a small loading indicator inside the button and
+  /// visually disables it (no tap).
+  final bool loading;
 
   const PrimaryOutlineButton({
     super.key,
@@ -21,10 +21,13 @@ class PrimaryOutlineButton extends StatelessWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 16),
     this.textStyle,
     this.enabled = true,
+    this.loading = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isInteractive = enabled && !loading && onPressed != null;
+
     final effectiveTextStyle = (textStyle ?? AppTextStyles.bodyMedium).copyWith(
       color: enabled ? Colors.black : Colors.grey,
       fontWeight: FontWeight.w600,
@@ -42,15 +45,37 @@ class PrimaryOutlineButton extends StatelessWidget {
         ),
       ),
       child: Center(
-        child: Text(
-          label,
-          style: effectiveTextStyle,
-          textAlign: TextAlign.center,
-        ),
+        child: loading
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: effectiveTextStyle,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              )
+            : Text(
+                label,
+                style: effectiveTextStyle,
+                textAlign: TextAlign.center,
+              ),
       ),
     );
 
-    if (!enabled || onPressed == null) {
+    if (!isInteractive) {
       return Opacity(opacity: enabled ? 1.0 : 0.5, child: button);
     }
 

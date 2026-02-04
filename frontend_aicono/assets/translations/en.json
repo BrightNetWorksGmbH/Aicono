@@ -390,6 +390,40 @@
     "retry": "Retry",
     "submit": "Submit"
   },
+  "invite_user": {
+    "title": "Add User",
+    "complete": {
+      "greeting": "Dear {name},",
+      "invitation_received": "{invitedName} has received your invitation.",
+      "notification_hint": "You will be notified once they have accepted it.",
+      "to_dashboard": "To Dashboard",
+      "invited_user_fallback": "Invited User",
+      "inviter_fallback": "User"
+    },
+    "network_error": "Network error. Please check your connection.",
+    "cache_error": "Cache error occurred.",
+    "unexpected_error": "An unexpected error occurred.",
+    "select_company_first_snackbar": "Please select a company from the dashboard first.",
+    "select_company_first_warning": "Please select a company from the dashboard first.",
+    "email_label": "Email",
+    "name_position_label": "First name, last name, position",
+    "select_role_label": "Please select a role:",
+    "no_roles_available": "No roles available.",
+    "employee_profile_info": "What does your organization need to know?\nIf {name} is an employee of your organization, you can link their employee profile.",
+    "send_invitation_button": "Send Invitation"
+  },
+  "join_invite": {
+    "almost": {
+      "headline": "Almost there!",
+      "invited_to_switch": "You have been invited to join the switch \"{organization}\".",
+      "welcome_user": "Welcome, {name}.",
+      "invited_by": "You were invited by:\n{name}",
+      "role_title": "Your role in the switch:",
+      "role_fallback": "Role: {roleId}",
+      "permissions_hint": "By joining this switch, you will get access to the data and features that the administration has granted to you.",
+      "join_button": "Join switch"
+    }
+  },
   "superadmin": {
     "title": "Bryteswitch Administration",
     "description": "Manage and configure all Bryteswitch instances",

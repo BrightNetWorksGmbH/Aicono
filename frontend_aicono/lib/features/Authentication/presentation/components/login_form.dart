@@ -9,6 +9,7 @@ import 'package:frontend_aicono/core/services/saved_accounts_service.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
+import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
 
 class LoginForm extends StatefulWidget {
   final InvitationEntity? invitation;
@@ -148,13 +149,16 @@ class _LoginFormState extends State<LoginForm> {
 
               final invitedVerseId = widget.invitation!.verseId;
               final alreadyMember = user.joinedVerse.contains(invitedVerseId);
-              if (!alreadyMember) {
-                // Not a member of the invited verse → decide join vs create based on verse setup
-                await _checkVerseSetupAndRedirect();
+              print('henok - user.joinedVerse: ${user.joinedVerse.toString()}');
+
+              if (alreadyMember) {
+                // Already member of the invited switch → go directly to dashboard
+                context.goNamed(Routelists.dashboard);
                 return;
               }
-              // Already member of the invited verse → dashboard
-              // context.goNamed(Routelists.dashboard);
+
+              // Not a member of the invited switch → decide join vs create based on verse setup
+              await _checkVerseSetupAndRedirect();
               return;
             }
 
@@ -443,9 +447,44 @@ class _LoginFormState extends State<LoginForm> {
     }
   }
 
-  Future<void> _checkVerseSetupAndRedirect() async {}
+  Future<void> _checkVerseSetupAndRedirect() async {
+    if (widget.invitation == null) return;
+    await _checkVerseSetupAndRedirectFor(widget.invitation!);
+  }
 
-  Future<void> _checkVerseSetupAndRedirectFor(InvitationEntity inv) async {}
+  Future<void> _checkVerseSetupAndRedirectFor(InvitationEntity inv) async {
+    try {
+      final loginRepository = sl<LoginRepository>();
+      final userResult = await loginRepository.getCurrentUser();
+
+      await userResult.fold(
+        (failure) {
+          // If we cannot load user, fall back to dashboard
+          context.goNamed(Routelists.dashboard);
+        },
+        (user) async {
+          if (user == null) {
+            context.goNamed(Routelists.login);
+            return;
+          }
+
+          final invitedVerseId = inv.verseId;
+          final alreadyMember = user.joinedVerse.contains(invitedVerseId);
+
+          if (alreadyMember) {
+            // User already in this switch → go directly to dashboard
+            context.goNamed(Routelists.dashboard);
+          } else {
+            // Not yet in this switch → show join-switch page
+            context.pushNamed(Routelists.almostJoinVerse, extra: inv);
+          }
+        },
+      );
+    } catch (_) {
+      // On error, default to dashboard to avoid blocking login
+      context.goNamed(Routelists.dashboard);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

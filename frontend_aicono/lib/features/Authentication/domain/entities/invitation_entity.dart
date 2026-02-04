@@ -7,6 +7,8 @@ class InvitationEntity extends Equatable {
   final String roleId; // ObjectId reference to Roles._id
   final String token; // unique token
   final String invitedBy; // ObjectId reference to Users._id
+  final String? invitedByName;
+  final String? invitedByEmail;
   final bool isAccepted;
   final DateTime createdAt;
   final DateTime? expiresAt;
@@ -25,6 +27,8 @@ class InvitationEntity extends Equatable {
     required this.roleId,
     required this.token,
     required this.invitedBy,
+    this.invitedByName,
+    this.invitedByEmail,
     required this.isAccepted,
     required this.createdAt,
     this.expiresAt,
@@ -56,6 +60,12 @@ class InvitationEntity extends Equatable {
     final invitedBy = invitedByObj != null && invitedByObj is Map
         ? (invitedByObj['_id'] ?? '')
         : (json['invited_by'] ?? json['invitedBy'] ?? '');
+    final String? invitedByName = invitedByObj != null && invitedByObj is Map
+        ? invitedByObj['name'] as String?
+        : json['invited_by_name'] as String?;
+    final String? invitedByEmail = invitedByObj != null && invitedByObj is Map
+        ? invitedByObj['email'] as String?
+        : json['invited_by_email'] as String?;
 
     // Extract email from recipient_email or email
     final email = json['recipient_email'] ?? json['email'] ?? '';
@@ -73,7 +83,8 @@ class InvitationEntity extends Equatable {
         ? (bryteswitchObj['is_setup_complete'] ?? false) as bool
         : (json['is_setup_complete'] ?? false) as bool;
     final organizationName = bryteswitchObj != null && bryteswitchObj is Map
-        ? (bryteswitchObj['organization_name'] ?? json['organization_name']) as String?
+        ? (bryteswitchObj['organization_name'] ?? json['organization_name'])
+              as String?
         : (json['organization_name'] ?? json['organizationName']) as String?;
     final subDomain = bryteswitchObj != null && bryteswitchObj is Map
         ? (bryteswitchObj['sub_domain'] ?? json['sub_domain']) as String?
@@ -86,6 +97,8 @@ class InvitationEntity extends Equatable {
       roleId: roleId,
       token: json['token'] ?? '',
       invitedBy: invitedBy,
+      invitedByName: invitedByName,
+      invitedByEmail: invitedByEmail,
       isAccepted: isAccepted,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
@@ -113,6 +126,8 @@ class InvitationEntity extends Equatable {
       'role_id': roleId,
       'token': token,
       'invited_by': invitedBy,
+      'invited_by_name': invitedByName,
+      'invited_by_email': invitedByEmail,
       'is_accepted': isAccepted,
       'created_at': createdAt.toIso8601String(),
       'expires_at': expiresAt?.toIso8601String(),
@@ -134,6 +149,8 @@ class InvitationEntity extends Equatable {
     roleId,
     token,
     invitedBy,
+    invitedByName,
+    invitedByEmail,
     isAccepted,
     createdAt,
     expiresAt,
