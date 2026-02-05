@@ -4,8 +4,7 @@ const Sensor = require('../models/Sensor');
 const MeasurementData = require('../models/MeasurementData');
 const Building = require('../models/Building');
 const plausibilityCheckService = require('./plausibilityCheckService');
-// 🔥 REMOVED: Pool statistics imports - throttling is now handled by measurementQueueService
-// const { getPoolStatistics, PRIORITY, canAcquireConnection, waitForConnection } = require('../db/connection');
+const { getPoolStatistics, PRIORITY, canAcquireConnection, waitForConnection } = require('../db/connection');
 
 // Per-building UUID to Sensor mapping cache
 const uuidMaps = new Map(); // buildingId -> Map<uuid, sensorMapping>
@@ -942,39 +941,43 @@ class LoxoneStorageService {
 
             const measurementTimestamp = measurement.timestamp || new Date();
 
-            // 🔥 FIX: Fire-and-forget plausibility check - DON'T AWAIT
-            // This was a major bottleneck causing queue to fill up
-            // Plausibility checks are important but should not block measurement storage
+            // Perform plausibility check before storing (skip if queue is critically full)
+            // Pass pre-fetched sensor to avoid N+1 query problem
             if (!options.skipPlausibilityCheck) {
-                // Run asynchronously without awaiting (fire-and-forget)
-                plausibilityCheckService.validateMeasurement(
-                    sensor._id,
-                    measurement.value,
-                    measurementType,
-                    measurementTimestamp,
-                    sensor // Pass pre-fetched sensor to avoid database query
-                ).then(validation => {
-                    // If validation fails, create alarm log entries (also non-blocking)
-                    if (!validation.isValid && validation.violations.length > 0) {
-                        for (const violation of validation.violations) {
-                            alarmService.createPlausibilityAlarm(
+                try {
+                    const validation = await plausibilityCheckService.validateMeasurement(
+                        sensor._id,
+                        measurement.value,
+                        measurementType,
+                        measurementTimestamp,
+                        sensor // Pass pre-fetched sensor to avoid database query
+                    );
+
+                // If validation fails, create alarm log entries
+                if (!validation.isValid && validation.violations.length > 0) {
+                    for (const violation of validation.violations) {
+                        try {
+                            const alarmLog = await alarmService.createPlausibilityAlarm(
                                 violation,
                                 sensor._id,
                                 measurement.value,
                                 measurementTimestamp
-                            ).then(alarmLog => {
-                                // Trigger email notification asynchronously
-                                alertNotificationService.sendAlertReport(alarmLog._id).catch(err => {
-                                    // Silent fail - don't spam logs
-                                });
-                            }).catch(alarmError => {
-                                // Silent fail for alarm creation - don't block or spam logs
+                            );
+
+                            // Trigger email notification asynchronously (don't block storage)
+                            alertNotificationService.sendAlertReport(alarmLog._id).catch(err => {
+                                console.error(`[LOXONE-STORAGE] [${buildingId}] Failed to send alert email for alarm ${alarmLog._id}:`, err.message);
                             });
+                        } catch (alarmError) {
+                            console.error(`[LOXONE-STORAGE] [${buildingId}] Error creating alarm log:`, alarmError.message);
+                            // Continue processing even if alarm creation fails
                         }
                     }
-                }).catch(validationError => {
-                    // Silent fail for validation - don't block or spam logs
-                });
+                }
+                } catch (validationError) {
+                    // Log validation error but don't block storage
+                    console.error(`[LOXONE-STORAGE] [${buildingId}] Error during plausibility check:`, validationError.message);
+                }
             }
 
             // Store measurement regardless of validation result (to maintain data integrity)
@@ -1001,14 +1004,23 @@ class LoxoneStorageService {
         let storedCount = 0;
         if (documents.length > 0) {
             try {
-                // 🔥 FIX: REMOVED pool wait - the queue service handles throttling now
-                // Waiting here causes queue to back up. Just proceed with storage.
-                // Real-time data storage is HIGH priority and should always proceed.
-                
+                // Check connection pool availability before starting (HIGH priority)
+                // Throttle if pool usage is too high (>85%)
+                const poolStats = await getPoolStatistics(PRIORITY.HIGH);
+                if (poolStats.available && poolStats.usagePercent > 85) {
+                    // Wait for pool to free up (max 2 seconds)
+                    const canProceed = await waitForConnection(PRIORITY.HIGH, 2000);
+                    if (!canProceed) {
+                        // Pool still too high, but proceed anyway (HIGH priority)
+                        // Log but don't block - real-time data is critical
+                        // console.warn(`[LOXONE-STORAGE] [${buildingId}] Pool usage high (${poolStats.usagePercent}%) but proceeding with HIGH priority storage`);
+                    }
+                }
+
                 const collection = db.collection('measurements_raw');
 
-                // 🔥 INCREASED: Larger batches for better throughput (was 100, now 500)
-                const BATCH_SIZE = 500;
+                // Split into smaller batches to avoid timeout (max 100 documents per batch)
+                const BATCH_SIZE = 100;
                 const batches = [];
                 for (let i = 0; i < documents.length; i += BATCH_SIZE) {
                     batches.push(documents.slice(i, i + BATCH_SIZE));
@@ -1019,9 +1031,16 @@ class LoxoneStorageService {
                     const batch = batches[batchIndex];
 
                     try {
-                        // 🔥 FIX: REMOVED per-batch pool check - causes latency and queue backup
-                        // The queue service handles throttling at a higher level
-                        
+                        // Check pool before each batch (but don't wait too long)
+                        if (batchIndex > 0 && batchIndex % 5 === 0) {
+                            // Check every 5 batches
+                            const currentPoolStats = await getPoolStatistics(PRIORITY.HIGH);
+                            if (currentPoolStats.available && currentPoolStats.usagePercent > 90) {
+                                // Very high usage - small delay to let pool recover
+                                await new Promise(resolve => setTimeout(resolve, 100));
+                            }
+                        }
+
                         // Use unacknowledged write concern for better performance (w: 0)
                         // This is safe for time-series data where occasional loss is acceptable
                         // vs blocking the entire measurement pipeline
@@ -1030,11 +1049,11 @@ class LoxoneStorageService {
                             writeConcern: { w: 0 } // Unacknowledged - fastest, non-blocking
                         });
 
-                        // Increased timeout to 15 seconds per batch (500 docs now)
+                        // Reduced timeout to 10 seconds per batch (should be enough for 100 docs)
                         const timeoutPromise = new Promise((_, reject) => {
                             setTimeout(() => {
-                                reject(new Error('Insert operation timeout after 15s'));
-                            }, 15000);
+                                reject(new Error('Insert operation timeout after 10s'));
+                            }, 10000);
                         });
 
                         const result = await Promise.race([insertOperation, timeoutPromise]);

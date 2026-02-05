@@ -32,6 +32,9 @@ class MeasurementQueueService {
         this.lastWarningTime = new Map(); // buildingId -> timestamp
         this.warningCooldown = 60000; // Only warn once per minute per building
         
+        // Pool throttle multiplier (1.0 = full speed, 0.1 = 10% speed)
+        this.currentPoolThrottle = 1.0;
+        
         // Start processing loop
         this.startProcessing();
         
@@ -150,18 +153,30 @@ class MeasurementQueueService {
             return;
         }
         
-        // Check connection pool usage - throttle if too high
+        // 🔥 FIX: Instead of stopping when pool is busy, we REDUCE throughput but keep processing
+        // This prevents queue from filling up during aggregation
+        let poolThrottleMultiplier = 1.0;
         try {
             const poolStats = await getPoolStatistics(PRIORITY.HIGH);
-            if (poolStats.available && poolStats.usagePercent > 85) {
-                // Pool usage is high - skip this cycle to avoid overwhelming the pool
-                // Real-time storage will handle throttling internally, but we can help here too
-                return;
+            if (poolStats.available) {
+                if (poolStats.usagePercent > 95) {
+                    // Critical: process at 10% capacity but DON'T STOP
+                    poolThrottleMultiplier = 0.1;
+                } else if (poolStats.usagePercent > 85) {
+                    // High: process at 25% capacity
+                    poolThrottleMultiplier = 0.25;
+                } else if (poolStats.usagePercent > 70) {
+                    // Medium: process at 50% capacity
+                    poolThrottleMultiplier = 0.5;
+                }
             }
         } catch (error) {
-            // If pool check fails, proceed anyway (don't block real-time storage)
-            // console.warn('[MEASUREMENT-QUEUE] Error checking pool stats:', error.message);
+            // If pool check fails, proceed at reduced capacity (don't block real-time storage)
+            poolThrottleMultiplier = 0.5;
         }
+        
+        // Store throttle multiplier for use in processBuildingQueue
+        this.currentPoolThrottle = poolThrottleMultiplier;
 
         // Process buildings in parallel for better throughput
         const processingPromises = [];
@@ -214,22 +229,25 @@ class MeasurementQueueService {
             const isQueueCritical = queuePercent > 0.9; // >90% full
             const isQueueFull = queuePercent > 0.7; // >70% full
             
-            // Aggressive batching when queue is critical
+            // Get pool throttle multiplier (set by processQueue)
+            const poolThrottle = this.currentPoolThrottle || 1.0;
+            
+            // 🔥 INCREASED: More aggressive batching when queue is critical
             let adaptiveBatchSize;
             let maxBatchesPerCycle;
             
             if (isQueueCritical) {
-                // Critical: process as much as possible
-                adaptiveBatchSize = this.batchSize * 4; // 4x batch size (800 measurements)
-                maxBatchesPerCycle = 10; // Process up to 10 batches per cycle
+                // Critical: process as much as possible - IGNORE pool throttle for queue survival
+                adaptiveBatchSize = this.batchSize * 8; // 8x batch size (1600 measurements)
+                maxBatchesPerCycle = 20; // Process up to 20 batches per cycle (32,000 measurements max)
             } else if (isQueueFull) {
-                // Full: process more aggressively
-                adaptiveBatchSize = this.batchSize * 2; // 2x batch size (400 measurements)
-                maxBatchesPerCycle = 5; // Process up to 5 batches per cycle
+                // Full: process more aggressively, but respect some throttling
+                adaptiveBatchSize = this.batchSize * 4; // 4x batch size (800 measurements)
+                maxBatchesPerCycle = Math.max(3, Math.ceil(10 * poolThrottle)); // 3-10 batches
             } else {
-                // Normal: standard processing
+                // Normal: standard processing with pool throttle
                 adaptiveBatchSize = this.batchSize;
-                maxBatchesPerCycle = 1;
+                maxBatchesPerCycle = Math.max(1, Math.ceil(2 * poolThrottle)); // 1-2 batches
             }
             
             let batchesProcessed = 0;
@@ -243,12 +261,16 @@ class MeasurementQueueService {
                     break;
                 }
                 
-                // Store measurements with skipPlausibilityCheck option when critical
+                // 🔥 FIX: Skip plausibility checks when queue is full (not just critical)
+                // Plausibility checks are slow and cause queue backup
+                const shouldSkipPlausibility = isQueueFull || isQueueCritical;
+                
+                // Store measurements
                 try {
                     await loxoneStorageService.storeMeasurements(
                         buildingId, 
                         batch,
-                        { skipPlausibilityCheck: isQueueCritical } // Skip plausibility checks when critical
+                        { skipPlausibilityCheck: shouldSkipPlausibility }
                     );
                     batchesProcessed++;
                 } catch (error) {

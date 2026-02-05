@@ -1,10 +1,12 @@
 const cron = require('node-cron');
 const measurementAggregationService = require('./measurementAggregationService');
-const { isConnectionHealthy, getPoolStatistics } = require('../db/connection');
+const { isConnectionHealthy, getPoolStatistics, PRIORITY } = require('../db/connection');
 
 /**
- * Aggregation Scheduler
- * 
+ * Aggregation Scheduler - OPTIMIZED
+ *
+ * 🔥 OPTIMIZED: Better connection pool management and building processing
+ *
  * Manages cron jobs for automatic measurement aggregation:
  * - Every 15 minutes: Aggregate raw data to 15-minute buckets (deletes raw data)
  * - Every hour: Aggregate 15-minute data to hourly buckets (keeps both)
@@ -12,14 +14,6 @@ const { isConnectionHealthy, getPoolStatistics } = require('../db/connection');
  * - Weekly on Monday at 2 AM: Aggregate daily data to weekly buckets (deletes hourly > 1 week old)
  * - Monthly on 1st at 3 AM: Aggregate weekly/daily data to monthly buckets
  * - Daily at 4 AM: Cleanup old raw data (safety net)
- * 
- * Cron schedule format: minute hour day month weekday
- * Examples:
- * - Every 15 minutes: '*\/15 * * * *'
- * - Every hour at minute 0: '0 * * * *'
- * - Daily at 1:00 AM: '0 1 * * *'
- * - Weekly on Monday at 2:00 AM: '0 2 * * 1'
- * - Monthly on 1st at 3:00 AM: '0 3 1 * *'
  */
 class AggregationScheduler {
     constructor() {
@@ -34,13 +28,13 @@ class AggregationScheduler {
             'monthly': null,
             'cleanup': null
         };
-        
+
         // Aggregation job queue to prevent overlapping aggregations
         this.jobQueue = [];
         this.runningJobs = new Set(); // Track currently running aggregation types
         this.queueEnabled = process.env.AGGREGATION_QUEUE_ENABLED !== 'false';
         this.maxConcurrent = parseInt(process.env.AGGREGATION_QUEUE_MAX_CONCURRENT || '1', 10);
-        
+
         // Job priority order (higher number = higher priority)
         this.jobPriority = {
             '15-minute': 5,
@@ -50,7 +44,7 @@ class AggregationScheduler {
             'monthly': 1,
             'cleanup': 0
         };
-        
+
         // Configuration from environment variables
         this.config = {
             // Delete raw data immediately after aggregation (default: true)
@@ -58,18 +52,21 @@ class AggregationScheduler {
             // Safety buffer: keep raw data for at least N minutes (default: 30 minutes)
             rawDataBufferMinutes: parseInt(process.env.RAW_DATA_BUFFER_MINUTES || '30', 10),
             // Old cleanup job retention (for backward compatibility, but less aggressive)
-            oldDataRetentionDays: parseInt(process.env.OLD_DATA_RETENTION_DAYS || '1', 10)
+            oldDataRetentionDays: parseInt(process.env.OLD_DATA_RETENTION_DAYS || '1', 10),
+            // 🔥 NEW: Delay between building processing (to avoid connection pool exhaustion)
+            buildingProcessingDelayMs: parseInt(process.env.AGGREGATION_BUILDING_DELAY_MS || '3000', 10)
         };
-        
+
         console.log(`[SCHEDULER] Configuration:`, {
             deleteAfterAggregation: this.config.deleteAfterAggregation,
             rawDataBufferMinutes: this.config.rawDataBufferMinutes,
             oldDataRetentionDays: this.config.oldDataRetentionDays,
             queueEnabled: this.queueEnabled,
-            maxConcurrent: this.maxConcurrent
+            maxConcurrent: this.maxConcurrent,
+            buildingProcessingDelayMs: this.config.buildingProcessingDelayMs
         });
     }
-    
+
     /**
      * Check if an aggregation job can run (not already running)
      * @param {string} jobType - Type of aggregation job
@@ -79,16 +76,16 @@ class AggregationScheduler {
         if (!this.queueEnabled) {
             return true; // Queue disabled, allow all jobs
         }
-        
+
         // Check if any job is currently running
         if (this.runningJobs.size >= this.maxConcurrent) {
             return false;
         }
-        
+
         // Check if this specific job type is already running
         return !this.runningJobs.has(jobType);
     }
-    
+
     /**
      * Mark a job as running
      * @param {string} jobType - Type of aggregation job
@@ -98,7 +95,7 @@ class AggregationScheduler {
             this.runningJobs.add(jobType);
         }
     }
-    
+
     /**
      * Mark a job as completed
      * @param {string} jobType - Type of aggregation job
@@ -110,7 +107,7 @@ class AggregationScheduler {
             this.processQueue();
         }
     }
-    
+
     /**
      * Queue an aggregation job
      * @param {string} jobType - Type of aggregation job
@@ -122,7 +119,7 @@ class AggregationScheduler {
             // Queue disabled, execute immediately
             return jobFn();
         }
-        
+
         return new Promise((resolve, reject) => {
             const job = {
                 type: jobType,
@@ -132,7 +129,7 @@ class AggregationScheduler {
                 reject,
                 queuedAt: new Date()
             };
-            
+
             // Insert job in priority order (higher priority first)
             const insertIndex = this.jobQueue.findIndex(qJob => qJob.priority < job.priority);
             if (insertIndex === -1) {
@@ -140,14 +137,14 @@ class AggregationScheduler {
             } else {
                 this.jobQueue.splice(insertIndex, 0, job);
             }
-            
+
             console.log(`[SCHEDULER] [QUEUE] Queued ${jobType} aggregation (queue size: ${this.jobQueue.length}, running: ${this.runningJobs.size})`);
-            
+
             // Try to process queue
             this.processQueue();
         });
     }
-    
+
     /**
      * Process queued jobs
      */
@@ -155,22 +152,22 @@ class AggregationScheduler {
         if (!this.queueEnabled) {
             return;
         }
-        
+
         // Process jobs while we have capacity
         while (this.jobQueue.length > 0 && this.runningJobs.size < this.maxConcurrent) {
             const job = this.jobQueue.shift();
-            
+
             // Check if this job type can run
             if (this.runningJobs.has(job.type)) {
                 // Job type already running, re-queue it
                 this.jobQueue.unshift(job);
                 break;
             }
-            
+
             // Execute job
             this.startJob(job.type);
             console.log(`[SCHEDULER] [QUEUE] Starting ${job.type} aggregation (queue size: ${this.jobQueue.length})`);
-            
+
             job.execute()
                 .then(result => {
                     this.completeJob(job.type);
@@ -192,7 +189,7 @@ class AggregationScheduler {
             console.log('[SCHEDULER] ⚠️  Scheduler is already running. Stopping existing jobs before restart...');
             this.stop();
         }
-        
+
         console.log('[SCHEDULER] 🚀 Starting aggregation scheduler...');
 
         // Job 1: Aggregate raw data to 15-minute buckets (every 15 minutes)
@@ -200,53 +197,54 @@ class AggregationScheduler {
             const timestamp = new Date().toISOString();
             this.lastRun['15-minute'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running 15-minute aggregation (cron triggered)...`);
-            
+
             // Queue the job to prevent overlapping aggregations
             await this.queueJob('15-minute', async () => {
+                // 🔥 OPTIMIZED: Use MEDIUM priority for aggregation operations
                 // Check connection health and pool availability before starting
                 if (!isConnectionHealthy()) {
                     console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Database connection not healthy`);
                     return;
                 }
-                
+
                 try {
-                    // Check pool statistics - only skip if pool is truly exhausted (95%+)
-                    // Aggregation is critical for storage efficiency, so we should run it even if pool is high
-                    const poolStats = await getPoolStatistics();
-                    if (poolStats.available && poolStats.usagePercent >= 95) {
-                        console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Connection pool usage is critical (${poolStats.usagePercent}%)`);
+                    // 🔥 OPTIMIZED: Check pool with MEDIUM priority
+                    // Skip only if pool is truly exhausted (>95%), otherwise proceed
+                    const poolStats = await getPoolStatistics(PRIORITY.MEDIUM);
+                    if (poolStats.available && poolStats.effectiveUsagePercent >= 95) {
+                        console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Connection pool usage is critical for MEDIUM priority (${poolStats.effectiveUsagePercent}%)`);
                         return;
                     }
-                    
-                    // If pool is high (80-95%), wait a bit for connections to free up, then proceed
-                    if (poolStats.available && poolStats.usagePercent >= 80) {
-                        console.log(`[SCHEDULER] [${timestamp}] ⚠️  Pool usage is high (${poolStats.usagePercent}%), waiting 2 seconds before aggregation...`);
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        
+
+                    // 🔥 OPTIMIZED: If pool is high (80-95%), wait longer for connections to free up
+                    if (poolStats.available && poolStats.effectiveUsagePercent >= 80) {
+                        console.log(`[SCHEDULER] [${timestamp}] ⚠️  Pool usage is high for MEDIUM priority (${poolStats.effectiveUsagePercent}%), waiting 5 seconds before aggregation...`);
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+
                         // Re-check pool after wait
-                        const recheckStats = await getPoolStatistics();
-                        if (recheckStats.available && recheckStats.usagePercent >= 95) {
-                            console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Pool still critical after wait (${recheckStats.usagePercent}%)`);
+                        const recheckStats = await getPoolStatistics(PRIORITY.MEDIUM);
+                        if (recheckStats.available && recheckStats.effectiveUsagePercent >= 95) {
+                            console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Pool still critical after wait (${recheckStats.effectiveUsagePercent}%)`);
                             return;
                         }
                     }
-                    
+
                     // Yield to event loop before starting heavy operation
                     await new Promise(resolve => setImmediate(resolve));
-                    
+
                     // Optimized: Process buildings sequentially to avoid overwhelming connection pool
                     // Get all buildings with active Loxone connections
                     const Building = require('../models/Building');
                     let buildings = [];
-                    
+
                     try {
-                        buildings = await Building.find({ 
-                            'loxone_config.ip': { $exists: true, $ne: null } 
+                        buildings = await Building.find({
+                            'loxone_config.ip': { $exists: true, $ne: null }
                         }).select('_id').lean();
                     } catch (buildingError) {
                         console.warn(`[SCHEDULER] [${timestamp}] Could not fetch buildings list, falling back to all-buildings aggregation:`, buildingError.message);
                     }
-                    
+
                     if (buildings.length === 0) {
                         // Fallback: aggregate all buildings at once (original behavior)
                         console.log(`[SCHEDULER] [${timestamp}] No buildings found, aggregating all data...`);
@@ -255,47 +253,40 @@ class AggregationScheduler {
                             this.config.deleteAfterAggregation,
                             this.config.rawDataBufferMinutes
                         );
-                        
+
                         if (result.skipped) {
                             console.log(`[SCHEDULER] [${timestamp}] ⏭️  15-minute aggregation skipped: ${result.reason || 'Not enough data'}`);
                         } else {
                             console.log(`[SCHEDULER] [${timestamp}] ✅ 15-minute aggregation completed: ${result.count} aggregates created, ${result.deleted || 0} raw data points queued for deletion`);
                         }
                     } else {
-                        // Process buildings sequentially with delays to avoid connection pool exhaustion
-                        console.log(`[SCHEDULER] [${timestamp}] Processing ${buildings.length} buildings sequentially...`);
-                        
+                        // 🔥 OPTIMIZED: Process buildings sequentially with longer delays
+                        // This prevents connection pool exhaustion
+                        console.log(`[SCHEDULER] [${timestamp}] Processing ${buildings.length} buildings sequentially with ${this.config.buildingProcessingDelayMs}ms delays...`);
+
                         let totalCount = 0;
                         let totalDeleted = 0;
                         let successCount = 0;
                         let errorCount = 0;
-                        
-                        // Get building delay from env (default 5 seconds - increased from 2s for better pool management)
-                        const buildingDelay = parseInt(process.env.AGGREGATION_BUILDING_DELAY_MS || '5000', 10);
-                        
+
                         for (let i = 0; i < buildings.length; i++) {
                             const buildingId = buildings[i]._id.toString();
-                            
-                            // Check pool usage before each building to avoid overwhelming the database
-                            const prePoolStats = await getPoolStatistics();
-                            if (prePoolStats.available && prePoolStats.usagePercent >= 90) {
-                                // Pool is very high - wait longer before processing
-                                console.log(`[SCHEDULER] [${timestamp}] Pool usage high (${prePoolStats.usagePercent}%), waiting 10s before building ${i + 1}...`);
-                                await new Promise(resolve => setTimeout(resolve, 10000));
-                            } else if (prePoolStats.available && prePoolStats.usagePercent >= 80) {
-                                // Pool is moderately high - small additional wait
-                                await new Promise(resolve => setTimeout(resolve, 3000));
-                            }
-                            
                             console.log(`[SCHEDULER] [${timestamp}] Processing building ${i + 1}/${buildings.length}: ${buildingId}`);
-                            
+
                             try {
+                                // 🔥 NEW: Check pool before each building
+                                const buildingPoolStats = await getPoolStatistics(PRIORITY.MEDIUM);
+                                if (buildingPoolStats.available && buildingPoolStats.effectiveUsagePercent >= 90) {
+                                    console.warn(`[SCHEDULER] [${timestamp}] Pool usage very high (${buildingPoolStats.effectiveUsagePercent}%), waiting 10s before next building...`);
+                                    await new Promise(resolve => setTimeout(resolve, 10000));
+                                }
+
                                 const result = await measurementAggregationService.aggregate15Minutes(
                                     buildingId,
                                     this.config.deleteAfterAggregation,
                                     this.config.rawDataBufferMinutes
                                 );
-                                
+
                                 if (result && result.success) {
                                     totalCount += result.count || 0;
                                     totalDeleted += result.deleted || 0;
@@ -303,11 +294,11 @@ class AggregationScheduler {
                                         successCount++;
                                     }
                                 }
-                                
-                                // Delay between buildings to avoid overwhelming connection pool
+
+                                // 🔥 OPTIMIZED: Longer delay between buildings (default 3s instead of 2s)
                                 // Only delay if not the last building
                                 if (i < buildings.length - 1) {
-                                    await new Promise(resolve => setTimeout(resolve, buildingDelay)); // Configurable delay (default 5s)
+                                    await new Promise(resolve => setTimeout(resolve, this.config.buildingProcessingDelayMs));
                                 }
                             } catch (buildingError) {
                                 errorCount++;
@@ -315,7 +306,7 @@ class AggregationScheduler {
                                 // Continue with next building
                             }
                         }
-                        
+
                         console.log(`[SCHEDULER] [${timestamp}] ✅ 15-minute aggregation completed across ${buildings.length} buildings:`);
                         console.log(`[SCHEDULER] [${timestamp}]   - ${totalCount} aggregates created`);
                         console.log(`[SCHEDULER] [${timestamp}]   - ${totalDeleted} raw data points queued for deletion`);
@@ -340,7 +331,7 @@ class AggregationScheduler {
             const timestamp = new Date().toISOString();
             this.lastRun['hourly'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running hourly aggregation (cron triggered)...`);
-            
+
             // Queue the job to prevent overlapping aggregations
             await this.queueJob('hourly', async () => {
                 // Check connection health before starting
@@ -348,11 +339,18 @@ class AggregationScheduler {
                     console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Database connection not healthy`);
                     return;
                 }
-                
+
                 try {
+                    // 🔥 OPTIMIZED: Use MEDIUM priority
+                    const poolStats = await getPoolStatistics(PRIORITY.MEDIUM);
+                    if (poolStats.available && poolStats.effectiveUsagePercent >= 95) {
+                        console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Pool critical for MEDIUM priority`);
+                        return;
+                    }
+
                     // Yield to event loop before starting
                     await new Promise(resolve => setImmediate(resolve));
-                    
+
                     const result = await measurementAggregationService.aggregateHourly();
                     console.log(`[SCHEDULER] [${timestamp}] ✅ Hourly aggregation completed: ${result.count} aggregates created, ${result.deleted || 0} old 15-minute aggregates deleted`);
                 } catch (error) {
@@ -372,7 +370,7 @@ class AggregationScheduler {
             const timestamp = new Date().toISOString();
             this.lastRun['daily'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running daily aggregation (cron triggered)...`);
-            
+
             // Queue the job to prevent overlapping aggregations
             await this.queueJob('daily', async () => {
                 // Check connection health before starting
@@ -380,11 +378,11 @@ class AggregationScheduler {
                     console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Database connection not healthy`);
                     return;
                 }
-                
+
                 try {
                     // Yield to event loop before starting
                     await new Promise(resolve => setImmediate(resolve));
-                    
+
                     const result = await measurementAggregationService.aggregateDaily();
                     console.log(`[SCHEDULER] [${timestamp}] ✅ Daily aggregation completed: ${result.count} aggregates created, ${result.deleted || 0} old 15-minute aggregates deleted`);
                 } catch (error) {
@@ -404,7 +402,7 @@ class AggregationScheduler {
             const timestamp = new Date().toISOString();
             this.lastRun['weekly'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running weekly aggregation (cron triggered)...`);
-            
+
             // Queue the job to prevent overlapping aggregations
             await this.queueJob('weekly', async () => {
                 // Check connection health before starting
@@ -412,11 +410,11 @@ class AggregationScheduler {
                     console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Database connection not healthy`);
                     return;
                 }
-                
+
                 try {
                     // Yield to event loop before starting
                     await new Promise(resolve => setImmediate(resolve));
-                    
+
                     const result = await measurementAggregationService.aggregateWeekly();
                     console.log(`[SCHEDULER] [${timestamp}] ✅ Weekly aggregation completed: ${result.count} aggregates created, ${result.deleted || 0} old hourly aggregates deleted`);
                 } catch (error) {
@@ -435,7 +433,7 @@ class AggregationScheduler {
             const timestamp = new Date().toISOString();
             this.lastRun['monthly'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running monthly aggregation (cron triggered)...`);
-            
+
             // Queue the job to prevent overlapping aggregations
             await this.queueJob('monthly', async () => {
                 // Check connection health before starting
@@ -443,11 +441,11 @@ class AggregationScheduler {
                     console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping aggregation: Database connection not healthy`);
                     return;
                 }
-                
+
                 try {
                     // Yield to event loop before starting
                     await new Promise(resolve => setImmediate(resolve));
-                    
+
                     const result = await measurementAggregationService.aggregateMonthly();
                     console.log(`[SCHEDULER] [${timestamp}] ✅ Monthly aggregation completed: ${result.count} aggregates created`);
                 } catch (error) {
@@ -468,7 +466,7 @@ class AggregationScheduler {
             const timestamp = new Date().toISOString();
             this.lastRun['cleanup'] = timestamp;
             console.log(`[SCHEDULER] [${timestamp}] ⏰ Running safety cleanup (cron triggered, retention: ${this.config.oldDataRetentionDays} days)...`);
-            
+
             // Queue the job to prevent overlapping aggregations
             await this.queueJob('cleanup', async () => {
                 // Check connection health before starting
@@ -476,11 +474,11 @@ class AggregationScheduler {
                     console.warn(`[SCHEDULER] [${timestamp}] ⚠️  Skipping cleanup: Database connection not healthy`);
                     return;
                 }
-                
+
                 try {
                     // Yield to event loop before starting
                     await new Promise(resolve => setImmediate(resolve));
-                    
+
                     // Only delete data older than retention period (default: 1 day)
                     // This acts as a safety net, but most data should already be deleted by immediate cleanup
                     const deletedCount = await measurementAggregationService.cleanupRawData(
@@ -524,7 +522,7 @@ class AggregationScheduler {
         } else {
             console.log('[SCHEDULER] Raw data deletion after aggregation is DISABLED');
         }
-        
+
         // Calculate and log next run times
         const now = new Date();
         const next15Min = new Date(now);
@@ -534,7 +532,7 @@ class AggregationScheduler {
         }
         const nextHour = new Date(now);
         nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
-        
+
         console.log(`[SCHEDULER] Next 15-min run: ${next15Min.toISOString()} (in ${Math.round((next15Min - now) / 1000 / 60)} minutes)`);
         console.log(`[SCHEDULER] Next hourly run: ${nextHour.toISOString()} (in ${Math.round((nextHour - now) / 1000 / 60)} minutes)`);
     }
@@ -560,29 +558,29 @@ class AggregationScheduler {
 
     /**
      * Get status of all jobs
-     * 
+     *
      * @returns {Object} Status of all scheduled jobs
      */
     getStatus() {
         const now = new Date();
-        
+
         // Calculate next run times
         const next15Min = new Date(now);
         next15Min.setMinutes(Math.ceil(now.getMinutes() / 15) * 15, 0, 0);
         if (next15Min <= now) {
             next15Min.setMinutes(next15Min.getMinutes() + 15);
         }
-        
+
         const nextHour = new Date(now);
         nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
-        
+
         // Calculate next daily run (1 AM UTC)
         const nextDaily = new Date(now);
         nextDaily.setUTCHours(1, 0, 0, 0);
         if (nextDaily <= now) {
             nextDaily.setUTCDate(nextDaily.getUTCDate() + 1);
         }
-        
+
         // Calculate next weekly run (Monday 2 AM UTC)
         const nextWeekly = new Date(now);
         nextWeekly.setUTCHours(2, 0, 0, 0);
@@ -591,7 +589,7 @@ class AggregationScheduler {
         if (daysUntilMonday > 0) {
             nextWeekly.setUTCDate(nextWeekly.getUTCDate() + daysUntilMonday);
         }
-        
+
         // Calculate next monthly run (1st 3 AM UTC)
         const nextMonthly = new Date(now);
         nextMonthly.setUTCDate(1);
@@ -599,14 +597,14 @@ class AggregationScheduler {
         if (nextMonthly <= now) {
             nextMonthly.setUTCMonth(nextMonthly.getUTCMonth() + 1);
         }
-        
+
         // Calculate next cleanup run (4 AM UTC)
         const nextCleanup = new Date(now);
         nextCleanup.setUTCHours(4, 0, 0, 0);
         if (nextCleanup <= now) {
             nextCleanup.setUTCDate(nextCleanup.getUTCDate() + 1);
         }
-        
+
         return {
             isRunning: this.isRunning,
             startedAt: this.startedAt,
@@ -631,7 +629,7 @@ class AggregationScheduler {
 
     /**
      * Manually trigger 15-minute aggregation (for testing)
-     * 
+     *
      * @param {string|null} buildingId - Optional building ID
      * @param {boolean} deleteAfterAggregation - Whether to delete raw data after aggregation
      * @returns {Promise<Object>} Aggregation result
@@ -639,11 +637,11 @@ class AggregationScheduler {
     async trigger15MinuteAggregation(buildingId = null, deleteAfterAggregation = null) {
         const timestamp = new Date().toISOString();
         console.log(`[SCHEDULER] [${timestamp}] 🔧 Manually triggering 15-minute aggregation...`);
-        const shouldDelete = deleteAfterAggregation !== null 
-            ? deleteAfterAggregation 
+        const shouldDelete = deleteAfterAggregation !== null
+            ? deleteAfterAggregation
             : this.config.deleteAfterAggregation;
         const result = await measurementAggregationService.aggregate15Minutes(
-            buildingId, 
+            buildingId,
             shouldDelete,
             this.config.rawDataBufferMinutes
         );
@@ -656,7 +654,7 @@ class AggregationScheduler {
 
     /**
      * Manually trigger hourly aggregation (for testing)
-     * 
+     *
      * @param {string|null} buildingId - Optional building ID
      * @returns {Promise<Object>} Aggregation result
      */
@@ -667,7 +665,7 @@ class AggregationScheduler {
 
     /**
      * Manually trigger daily aggregation (for testing)
-     * 
+     *
      * @param {string|null} buildingId - Optional building ID
      * @returns {Promise<Object>} Aggregation result
      */
@@ -678,7 +676,7 @@ class AggregationScheduler {
 
     /**
      * Manually trigger weekly aggregation (for testing)
-     * 
+     *
      * @param {string|null} buildingId - Optional building ID
      * @returns {Promise<Object>} Aggregation result
      */
@@ -689,7 +687,7 @@ class AggregationScheduler {
 
     /**
      * Manually trigger monthly aggregation (for testing)
-     * 
+     *
      * @param {string|null} buildingId - Optional building ID
      * @returns {Promise<Object>} Aggregation result
      */
@@ -700,4 +698,3 @@ class AggregationScheduler {
 }
 
 module.exports = new AggregationScheduler();
-

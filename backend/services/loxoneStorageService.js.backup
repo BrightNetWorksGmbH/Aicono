@@ -4,21 +4,12 @@ const Sensor = require('../models/Sensor');
 const MeasurementData = require('../models/MeasurementData');
 const Building = require('../models/Building');
 const plausibilityCheckService = require('./plausibilityCheckService');
-// 🔥 REMOVED: Pool statistics imports - throttling is now handled by measurementQueueService
-// const { getPoolStatistics, PRIORITY, canAcquireConnection, waitForConnection } = require('../db/connection');
+const { getPoolStatistics, PRIORITY, canAcquireConnection, waitForConnection } = require('../db/connection');
 
 // Per-building UUID to Sensor mapping cache
 const uuidMaps = new Map(); // buildingId -> Map<uuid, sensorMapping>
 // Track last warning time for UUID empty warnings (to avoid spam)
 const lastUuidEmptyWarning = new Map(); // buildingId -> timestamp
-
-// 🔥 NEW: Structure loading state tracking to prevent duplicate loads
-const structureLoadingState = new Map(); // buildingId -> { loading: boolean, lastLoaded: timestamp }
-const STRUCTURE_LOAD_COOLDOWN = 60000; // Don't reload structure more than once per minute
-
-// 🔥 NEW: Sensor cache to avoid repeated database queries
-const sensorCache = new Map(); // buildingId -> Map<sensorId, sensor>
-const SENSOR_CACHE_TTL = 300000; // Cache sensors for 5 minutes
 
 // Normalize UUID format
 function normalizeUUID(uuid) {
@@ -52,29 +43,29 @@ function getMeasurementType(sensor, controlType, categoryInfo = null, controlDat
             // actual, actual0, actual1, etc. → Power (instantaneous)
             // Choose format based on stateType: actualFormat for "actual*" states
             let formatStr = (controlData.details.actualFormat || controlData.details.totalFormat || '').toLowerCase();
-
+            
             // Temperature meter (format string is definitive)
             if (formatStr.includes('°c') || formatStr.includes('°f')) {
                 return 'Temperature';
             }
-
+            
             // Water/Gas meter
             if (formatStr.includes('m³') || formatStr.includes('m^3') || formatStr.includes(' l') || formatStr.includes('liter')) {
                 // If in heating category, it's heating
-                if (categoryInfo && categoryInfo.name &&
+                if (categoryInfo && categoryInfo.name && 
                     (categoryInfo.name.toLowerCase().includes('heizung') || categoryInfo.name.toLowerCase().includes('heating'))) {
                     return 'Heating';
                 }
                 return 'Water';
             }
-
+            
             // Power meter: W, kW (but NOT kWh/Wh)
             // Check for W or kW, but exclude kWh/Wh
-            if ((formatStr.includes('w') || formatStr.includes('kw')) &&
+            if ((formatStr.includes('w') || formatStr.includes('kw')) && 
                 !formatStr.includes('kwh') && !formatStr.includes('wh')) {
                 return 'Power';
             }
-
+            
             // If format contains kWh/Wh, it's still Power for actual* states (unusual but possible)
             // The stateType takes precedence: actual* = Power
             if (formatStr.includes('kwh') || formatStr.includes('wh')) {
@@ -86,27 +77,27 @@ function getMeasurementType(sensor, controlType, categoryInfo = null, controlDat
             // total, totalDay, totalWeek, totalMonth, totalYear, totalNeg, etc. → Energy (cumulative)
             // Choose format based on stateType: totalFormat for "total*" states
             let formatStr = (controlData.details.totalFormat || controlData.details.actualFormat || '').toLowerCase();
-
+            
             // Temperature meter (format string is definitive)
             if (formatStr.includes('°c') || formatStr.includes('°f')) {
                 return 'Temperature';
             }
-
+            
             // Water/Gas meter
             if (formatStr.includes('m³') || formatStr.includes('m^3') || formatStr.includes(' l') || formatStr.includes('liter')) {
                 // If in heating category, it's heating
-                if (categoryInfo && categoryInfo.name &&
+                if (categoryInfo && categoryInfo.name && 
                     (categoryInfo.name.toLowerCase().includes('heizung') || categoryInfo.name.toLowerCase().includes('heating'))) {
                     return 'Heating';
                 }
                 return 'Water';
             }
-
+            
             // Energy meter: kWh or Wh in format
             if (formatStr.includes('kwh') || formatStr.includes('wh')) {
                 return 'Energy';
             }
-
+            
             // If format is W/kW (not kWh), but stateType is total*, it's still Energy (cumulative counter)
             // The stateType takes precedence: total* = Energy
             if (formatStr.includes('w') || formatStr.includes('kw')) {
@@ -115,35 +106,35 @@ function getMeasurementType(sensor, controlType, categoryInfo = null, controlDat
         } else {
             // No stateType or unknown stateType - fall back to format string analysis
             let formatStr = (controlData.details.actualFormat || controlData.details.totalFormat || '').toLowerCase();
-
+            
             // Temperature meter (format string is definitive)
             if (formatStr.includes('°c') || formatStr.includes('°f')) {
                 return 'Temperature';
             }
-
+            
             // Water/Gas meter
             if (formatStr.includes('m³') || formatStr.includes('m^3') || formatStr.includes(' l') || formatStr.includes('liter')) {
                 // If in heating category, it's heating
-                if (categoryInfo && categoryInfo.name &&
+                if (categoryInfo && categoryInfo.name && 
                     (categoryInfo.name.toLowerCase().includes('heizung') || categoryInfo.name.toLowerCase().includes('heating'))) {
                     return 'Heating';
                 }
                 return 'Water';
             }
-
+            
             // Power meter: W, kW (but NOT kWh/Wh)
-            if ((formatStr.includes('w') || formatStr.includes('kw')) &&
+            if ((formatStr.includes('w') || formatStr.includes('kw')) && 
                 !formatStr.includes('kwh') && !formatStr.includes('wh')) {
                 return 'Power';
             }
-
+            
             // Energy meter: kWh or Wh in format
             if (formatStr.includes('kwh') || formatStr.includes('wh')) {
                 return 'Energy';
             }
         }
     }
-
+    
     // Priority 2: Category type (specific category types)
     if (categoryInfo && categoryInfo.type) {
         const categoryTypeMapping = {
@@ -157,7 +148,7 @@ function getMeasurementType(sensor, controlType, categoryInfo = null, controlDat
             return categoryTypeMapping[categoryInfo.type];
         }
     }
-
+    
     // Priority 3: Category name (checks category name for keywords)
     if (categoryInfo && categoryInfo.name) {
         const categoryName = categoryInfo.name.toLowerCase();
@@ -180,7 +171,7 @@ function getMeasurementType(sensor, controlType, categoryInfo = null, controlDat
             return 'Lighting';
         }
     }
-
+    
     // Priority 4: Control type defaults
     const typeMapping = {
         'Meter': 'Energy', // Default fallback, but should be overridden by format/category above
@@ -205,9 +196,9 @@ function extractUnitFromFormat(formatString) {
     if (!formatString || typeof formatString !== 'string') {
         return null;
     }
-
+    
     const formatLower = formatString.toLowerCase();
-
+    
     // Check for temperature units first (most specific)
     if (formatLower.includes('°c') || formatLower.includes('°c')) {
         return '°C';
@@ -215,7 +206,7 @@ function extractUnitFromFormat(formatString) {
     if (formatLower.includes('°f') || formatLower.includes('°f')) {
         return '°F';
     }
-
+    
     // Check for volume units
     if (formatLower.includes('m³') || formatLower.includes('m^3')) {
         // Check if it's per hour (flow rate)
@@ -227,7 +218,7 @@ function extractUnitFromFormat(formatString) {
     if (formatLower.includes(' l') || formatLower.includes('liter') || formatLower.includes(' l/h')) {
         return 'L';
     }
-
+    
     // Check for energy/power units (order matters: kWh before kW, kW before W)
     if (formatLower.includes('kwh')) {
         return 'kWh';
@@ -241,7 +232,7 @@ function extractUnitFromFormat(formatString) {
     if (formatLower.includes('w') && !formatLower.includes('kw') && !formatLower.includes('wh')) {
         return 'W';
     }
-
+    
     // Check for other common units
     if (formatLower.includes('v') || formatLower.includes(' volt')) {
         return 'V';
@@ -252,7 +243,7 @@ function extractUnitFromFormat(formatString) {
     if (formatLower.includes('%')) {
         return '%';
     }
-
+    
     return null;
 }
 
@@ -264,7 +255,7 @@ function getUnitFromControl(controlData) {
     if (!controlData) {
         return '';
     }
-
+    
     // Priority 1: Check format strings in details
     if (controlData.details) {
         // Check actualFormat first (most specific for current value)
@@ -272,25 +263,25 @@ function getUnitFromControl(controlData) {
             const unit = extractUnitFromFormat(controlData.details.actualFormat);
             if (unit) return unit;
         }
-
+        
         // Check totalFormat (for cumulative values)
         if (controlData.details.totalFormat) {
             const unit = extractUnitFromFormat(controlData.details.totalFormat);
             if (unit) return unit;
         }
-
+        
         // Check format field (for InfoOnlyAnalog, etc.)
         if (controlData.details.format) {
             const unit = extractUnitFromFormat(controlData.details.format);
             if (unit) return unit;
         }
-
+        
         // Check unit field directly (if present)
         if (controlData.details.unit) {
             return controlData.details.unit;
         }
     }
-
+    
     // Priority 2: Default based on control type
     const unitMapping = {
         'Meter': 'kWh', // Default fallback, but should be overridden by format check above
@@ -302,7 +293,7 @@ function getUnitFromControl(controlData) {
         'InfoOnlyAnalog': '',
         'AnalogInput': ''
     };
-
+    
     return unitMapping[controlData.type] || '';
 }
 
@@ -327,7 +318,7 @@ class LoxoneStorageService {
     async importStructureFromLoxAPP3(buildingId, loxAPP3Data) {
         const db = mongoose.connection.db;
         const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
-
+        
         // Verify building exists
         const building = await db.collection('buildings').findOne({ _id: buildingObjectId });
         if (!building) {
@@ -342,9 +333,9 @@ class LoxoneStorageService {
             for (const [roomUUID, roomData] of Object.entries(loxAPP3Data.rooms)) {
                 // Check for room by building_id AND loxone_room_uuid (not just UUID)
                 // This ensures each building gets its own rooms even if they share the same Loxone server
-                let room = await db.collection('rooms').findOne({
+                let room = await db.collection('rooms').findOne({ 
                     building_id: buildingObjectId,
-                    loxone_room_uuid: roomUUID
+                    loxone_room_uuid: roomUUID 
                 });
                 if (!room) {
                     const roomResult = await db.collection('rooms').insertOne({
@@ -388,7 +379,7 @@ class LoxoneStorageService {
             }
 
             const roomId = roomMap.get(roomUUID);
-
+            
             // Check for sensor by control UUID AND that it belongs to a room in this building
             // Use aggregation to join with rooms and filter by building_id
             // CRITICAL: Check for sensor by control UUID ONLY in the specific room for this building
@@ -398,18 +389,18 @@ class LoxoneStorageService {
             // IMPORTANT: Each building should have its own sensors, even with the same loxone_control_uuid,
             // because they belong to different rooms (via room_id) which belong to different buildings
             // Ensure roomId is an ObjectId (it should be, but verify for safety)
-            const roomObjectId = roomId instanceof mongoose.Types.ObjectId
-                ? roomId
+            const roomObjectId = roomId instanceof mongoose.Types.ObjectId 
+                ? roomId 
                 : new mongoose.Types.ObjectId(roomId);
-
+            
             let sensor = await db.collection('sensors').findOne({
                 loxone_control_uuid: controlUUID,
                 room_id: roomObjectId  // Direct room_id match ensures sensor belongs to this building's room
             });
-
+            
             if (!sensor) {
                 const categoryInfo = controlData.cat ? getCategoryInfo(controlData.cat) : null;
-
+                
                 // Get unit from control data (checks format strings first, then defaults)
                 const unit = getUnitFromControl(controlData);
 
@@ -438,18 +429,18 @@ class LoxoneStorageService {
         let processedControls = 0;
         let skippedControls = 0;
         const progressInterval = 50; // Log progress every 50 controls
-
+        
         // console.log(`[LOXONE-STORAGE] [${buildingId}] Starting sensor import from ${totalControls} controls...`);
-
+        
         if (loxAPP3Data.controls) {
             for (const [controlUUID, controlData] of Object.entries(loxAPP3Data.controls)) {
                 processedControls++;
-
+                
                 // Log progress periodically
                 if (processedControls % progressInterval === 0) {
                     // console.log(`[LOXONE-STORAGE] [${buildingId}] Processing controls... ${processedControls}/${totalControls} (${sensorMap.size} sensors created so far)`);
                 }
-
+                
                 if (!measurementTypes.includes(controlData.type)) {
                     skippedControls++;
                     continue;
@@ -460,9 +451,9 @@ class LoxoneStorageService {
                     console.warn(`[LOXONE-STORAGE] [${buildingId}] Control ${controlData.name || controlUUID.substring(0, 8)} has no room UUID, skipping`);
                     continue;
                 }
-
+                
                 await importControlAsSensor(controlUUID, controlData, roomUUID);
-
+                
                 if (controlData.subControls) {
                     for (const [subControlUUID, subControlData] of Object.entries(controlData.subControls)) {
                         if (subControlData.type === 'Meter') {
@@ -472,11 +463,11 @@ class LoxoneStorageService {
                 }
             }
         }
-
+        
         // console.log(`[LOXONE-STORAGE] [${buildingId}] Processed ${processedControls} controls (${skippedControls} skipped, ${processedControls - skippedControls} processed for sensors)`);
 
         // console.log(`[LOXONE-STORAGE] [${buildingId}] Imported ${roomMap.size} rooms and ${sensorMap.size} sensors`);
-
+        
         // Log sensor creation summary
         const sensorCount = sensorMap.size;
         if (sensorCount > 0) {
@@ -484,12 +475,12 @@ class LoxoneStorageService {
         } else {
             console.warn(`[LOXONE-STORAGE] [${buildingId}] ⚠️  WARNING: Structure import completed but no sensors were created!`);
         }
-
+        
         return { roomMap, sensorMap };
     }
 
     /**
-     * 🔥 OPTIMIZED: Load structure mapping for a building (with duplicate load prevention)
+     * Load structure mapping for a building
      */
     async loadStructureMapping(buildingId, loxAPP3Data = null) {
         try {
@@ -497,232 +488,160 @@ class LoxoneStorageService {
                 throw new Error(`Invalid Building ID: ${buildingId}`);
             }
 
-            // 🔥 NEW: Check if structure is already loading or recently loaded
-            const loadingState = structureLoadingState.get(buildingId);
-            if (loadingState) {
-                if (loadingState.loading) {
-                    // Structure is currently being loaded by another process - wait for it
-                    console.log(`[LOXONE-STORAGE] [${buildingId}] Structure is already loading, waiting...`);
-                    // Wait up to 30 seconds for the other load to complete
-                    for (let i = 0; i < 60; i++) {
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                        const currentState = structureLoadingState.get(buildingId);
-                        if (!currentState || !currentState.loading) {
-                            // Loading completed
-                            const existingMap = uuidMaps.get(buildingId);
-                            if (existingMap && existingMap.size > 0) {
-                                console.log(`[LOXONE-STORAGE] [${buildingId}] ✓ Structure loaded by another process (${existingMap.size} UUID mappings)`);
-                                return existingMap;
-                            }
-                            break;
-                        }
-                    }
-                    // If still loading after 30s, proceed anyway (but log warning)
-                    if (structureLoadingState.get(buildingId)?.loading) {
-                        console.warn(`[LOXONE-STORAGE] [${buildingId}] Structure loading timeout, proceeding with new load`);
-                    }
-                }
+            const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+            const db = mongoose.connection.db;
 
-                // Check if recently loaded (within cooldown period)
-                const timeSinceLoad = Date.now() - (loadingState.lastLoaded || 0);
-                if (timeSinceLoad < STRUCTURE_LOAD_COOLDOWN) {
-                    const existingMap = uuidMaps.get(buildingId);
-                    if (existingMap && existingMap.size > 0) {
-                        console.log(`[LOXONE-STORAGE] [${buildingId}] ✓ Using cached structure (loaded ${Math.round(timeSinceLoad / 1000)}s ago)`);
-                        return existingMap;
-                    }
-                }
+            const building = await db.collection('buildings').findOne({ _id: buildingObjectId });
+            if (!building) {
+                throw new Error(`Building ${buildingId} not found`);
             }
 
-            // 🔥 NEW: Mark as loading
-            structureLoadingState.set(buildingId, { loading: true, lastLoaded: Date.now() });
-
-            try {
-                const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
-                const db = mongoose.connection.db;
-
-                const building = await db.collection('buildings').findOne({ _id: buildingObjectId });
-                if (!building) {
-                    throw new Error(`Building ${buildingId} not found`);
-                }
-
-                // Check if structure needs to be imported
-                const roomCount = await db.collection('rooms').countDocuments({ building_id: buildingObjectId });
-                const sensorCount = await db.collection('sensors').aggregate([
-                    {
-                        $lookup: {
-                            from: 'rooms',
-                            localField: 'room_id',
-                            foreignField: '_id',
-                            as: 'room'
-                        }
-                    },
-                    { $unwind: '$room' },
-                    { $match: { 'room.building_id': buildingObjectId } }
-                ]).toArray();
-
-                if (roomCount === 0 || sensorCount.length === 0) {
-                    if (loxAPP3Data) {
-                        // console.log(`[LOXONE-STORAGE] [${buildingId}] Importing structure...`);
-                        await this.importStructureFromLoxAPP3(buildingId, loxAPP3Data);
-                    } else {
-                        throw new Error('No structure data available');
+            // Check if structure needs to be imported
+            const roomCount = await db.collection('rooms').countDocuments({ building_id: buildingObjectId });
+            const sensorCount = await db.collection('sensors').aggregate([
+                {
+                    $lookup: {
+                        from: 'rooms',
+                        localField: 'room_id',
+                        foreignField: '_id',
+                        as: 'room'
                     }
+                },
+                { $unwind: '$room' },
+                { $match: { 'room.building_id': buildingObjectId } }
+            ]).toArray();
+
+            if (roomCount === 0 || sensorCount.length === 0) {
+                if (loxAPP3Data) {
+                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Importing structure...`);
+                    await this.importStructureFromLoxAPP3(buildingId, loxAPP3Data);
                 } else {
-                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Structure already imported (${sensorCount.length} sensors found)`);
+                    throw new Error('No structure data available');
                 }
+            } else {
+                // console.log(`[LOXONE-STORAGE] [${buildingId}] Structure already imported (${sensorCount.length} sensors found)`);
+            }
 
-                // 🔥 OPTIMIZED: Load sensors with simpler query (no aggregation)
-                // Only load the fields we need to reduce memory and network usage
-                const sensors = await db.collection('sensors').aggregate([
-                    {
-                        $lookup: {
-                            from: 'rooms',
-                            localField: 'room_id',
-                            foreignField: '_id',
-                            as: 'room'
-                        }
-                    },
-                    { $unwind: '$room' },
-                    { $match: { 'room.building_id': buildingObjectId } },
-                    {
-                        $project: {
-                            _id: 1,
-                            name: 1,
-                            unit: 1,
-                            loxone_control_uuid: 1,
-                            loxone_category_uuid: 1,
-                            loxone_category_name: 1,
-                            loxone_category_type: 1
-                        }
+            // Load sensors for this building
+            const sensors = await db.collection('sensors').aggregate([
+                {
+                    $lookup: {
+                        from: 'rooms',
+                        localField: 'room_id',
+                        foreignField: '_id',
+                        as: 'room'
                     }
-                ]).toArray();
+                },
+                { $unwind: '$room' },
+                { $match: { 'room.building_id': buildingObjectId } }
+            ]).toArray();
 
-                // 🔥 NEW: Cache sensors for this building
-                const buildingSensorCache = new Map();
+            // console.log(`[LOXONE-STORAGE] [${buildingId}] Found ${sensors.length} sensors for this building`);
+
+            // Build UUID mapping
+            const uuidToSensorMap = new Map();
+            
+            const getCategoryInfo = (categoryUUID) => {
+                if (!categoryUUID || !loxAPP3Data || !loxAPP3Data.cats) {
+                    return null;
+                }
+                return loxAPP3Data.cats[categoryUUID] || null;
+            };
+            
+            if (loxAPP3Data && loxAPP3Data.controls) {
+                const controlToSensorMap = new Map();
                 sensors.forEach(sensor => {
-                    buildingSensorCache.set(sensor._id.toString(), sensor);
-                });
-                sensorCache.set(buildingId, {
-                    sensors: buildingSensorCache,
-                    timestamp: Date.now()
-                });
-
-                // console.log(`[LOXONE-STORAGE] [${buildingId}] Found ${sensors.length} sensors for this building`);
-
-                // Build UUID mapping
-                const uuidToSensorMap = new Map();
-
-                const getCategoryInfo = (categoryUUID) => {
-                    if (!categoryUUID || !loxAPP3Data || !loxAPP3Data.cats) {
-                        return null;
+                    if (sensor.loxone_control_uuid) {
+                        controlToSensorMap.set(sensor.loxone_control_uuid, sensor._id);
                     }
-                    return loxAPP3Data.cats[categoryUUID] || null;
-                };
+                });
+                
+                // console.log(`[LOXONE-STORAGE] [${buildingId}] Building UUID mapping from ${controlToSensorMap.size} sensors and ${Object.keys(loxAPP3Data.controls).length} controls`);
 
-                if (loxAPP3Data && loxAPP3Data.controls) {
-                    const controlToSensorMap = new Map();
-                    sensors.forEach(sensor => {
-                        if (sensor.loxone_control_uuid) {
-                            controlToSensorMap.set(sensor.loxone_control_uuid, sensor._id);
-                        }
-                    });
+                let mappedControls = 0;
+                for (const [controlUUID, controlData] of Object.entries(loxAPP3Data.controls)) {
+                    const sensorId = controlToSensorMap.get(controlUUID);
+                    if (!sensorId) continue;
+                    
+                    mappedControls++;
 
-                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Building UUID mapping from ${controlToSensorMap.size} sensors and ${Object.keys(loxAPP3Data.controls).length} controls`);
+                    const categoryInfo = controlData.cat ? getCategoryInfo(controlData.cat) : null;
 
-                    let mappedControls = 0;
-                    for (const [controlUUID, controlData] of Object.entries(loxAPP3Data.controls)) {
-                        const sensorId = controlToSensorMap.get(controlUUID);
-                        if (!sensorId) continue;
-
-                        mappedControls++;
-
-                        const categoryInfo = controlData.cat ? getCategoryInfo(controlData.cat) : null;
-
-                        if (controlData.states) {
-                            for (const [stateName, stateUUID] of Object.entries(controlData.states)) {
-                                const normalizedUUID = normalizeUUID(stateUUID);
-                                uuidToSensorMap.set(normalizedUUID, {
-                                    sensor_id: sensorId,
-                                    stateType: stateName,
-                                    controlType: controlData.type,
-                                    controlName: controlData.name,
-                                    categoryInfo: categoryInfo,
-                                    controlData: controlData // Include full control data for measurement type detection
-                                });
-                            }
-                        } else {
-                            const normalizedUUID = normalizeUUID(controlUUID);
+                    if (controlData.states) {
+                        for (const [stateName, stateUUID] of Object.entries(controlData.states)) {
+                            const normalizedUUID = normalizeUUID(stateUUID);
                             uuidToSensorMap.set(normalizedUUID, {
                                 sensor_id: sensorId,
-                                stateType: 'actual',
+                                stateType: stateName,
                                 controlType: controlData.type,
                                 controlName: controlData.name,
                                 categoryInfo: categoryInfo,
                                 controlData: controlData // Include full control data for measurement type detection
                             });
                         }
+                    } else {
+                        const normalizedUUID = normalizeUUID(controlUUID);
+                        uuidToSensorMap.set(normalizedUUID, {
+                            sensor_id: sensorId,
+                            stateType: 'actual',
+                            controlType: controlData.type,
+                            controlName: controlData.name,
+                            categoryInfo: categoryInfo,
+                            controlData: controlData // Include full control data for measurement type detection
+                        });
                     }
-
-                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Mapped ${mappedControls} controls to sensors (created ${uuidToSensorMap.size} UUID entries so far)`);
-
-                    // Map subControls
-                    for (const [controlUUID, controlData] of Object.entries(loxAPP3Data.controls)) {
-                        if (controlData.subControls) {
-                            const parentCategoryInfo = controlData.cat ? getCategoryInfo(controlData.cat) : null;
-
-                            for (const [subControlUUID, subControlData] of Object.entries(controlData.subControls)) {
-                                const sensorId = controlToSensorMap.get(subControlUUID);
-                                if (!sensorId) continue;
-
-                                if (subControlData.states) {
-                                    for (const [stateName, stateUUID] of Object.entries(subControlData.states)) {
-                                        const normalizedUUID = normalizeUUID(stateUUID);
-                                        uuidToSensorMap.set(normalizedUUID, {
-                                            sensor_id: sensorId,
-                                            stateType: stateName,
-                                            controlType: subControlData.type,
-                                            controlName: subControlData.name,
-                                            categoryInfo: parentCategoryInfo,
-                                            controlData: subControlData // Include full control data for measurement type detection
-                                        });
-                                    }
+                }
+                
+                // console.log(`[LOXONE-STORAGE] [${buildingId}] Mapped ${mappedControls} controls to sensors (created ${uuidToSensorMap.size} UUID entries so far)`);
+                
+                // Map subControls
+                for (const [controlUUID, controlData] of Object.entries(loxAPP3Data.controls)) {
+                    if (controlData.subControls) {
+                        const parentCategoryInfo = controlData.cat ? getCategoryInfo(controlData.cat) : null;
+                        
+                        for (const [subControlUUID, subControlData] of Object.entries(controlData.subControls)) {
+                            const sensorId = controlToSensorMap.get(subControlUUID);
+                            if (!sensorId) continue;
+                            
+                            if (subControlData.states) {
+                                for (const [stateName, stateUUID] of Object.entries(subControlData.states)) {
+                                    const normalizedUUID = normalizeUUID(stateUUID);
+                                    uuidToSensorMap.set(normalizedUUID, {
+                                        sensor_id: sensorId,
+                                        stateType: stateName,
+                                        controlType: subControlData.type,
+                                        controlName: subControlData.name,
+                                        categoryInfo: parentCategoryInfo,
+                                        controlData: subControlData // Include full control data for measurement type detection
+                                    });
                                 }
                             }
                         }
                     }
-                } else {
-                    sensors.forEach(sensor => {
-                        if (sensor.loxone_control_uuid) {
-                            uuidToSensorMap.set(sensor.loxone_control_uuid, {
-                                sensor_id: sensor._id,
-                                stateType: 'actual',
-                                controlType: 'Unknown',
-                                controlName: sensor.name
-                            });
-                        }
-                    });
                 }
-
-                // Store mapping for this building
-                uuidMaps.set(buildingId, uuidToSensorMap);
-
-                if (uuidToSensorMap.size === 0) {
-                    // console.warn(`[LOXONE-STORAGE] [${buildingId}] ⚠️  WARNING: UUID mapping is empty! No measurements can be stored for this building.`);
-                    // console.warn(`[LOXONE-STORAGE] [${buildingId}] Sensors found: ${sensors.length}, Controls in structure: ${loxAPP3Data?.controls ? Object.keys(loxAPP3Data.controls).length : 0}`);
-                } else {
-                    // console.log(`[LOXONE-STORAGE] [${buildingId}] ✓ Loaded ${uuidToSensorMap.size} UUID mappings`);
-                }
-
-                // 🔥 NEW: Mark loading as complete
-                structureLoadingState.set(buildingId, { loading: false, lastLoaded: Date.now() });
-
-                return uuidToSensorMap;
-            } catch (error) {
-                // 🔥 NEW: Mark loading as failed
-                structureLoadingState.set(buildingId, { loading: false, lastLoaded: Date.now() });
-                throw error;
+            } else {
+                sensors.forEach(sensor => {
+                    if (sensor.loxone_control_uuid) {
+                        uuidToSensorMap.set(sensor.loxone_control_uuid, {
+                            sensor_id: sensor._id,
+                            stateType: 'actual',
+                            controlType: 'Unknown',
+                            controlName: sensor.name
+                        });
+                    }
+                });
             }
+
+            // Store mapping for this building
+            uuidMaps.set(buildingId, uuidToSensorMap);
+            
+            if (uuidToSensorMap.size === 0) {
+                // console.warn(`[LOXONE-STORAGE] [${buildingId}] ⚠️  WARNING: UUID mapping is empty! No measurements can be stored for this building.`);
+                // console.warn(`[LOXONE-STORAGE] [${buildingId}] Sensors found: ${sensors.length}, Controls in structure: ${loxAPP3Data?.controls ? Object.keys(loxAPP3Data.controls).length : 0}`);
+            } else {
+                // console.log(`[LOXONE-STORAGE] [${buildingId}] ✓ Loaded ${uuidToSensorMap.size} UUID mappings`);
+            }
+            return uuidToSensorMap;
         } catch (error) {
             console.error(`[LOXONE-STORAGE] [${buildingId}] Error loading structure mapping:`, error.message);
             // Check if it's a duplicate key error (index issue)
@@ -737,22 +656,6 @@ class LoxoneStorageService {
     }
 
     /**
-     * 🔥 NEW: Get cached sensor data
-     */
-    getCachedSensor(buildingId, sensorId) {
-        const cache = sensorCache.get(buildingId);
-        if (!cache) return null;
-
-        // Check cache expiry
-        if (Date.now() - cache.timestamp > SENSOR_CACHE_TTL) {
-            sensorCache.delete(buildingId);
-            return null;
-        }
-
-        return cache.sensors.get(sensorId.toString());
-    }
-
-    /**
      * Store measurements for a building
      * Optimized to avoid N+1 queries by batching sensor lookups
      */
@@ -764,45 +667,75 @@ class LoxoneStorageService {
         }
 
         // Import services for plausibility checks (lazy load to avoid circular dependencies)
-
+        
         const alarmService = require('./alarmService');
         const alertNotificationService = require('./alertNotificationService');
 
-        // 🔥 OPTIMIZED: Get UUID map without automatic reload
-        let uuidToSensorMap = uuidMaps.get(buildingId);
-
-        // 🔥 REMOVED: Don't automatically reload structure here!
-        // The structure should be loaded once during connection setup
-        // If it's missing, something is wrong and we should just skip measurements
+        const uuidToSensorMap = uuidMaps.get(buildingId);
         if (!uuidToSensorMap || uuidToSensorMap.size === 0) {
-            // Only log warning once per minute to avoid spam
+            // Log when UUID map is empty (throttled to once per minute per building to avoid spam)
             const now = Date.now();
             const lastWarning = lastUuidEmptyWarning.get(buildingId) || 0;
-
+            
+            // Only log once per minute per building
             if (now - lastWarning > 60000) {
-                console.warn(`[LOXONE-STORAGE] [${buildingId}] ⚠️  UUID mapping is empty, skipping ${measurements.length} measurement(s)`);
-                console.warn(`[LOXONE-STORAGE] [${buildingId}] Structure file should be loaded during connection setup. Check connection manager.`);
+                console.warn(`[LOXONE-STORAGE] [${buildingId}] UUID map is empty, attempting to reload from structure file...`);
                 lastUuidEmptyWarning.set(buildingId, now);
             }
-
-            return { stored: 0, skipped: measurements.length, error: 'no_mapping' };
+            
+            // Try to reload from structure file
+            const fsPromises = require('fs').promises;
+            const path = require('path');
+            const structureFilesDir = path.join(__dirname, '../../data/loxone-structure');
+            const structureFilePath = path.join(structureFilesDir, `LoxAPP3_${buildingId}.json`);
+            try {
+                // Check if file exists by trying to access it
+                await fsPromises.access(structureFilePath);
+                // File exists, read it
+                const fileContent = await fsPromises.readFile(structureFilePath, 'utf8');
+                const loxAPP3Data = JSON.parse(fileContent);
+                await this.loadStructureMapping(buildingId, loxAPP3Data);
+                // Verify the map was loaded
+                const reloadedMap = uuidMaps.get(buildingId);
+                if (!reloadedMap || reloadedMap.size === 0) {
+                    console.warn(`[LOXONE-STORAGE] [${buildingId}] ⚠️  Structure mapping still empty after reload, skipping ${measurements.length} measurement(s)`);
+                    console.warn(`[LOXONE-STORAGE] [${buildingId}] This means measurements are being received from WebSocket but cannot be stored.`);
+                    console.warn(`[LOXONE-STORAGE] [${buildingId}] Possible causes: 1) Structure file not loaded, 2) No sensors mapped to UUIDs, 3) Structure import failed.`);
+                    console.warn(`[LOXONE-STORAGE] [${buildingId}] Check structure file at: data/loxone-structure/LoxAPP3_${buildingId}.json`);
+                    return { stored: 0, skipped: measurements.length };
+                }
+            } catch (reloadError) {
+                // File doesn't exist or other error
+                if (reloadError.code === 'ENOENT') {
+                    console.warn(`[LOXONE-STORAGE] [${buildingId}] No structure file found at ${structureFilePath}, skipping measurements`);
+                    return { stored: 0, skipped: measurements.length };
+                }
+                console.error(`[LOXONE-STORAGE] [${buildingId}] Error reloading structure mapping:`, reloadError.message);
+                // Check if it's a duplicate key error (index issue)
+                if (reloadError.message.includes('E11000') || reloadError.message.includes('duplicate key')) {
+                    console.error(`[LOXONE-STORAGE] [${buildingId}] ⚠️  Duplicate key error detected!`);
+                    console.error(`[LOXONE-STORAGE] [${buildingId}] This indicates the old unique indexes still exist in MongoDB.`);
+                    console.error(`[LOXONE-STORAGE] [${buildingId}] Please run: node scripts/fixRoomSensorIndexes.js`);
+                }
+                return { stored: 0, skipped: measurements.length, error: 'reload_failed' };
+            }
         }
 
         const db = mongoose.connection.db;
-        const currentMap = uuidToSensorMap;
+        const currentMap = uuidMaps.get(buildingId) || new Map();
 
         // Step 1: Collect all unique sensor IDs (optimize N+1 query problem)
         const sensorIds = new Set();
         const validMeasurements = [];
-
+        
         for (const measurement of measurements) {
             const normalizedUUID = normalizeUUID(measurement.uuid);
             const mapping = currentMap.get(normalizedUUID);
-
+            
             if (!mapping || !mapping.sensor_id) {
                 continue;
             }
-
+            
             sensorIds.add(mapping.sensor_id);
             validMeasurements.push({
                 measurement,
@@ -815,53 +748,28 @@ class LoxoneStorageService {
             return { stored: 0, skipped: measurements.length };
         }
 
-        // 🔥 OPTIMIZED: Try to use cached sensors first, only fetch missing ones
+        // Step 2: Batch fetch all sensors at once (single query instead of N queries)
         let sensorMap = new Map();
-        const missingIds = [];
-
-        for (const sensorId of sensorIds) {
-            const cachedSensor = this.getCachedSensor(buildingId, sensorId);
-            if (cachedSensor) {
-                sensorMap.set(sensorId.toString(), cachedSensor);
-            } else {
-                missingIds.push(sensorId);
-            }
-        }
-
-        // Only fetch sensors that aren't in cache
-        if (missingIds.length > 0) {
-            try {
-                const fetchedSensors = await db.collection('sensors')
-                    .find({ _id: { $in: missingIds } })
-                    .project({ _id: 1, name: 1, unit: 1, loxone_category_name: 1, loxone_category_type: 1 })
-                    .toArray();
-
-                // Add to sensor map and cache
-                const cache = sensorCache.get(buildingId);
-                const buildingCache = cache?.sensors || new Map();
-
-                fetchedSensors.forEach(sensor => {
-                    const sensorIdStr = sensor._id.toString();
-                    sensorMap.set(sensorIdStr, sensor);
-                    buildingCache.set(sensorIdStr, sensor);
-                });
-
-                // Update cache
-                sensorCache.set(buildingId, {
-                    sensors: buildingCache,
-                    timestamp: Date.now()
-                });
-            } catch (error) {
-                console.error(`[LOXONE-STORAGE] [${buildingId}] Error fetching sensors:`, error.message);
-                return { stored: 0, skipped: measurements.length, error: 'sensor_fetch_failed' };
-            }
+        try {
+            const sensorIdsArray = Array.from(sensorIds);
+            const sensors = await db.collection('sensors')
+                .find({ _id: { $in: sensorIdsArray } })
+                .toArray();
+            
+            // Create a map for O(1) lookup
+            sensorMap = new Map(
+                sensors.map(sensor => [sensor._id.toString(), sensor])
+            );
+        } catch (error) {
+            console.error(`[LOXONE-STORAGE] [${buildingId}] Error fetching sensors:`, error.message);
+            return { stored: 0, skipped: measurements.length, error: 'sensor_fetch_failed' };
         }
 
         // Step 3: Build documents using the sensor map and validate plausibility
         const documents = [];
         let skippedCount = 0;
-        const buildingObjectId = mongoose.Types.ObjectId.isValid(buildingId)
-            ? new mongoose.Types.ObjectId(buildingId)
+        const buildingObjectId = mongoose.Types.ObjectId.isValid(buildingId) 
+            ? new mongoose.Types.ObjectId(buildingId) 
             : buildingId;
 
         for (const { measurement, mapping } of validMeasurements) {
@@ -870,23 +778,23 @@ class LoxoneStorageService {
                 skippedCount++;
                 continue;
             }
-
+            
             // Get category info from mapping or sensor
             const categoryInfo = mapping.categoryInfo || (sensor.loxone_category_type || sensor.loxone_category_name ? {
                 type: sensor.loxone_category_type,
                 name: sensor.loxone_category_name
             } : null);
-
+            
             // Use control data from mapping if available (includes format strings), otherwise reconstruct minimal version
             const controlData = mapping.controlData || (mapping.controlType ? {
                 type: mapping.controlType,
                 details: sensor.unit ? {
-                    actualFormat: sensor.unit.includes('°C') ? `%.2f°C` :
+                    actualFormat: sensor.unit.includes('°C') ? `%.2f°C` : 
                                   sensor.unit.includes('kW') ? `%.3f${sensor.unit}` :
                                   sensor.unit ? `%.2f${sensor.unit}` : null
                 } : null
             } : null);
-
+            
             // Determine unit based on stateType and format strings (actualFormat vs totalFormat)
             // This ensures correct units for different state types (actual vs total*)
             let unit = sensor.unit || ''; // Default to stored unit
@@ -901,7 +809,7 @@ class LoxoneStorageService {
                     } else {
                         formatStr = controlData.details.actualFormat || controlData.details.totalFormat || '';
                     }
-
+                    
                     // Extract unit from format string
                     const extractedUnit = extractUnitFromFormat(formatStr);
                     if (extractedUnit) {
@@ -916,20 +824,20 @@ class LoxoneStorageService {
                     }
                 }
             }
-
+            
             // Determine measurement type (pass stateType for better detection)
             const measurementType = getMeasurementType(sensor, mapping.controlType, categoryInfo, controlData, mapping.stateType);
-
+            
             // Priority 1: Filter invalid "total*" states for Temperature measurement type
             // Temperature meters' "total" states represent cumulative values (degree-hours) that shouldn't be stored as temperature
-            if (measurementType === 'Temperature' &&
+            if (measurementType === 'Temperature' && 
                 (mapping.stateType.startsWith('total') || mapping.stateType.startsWith('totalNeg'))) {
                 // Skip storing cumulative temperature values as temperature measurements
                 // console.warn(`[LOXONE-STORAGE] [${buildingId}] Skipping temperature total state: ${mapping.stateType} for sensor ${sensor.name} (value: ${measurement.value})`);
                 skippedCount++;
                 continue;
             }
-
+            
             // Priority 2: Enhanced Temperature Validation - Check for implausible temperature values
             // Reasonable temperature range: -50°C to 100°C for indoor/outdoor sensors
             if (measurementType === 'Temperature') {
@@ -939,44 +847,48 @@ class LoxoneStorageService {
                     continue;
                 }
             }
-
+            
             const measurementTimestamp = measurement.timestamp || new Date();
-
-            // 🔥 FIX: Fire-and-forget plausibility check - DON'T AWAIT
-            // This was a major bottleneck causing queue to fill up
-            // Plausibility checks are important but should not block measurement storage
+            
+            // Perform plausibility check before storing (skip if queue is critically full)
+            // Pass pre-fetched sensor to avoid N+1 query problem
             if (!options.skipPlausibilityCheck) {
-                // Run asynchronously without awaiting (fire-and-forget)
-                plausibilityCheckService.validateMeasurement(
-                    sensor._id,
-                    measurement.value,
-                    measurementType,
-                    measurementTimestamp,
-                    sensor // Pass pre-fetched sensor to avoid database query
-                ).then(validation => {
-                    // If validation fails, create alarm log entries (also non-blocking)
-                    if (!validation.isValid && validation.violations.length > 0) {
-                        for (const violation of validation.violations) {
-                            alarmService.createPlausibilityAlarm(
+                try {
+                    const validation = await plausibilityCheckService.validateMeasurement(
+                        sensor._id,
+                        measurement.value,
+                        measurementType,
+                        measurementTimestamp,
+                        sensor // Pass pre-fetched sensor to avoid database query
+                    );
+                
+                // If validation fails, create alarm log entries
+                if (!validation.isValid && validation.violations.length > 0) {
+                    for (const violation of validation.violations) {
+                        try {
+                            const alarmLog = await alarmService.createPlausibilityAlarm(
                                 violation,
                                 sensor._id,
                                 measurement.value,
                                 measurementTimestamp
-                            ).then(alarmLog => {
-                                // Trigger email notification asynchronously
-                                alertNotificationService.sendAlertReport(alarmLog._id).catch(err => {
-                                    // Silent fail - don't spam logs
-                                });
-                            }).catch(alarmError => {
-                                // Silent fail for alarm creation - don't block or spam logs
+                            );
+                            
+                            // Trigger email notification asynchronously (don't block storage)
+                            alertNotificationService.sendAlertReport(alarmLog._id).catch(err => {
+                                console.error(`[LOXONE-STORAGE] [${buildingId}] Failed to send alert email for alarm ${alarmLog._id}:`, err.message);
                             });
+                        } catch (alarmError) {
+                            console.error(`[LOXONE-STORAGE] [${buildingId}] Error creating alarm log:`, alarmError.message);
+                            // Continue processing even if alarm creation fails
                         }
                     }
-                }).catch(validationError => {
-                    // Silent fail for validation - don't block or spam logs
-                });
+                }
+                } catch (validationError) {
+                    // Log validation error but don't block storage
+                    console.error(`[LOXONE-STORAGE] [${buildingId}] Error during plausibility check:`, validationError.message);
+                }
             }
-
+            
             // Store measurement regardless of validation result (to maintain data integrity)
             documents.push({
                 timestamp: measurementTimestamp,
@@ -1001,26 +913,42 @@ class LoxoneStorageService {
         let storedCount = 0;
         if (documents.length > 0) {
             try {
-                // 🔥 FIX: REMOVED pool wait - the queue service handles throttling now
-                // Waiting here causes queue to back up. Just proceed with storage.
-                // Real-time data storage is HIGH priority and should always proceed.
+                // Check connection pool availability before starting (HIGH priority)
+                // Throttle if pool usage is too high (>85%)
+                const poolStats = await getPoolStatistics(PRIORITY.HIGH);
+                if (poolStats.available && poolStats.usagePercent > 85) {
+                    // Wait for pool to free up (max 2 seconds)
+                    const canProceed = await waitForConnection(PRIORITY.HIGH, 2000);
+                    if (!canProceed) {
+                        // Pool still too high, but proceed anyway (HIGH priority)
+                        // Log but don't block - real-time data is critical
+                        // console.warn(`[LOXONE-STORAGE] [${buildingId}] Pool usage high (${poolStats.usagePercent}%) but proceeding with HIGH priority storage`);
+                    }
+                }
                 
                 const collection = db.collection('measurements_raw');
-
-                // 🔥 INCREASED: Larger batches for better throughput (was 100, now 500)
-                const BATCH_SIZE = 500;
+                
+                // Split into smaller batches to avoid timeout (max 100 documents per batch)
+                const BATCH_SIZE = 100;
                 const batches = [];
                 for (let i = 0; i < documents.length; i += BATCH_SIZE) {
                     batches.push(documents.slice(i, i + BATCH_SIZE));
                 }
-
+                
                 let totalInserted = 0;
                 for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
                     const batch = batches[batchIndex];
-
+                    
                     try {
-                        // 🔥 FIX: REMOVED per-batch pool check - causes latency and queue backup
-                        // The queue service handles throttling at a higher level
+                        // Check pool before each batch (but don't wait too long)
+                        if (batchIndex > 0 && batchIndex % 5 === 0) {
+                            // Check every 5 batches
+                            const currentPoolStats = await getPoolStatistics(PRIORITY.HIGH);
+                            if (currentPoolStats.available && currentPoolStats.usagePercent > 90) {
+                                // Very high usage - small delay to let pool recover
+                                await new Promise(resolve => setTimeout(resolve, 100));
+                            }
+                        }
                         
                         // Use unacknowledged write concern for better performance (w: 0)
                         // This is safe for time-series data where occasional loss is acceptable
@@ -1029,14 +957,14 @@ class LoxoneStorageService {
                             ordered: false,
                             writeConcern: { w: 0 } // Unacknowledged - fastest, non-blocking
                         });
-
-                        // Increased timeout to 15 seconds per batch (500 docs now)
+                        
+                        // Reduced timeout to 10 seconds per batch (should be enough for 100 docs)
                         const timeoutPromise = new Promise((_, reject) => {
                             setTimeout(() => {
-                                reject(new Error('Insert operation timeout after 15s'));
-                            }, 15000);
+                                reject(new Error('Insert operation timeout after 10s'));
+                            }, 10000);
                         });
-
+                        
                         const result = await Promise.race([insertOperation, timeoutPromise]);
                         // With w: 0, insertedCount might be undefined, assume all inserted if no error
                         totalInserted += (result.insertedCount || batch.length);
@@ -1059,7 +987,7 @@ class LoxoneStorageService {
                         }
                     }
                 }
-
+                
                 storedCount = totalInserted;
             } catch (error) {
                 // Fallback error handling (should not reach here with new batching approach)
@@ -1077,3 +1005,4 @@ class LoxoneStorageService {
 }
 
 module.exports = new LoxoneStorageService();
+

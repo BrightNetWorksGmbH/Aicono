@@ -19,13 +19,6 @@ class LoxoneConnectionManager {
         // Keep inside backend folder for deployment compatibility
         this.structureFilesDir = path.join(__dirname, '../data/loxone-structure');
         
-        // Track lastModified timestamps to prevent redundant structure reprocessing
-        // Per Loxone documentation, structure should only be reimported when lastModified changes
-        this.structureLastModified = new Map(); // buildingId -> lastModified string
-        
-        // Throttle "structure unchanged" log messages to reduce noise (log once per minute per building)
-        this.structureUnchangedLogTimestamps = new Map(); // buildingId -> last log timestamp
-        
         // Ensure directory exists (async, but don't await in constructor)
         this.ensureDirectoryExists();
 
@@ -567,45 +560,13 @@ class LoxoneConnectionManager {
 
     /**
      * Handle structure file
-     * Per Loxone documentation, checks lastModified to avoid redundant reimports
      */
     async handleStructureFile(buildingId, json) {
         const state = this.connections.get(buildingId);
         if (!state) return;
 
         try {
-            // Extract lastModified from structure file (per Loxone StructureFile.pdf documentation)
-            const newLastModified = json.lastModified || json.LL?.value?.lastModified;
-            const existingLastModified = this.structureLastModified.get(buildingId);
-            
-            // Check if structure has actually changed
-            if (existingLastModified && newLastModified && existingLastModified === newLastModified) {
-                // Structure hasn't changed - skip reprocessing to save database connections
-                // This is the key fix for connection pool exhaustion
-                
-                // Throttle log messages: only log once per minute per building to reduce noise
-                const now = Date.now();
-                const lastLogTime = this.structureUnchangedLogTimestamps.get(buildingId) || 0;
-                if (now - lastLogTime > 60000) { // Log at most once per minute
-                    console.log(`[LOXONE] [${buildingId}] Structure unchanged (lastModified: ${newLastModified}), skipping reimport`);
-                    this.structureUnchangedLogTimestamps.set(buildingId, now);
-                }
-                
-                // Still enable live updates if not already enabled
-                if (!state.structureLoaded) {
-                    state.structureLoaded = true;
-                    this.send(buildingId, 'jdev/sps/enablebinstatusupdate');
-                }
-                return;
-            }
-            
-            // Structure is new or changed - process it
-            if (newLastModified) {
-                this.structureLastModified.set(buildingId, newLastModified);
-                console.log(`[LOXONE] [${buildingId}] Structure file received (lastModified: ${newLastModified})`);
-            } else {
-                console.log(`[LOXONE] [${buildingId}] Structure file received (no lastModified field)`);
-            }
+            //console.log(`[LOXONE] [${buildingId}] Structure file received`);
 
             // Save structure file per building (async to avoid blocking)
             const structureFilePath = this.getStructureFilePath(buildingId);
@@ -779,7 +740,7 @@ class LoxoneConnectionManager {
         if (!state.pingFailures) {
             state.pingFailures = 0;
         }
-        const maxPingFailures = 5; // Force reconnect after 5 consecutive ping failures (increased from 3 to reduce reconnection churn)
+        const maxPingFailures = 3; // Force reconnect after 3 consecutive ping failures
 
         state.keepaliveTimer = setInterval(() => {
             if (state.authenticated && state.ws && state.ws.readyState === WebSocket.OPEN) {
@@ -894,11 +855,6 @@ class LoxoneConnectionManager {
         }
 
         this.connections.delete(buildingId);
-        
-        // Clear lastModified cache so structure is reloaded on reconnect
-        this.structureLastModified.delete(buildingId);
-        // Clear log throttle timestamp
-        this.structureUnchangedLogTimestamps.delete(buildingId);
         
         // Update building connection status in database
         await this.updateBuildingConnectionStatus(buildingId, false);

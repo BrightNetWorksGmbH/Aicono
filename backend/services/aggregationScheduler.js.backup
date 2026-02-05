@@ -270,23 +270,8 @@ class AggregationScheduler {
                         let successCount = 0;
                         let errorCount = 0;
                         
-                        // Get building delay from env (default 5 seconds - increased from 2s for better pool management)
-                        const buildingDelay = parseInt(process.env.AGGREGATION_BUILDING_DELAY_MS || '5000', 10);
-                        
                         for (let i = 0; i < buildings.length; i++) {
                             const buildingId = buildings[i]._id.toString();
-                            
-                            // Check pool usage before each building to avoid overwhelming the database
-                            const prePoolStats = await getPoolStatistics();
-                            if (prePoolStats.available && prePoolStats.usagePercent >= 90) {
-                                // Pool is very high - wait longer before processing
-                                console.log(`[SCHEDULER] [${timestamp}] Pool usage high (${prePoolStats.usagePercent}%), waiting 10s before building ${i + 1}...`);
-                                await new Promise(resolve => setTimeout(resolve, 10000));
-                            } else if (prePoolStats.available && prePoolStats.usagePercent >= 80) {
-                                // Pool is moderately high - small additional wait
-                                await new Promise(resolve => setTimeout(resolve, 3000));
-                            }
-                            
                             console.log(`[SCHEDULER] [${timestamp}] Processing building ${i + 1}/${buildings.length}: ${buildingId}`);
                             
                             try {
@@ -304,10 +289,10 @@ class AggregationScheduler {
                                     }
                                 }
                                 
-                                // Delay between buildings to avoid overwhelming connection pool
+                                // Small delay between buildings to avoid overwhelming connection pool
                                 // Only delay if not the last building
                                 if (i < buildings.length - 1) {
-                                    await new Promise(resolve => setTimeout(resolve, buildingDelay)); // Configurable delay (default 5s)
+                                    await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
                                 }
                             } catch (buildingError) {
                                 errorCount++;
