@@ -64,4 +64,5 @@ class Routelists {
   static const buildingContactPerson = 'building-contact-person';
   static const buildingRecipient = 'building-recipient';
   static const viewReport = 'view-report';
+  static const notFound = 'not-found';
 }

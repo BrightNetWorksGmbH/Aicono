@@ -11,12 +11,13 @@ class SetBuildingDetailsPage extends StatefulWidget {
   final String? userName;
   final String? buildingAddress;
   final String? buildingId;
-
+  final String? siteId;
   const SetBuildingDetailsPage({
     super.key,
     this.userName,
     this.buildingAddress,
     this.buildingId,
+    this.siteId,
   });
 
   @override
@@ -244,6 +245,11 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
             Routelists.buildingFloorManagement,
             queryParameters: {
               'buildingId': buildingId,
+              'siteId':
+                  widget.siteId ??
+                  Uri.parse(
+                    GoRouterState.of(context).uri.toString(),
+                  ).queryParameters['siteId'],
               'buildingName': _buildingName,
               if (widget.buildingAddress != null)
                 'buildingAddress': widget.buildingAddress!,
@@ -290,9 +296,16 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
 
   void _handleSkip() {
     // Navigate back to the previous page (skip this step)
-    if (context.canPop()) {
-      context.pop();
-    }
+    context.pushNamed(
+      Routelists.additionalBuildingList,
+      queryParameters: {
+        'siteId':
+            widget.siteId ??
+            Uri.parse(
+              GoRouterState.of(context).uri.toString(),
+            ).queryParameters['siteId'],
+      },
+    );
   }
 
   void _handleEditAddress() {

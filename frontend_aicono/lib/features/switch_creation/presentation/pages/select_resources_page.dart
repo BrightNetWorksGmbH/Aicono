@@ -39,7 +39,14 @@ class _SelectResourcesPageState extends State<SelectResourcesPage> {
 
   void _handleSkip() {
     // TODO: navigate to next step or skip resource selection
-    context.pushNamed(Routelists.additionalBuildingList);
+    context.pushNamed(
+      Routelists.addAdditionalBuildings,
+      queryParameters: {
+        if (widget.userName != null) 'userName': widget.userName!,
+        if (widget.switchId != null) 'switchId': widget.switchId!,
+        'siteId': widget.siteId!,
+      },
+    );
   }
 
   void _handleContinue(BuildContext blocContext) {
@@ -53,7 +60,7 @@ class _SelectResourcesPageState extends State<SelectResourcesPage> {
     // Join resource types with comma, or use "Commercial" as default if empty
     final resourceType = resourceTypes.isNotEmpty
         ? resourceTypes.join(', ')
-        : 'Commercial';
+        : '';
 
     // Create request
     final request = CreateSiteRequest(

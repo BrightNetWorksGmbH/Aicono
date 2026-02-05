@@ -111,7 +111,7 @@ class _AddPropertiesPageState extends State<AddPropertiesPage> {
     final request = CreateSiteRequest(
       name: propertyName,
       address: '', // You may want to get address from user or use a default
-      resourceType: 'Commercial', // Default or get from user
+      resourceType: '', // Default or get from user
     );
 
     // Create a completer to wait for the site creation

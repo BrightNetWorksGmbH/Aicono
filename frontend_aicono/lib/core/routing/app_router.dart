@@ -44,6 +44,7 @@ import 'package:frontend_aicono/features/Building/domain/entities/building_entit
 import 'package:frontend_aicono/features/dashboard/presentation/page/dashboard_page.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/pages/statistics_dashboard_page.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/pages/view_report_page.dart';
+import 'package:frontend_aicono/core/pages/not_found_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/switch_settings_page.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/pages/invite_user_page.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/pages/complete_user_invite_page.dart';
@@ -196,7 +197,7 @@ class AppRouter {
       path: '/login',
       name: 'login',
       pageBuilder: (context, state) {
-        final invitation = state.extra as InvitationEntity?;
+        final invitation = _parseInvitationFromExtra(state.extra);
         final token = state.uri.queryParameters['token'];
         print(
           'AppRouter - Login route with invitation: $invitation, token: $token',
@@ -243,7 +244,7 @@ class AppRouter {
       path: '/invitation-reset-password',
       name: Routelists.resetPassword,
       redirect: (context, state) {
-        final invitation = state.extra as InvitationEntity?;
+        final invitation = _parseInvitationFromExtra(state.extra);
         if (invitation == null) {
           // If no invitation provided, redirect to login
           return '/login';
@@ -251,7 +252,11 @@ class AppRouter {
         return null; // Continue to pageBuilder
       },
       pageBuilder: (context, state) {
-        final invitation = state.extra as InvitationEntity;
+        final invitation = _parseInvitationFromExtra(state.extra);
+        if (invitation == null) {
+          // If no invitation after parsing, redirect to login
+          return _buildPage(context, state, const LoginPage());
+        }
         return _buildPage(
           context,
           state,
@@ -332,7 +337,7 @@ class AppRouter {
       path: '/${Routelists.setOrganizationName}',
       name: Routelists.setOrganizationName,
       redirect: (context, state) {
-        final invitation = state.extra as InvitationEntity?;
+        final invitation = _parseInvitationFromExtra(state.extra);
         final token = state.uri.queryParameters['token'];
         // If no invitation and no token, redirect to login
         if (invitation == null && (token == null || token.isEmpty)) {
@@ -347,7 +352,7 @@ class AppRouter {
       },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
-        final invitation = state.extra as InvitationEntity?;
+        final invitation = _parseInvitationFromExtra(state.extra);
         return _buildPage(
           context,
           state,
@@ -359,7 +364,7 @@ class AppRouter {
       path: '/${Routelists.setSubDomain}',
       name: Routelists.setSubDomain,
       redirect: (context, state) {
-        final invitation = state.extra as InvitationEntity?;
+        final invitation = _parseInvitationFromExtra(state.extra);
         final token = state.uri.queryParameters['token'];
         // If no invitation and no token, redirect to login
         if (invitation == null && (token == null || token.isEmpty)) {
@@ -375,7 +380,7 @@ class AppRouter {
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final organizationName = state.uri.queryParameters['organizationName'];
-        final invitation = state.extra as InvitationEntity?;
+        final invitation = _parseInvitationFromExtra(state.extra);
         return _buildPage(
           context,
           state,
@@ -391,7 +396,7 @@ class AppRouter {
       path: '/${Routelists.setSwitchImage}',
       name: Routelists.setSwitchImage,
       redirect: (context, state) {
-        final invitation = state.extra as InvitationEntity?;
+        final invitation = _parseInvitationFromExtra(state.extra);
         final token = state.uri.queryParameters['token'];
         // If no invitation and no token, redirect to login
         if (invitation == null && (token == null || token.isEmpty)) {
@@ -407,7 +412,7 @@ class AppRouter {
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final organizationName = state.uri.queryParameters['organizationName'];
-        final invitation = state.extra as InvitationEntity?;
+        final invitation = _parseInvitationFromExtra(state.extra);
         return _buildPage(
           context,
           state,
@@ -423,7 +428,7 @@ class AppRouter {
       path: '/${Routelists.setSwitchColor}',
       name: Routelists.setSwitchColor,
       redirect: (context, state) {
-        final invitation = state.extra as InvitationEntity?;
+        final invitation = _parseInvitationFromExtra(state.extra);
         final token = state.uri.queryParameters['token'];
         // If no invitation and no token, redirect to login
         if (invitation == null && (token == null || token.isEmpty)) {
@@ -438,7 +443,7 @@ class AppRouter {
       },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
-        final invitation = state.extra as InvitationEntity?;
+        final invitation = _parseInvitationFromExtra(state.extra);
         return _buildPage(
           context,
           state,
@@ -450,7 +455,7 @@ class AppRouter {
       path: '/${Routelists.setPersonalizedLook}',
       name: Routelists.setPersonalizedLook,
       redirect: (context, state) {
-        final invitation = state.extra as InvitationEntity?;
+        final invitation = _parseInvitationFromExtra(state.extra);
         final token = state.uri.queryParameters['token'];
         // If no invitation and no token, redirect to login
         if (invitation == null && (token == null || token.isEmpty)) {
@@ -465,7 +470,7 @@ class AppRouter {
       },
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
-        final invitation = state.extra as InvitationEntity?;
+        final invitation = _parseInvitationFromExtra(state.extra);
         return _buildPage(
           context,
           state,
@@ -505,14 +510,18 @@ class AppRouter {
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final switchId = state.uri.queryParameters['switchId'];
-        final siteId = state.uri.queryParameters['siteId'];
+        // final siteId = state.uri.queryParameters['siteId'] ?? '';
+
+        // final validationError = _validateRequiredParams(state, siteId: siteId);
+        // if (validationError != null) return validationError;
+
         return _buildPage(
           context,
           state,
           SelectPropertyTypePage(
             userName: userName,
             switchId: switchId,
-            siteId: siteId,
+            // siteId: siteId,
           ),
         );
       },
@@ -543,7 +552,11 @@ class AppRouter {
         final userName = state.uri.queryParameters['userName'];
         final switchId = state.uri.queryParameters['switchId'];
         final propertyName = state.uri.queryParameters['propertyName'];
-        final siteId = state.uri.queryParameters['siteId'];
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
+
+        final validationError = _validateRequiredParams(state, siteId: siteId);
+        if (validationError != null) return validationError;
+
         return _buildPage(
           context,
           state,
@@ -562,7 +575,11 @@ class AppRouter {
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final switchId = state.uri.queryParameters['switchId'];
-        final siteId = state.uri.queryParameters['siteId'];
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
+
+        final validationError = _validateRequiredParams(state, siteId: siteId);
+        if (validationError != null) return validationError;
+
         return _buildPage(
           context,
           state,
@@ -580,7 +597,11 @@ class AppRouter {
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final switchId = state.uri.queryParameters['switchId'];
-        final siteId = state.uri.queryParameters['siteId'];
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
+
+        final validationError = _validateRequiredParams(state, siteId: siteId);
+        if (validationError != null) return validationError;
+
         return _buildPage(
           context,
           state,
@@ -597,7 +618,11 @@ class AppRouter {
       name: Routelists.addAdditionalBuildings,
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
-        final siteId = state.uri.queryParameters['siteId'];
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
+
+        final validationError = _validateRequiredParams(state, siteId: siteId);
+        if (validationError != null) return validationError;
+
         return _buildPage(
           context,
           state,
@@ -610,8 +635,12 @@ class AppRouter {
       name: Routelists.additionalBuildingList,
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
-        final siteId = state.uri.queryParameters['siteId'];
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
         final switchId = state.uri.queryParameters['switchId'];
+
+        final validationError = _validateRequiredParams(state, siteId: siteId);
+        if (validationError != null) return validationError;
+
         return _buildPage(
           context,
           state,
@@ -629,6 +658,16 @@ class AppRouter {
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final buildingAddress = state.uri.queryParameters['buildingAddress'];
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+
+        final validationError = _validateRequiredParams(
+          state,
+          siteId: siteId,
+          buildingId: buildingId,
+        );
+        if (validationError != null) return validationError;
+
         return _buildPage(
           context,
           state,
@@ -644,11 +683,30 @@ class AppRouter {
       name: Routelists.loxoneConnection,
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
+        final siteId = state.uri.queryParameters['siteId'] ?? "";
         final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+        if (siteId.isEmpty || buildingId.isEmpty) {
+          final missingParams = siteId.isEmpty && buildingId.isEmpty
+              ? 'siteId and buildingId'
+              : siteId.isEmpty
+              ? 'siteId'
+              : 'buildingId';
+          return _buildPage(
+            context,
+            state,
+            NotFoundPage(
+              message: 'Required parameters missing: $missingParams',
+            ),
+          );
+        }
         return _buildPage(
           context,
           state,
-          LoxoneConnectionPage(userName: userName, buildingId: buildingId),
+          LoxoneConnectionPage(
+            userName: userName,
+            buildingId: buildingId,
+            siteId: siteId,
+          ),
         );
       },
     ),
@@ -670,10 +728,17 @@ class AppRouter {
         final numberOfRooms = int.tryParse(
           state.uri.queryParameters['numberOfRooms'] ?? '',
         );
-        final siteId = state.uri.queryParameters['siteId'];
-        final buildingId =
-            state.uri.queryParameters['buildingId'] ??
-            '6948dcd113537bff98eb7338'; // Default buildingId if not provided
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+        final completedFloorName =
+            state.uri.queryParameters['completedFloorName'];
+
+        final validationError = _validateRequiredParams(
+          state,
+          siteId: siteId,
+          buildingId: buildingId,
+        );
+        if (validationError != null) return validationError;
 
         final building = BuildingEntity(
           name: buildingName,
@@ -691,6 +756,7 @@ class AppRouter {
             building: building,
             siteId: siteId,
             buildingId: buildingId,
+            completedFloorName: completedFloorName,
           ),
         );
       },
@@ -759,11 +825,19 @@ class AppRouter {
       path: '/${Routelists.buildingOnboarding}',
       name: Routelists.buildingOnboarding,
       pageBuilder: (context, state) {
-        final buildingId = state.uri.queryParameters['buildingId'];
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
+        final validationError = _validateRequiredParams(
+          state,
+          buildingId: buildingId,
+          siteId: siteId,
+        );
+        if (validationError != null) return validationError;
+
         return _buildPage(
           context,
           state,
-          BuildingOnboardingPage(buildingId: buildingId),
+          BuildingOnboardingPage(buildingId: buildingId, siteId: siteId),
         );
       },
     ),
@@ -825,7 +899,8 @@ class AppRouter {
         final floorPlanUrl = state.uri.queryParameters['floorPlanUrl'];
         final floorName = state.uri.queryParameters['floorName'];
         final roomsJson = state.uri.queryParameters['rooms'];
-
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
         List<Map<String, dynamic>>? rooms;
         if (roomsJson != null) {
           try {
@@ -838,6 +913,13 @@ class AppRouter {
             rooms = null;
           }
         }
+
+        final validationError = _validateRequiredParams(
+          state,
+          buildingId: buildingId,
+          siteId: siteId,
+        );
+        if (validationError != null) return validationError;
 
         return _buildPage(
           context,
@@ -852,6 +934,8 @@ class AppRouter {
             floorPlanUrl: floorPlanUrl,
             floorName: floorName,
             rooms: rooms,
+            buildingId: buildingId,
+            siteId: siteId,
           ),
         );
       },
@@ -864,11 +948,17 @@ class AppRouter {
         final buildingAddress = state.uri.queryParameters['buildingAddress'];
         final buildingName = state.uri.queryParameters['buildingName'];
         final floorPlanUrl = state.uri.queryParameters['floorPlanUrl'];
-        final buildingId =
-            state.uri.queryParameters['buildingId'] ??
-            '6948dcd113537bff98eb7338'; // Default buildingId if not provided
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
         final floorName =
             state.uri.queryParameters['floorName'] ?? 'Ground Floor';
+
+        final validationError = _validateRequiredParams(
+          state,
+          buildingId: buildingId,
+          siteId: siteId,
+        );
+        if (validationError != null) return validationError;
         final roomsJson = state.uri.queryParameters['rooms'];
 
         List<Map<String, dynamic>>? rooms;
@@ -902,6 +992,7 @@ class AppRouter {
             floorPlanUrl: floorPlanUrl,
             rooms: rooms,
             buildingId: buildingId,
+            siteId: siteId,
             floorName: floorName,
             numberOfFloors: numberOfFloors,
             totalArea: totalArea,
@@ -920,9 +1011,13 @@ class AppRouter {
         final floorPlanUrl = state.uri.queryParameters['floorPlanUrl'];
         final selectedRoom = state.uri.queryParameters['selectedRoom'];
         final roomColorStr = state.uri.queryParameters['roomColor'];
-        final buildingId =
-            state.uri.queryParameters['buildingId'] ??
-            '6948dcd113537bff98eb7338'; // Default buildingId if not provided
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+
+        final validationError = _validateRequiredParams(
+          state,
+          buildingId: buildingId,
+        );
+        if (validationError != null) return validationError;
 
         Color? roomColor;
         if (roomColorStr != null) {
@@ -955,12 +1050,19 @@ class AppRouter {
       pageBuilder: (context, state) {
         final buildingName = state.uri.queryParameters['buildingName'];
         final buildingAddress = state.uri.queryParameters['buildingAddress'];
-        final buildingId = state.uri.queryParameters['buildingId'];
-        final siteId = state.uri.queryParameters['siteId'];
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
         final userName = state.uri.queryParameters['userName'];
         final totalArea = state.uri.queryParameters['totalArea'];
         final numberOfRooms = state.uri.queryParameters['numberOfRooms'];
         final constructionYear = state.uri.queryParameters['constructionYear'];
+
+        final validationError = _validateRequiredParams(
+          state,
+          siteId: siteId,
+          buildingId: buildingId,
+        );
+        if (validationError != null) return validationError;
 
         return _buildPage(
           context,
@@ -985,12 +1087,19 @@ class AppRouter {
         final userName = state.uri.queryParameters['userName'];
         final buildingAddress = state.uri.queryParameters['buildingAddress'];
         final buildingName = state.uri.queryParameters['buildingName'];
-        final buildingId = state.uri.queryParameters['buildingId'];
-        final siteId = state.uri.queryParameters['siteId'];
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
         final contactPerson = state.uri.queryParameters['contactPerson'];
         final totalArea = state.uri.queryParameters['totalArea'];
         final numberOfRooms = state.uri.queryParameters['numberOfRooms'];
         final constructionYear = state.uri.queryParameters['constructionYear'];
+
+        final validationError = _validateRequiredParams(
+          state,
+          siteId: siteId,
+          buildingId: buildingId,
+        );
+        if (validationError != null) return validationError;
 
         return _buildPage(
           context,
@@ -1016,19 +1125,35 @@ class AppRouter {
         final userName = state.uri.queryParameters['userName'];
         final buildingAddress = state.uri.queryParameters['buildingAddress'];
         final buildingName = state.uri.queryParameters['buildingName'];
-        final buildingId =
-            state.uri.queryParameters['buildingId'] ??
-            '6948dcd113537bff98eb7338'; // Default buildingId if not provided
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
         final buildingIds = state
             .uri
             .queryParameters['buildingIds']; // Comma-separated buildingIds
-        final siteId = state.uri.queryParameters['siteId'];
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
         final recipientsJson = state.uri.queryParameters['recipients'];
         final recipient = state.uri.queryParameters['recipient'];
         final allRecipients = state.uri.queryParameters['allRecipients'];
         final recipientConfigs = state.uri.queryParameters['recipientConfigs'];
         final createForAll = state.uri.queryParameters['createForAll'];
         final reportConfigs = state.uri.queryParameters['reportConfigs'];
+
+        // If buildingIds is provided, we don't need to validate individual buildingId
+        // Otherwise, validate buildingId and siteId
+        if (buildingIds == null || buildingIds.isEmpty) {
+          final validationError = _validateRequiredParams(
+            state,
+            siteId: siteId,
+            buildingId: buildingId,
+          );
+          if (validationError != null) return validationError;
+        } else {
+          // If buildingIds is provided, still validate siteId
+          final validationError = _validateRequiredParams(
+            state,
+            siteId: siteId,
+          );
+          if (validationError != null) return validationError;
+        }
 
         return _buildPage(
           context,
@@ -1050,6 +1175,14 @@ class AppRouter {
         );
       },
     ),
+    GoRoute(
+      path: '/${Routelists.notFound}',
+      name: Routelists.notFound,
+      pageBuilder: (context, state) {
+        final message = state.uri.queryParameters['message'];
+        return _buildPage(context, state, NotFoundPage(message: message));
+      },
+    ),
   ];
 
   static Page<dynamic> _buildPage(
@@ -1058,6 +1191,64 @@ class AppRouter {
     Widget child,
   ) {
     return NoTransitionPage(child: child);
+  }
+
+  /// Helper function to safely parse InvitationEntity from state.extra
+  /// Handles both InvitationEntity instances and JSON maps (from navigation history)
+  static InvitationEntity? _parseInvitationFromExtra(Object? extra) {
+    if (extra == null) return null;
+
+    // If it's already an InvitationEntity, return it
+    if (extra is InvitationEntity) {
+      return extra;
+    }
+
+    // If it's a Map (JSON), try to convert it to InvitationEntity
+    // Handle both Map<String, dynamic> and Map<dynamic, dynamic> (from JSON deserialization)
+    if (extra is Map) {
+      try {
+        // Convert to Map<String, dynamic> if needed
+        final jsonMap = extra is Map<String, dynamic>
+            ? extra
+            : Map<String, dynamic>.from(
+                extra.map((key, value) => MapEntry(key.toString(), value)),
+              );
+        return InvitationEntity.fromJson(jsonMap);
+      } catch (e) {
+        debugPrint('Error parsing InvitationEntity from JSON: $e');
+        return null;
+      }
+    }
+
+    return null;
+  }
+
+  /// Helper function to validate required parameters and return 404 page if missing
+  static Page<dynamic>? _validateRequiredParams(
+    GoRouterState state, {
+    String? siteId,
+    String? buildingId,
+  }) {
+    final List<String> missingParams = [];
+
+    if (siteId != null && (siteId.isEmpty || siteId == 'null')) {
+      missingParams.add('siteId');
+    }
+
+    if (buildingId != null && (buildingId.isEmpty || buildingId == 'null')) {
+      missingParams.add('buildingId');
+    }
+
+    if (missingParams.isNotEmpty) {
+      final missingParamsStr = missingParams.join(' and ');
+      return NoTransitionPage(
+        child: NotFoundPage(
+          message: 'Required parameters missing: $missingParamsStr',
+        ),
+      );
+    }
+
+    return null;
   }
 
   /// Push a named route

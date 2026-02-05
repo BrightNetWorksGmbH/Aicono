@@ -11,9 +11,14 @@ import 'package:frontend_aicono/features/Building/presentation/pages/steps/build
 import '../../../../core/widgets/app_footer.dart';
 
 class BuildingOnboardingPage extends StatefulWidget {
-  final String? buildingId;
+  final String buildingId;
+  final String siteId;
 
-  const BuildingOnboardingPage({super.key, this.buildingId});
+  const BuildingOnboardingPage({
+    super.key,
+    required this.buildingId,
+    required this.siteId,
+  });
 
   @override
   State<BuildingOnboardingPage> createState() => _BuildingOnboardingPageState();
@@ -222,6 +227,8 @@ class _BuildingOnboardingPageState extends State<BuildingOnboardingPage> {
                         },
                         floorNumber: _editingFloorNumber,
                         floorName: _editingFloorName,
+                        siteId: widget.siteId,
+                        buildingId: widget.buildingId,
                       ),
                     ],
                   ),

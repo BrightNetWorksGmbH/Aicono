@@ -27,7 +27,8 @@ class BuildingSummaryPage extends StatefulWidget {
   final String? floorPlanUrl;
   final String? floorName;
   final List<Map<String, dynamic>>? rooms;
-
+  final String siteId;
+  final String buildingId;
   const BuildingSummaryPage({
     super.key,
     this.userName,
@@ -39,6 +40,8 @@ class BuildingSummaryPage extends StatefulWidget {
     this.floorPlanUrl,
     this.floorName,
     this.rooms,
+    required this.siteId,
+    required this.buildingId,
   });
 
   @override
@@ -53,7 +56,9 @@ class _BuildingSummaryPageState extends State<BuildingSummaryPage> {
   void _handleContinue() async {
     // Get buildingId from PropertySetupCubit (stored when building is selected)
     final propertyCubit = sl<PropertySetupCubit>();
-    final storedBuildingId = propertyCubit.state.buildingId;
+    final storedBuildingId = widget.buildingId.isNotEmpty
+        ? widget.buildingId
+        : propertyCubit.state.buildingId;
 
     // Get floorName and numberOfFloors from widget or route parameters
     final currentState = GoRouterState.of(context);
@@ -112,6 +117,11 @@ class _BuildingSummaryPageState extends State<BuildingSummaryPage> {
           'rooms': Uri.encodeComponent(jsonEncode(widget.rooms!)),
         if (storedBuildingId != null && storedBuildingId.isNotEmpty)
           'buildingId': storedBuildingId,
+        'siteId': widget.siteId.isNotEmpty
+            ? widget.siteId
+            : Uri.parse(
+                GoRouterState.of(context).uri.toString(),
+              ).queryParameters['siteId'],
         'floorName': floorNameValue,
         'numberOfFloors': numberOfFloors.toString(),
         if (widget.buildingSize != null) 'totalArea': widget.buildingSize!,

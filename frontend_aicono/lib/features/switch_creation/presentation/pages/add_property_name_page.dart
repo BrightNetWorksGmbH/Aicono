@@ -61,7 +61,14 @@ class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
 
   void _handleSkip() {
     // TODO: navigate to next step or skip property setup
-    context.pushNamed(Routelists.floorPlanEditor);
+    context.pushNamed(
+      Routelists.addPropertyLocation,
+      queryParameters: {
+        if (widget.userName != null) 'userName': widget.userName!,
+        if (widget.switchId != null) 'switchId': widget.switchId!,
+        if (widget.siteId != null) 'siteId': widget.siteId!,
+      },
+    );
   }
 
   void _handleContinue(BuildContext blocContext) {
@@ -74,7 +81,7 @@ class _AddPropertyNamePageState extends State<AddPropertyNamePage> {
         final address = propertyCubit.state.location ?? '';
         final resourceType = propertyCubit.state.resourceTypes.isNotEmpty
             ? propertyCubit.state.resourceTypes.join(', ')
-            : 'Commercial';
+            : '';
 
         final request = CreateSiteRequest(
           name: _propertyName!,

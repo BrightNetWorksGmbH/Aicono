@@ -156,7 +156,11 @@ class _BuildingResponsiblePersonsPageState
     final switchId = propertyCubit.state.switchId;
     final localStorage = sl<LocalStorage>();
     final siteId =
-        localStorage.getSelectedSiteId() ?? propertyCubit.state.siteId;
+        widget.siteId ??
+        Uri.parse(
+          GoRouterState.of(context).uri.toString(),
+        ).queryParameters['siteId'];
+    // localStorage.getSelectedSiteId() ?? propertyCubit.state.siteId;
     if (siteId == null && switchId != null && switchId.isNotEmpty) {
       context.goNamed(
         Routelists.addPropertyName,

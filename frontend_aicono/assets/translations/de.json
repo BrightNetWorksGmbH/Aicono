@@ -137,7 +137,8 @@
     "add_new_property": "Neue Liegenschaft hinzufügen",
     "confirm_properties": "Liegenschaften bestätigen",
     "add_property_details": "Liegenschaftsdetails hinzufügen",
-    "go_to_home": "Zur Startseite"
+    "go_to_home": "Zur Startseite",
+    "hint": "Standort angeben"
   },
   "add_property_name": {
     "progress_text": "Fast geschafft, {name}!",

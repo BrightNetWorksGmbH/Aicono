@@ -68,7 +68,7 @@ class ActivateSwitchboardWidget extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 36),
-                    GestureDetector(
+                    InkWell(
                       onTap: () {
                         if (context.canPop()) {
                           context.pop();

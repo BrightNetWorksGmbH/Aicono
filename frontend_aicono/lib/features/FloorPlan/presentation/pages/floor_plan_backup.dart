@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:vector_math/vector_math_64.dart' show Matrix4;
 import 'package:file_picker/file_picker.dart';
@@ -63,6 +64,8 @@ class Door {
 }
 
 enum ResizeHandle { topLeft, topRight, bottomLeft, bottomRight }
+
+enum _ShapeTool { polygon, rectangle, triangle, circle }
 
 /// State snapshot for undo/redo functionality
 class _FloorPlanState {
@@ -130,6 +133,7 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
   bool pencilMode = false;
   bool doorPlacementMode = false; // Mode for placing doors on borders
   bool polygonMode = false; // Mode for creating polygons by clicking points
+  _ShapeTool? _selectedShapeTool;
 
   // Polygon creation state
   List<Offset> _polygonPoints = [];
@@ -250,6 +254,15 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
       ..lineTo(o.dx + width, o.dy)
       ..lineTo(o.dx + width, o.dy + height)
       ..lineTo(o.dx, o.dy + height)
+      ..close();
+  }
+
+  Path createTriangle(Offset o, {double width = 100, double height = 90}) {
+    // Isosceles triangle pointing up
+    return Path()
+      ..moveTo(o.dx + (width / 2), o.dy) // top
+      ..lineTo(o.dx + width, o.dy + height) // bottom right
+      ..lineTo(o.dx, o.dy + height) // bottom left
       ..close();
   }
 
@@ -1117,7 +1130,7 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                                 ),
                                                 child: ClipRRect(
                                                   borderRadius:
-                                                      BorderRadius.circular(8),
+                                                      BorderRadius.circular(0),
                                                   child:
                                                       (rooms.isEmpty &&
                                                           _backgroundImageBytes ==
@@ -1125,31 +1138,31 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                                           !polygonMode &&
                                                           !pencilMode)
                                                       ? Center(
-                                                          child: Column(
-                                                            mainAxisAlignment:
-                                                                MainAxisAlignment
-                                                                    .center,
-                                                            children: [
-                                                              Icon(
-                                                                Icons
-                                                                    .image_outlined,
-                                                                size: 64,
-                                                                color: Colors
-                                                                    .grey[400],
-                                                              ),
-                                                              const SizedBox(
-                                                                height: 16,
-                                                              ),
-                                                              Text(
-                                                                'Kein Grundriss geladen',
-                                                                style: TextStyle(
-                                                                  color: Colors
-                                                                      .grey[600],
-                                                                  fontSize: 16,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
+                                                          // child: Column(
+                                                          //   mainAxisAlignment:
+                                                          //       MainAxisAlignment
+                                                          //           .center,
+                                                          //   children: [
+                                                          //     Icon(
+                                                          //       Icons
+                                                          //           .image_outlined,
+                                                          //       size: 64,
+                                                          //       color: Colors
+                                                          //           .grey[400],
+                                                          //     ),
+                                                          //     const SizedBox(
+                                                          //       height: 16,
+                                                          //     ),
+                                                          //     Text(
+                                                          //       'Kein Grundriss geladen',
+                                                          //       style: TextStyle(
+                                                          //         color: Colors
+                                                          //             .grey[600],
+                                                          //         fontSize: 16,
+                                                          //       ),
+                                                          //     ),
+                                                          //   ],
+                                                          // ),
                                                         )
                                                       : _buildCanvas(),
                                                 ),
@@ -1227,12 +1240,12 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                               mainAxisAlignment:
                                                   MainAxisAlignment.center,
                                               children: [
-                                                Icon(
-                                                  Icons.add_box_outlined,
-                                                  color: Colors.grey[700],
-                                                  size: 20,
-                                                ),
-                                                const SizedBox(width: 8),
+                                                // Icon(
+                                                //   Icons.add_box_outlined,
+                                                //   color: Colors.grey[700],
+                                                //   size: 20,
+                                                // ),
+                                                // const SizedBox(width: 8),
                                                 Text(
                                                   '+ Raum anlegen',
                                                   style: TextStyle(
@@ -1579,123 +1592,161 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
   }
 
   Widget _shapeOptionsBar() {
-    return Container(
-      // margin: const EdgeInsets.only(bottom: 16),
-      // padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      // decoration: BoxDecoration(
-      //   color: Colors.grey.shade50,
-      //   borderRadius: BorderRadius.circular(8),
-      //   border: Border.all(color: Colors.grey.shade300),
-      // ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Shape buttons
-          _shapeOptionButton(
-            icon: Icons.crop_square,
-            label: "Square",
-            onTap: () {
-              _addShapeToCanvas(() => createRectangle(const Offset(200, 200)));
-            },
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Container(),
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          // padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(0),
+            // border: Border.all(color: Colors.grey.shade300),
           ),
-          // const SizedBox(width: 12),
-          // _shapeOptionButton(
-          //   icon: Icons.crop_square,
-          //   label: "L-shape",
-          //   onTap: () {
-          //     _addShapeToCanvas(() => createLShape(const Offset(200, 200)));
-          //   },
-          // ),
-          // const SizedBox(width: 12),
-          // _shapeOptionButton(
-          //   icon: Icons.account_tree,
-          //   label: "U-shape",
-          //   onTap: () {
-          //     _addShapeToCanvas(() => createUShape(const Offset(200, 200)));
-          //   },
-          // ),
-          // const SizedBox(width: 12),
-          // _shapeOptionButton(
-          //   icon: Icons.call_split,
-          //   label: "T-shape",
-          //   onTap: () {
-          //     _addShapeToCanvas(() => createTShape(const Offset(200, 200)));
-          //   },
-          // ),
-          const SizedBox(width: 12),
-          _shapeOptionButton(
-            icon: Icons.circle,
-            label: "Circle",
-            onTap: () {
-              _addShapeToCanvas(
-                () => createCircle(const Offset(200, 200), radius: 50),
-              );
-            },
-          ),
-          const SizedBox(width: 12),
-          _shapeOptionButton(
-            icon: Icons.hexagon,
-            label: "Polygon",
-            onTap: () {
-              setState(() {
-                polygonMode = !polygonMode;
-                if (polygonMode) {
-                  pencilMode = false;
-                  drawingPath = null;
-                  doorPlacementMode = false;
-                  _polygonPoints.clear();
-                  _polygonPreviewPosition = null;
-                } else {
-                  _polygonPoints.clear();
-                  _polygonPreviewPosition = null;
-                }
-              });
-            },
-            isSelected: polygonMode,
-          ),
-          const SizedBox(width: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Shape buttons
+              _shapeOptionButton(
+                icon: 'assets/images/Pen.svg',
+                label: "Polygon",
+                onTap: () {
+                  setState(() {
+                    _selectedShapeTool = _ShapeTool.polygon;
+                    polygonMode = !polygonMode;
+                    if (polygonMode) {
+                      pencilMode = false;
+                      drawingPath = null;
+                      doorPlacementMode = false;
+                      _polygonPoints.clear();
+                      _polygonPreviewPosition = null;
+                    } else {
+                      _polygonPoints.clear();
+                      _polygonPreviewPosition = null;
+                    }
+                  });
+                },
+                isSelected:
+                    polygonMode || _selectedShapeTool == _ShapeTool.polygon,
+              ),
+              _shapeOptionButton(
+                icon: 'assets/images/Rectangle.svg',
+                label: "Rectangle",
+                onTap: () {
+                  setState(() {
+                    _selectedShapeTool = _ShapeTool.rectangle;
+                    polygonMode = false;
+                  });
+                  _addShapeToCanvas(
+                    () => createRectangle(const Offset(200, 200)),
+                  );
+                },
+                isSelected: _selectedShapeTool == _ShapeTool.rectangle,
+              ),
+              // const SizedBox(width: 12),
+              // _shapeOptionButton(
+              //   icon: Icons.crop_square,
+              //   label: "L-shape",
+              //   onTap: () {
+              //     _addShapeToCanvas(() => createLShape(const Offset(200, 200)));
+              //   },
+              // ),
+              // const SizedBox(width: 12),
+              // _shapeOptionButton(
+              //   icon: Icons.account_tree,
+              //   label: "U-shape",
+              //   onTap: () {
+              //     _addShapeToCanvas(() => createUShape(const Offset(200, 200)));
+              //   },
+              // ),
+              // const SizedBox(width: 12),
+              // _shapeOptionButton(
+              //   icon: Icons.call_split,
+              //   label: "T-shape",
+              //   onTap: () {
+              //     _addShapeToCanvas(() => createTShape(const Offset(200, 200)));
+              //   },
+              // ),
+              _shapeOptionButton(
+                icon: 'assets/images/Triangle.svg',
+                label: "Triangle",
+                onTap: () {
+                  setState(() {
+                    _selectedShapeTool = _ShapeTool.triangle;
+                    polygonMode = false;
+                  });
+                  _addShapeToCanvas(
+                    () => createTriangle(const Offset(200, 200)),
+                  );
+                },
+                isSelected: _selectedShapeTool == _ShapeTool.triangle,
+              ),
+              _shapeOptionButton(
+                icon: 'assets/images/Ellipse.svg',
+                label: "Circle",
+                onTap: () {
+                  setState(() {
+                    _selectedShapeTool = _ShapeTool.circle;
+                    polygonMode = false;
+                  });
+                  _addShapeToCanvas(
+                    () => createCircle(const Offset(200, 200), radius: 50),
+                  );
+                },
+                isSelected: _selectedShapeTool == _ShapeTool.circle,
+              ),
 
-          // _shapeOptionButton(
-          //   icon: Icons.edit,
-          //   label: "Walls",
-          //   onTap: () {
-          //     setState(() {
-          //       pencilMode = !pencilMode;
-          //       if (!pencilMode) {
-          //         drawingPath = null;
-          //         doorPlacementMode = false;
-          //       } else {
-          //         polygonMode = false;
-          //         _polygonPoints.clear();
-          //         _polygonPreviewPosition = null;
-          //       }
-          //     });
-          //   },
-          //   isSelected: pencilMode,
-          // ),
-          const SizedBox(width: 24),
+              // _shapeOptionButton(
+              //   icon: Icons.edit,
+              //   label: "Walls",
+              //   onTap: () {
+              //     setState(() {
+              //       pencilMode = !pencilMode;
+              //       if (!pencilMode) {
+              //         drawingPath = null;
+              //         doorPlacementMode = false;
+              //       } else {
+              //         polygonMode = false;
+              //         _polygonPoints.clear();
+              //         _polygonPreviewPosition = null;
+              //       }
+              //     });
+              //   },
+              //   isSelected: pencilMode,
+              // ),
+            ],
+          ),
+        ),
+        // Undo Button
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(color: Colors.grey.shade100),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: _canUndo ? _undo : null,
+                child: SvgPicture.asset(
+                  'assets/images/Undo.svg',
+                  color: _canUndo ? Colors.black87 : Colors.grey.shade400,
+                ),
+              ),
 
-          // Undo Button
-          IconButton(
-            icon: Icon(
-              Icons.undo,
-              color: _canUndo ? Colors.black87 : Colors.grey.shade400,
-            ),
-            onPressed: _canUndo ? _undo : null,
-            tooltip: "Undo",
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: _canRedo ? _redo : null,
+                child: SvgPicture.asset(
+                  'assets/images/Redo.svg',
+                  color: _canRedo ? Colors.black87 : Colors.grey.shade400,
+                ),
+              ),
+
+              // Redo Button
+            ],
           ),
-          const SizedBox(width: 8),
-          // Redo Button
-          IconButton(
-            icon: Icon(
-              Icons.redo,
-              color: _canRedo ? Colors.black87 : Colors.grey.shade400,
-            ),
-            onPressed: _canRedo ? _redo : null,
-            tooltip: "Redo",
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1796,42 +1847,23 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
   }
 
   Widget _shapeOptionButton({
-    required IconData icon,
+    required String icon,
     required String label,
     required VoidCallback onTap,
     bool isSelected = false,
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(0),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.shade50 : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey.shade300,
-            width: isSelected ? 2 : 1,
-          ),
+          color: isSelected ? Colors.black : Colors.transparent,
+          borderRadius: BorderRadius.circular(0),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 24,
-              color: isSelected ? Colors.blue : Colors.black87,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                color: isSelected ? Colors.blue : Colors.black87,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
+        child: SvgPicture.asset(
+          icon,
+          color: isSelected ? Colors.white : Colors.black,
         ),
       ),
     );
@@ -2413,7 +2445,7 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(0),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -3227,7 +3259,7 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
             color: isSelected ? Colors.blue : Colors.grey.shade300,
             width: isSelected ? 2 : 1,
           ),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(0),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

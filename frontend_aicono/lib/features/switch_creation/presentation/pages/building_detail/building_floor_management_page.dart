@@ -15,15 +15,18 @@ import 'package:frontend_aicono/core/network/dio_client.dart';
 class BuildingFloorManagementPage extends StatefulWidget {
   final BuildingEntity building;
   final VoidCallback? onBack;
-  final String? siteId;
-  final String? buildingId;
+  final String siteId;
+  final String buildingId;
+  final String?
+  completedFloorName; // Floor name to mark as completed when coming from room assignment
 
   const BuildingFloorManagementPage({
     super.key,
     required this.building,
     this.onBack,
-    this.siteId,
-    this.buildingId,
+    required this.siteId,
+    required this.buildingId,
+    this.completedFloorName,
   });
 
   @override
@@ -46,13 +49,62 @@ class _BuildingFloorManagementPageState
   void initState() {
     super.initState();
     // Fetch floors from backend if buildingId is available
-    if (widget.buildingId != null && widget.buildingId!.isNotEmpty) {
+    if (widget.buildingId.isNotEmpty) {
       _fetchFloorsFromBackend();
+    } else {
+      // If no buildingId, still mark floor as completed if coming from room assignment
+      _markFloorCompletedByName();
+    }
+  }
+
+  void _markFloorCompletedByName() {
+    // Mark floor as completed if completedFloorName is provided (coming from room assignment)
+    if (widget.completedFloorName == null ||
+        widget.completedFloorName!.isEmpty) {
+      return;
+    }
+
+    final completedFloorName = widget.completedFloorName!.toLowerCase().trim();
+
+    // First, try to find in fetched floors from backend
+    if (_fetchedFloors.isNotEmpty) {
+      for (int i = 0; i < _fetchedFloors.length; i++) {
+        final floor = _fetchedFloors[i];
+        final floorName = floor.name.toLowerCase().trim();
+        if (floorName == completedFloorName) {
+          // Found matching floor - mark as completed (floors are 1-indexed)
+          setState(() {
+            _completedFloors.add(i + 1);
+          });
+          return;
+        }
+      }
+    }
+
+    // If not found in fetched floors, try to match by default floor names
+    // Check if it matches "Etage X" or "Floor X" pattern
+    final floorNumberMatch = RegExp(r'(\d+)').firstMatch(completedFloorName);
+    if (floorNumberMatch != null) {
+      final floorNum = int.tryParse(floorNumberMatch.group(1) ?? '');
+      if (floorNum != null && floorNum > 0) {
+        setState(() {
+          _completedFloors.add(floorNum);
+        });
+        return;
+      }
+    }
+
+    // If it's "Ground Floor" or similar, mark floor 1 as completed
+    if (completedFloorName.contains('ground') ||
+        completedFloorName.contains('floor 0')) {
+      setState(() {
+        _completedFloors.add(1);
+      });
     }
   }
 
   Future<void> _fetchFloorsFromBackend() async {
-    if (widget.buildingId == null || widget.buildingId!.isEmpty) {
+    if (widget.buildingId.isEmpty) {
       return;
     }
 
@@ -111,6 +163,8 @@ class _BuildingFloorManagementPageState
             _fetchedFloors = floorsList;
             // Update completed floors based on floors with floor_plan_link
             _updateCompletedFloorsFromBackend(floorsList);
+            // Mark floor as completed if coming from room assignment
+            _markFloorCompletedByName();
           });
         }
       }
@@ -189,9 +243,9 @@ class _BuildingFloorManagementPageState
     setState(() {
       _currentStep = 0;
       // Mark the floor as completed when returning from floor plan
-      if (_editingFloorNumber != null) {
-        _completedFloors.add(_editingFloorNumber!);
-      }
+      // if (_editingFloorNumber != null) {
+      //   _completedFloors.add(_editingFloorNumber!);
+      // }
       _editingFloorNumber = null;
     });
     _pageController.jumpToPage(0);
@@ -213,12 +267,12 @@ class _BuildingFloorManagementPageState
       Routelists.buildingContactPerson,
       queryParameters: {
         'buildingName': widget.building.name,
+
         if (widget.building.address != null &&
             widget.building.address!.isNotEmpty)
           'buildingAddress': widget.building.address!,
-        'buildingId': widget.buildingId ?? '6948dcd113537bff98eb7338',
-        if (widget.siteId != null && widget.siteId!.isNotEmpty)
-          'siteId': widget.siteId!,
+        'buildingId': widget.buildingId,
+        'siteId': widget.siteId,
         if (widget.building.totalArea != null)
           'totalArea': widget.building.totalArea!.toString(),
         if (widget.building.numberOfRooms != null)
@@ -366,6 +420,8 @@ class _BuildingFloorManagementPageState
                                     floorNumber: _editingFloorNumber,
                                     floorName: _editingFloorName,
                                     fetchedFloors: _fetchedFloors,
+                                    siteId: widget.siteId,
+                                    buildingId: widget.buildingId,
                                   ),
                                 ],
                               ),

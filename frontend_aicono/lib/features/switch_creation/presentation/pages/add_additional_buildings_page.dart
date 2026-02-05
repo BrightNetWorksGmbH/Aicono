@@ -68,7 +68,7 @@ class _AddAdditionalBuildingsPageState
 
   void _handleSkip() {
     // TODO: navigate to next step or skip
-    context.pushNamed(Routelists.floorPlanEditor);
+    context.pushNamed(Routelists.dashboard);
   }
 
   void _handleContinue(BuildContext blocContext) {
