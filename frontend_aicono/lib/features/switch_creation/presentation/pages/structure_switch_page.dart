@@ -21,6 +21,7 @@ class _StructureSwitchPageState extends State<StructureSwitchPage> {
   }
 
   void _handleStartDirectly() {
+    context.pushNamed(Routelists.dashboard);
     // TODO: navigate to switchboard/dashboard directly
     // context.pushNamed(Routelists.floorPlanEditor);
   }

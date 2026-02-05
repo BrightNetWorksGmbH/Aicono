@@ -22,8 +22,11 @@ import '../../../../../core/routing/routeLists.dart';
 import '../../../../../core/widgets/page_header_row.dart';
 import '../../../../../core/widgets/primary_outline_button.dart';
 import '../../pages/steps/building_floor_plan_step.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 enum DrawingMode { none, rectangle, polygon }
+
+enum _ShapeTool { polygon, rectangle, triangle, circle }
 
 class Room {
   final String id;
@@ -54,6 +57,19 @@ Path createRectangle(Offset start, Offset end) {
     ..close();
 }
 
+Path createTriangle(Offset o, {double width = 100, double height = 90}) {
+  // Isosceles triangle pointing up
+  return Path()
+    ..moveTo(o.dx + (width / 2), o.dy) // top
+    ..lineTo(o.dx + width, o.dy + height) // bottom right
+    ..lineTo(o.dx, o.dy + height) // bottom left
+    ..close();
+}
+
+Path createCircle(Offset center, {double radius = 50}) {
+  return Path()..addOval(Rect.fromCircle(center: center, radius: radius));
+}
+
 class FloorPlanActivationWidget extends StatefulWidget {
   final VoidCallback? onComplete;
   final VoidCallback? onSkip;
@@ -65,7 +81,8 @@ class FloorPlanActivationWidget extends StatefulWidget {
   final int? numberOfRooms;
   final String? constructionYear;
   final String? floorName;
-
+  final String buildingId;
+  final String siteId;
   const FloorPlanActivationWidget({
     super.key,
     this.onComplete,
@@ -78,11 +95,39 @@ class FloorPlanActivationWidget extends StatefulWidget {
     this.numberOfRooms,
     this.constructionYear,
     this.floorName,
+    required this.buildingId,
+    required this.siteId,
   });
 
   @override
   State<FloorPlanActivationWidget> createState() =>
       _FloorPlanActivationWidgetState();
+}
+
+/// State snapshot for undo/redo functionality
+class _FloorPlanState {
+  final List<Room> rooms;
+  final int roomCounter;
+
+  _FloorPlanState({required this.rooms, required this.roomCounter});
+
+  // Deep copy constructor
+  _FloorPlanState copy() {
+    return _FloorPlanState(
+      rooms: rooms
+          .map(
+            (room) => Room(
+              id: room.id,
+              path: Path.from(room.path),
+              fillColor: room.fillColor,
+              name: room.name,
+              area: room.area,
+            ),
+          )
+          .toList(),
+      roomCounter: roomCounter,
+    );
+  }
 }
 
 class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
@@ -95,8 +140,14 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
   double _currentScaleX = 1.0;
   double _currentScaleY = 1.0;
 
+  // Undo/Redo history
+  final List<_FloorPlanState> _history = [];
+  int _historyIndex = -1;
+  static const int _maxHistorySize = 50;
+
   // Drawing mode
   DrawingMode _drawingMode = DrawingMode.none;
+  _ShapeTool? _selectedShapeTool;
 
   // Rectangle creation state
   Offset? _rectangleStart;
@@ -785,6 +836,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
   void _createRoomFromRectangle(Rect rect) {
     if (rect.isEmpty || rect.width < 10 || rect.height < 10) return;
 
+    _saveState();
     final path = Path()
       ..moveTo(rect.left, rect.top)
       ..lineTo(rect.right, rect.top)
@@ -835,6 +887,34 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
     });
   }
 
+  void _addShapeToCanvas(Path Function() shapeCreator) {
+    _saveState();
+    final path = shapeCreator();
+    final area = _calculateArea(path);
+    final roomId = 'room_$_roomCounter';
+    final roomName = 'Room $_roomCounter';
+
+    setState(() {
+      rooms.add(
+        Room(
+          id: roomId,
+          path: path,
+          fillColor: _roomColor,
+          name: roomName,
+          area: area,
+        ),
+      );
+      _roomCounter++;
+      selectedRoom = rooms.last;
+      _drawingMode = DrawingMode.none;
+      _showDrawingMode = false;
+      _polygonPoints.clear();
+      _polygonPreviewPosition = null;
+      // Create controller for new room
+      _roomControllers[roomId] = TextEditingController(text: roomName);
+    });
+  }
+
   void _createRoomFromPolygon() {
     if (_polygonPoints.length < 3) {
       _showError('Polygon muss mindestens 3 Punkte haben');
@@ -860,6 +940,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
       return;
     }
 
+    _saveState();
     final roomId = 'room_$_roomCounter';
     final roomName = 'Room $_roomCounter';
 
@@ -958,6 +1039,8 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
             context.pushNamed(
               Routelists.buildingSummary,
               queryParameters: {
+                'buildingId': widget.buildingId,
+                'siteId': widget.siteId,
                 if (widget.userName != null) 'userName': widget.userName!,
                 if (widget.buildingAddress != null)
                   'buildingAddress': widget.buildingAddress!,
@@ -994,6 +1077,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
   }
 
   void _deleteRoom(Room room) {
+    _saveState();
     setState(() {
       rooms.remove(room);
       if (selectedRoom == room) {
@@ -1207,7 +1291,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(0),
               border: Border.all(color: Colors.grey[300]!),
             ),
             child: Column(
@@ -1256,7 +1340,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                   width: 2,
                   strokeAlign: BorderSide.strokeAlignInside,
                 ),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(0),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1322,7 +1406,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                 padding: const EdgeInsets.all(16),
 
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(0),
                   child: (rooms.isEmpty && _imageBytes == null)
                       ? Center(
                           child: Column(
@@ -1384,6 +1468,13 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
 
                               // Store which room was selected after selection (for move/resize tracking)
                               _roomAtPanStart = selectedRoom;
+
+                              // Save state before move/resize operation
+                              if (selectedRoom != null &&
+                                  !_isMoving &&
+                                  !_isResizing) {
+                                _saveState();
+                              }
 
                               // Store initial position for move/resize (in image coordinates)
                               _dragStart = scaledPosition;
@@ -1625,115 +1716,131 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
           ),
         const SizedBox(height: 16),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            Container(),
             // Drawing mode buttons (shown only after "Add room" is clicked)
             if (_showDrawingMode) ...[
-              // Rectangle mode button
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    if (_drawingMode == DrawingMode.rectangle) {
-                      _drawingMode = DrawingMode.none;
-                    } else {
-                      _drawingMode = DrawingMode.rectangle;
-                      _polygonPoints.clear();
-                      _polygonPreviewPosition = null;
-                    }
-                    _rectangleStart = null;
-                    _currentRectangle = null;
-                    selectedRoom = null;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _drawingMode == DrawingMode.rectangle
-                        ? Colors.blue[700]
-                        : Colors.grey[200],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.crop_square,
-                        color: _drawingMode == DrawingMode.rectangle
-                            ? Colors.white
-                            : Colors.grey[700],
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Rechteck',
-                        style: TextStyle(
-                          color: _drawingMode == DrawingMode.rectangle
-                              ? Colors.white
-                              : Colors.grey[700],
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(0),
                 ),
-              ),
-              const SizedBox(width: 8),
-              // Polygon mode button
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    if (_drawingMode == DrawingMode.polygon) {
-                      _drawingMode = DrawingMode.none;
-                      _polygonPoints.clear();
-                      _polygonPreviewPosition = null;
-                    } else {
-                      _drawingMode = DrawingMode.polygon;
-                      _rectangleStart = null;
-                      _currentRectangle = null;
-                    }
-                    selectedRoom = null;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _drawingMode == DrawingMode.polygon
-                        ? Colors.blue[700]
-                        : Colors.grey[200],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.hexagon,
-                        color: _drawingMode == DrawingMode.polygon
-                            ? Colors.white
-                            : Colors.grey[700],
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Polygon',
-                        style: TextStyle(
-                          color: _drawingMode == DrawingMode.polygon
-                              ? Colors.white
-                              : Colors.grey[700],
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Shape buttons
+                    _shapeOptionButton(
+                      icon: 'assets/images/Pen.svg',
+                      label: "Polygon",
+                      onTap: () {
+                        setState(() {
+                          _selectedShapeTool = _ShapeTool.polygon;
+                          if (_drawingMode == DrawingMode.polygon) {
+                            _drawingMode = DrawingMode.none;
+                            _polygonPoints.clear();
+                            _polygonPreviewPosition = null;
+                          } else {
+                            _drawingMode = DrawingMode.polygon;
+                            _rectangleStart = null;
+                            _currentRectangle = null;
+                          }
+                          selectedRoom = null;
+                        });
+                      },
+                      isSelected:
+                          _drawingMode == DrawingMode.polygon ||
+                          _selectedShapeTool == _ShapeTool.polygon,
+                    ),
+                    _shapeOptionButton(
+                      icon: 'assets/images/Rectangle.svg',
+                      label: "Rectangle",
+                      onTap: () {
+                        setState(() {
+                          _selectedShapeTool = _ShapeTool.rectangle;
+                          if (_drawingMode == DrawingMode.rectangle) {
+                            _drawingMode = DrawingMode.none;
+                          } else {
+                            _drawingMode = DrawingMode.rectangle;
+                            _polygonPoints.clear();
+                            _polygonPreviewPosition = null;
+                          }
+                          _rectangleStart = null;
+                          _currentRectangle = null;
+                          selectedRoom = null;
+                        });
+                      },
+                      isSelected:
+                          _drawingMode == DrawingMode.rectangle ||
+                          _selectedShapeTool == _ShapeTool.rectangle,
+                    ),
+                    _shapeOptionButton(
+                      icon: 'assets/images/Triangle.svg',
+                      label: "Triangle",
+                      onTap: () {
+                        setState(() {
+                          _selectedShapeTool = _ShapeTool.triangle;
+                          _drawingMode = DrawingMode.none;
+                          _polygonPoints.clear();
+                          _polygonPreviewPosition = null;
+                        });
+                        _addShapeToCanvas(
+                          () => createTriangle(const Offset(200, 200)),
+                        );
+                      },
+                      isSelected: _selectedShapeTool == _ShapeTool.triangle,
+                    ),
+                    _shapeOptionButton(
+                      icon: 'assets/images/Ellipse.svg',
+                      label: "Circle",
+                      onTap: () {
+                        setState(() {
+                          _selectedShapeTool = _ShapeTool.circle;
+                          _drawingMode = DrawingMode.none;
+                          _polygonPoints.clear();
+                          _polygonPreviewPosition = null;
+                        });
+                        _addShapeToCanvas(
+                          () =>
+                              createCircle(const Offset(200, 200), radius: 50),
+                        );
+                      },
+                      isSelected: _selectedShapeTool == _ShapeTool.circle,
+                    ),
+                  ],
                 ),
               ),
             ],
+            // Undo/Redo buttons
+            if (_showDrawingMode)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16, left: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(color: Colors.grey.shade100),
+                child: Row(
+                  children: [
+                    InkWell(
+                      onTap: _canUndo ? _undo : null,
+                      child: SvgPicture.asset(
+                        'assets/images/Undo.svg',
+                        color: _canUndo ? Colors.black87 : Colors.grey.shade400,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: _canRedo ? _redo : null,
+                      child: SvgPicture.asset(
+                        'assets/images/Redo.svg',
+                        color: _canRedo ? Colors.black87 : Colors.grey.shade400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
             // const Spacer(),
             // // Room color selector (shown only when drawing mode is active)
@@ -1787,7 +1894,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(0),
                 border: Border.all(
                   color: selectedRoom == room ? Colors.blue : Colors.grey[300]!,
                   width: selectedRoom == room ? 2 : 1,
@@ -1875,8 +1982,8 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.add_box_outlined, color: Colors.grey[700], size: 20),
-                const SizedBox(width: 8),
+                // Icon(Icons.add_box_outlined, color: Colors.grey[700], size: 20),
+                // const SizedBox(width: 8),
                 Text(
                   '+ Raum anlegen',
                   style: TextStyle(color: Colors.grey[700], fontSize: 16),
@@ -1943,6 +2050,115 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
       _drawingMode = DrawingMode.none; // Don't set a mode yet, let user choose
     });
   }
+
+  Widget _shapeOptionButton({
+    required String icon,
+    required String label,
+    required VoidCallback onTap,
+    bool isSelected = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.black : Colors.transparent,
+          borderRadius: BorderRadius.circular(0),
+        ),
+        child: SvgPicture.asset(
+          icon,
+          color: isSelected ? Colors.white : Colors.black,
+        ),
+      ),
+    );
+  }
+
+  /* =======================
+     UNDO/REDO
+  ======================= */
+
+  void _saveState() {
+    // Remove any states after current index (when user does new action after undo)
+    if (_historyIndex < _history.length - 1) {
+      _history.removeRange(_historyIndex + 1, _history.length);
+    }
+
+    // Create new state snapshot
+    final state = _FloorPlanState(
+      rooms: rooms
+          .map(
+            (room) => Room(
+              id: room.id,
+              path: Path.from(room.path),
+              fillColor: room.fillColor,
+              name: room.name,
+              area: room.area,
+            ),
+          )
+          .toList(),
+      roomCounter: _roomCounter,
+    );
+
+    // Add to history
+    _history.add(state);
+    _historyIndex = _history.length - 1;
+
+    // Limit history size
+    if (_history.length > _maxHistorySize) {
+      _history.removeAt(0);
+      _historyIndex--;
+    }
+  }
+
+  void _restoreState(_FloorPlanState state) {
+    // Dispose all existing controllers
+    for (final controller in _roomControllers.values) {
+      controller.dispose();
+    }
+    _roomControllers.clear();
+
+    // Restore rooms
+    rooms.clear();
+    rooms.addAll(
+      state.rooms.map(
+        (room) => Room(
+          id: room.id,
+          path: Path.from(room.path),
+          fillColor: room.fillColor,
+          name: room.name,
+          area: room.area,
+        ),
+      ),
+    );
+
+    // Restore controllers
+    for (final room in rooms) {
+      _roomControllers[room.id] = TextEditingController(text: room.name);
+    }
+
+    _roomCounter = state.roomCounter;
+    selectedRoom = null;
+  }
+
+  void _undo() {
+    if (_historyIndex > 0) {
+      _historyIndex--;
+      _restoreState(_history[_historyIndex]);
+      setState(() {});
+    }
+  }
+
+  void _redo() {
+    if (_historyIndex < _history.length - 1) {
+      _historyIndex++;
+      _restoreState(_history[_historyIndex]);
+      setState(() {});
+    }
+  }
+
+  bool get _canUndo => _historyIndex > 0;
+  bool get _canRedo => _historyIndex < _history.length - 1;
 
   @override
   void dispose() {

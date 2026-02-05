@@ -21,8 +21,8 @@ class BuildingContactPersonStep extends StatefulWidget {
   // Query parameters for route-based navigation
   final String? buildingName;
   final String? buildingAddress;
-  final String? buildingId;
-  final String? siteId;
+  final String buildingId;
+  final String siteId;
   final String? userName;
   final String? totalArea;
   final String? numberOfRooms;
@@ -36,8 +36,8 @@ class BuildingContactPersonStep extends StatefulWidget {
     this.onBack,
     this.buildingName,
     this.buildingAddress,
-    this.buildingId,
-    this.siteId,
+    required this.buildingId,
+    required this.siteId,
     this.userName,
     this.totalArea,
     this.numberOfRooms,
@@ -409,12 +409,12 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
   }
 
   void _handleSkip() {
-    if (widget.onSkip != null) {
-      widget.onSkip!();
-    } else {
-      // Navigate to responsible persons page
-      _navigateToResponsiblePersons();
-    }
+    // if (widget.onSkip != null) {
+    //   widget.onSkip!();
+    // } else {
+    // Navigate to responsible persons page
+    _navigateToResponsiblePersons();
+    // }
   }
 
   Future<void> _handleNext() async {

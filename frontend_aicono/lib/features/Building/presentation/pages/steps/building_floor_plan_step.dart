@@ -34,7 +34,8 @@ class BuildingFloorPlanStep extends StatefulWidget {
   final int? floorNumber;
   final String? floorName;
   final List<FloorDetail> fetchedFloors;
-
+  final String siteId;
+  final String buildingId;
   const BuildingFloorPlanStep({
     super.key,
     required this.building,
@@ -46,6 +47,8 @@ class BuildingFloorPlanStep extends StatefulWidget {
     this.floorNumber,
     this.floorName,
     this.fetchedFloors = const [],
+    required this.siteId,
+    required this.buildingId,
   });
 
   @override
@@ -409,69 +412,69 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                           showBackButton: widget.onBack != null,
                         ),
                       if (!isActivationBuildingActive) ...[
-                      const SizedBox(height: 32),
-                      // Previous info boxes
+                        const SizedBox(height: 32),
+                        // Previous info boxes
                         if (widget.building.address != null)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey[300]!),
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey[300]!),
                               borderRadius: BorderRadius.circular(0),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
                                   Image.asset(
                                     'assets/images/check.png',
                                     width: 20,
                                     height: 20,
                                   ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
                                       widget.building.address!,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      if (_getBuildingSummary().isNotEmpty)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey[300]!),
+                        if (_getBuildingSummary().isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey[300]!),
                               borderRadius: BorderRadius.circular(0),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
                                   Image.asset(
                                     'assets/images/check.png',
                                     width: 20,
                                     height: 20,
                                   ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    _getBuildingSummary(),
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      _getBuildingSummary(),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 24),
                         // Loading indicator
                         if (_isLoadingImage)
                           const Center(
@@ -485,8 +488,8 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                           DottedBorderContainer(
                             child: Container(
                               height: 250,
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
                                 children: [
                                   if (_currentState ==
                                           _FloorPlanState.initial ||
@@ -500,13 +503,18 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                                           CrossAxisAlignment.start,
                                       spacing: 26,
                                       // runSpacing: 16,
-                            children: [
-                              InkWell(
+                                      children: [
+                                        InkWell(
                                           onTap:
                                               // widget.onBuildFloorPlan ??
-                                    () {
+                                              () {
                                                 context.pushNamed(
                                                   Routelists.floorPlanEditor,
+                                                  queryParameters: {
+                                                    'buildingId':
+                                                        widget.building.id,
+                                                    'siteId': widget.siteId,
+                                                  },
                                                 );
 
                                                 // // Navigate to floor plan editor
@@ -514,28 +522,28 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                                                 //   context,
                                                 //   'floor-plan-editor',
                                                 // );
-                                    },
-                                  child: Row(
+                                              },
+                                          child: Row(
                                             mainAxisAlignment:
                                                 MainAxisAlignment.center,
-                                    children: [
+                                            children: [
                                               Icon(
                                                 Icons.add,
                                                 color: Colors.black,
                                                 size: 20,
                                               ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Grundriss bauen',
-                                        style: TextStyle(
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Grundriss bauen',
+                                                style: TextStyle(
                                                   color: Colors.black,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                                         // Container(
                                         //   height: 1,
                                         //   color: Colors.grey[300],
@@ -543,29 +551,29 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                                         //     vertical: 8,
                                         //   ),
                                         // ),
-                              InkWell(
+                                        InkWell(
                                           onTap: _uploadFloorPlan,
-                                  child: Row(
+                                          child: Row(
                                             mainAxisAlignment:
                                                 MainAxisAlignment.center,
-                                    children: [
+                                            children: [
                                               Icon(
                                                 Icons.add,
                                                 color: Colors.black,
                                                 size: 20,
                                               ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Grundriss hinzufügen',
-                                        style: TextStyle(
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Grundriss hinzufügen',
+                                                style: TextStyle(
                                                   color: Colors.black,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                                       ],
                                     ),
                                   // Show uploaded image in uploaded state
@@ -601,8 +609,8 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                                                             Icons
                                                                 .image_not_supported,
                                                             color: Colors.grey,
-                          ),
-                        ),
+                                                          ),
+                                                        ),
                                                       );
                                                     },
                                               )
@@ -661,6 +669,8 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                           initialImageBytes: _uploadedImageBytes,
                           onComplete: _handleActivationComplete,
                           onSkip: _handleActivationSkip,
+                          buildingId: widget.buildingId,
+                          siteId: widget.siteId,
                           buildingName: widget.building.name,
                           buildingAddress: widget.building.address,
                           buildingSize: widget.building.totalArea?.toString(),
@@ -673,26 +683,26 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                       // Skip step link (only show in initial state)
                       // if (_currentState == _FloorPlanState.initial)
                       if (!isActivationBuildingActive) ...[
-                      InkWell(
+                        InkWell(
                           onTap: _handleSkip,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Center(
-                            child: Text(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Center(
+                              child: Text(
                                 'Schri überspringen',
                                 // _hasMoreFloors
                                 //     ? 'Diese Etage überspringen'
                                 //     : 'Schritt überspringen',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
                         // if (_currentState == _FloorPlanState.initial)
-                      const SizedBox(height: 8),
+                        const SizedBox(height: 8),
 
                         // Confirm/Next button
                         if (_currentState == _FloorPlanState.initial)

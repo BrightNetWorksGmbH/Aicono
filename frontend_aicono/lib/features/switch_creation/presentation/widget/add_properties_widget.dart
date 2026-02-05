@@ -280,38 +280,39 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
               style: AppTextStyles.bodyMedium.copyWith(color: Colors.black87),
             ),
           ),
-          if (hasValue && _isConfirmed) ...[
-            const SizedBox(width: 12),
-            InkWell(
-              onTap: () {
-                final propertyName = property.controller.text.trim();
-                if (propertyName.isNotEmpty) {
-                  // Find the siteId from created sites by matching the property name
-                  final matchingSite = widget.createdSites.firstWhere(
-                    (site) => site['name']?.toString() == propertyName,
-                    orElse: () => <String, dynamic>{},
-                  );
-                  final siteId =
-                      matchingSite['_id']?.toString() ??
-                      matchingSite['id']?.toString() ??
-                      '';
-                  if (siteId != '') {
-                    widget.onAddPropertyDetails?.call({
-                      'propertyName': propertyName,
-                      'siteId': siteId,
-                    });
-                  }
-                }
-              },
-              child: Text(
-                'add_properties.add_property_details'.tr(),
-                style: AppTextStyles.bodyMedium.copyWith(
-                  decoration: TextDecoration.underline,
-                  color: Colors.grey,
-                ),
-              ),
-            ),
-          ],
+
+          // if (hasValue && _isConfirmed) ...[
+          //   const SizedBox(width: 12),
+          //   InkWell(
+          //     onTap: () {
+          //       final propertyName = property.controller.text.trim();
+          //       if (propertyName.isNotEmpty) {
+          //         // Find the siteId from created sites by matching the property name
+          //         final matchingSite = widget.createdSites.firstWhere(
+          //           (site) => site['name']?.toString() == propertyName,
+          //           orElse: () => <String, dynamic>{},
+          //         );
+          //         final siteId =
+          //             matchingSite['_id']?.toString() ??
+          //             matchingSite['id']?.toString() ??
+          //             '';
+          //         if (siteId != '') {
+          //           widget.onAddPropertyDetails?.call({
+          //             'propertyName': propertyName,
+          //             'siteId': siteId,
+          //           });
+          //         }
+          //       }
+          //     },
+          //     child: Text(
+          //       'add_properties.add_property_details'.tr(),
+          //       style: AppTextStyles.bodyMedium.copyWith(
+          //         decoration: TextDecoration.underline,
+          //         color: Colors.grey,
+          //       ),
+          //     ),
+          //   ),
+          // ],
         ],
       ),
     );

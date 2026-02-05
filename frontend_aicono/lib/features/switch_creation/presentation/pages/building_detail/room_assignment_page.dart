@@ -23,12 +23,12 @@ class RoomAssignmentPage extends StatefulWidget {
   final String? buildingName;
   final String? floorPlanUrl;
   final List<Map<String, dynamic>>? rooms;
-  final String? buildingId;
   final String? floorName;
   final int? numberOfFloors;
   final double? totalArea;
   final String? constructionYear;
-
+  final String siteId;
+  final String buildingId;
   const RoomAssignmentPage({
     super.key,
     this.userName,
@@ -36,11 +36,12 @@ class RoomAssignmentPage extends StatefulWidget {
     this.buildingName,
     this.floorPlanUrl,
     this.rooms,
-    this.buildingId,
     this.floorName,
     this.numberOfFloors,
     this.totalArea,
     this.constructionYear,
+    required this.siteId,
+    required this.buildingId,
   });
 
   @override
@@ -103,8 +104,10 @@ class _RoomAssignmentPageState extends State<RoomAssignmentPage> {
   void _handleSave(BuildContext blocContext) {
     final propertyCubit = sl<PropertySetupCubit>();
     final localStorage = sl<LocalStorage>();
-    final storedBuildingId =
-        localStorage.getSelectedBuildingId() ?? propertyCubit.state.buildingId;
+    final storedBuildingId = widget.buildingId.isNotEmpty
+        ? widget.buildingId
+        : localStorage.getSelectedBuildingId() ??
+              propertyCubit.state.buildingId;
 
     if (storedBuildingId == null || storedBuildingId.isEmpty) {
       ScaffoldMessenger.of(blocContext).showSnackBar(
@@ -171,9 +174,24 @@ class _RoomAssignmentPageState extends State<RoomAssignmentPage> {
 
   void _handleSkip() {
     // Skip to next step
-    if (context.canPop()) {
-      context.pop();
-    }
+    context.pushNamed(
+      Routelists.buildingFloorManagement,
+      queryParameters: {
+        'buildingName': widget.buildingName,
+        'buildingAddress': widget.buildingAddress,
+        'numberOfFloors': widget.numberOfFloors.toString(),
+        'buildingId': widget.buildingId.isNotEmpty
+            ? widget.buildingId
+            : Uri.parse(
+                GoRouterState.of(context).uri.toString(),
+              ).queryParameters['buildingId'],
+        'siteId': widget.siteId.isNotEmpty
+            ? widget.siteId
+            : Uri.parse(
+                GoRouterState.of(context).uri.toString(),
+              ).queryParameters['siteId'],
+      },
+    );
   }
 
   @override
@@ -196,9 +214,10 @@ class _RoomAssignmentPageState extends State<RoomAssignmentPage> {
             // This allows users to select another floor and repeat the process (A>B>C>D back to A)
             final propertyCubit = sl<PropertySetupCubit>();
             final localStorage = sl<LocalStorage>();
-            final storedBuildingId =
-                localStorage.getSelectedBuildingId() ??
-                propertyCubit.state.buildingId;
+            final storedBuildingId = widget.buildingId.isNotEmpty
+                ? widget.buildingId
+                : localStorage.getSelectedBuildingId() ??
+                      propertyCubit.state.buildingId;
 
             // Ensure numberOfFloors is preserved - use cached value, widget value, route params, or fetch from API
             // This is critical to show all floors (e.g., 4 floors, not just 1)
@@ -245,6 +264,14 @@ class _RoomAssignmentPageState extends State<RoomAssignmentPage> {
                   'constructionYear': widget.constructionYear!,
                 if (storedBuildingId != null && storedBuildingId.isNotEmpty)
                   'buildingId': storedBuildingId,
+                'siteId': widget.siteId.isNotEmpty
+                    ? widget.siteId
+                    : Uri.parse(
+                        GoRouterState.of(context).uri.toString(),
+                      ).queryParameters['siteId'],
+                // Pass floorName to mark the floor as completed
+                if (widget.floorName != null && widget.floorName!.isNotEmpty)
+                  'completedFloorName': widget.floorName!,
               },
             );
           } else if (state is SaveFloorFailure) {
@@ -847,21 +874,7 @@ class _DataSourceSelectionDialogState
                           ),
                         ),
                         const SizedBox(height: 24),
-                        // Fixed buttons at the bottom
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: _handleSkip,
-                            child: Text(
-                              'Schritt überspringen',
-                              style: AppTextStyles.bodyMedium.copyWith(
-                                decoration: TextDecoration.underline,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
+
                         Material(
                           color: Colors.transparent,
                           child: PrimaryOutlineButton(

@@ -138,7 +138,8 @@
     "add_new_property": "Add new property",
     "confirm_properties": "Confirm properties",
     "add_property_details": "Add property details",
-    "go_to_home": "Go to home page"
+    "go_to_home": "Go to home page",
+    "hint": "Specify location"
   },
   "add_property_name": {
     "progress_text": "Almost done, {name}!",
@@ -494,5 +495,11 @@
       "selected": "Selected",
       "invitations_sent": "Invitations sent successfully"
     }
+  },
+  "not_found": {
+    "title": "Page Not Found",
+    "message": "The page you are looking for could not be found. It may have been moved or deleted.",
+    "go_to_dashboard": "Go to Dashboard",
+    "missing_parameters": "Required parameters are missing: {missingParams}"
   }
 }

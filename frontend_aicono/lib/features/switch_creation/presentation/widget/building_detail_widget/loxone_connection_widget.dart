@@ -279,22 +279,23 @@ class _LoxoneConnectionWidgetState extends State<LoxoneConnectionWidget> {
                         ),
 
                         const SizedBox(height: 24),
-                        if (widget.onSkip != null)
-                          InkWell(
-                            onTap: widget.onSkip,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: Center(
-                                child: Text(
-                                  'Schritt überspringen',
-                                  style: AppTextStyles.bodyMedium.copyWith(
-                                    decoration: TextDecoration.underline,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+
+                        // if (widget.onSkip != null)
+                        //   InkWell(
+                        //     onTap: widget.onSkip,
+                        //     child: Padding(
+                        //       padding: const EdgeInsets.symmetric(vertical: 12),
+                        //       child: Center(
+                        //         child: Text(
+                        //           'Schritt überspringen',
+                        //           style: AppTextStyles.bodyMedium.copyWith(
+                        //             decoration: TextDecoration.underline,
+                        //             color: Colors.black87,
+                        //           ),
+                        //         ),
+                        //       ),
+                        //     ),
+                        //   ),
                         if (widget.onSkip != null) const SizedBox(height: 16),
                         PrimaryOutlineButton(
                           label: widget.isLoading

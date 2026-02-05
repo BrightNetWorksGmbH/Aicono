@@ -40,7 +40,14 @@ class _AddPropertyLocationPageState extends State<AddPropertyLocationPage> {
 
   void _handleSkip() {
     // TODO: navigate to next step or skip location setup
-    context.pushNamed(Routelists.floorPlanEditor);
+    context.pushNamed(
+      Routelists.selectResources,
+      queryParameters: {
+        if (widget.userName != null) 'userName': widget.userName!,
+        if (widget.switchId != null) 'switchId': widget.switchId!,
+        if (widget.siteId != null) 'siteId': widget.siteId!,
+      },
+    );
   }
 
   void _handleContinue(BuildContext blocContext) {

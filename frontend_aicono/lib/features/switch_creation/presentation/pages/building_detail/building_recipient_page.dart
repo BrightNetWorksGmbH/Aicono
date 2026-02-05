@@ -17,8 +17,8 @@ class BuildingRecipientPage extends StatefulWidget {
   final String? userName;
   final String? buildingAddress;
   final String? buildingName;
-  final String? buildingId;
-  final String? siteId;
+  final String buildingId;
+  final String siteId;
   final String? contactPerson; // JSON string of contact person
   final String? totalArea;
   final String? numberOfRooms;
@@ -29,8 +29,8 @@ class BuildingRecipientPage extends StatefulWidget {
     this.userName,
     this.buildingAddress,
     this.buildingName,
-    this.buildingId,
-    this.siteId,
+    required this.buildingId,
+    required this.siteId,
     this.contactPerson,
     this.totalArea,
     this.numberOfRooms,

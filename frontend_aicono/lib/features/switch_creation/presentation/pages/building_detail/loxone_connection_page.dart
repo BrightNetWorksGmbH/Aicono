@@ -13,11 +13,12 @@ import 'package:frontend_aicono/features/switch_creation/presentation/widget/bui
 class LoxoneConnectionPage extends StatefulWidget {
   final String? userName;
   final String? buildingId;
-
+  final String siteId;
   const LoxoneConnectionPage({
     super.key,
     this.userName,
     required this.buildingId,
+    required this.siteId,
   });
 
   @override
@@ -77,9 +78,16 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
   }
 
   void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
+    context.pushNamed(
+      Routelists.additionalBuildingList,
+      queryParameters: {
+        'siteId':
+            widget.siteId ??
+            Uri.parse(
+              GoRouterState.of(context).uri.toString(),
+            ).queryParameters['siteId'],
+      },
+    );
   }
 
   void _handleConnectionDataReady(Map<String, dynamic> data) {
@@ -128,6 +136,7 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
         queryParameters: {
           if (userName != null) 'userName': userName,
           if (buildingAddress != null) 'buildingAddress': buildingAddress,
+          'siteId': widget.siteId,
           if (widget.buildingId != null && widget.buildingId!.isNotEmpty)
             'buildingId': widget.buildingId!,
         },
@@ -155,42 +164,43 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
 
   void _handleSkip() {
     // Skip Loxone connection, navigate based on redirectTo parameter
-    final uri = Uri.parse(GoRouterState.of(context).uri.toString());
-    final redirectTo = uri.queryParameters['redirectTo'];
+    context.pop();
+    // final uri = Uri.parse(GoRouterState.of(context).uri.toString());
+    // final redirectTo = uri.queryParameters['redirectTo'];
 
-    if (redirectTo == 'setBuildingDetails') {
-      // Navigate to setBuildingDetails page
-      final buildingAddress = uri.queryParameters['buildingAddress'];
-      final userName = uri.queryParameters['userName'];
+    // if (redirectTo == 'setBuildingDetails') {
+    //   // Navigate to setBuildingDetails page
+    //   final buildingAddress = uri.queryParameters['buildingAddress'];
+    //   final userName = uri.queryParameters['userName'];
 
-      context.pushNamed(
-        Routelists.setBuildingDetails,
-        queryParameters: {
-          if (userName != null) 'userName': userName,
-          if (buildingAddress != null) 'buildingAddress': buildingAddress,
-          if (widget.buildingId != null && widget.buildingId!.isNotEmpty)
-            'buildingId': widget.buildingId!,
-        },
-      );
-    } else {
-      // Default: navigate to floor management
-      final buildingName = uri.queryParameters['buildingName'] ?? 'Building';
-      final buildingAddress = uri.queryParameters['buildingAddress'];
-      final numberOfFloors = uri.queryParameters['numberOfFloors'] ?? '1';
-      final totalArea = uri.queryParameters['totalArea'];
-      final constructionYear = uri.queryParameters['constructionYear'];
+    //   context.pushNamed(
+    //     Routelists.setBuildingDetails,
+    //     queryParameters: {
+    //       if (userName != null) 'userName': userName,
+    //       if (buildingAddress != null) 'buildingAddress': buildingAddress,
+    //       if (widget.buildingId != null && widget.buildingId!.isNotEmpty)
+    //         'buildingId': widget.buildingId!,
+    //     },
+    //   );
+    // } else {
+    //   // Default: navigate to floor management
+    //   final buildingName = uri.queryParameters['buildingName'] ?? 'Building';
+    //   final buildingAddress = uri.queryParameters['buildingAddress'];
+    //   final numberOfFloors = uri.queryParameters['numberOfFloors'] ?? '1';
+    //   final totalArea = uri.queryParameters['totalArea'];
+    //   final constructionYear = uri.queryParameters['constructionYear'];
 
-      context.pushNamed(
-        Routelists.buildingFloorManagement,
-        queryParameters: {
-          'buildingName': buildingName,
-          if (buildingAddress != null) 'buildingAddress': buildingAddress,
-          'numberOfFloors': numberOfFloors,
-          if (totalArea != null) 'totalArea': totalArea,
-          if (constructionYear != null) 'constructionYear': constructionYear,
-        },
-      );
-    }
+    //   context.pushNamed(
+    //     Routelists.buildingFloorManagement,
+    //     queryParameters: {
+    //       'buildingName': buildingName,
+    //       if (buildingAddress != null) 'buildingAddress': buildingAddress,
+    //       'numberOfFloors': numberOfFloors,
+    //       if (totalArea != null) 'totalArea': totalArea,
+    //       if (constructionYear != null) 'constructionYear': constructionYear,
+    //     },
+    //   );
+    // }
   }
 
   @override
@@ -213,6 +223,7 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
                 if (widget.userName != null) 'userName': widget.userName!,
                 if (widget.buildingId != null && widget.buildingId!.isNotEmpty)
                   'buildingId': widget.buildingId!,
+                'siteId': widget.siteId,
                 if (buildingAddress != null) 'buildingAddress': buildingAddress,
               },
             );
@@ -250,7 +261,9 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
                           onConnect: () => _handleConnect(blocContext),
                           onSkip: _handleSkip,
                           onBack: _handleBack,
-                          isLoading: state is ConnectLoxoneLoading || _isLoadingBuilding,
+                          isLoading:
+                              state is ConnectLoxoneLoading ||
+                              _isLoadingBuilding,
                           onConnectionDataReady: _handleConnectionDataReady,
                           initialData: _buildingData,
                         );

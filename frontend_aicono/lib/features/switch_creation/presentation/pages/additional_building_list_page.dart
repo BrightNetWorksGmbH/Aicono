@@ -247,6 +247,7 @@ class _AdditionalBuildingListPageState
       queryParameters: {
         if (widget.userName != null) 'userName': widget.userName!,
         'buildingId': building.id,
+        'siteId': widget.siteId!,
         'buildingAddress': building.name,
         'redirectTo':
             'setBuildingDetails', // Flag to redirect to setBuildingDetails after connection
@@ -256,7 +257,7 @@ class _AdditionalBuildingListPageState
 
   void _handleSkip() {
     // TODO: navigate to next step or skip
-    context.pushNamed(Routelists.addPropertyName);
+    context.pushNamed(Routelists.dashboard);
   }
 
   void _handleContinue(BuildContext blocContext) {

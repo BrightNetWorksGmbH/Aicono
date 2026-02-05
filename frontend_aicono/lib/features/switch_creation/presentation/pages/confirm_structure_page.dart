@@ -29,9 +29,17 @@ class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
     }
   }
 
-  void _handleSkip() {
+  void _handleSkip() async {
     // TODO: navigate to switchboard/dashboard directly (skip structure setup)
-    context.pushNamed(Routelists.floorPlanEditor);
+    final localStorage = sl<LocalStorage>();
+    await localStorage.setSelectedVerseId(widget.switchId!);
+    context.pushNamed(
+      Routelists.selectPropertyType,
+      queryParameters: {
+        if (widget.userName != null) 'userName': widget.userName!,
+        if (widget.switchId != null) 'switchId': widget.switchId!,
+      },
+    );
   }
 
   void _handleFindStructure() async {
