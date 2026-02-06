@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 class ReportDetailBuildingEntity extends Equatable {
   final String id;
   final String name;
+  final String? address;
   final num? size;
   final num? heatedArea;
   final String? typeOfUse;
@@ -12,6 +13,7 @@ class ReportDetailBuildingEntity extends Equatable {
   const ReportDetailBuildingEntity({
     required this.id,
     required this.name,
+    this.address,
     this.size,
     this.heatedArea,
     this.typeOfUse,
@@ -22,6 +24,7 @@ class ReportDetailBuildingEntity extends Equatable {
     return ReportDetailBuildingEntity(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
+      address: json['address']?.toString(),
       size: json['size'] is num ? json['size'] as num : null,
       heatedArea: json['heatedArea'] is num ? json['heatedArea'] as num : null,
       typeOfUse: (json['typeOfUse'] ?? json['type_of_use'])?.toString(),

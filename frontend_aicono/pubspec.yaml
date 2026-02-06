@@ -76,6 +76,7 @@ dependencies:
   flutter_svg: ^2.0.9
   flutter_colorpicker: ^1.0.3
   fl_chart: ^0.69.0
+  cylinder_bar_chart: ^0.0.6
 
   # Math utilities
   vector_math: ^2.1.4

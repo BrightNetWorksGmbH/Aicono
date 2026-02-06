@@ -2,6 +2,7 @@ const reportGenerationService = require('./reportGenerationService');
 const dashboardDiscoveryService = require('./dashboardDiscoveryService');
 const Building = require('../models/Building');
 const Reporting = require('../models/Reporting');
+const Site = require('../models/Site');
 
 /**
  * Report Content Service
@@ -21,10 +22,15 @@ class ReportContentService {
    * @returns {Promise<Object>} Report content data
    */
   async getReportContent(buildingId, reportingId, timeRange = null, options = {}) {
-    // Validate building exists
-    const building = await Building.findById(buildingId);
+    // Validate building exists and get site for address
+    const building = await Building.findById(buildingId).populate('site_id');
     if (!building) {
       throw new Error(`Building with ID ${buildingId} not found`);
+    }
+    let address = null;
+    if (building.site_id) {
+      const site = await Site.findById(building.site_id._id || building.site_id).lean();
+      address = site?.address || null;
     }
 
     // Validate reporting exists
@@ -60,6 +66,7 @@ class ReportContentService {
       building: {
         id: building._id.toString(),
         name: building.name,
+        address: address,
         size: building.building_size,
         heatedArea: building.heated_building_area ? parseFloat(building.heated_building_area.toString()) : null,
         typeOfUse: building.type_of_use,
