@@ -25,6 +25,7 @@ const sensorRouter = require('./routes/sensors');
 const reportingRouter = require('./routes/reporting');
 const reportsRouter = require('./routes/reports');
 const roleRouter = require('./routes/role');
+const googlemapRouter = require('./routes/googlemap');
 
 // CORS configuration
 const corsOptions = {
@@ -141,6 +142,7 @@ app.use('/api/v1/sensors', sensorRouter);
 app.use('/api/v1/reporting', reportingRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/roles', roleRouter);
+app.use('/api/v1/googlemap', googlemapRouter);
 
 // Handle 404 - Not Found routes
 app.use(notFoundHandler);
