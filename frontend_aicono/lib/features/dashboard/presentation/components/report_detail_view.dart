@@ -1,9 +1,12 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_detail_entity.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/components/anomalies_detail_dialog.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/components/weekday_weekend_cylinder_chart.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_summary_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_detail_bloc.dart';
 
@@ -20,11 +23,12 @@ class ReportDetailView extends StatelessWidget {
   });
 
   static const double _sectionSpacing = 28;
+  static const double _sectionGap =
+      36; // Spacing between previous content and next title
   static const double _cardPadding = 24;
   static const double _chartHeight = 220;
   static const double _hourlyChartHeight = 200;
-  static const int _maxBars = 8;
-  static const int _maxAnomaliesShown = 8;
+  static const int _maxBars = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -127,9 +131,11 @@ class ReportDetailView extends StatelessWidget {
     final contents = reportData['contents'] is Map<String, dynamic>
         ? reportData['contents'] as Map<String, dynamic>
         : <String, dynamic>{};
-    final timeRange = reportData['timeRange'] is Map<String, dynamic>
-        ? reportData['timeRange'] as Map<String, dynamic>
-        : null;
+    final timeRange =
+        detail.timeRange ??
+        (reportData['timeRange'] is Map<String, dynamic>
+            ? reportData['timeRange'] as Map<String, dynamic>
+            : null);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -138,258 +144,26 @@ class ReportDetailView extends StatelessWidget {
         children: [
           _buildHeader(building, reporting, timeRange),
           if (recipients.isNotEmpty) ...[
-            const SizedBox(height: _sectionSpacing),
+            const SizedBox(height: _sectionGap),
             _buildRecipientsSection(recipients),
           ],
-          const SizedBox(height: _sectionSpacing),
+          const SizedBox(height: _sectionGap),
           _buildKpis(reportData),
-          _buildDataQualityAndTemperature(contents),
-          _buildChartsSection(contents),
-          _buildHourlyPatternSection(contents),
-          _buildPeriodComparison(contents),
-          _buildBuildingComparison(contents),
-          _buildAnomaliesSection(contents),
-          const SizedBox(height: _sectionSpacing),
+          const SizedBox(height: _sectionGap),
           _buildContents(contents),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDataQualityAndTemperature(Map<String, dynamic> contents) {
-    final dataQuality = contents['DataQualityReport'];
-    final temp = contents['TemperatureAnalysis'];
-    final eui = contents['EUI'];
-    final perCapita = contents['PerCapitaConsumption'];
-    final hasAny =
-        dataQuality is Map ||
-        (temp is Map && temp['available'] == true) ||
-        (eui is Map && eui['available'] == true) ||
-        (perCapita is Map && perCapita['available'] == true);
-    if (!hasAny) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: _sectionSpacing),
-        Row(
-          children: [
-            Icon(Icons.insights, size: 20, color: AppTheme.primary),
-            const SizedBox(width: 10),
-            Text(
-              'INSIGHTS',
-              style: AppTextStyles.overline.copyWith(
-                color: Colors.grey[600],
-                letterSpacing: 1.2,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: [
-            if (dataQuality is Map) _buildDataQualityCard(dataQuality),
-            if (temp is Map &&
-                temp['available'] == true &&
-                temp['overall'] is Map)
-              _buildTemperatureCard(temp['overall'] as Map),
-            if (eui is Map && eui['available'] == true) _buildEuiCard(eui),
-            if (perCapita is Map && perCapita['available'] == true)
-              _buildPerCapitaCard(perCapita),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEuiCard(Map eui) {
-    final value = eui['eui']?.toString() ?? '—';
-    final annualized = eui['annualizedEUI']?.toString();
-    final unit = eui['unit']?.toString() ?? 'kWh/m²';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!, width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.square_foot, size: 28, color: AppTheme.primary),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'EUI',
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: Colors.grey[600],
-                ),
-              ),
-              Text(
-                '$value $unit',
-                style: AppTextStyles.titleSmall.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if (annualized != null)
-                Text(
-                  'Annualized: $annualized',
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPerCapitaCard(Map perCapita) {
-    final value = perCapita['perCapita']?.toString() ?? '—';
-    final unit = perCapita['unit']?.toString() ?? 'kWh/person';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!, width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.person_outline, size: 28, color: AppTheme.primary),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Per capita',
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: Colors.grey[600],
-                ),
-              ),
-              Text(
-                '$value $unit',
-                style: AppTextStyles.titleSmall.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDataQualityCard(Map dataQuality) {
-    final status = dataQuality['status']?.toString() ?? '—';
-    final message = dataQuality['message']?.toString() ?? '';
-    final avg = dataQuality['averageQuality'];
-    final warning = dataQuality['qualityWarning'] == true;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: warning ? Colors.orange[300]! : Colors.green[200]!,
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            warning ? Icons.warning_amber : Icons.check_circle_outline,
-            size: 28,
-            color: warning ? Colors.orange[700] : Colors.green[700],
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Data quality',
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                status,
-                style: AppTextStyles.titleSmall.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: warning ? Colors.orange[800] : Colors.green[800],
-                ),
-              ),
-              if (message.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  message,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-              if (avg != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  '$avg%',
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: Colors.grey[500],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTemperatureCard(Map overall) {
-    final avg = overall['average']?.toString() ?? '—';
-    final min = overall['min']?.toString() ?? '—';
-    final max = overall['max']?.toString() ?? '—';
-    final unit = overall['unit']?.toString() ?? '°C';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!, width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.thermostat, size: 28, color: AppTheme.primary),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Temperature',
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Avg $avg $unit',
-                style: AppTextStyles.titleSmall.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(
-                'Min $min · Max $max $unit',
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
+          const SizedBox(height: _sectionGap),
+          _buildChartsSection(contents),
+          const SizedBox(height: _sectionGap),
+          _buildTimeBasedAnalysisSection(contents),
+          const SizedBox(height: _sectionGap),
+          _buildHourlyPatternSection(contents),
+          const SizedBox(height: _sectionGap),
+          _buildPeriodComparison(contents),
+          const SizedBox(height: _sectionGap),
+          _buildBuildingComparison(contents),
+          const SizedBox(height: _sectionGap),
+          _buildAnomaliesSection(context, contents),
+          const SizedBox(height: _sectionSpacing),
         ],
       ),
     );
@@ -405,98 +179,159 @@ class ReportDetailView extends StatelessWidget {
     final change = period['change'] is Map ? period['change'] as Map : null;
     if (current == null && previous == null) return const SizedBox.shrink();
 
+    const headerBg = Color(0xFFE0F2F1); // Light teal
+    const cellPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: _sectionSpacing),
         _sectionWrapper(
-          title: 'Period comparison',
-          icon: Icons.compare_arrows,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (current != null)
-                Expanded(
-                  child: _periodTile(
-                    'Current',
-                    current['consumption']?.toString(),
-                    current['consumptionUnit']?.toString(),
-                    current['period'] is Map ? current['period'] as Map : null,
-                  ),
+          title: 'PeriodComparison',
+          showBorder: false,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!),
+              color: Colors.white,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Table(
+              border: TableBorder.all(color: Colors.grey[300]!),
+              columnWidths: const {
+                0: FlexColumnWidth(1.8),
+                1: FlexColumnWidth(1),
+                2: FlexColumnWidth(1),
+                3: FlexColumnWidth(1),
+              },
+              children: [
+                // Header row
+                TableRow(
+                  decoration: const BoxDecoration(color: headerBg),
+                  children: [
+                    _tableCell('', cellPadding, isHeader: true),
+                    _tableCell(
+                      'Consumption (kWh)',
+                      cellPadding,
+                      isHeader: true,
+                    ),
+                    _tableCell('Average Energy', cellPadding, isHeader: true),
+                    _tableCell('Peak (kW)', cellPadding, isHeader: true),
+                  ],
                 ),
-              if (previous != null) ...[
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _periodTile(
-                    'Previous',
-                    previous['consumption']?.toString(),
-                    previous['consumptionUnit']?.toString(),
-                    previous['period'] is Map
-                        ? previous['period'] as Map
-                        : null,
+                if (current != null)
+                  TableRow(
+                    children: [
+                      _tableCell(
+                        _formatPeriod(current['period']),
+                        cellPadding,
+                        alignLeft: true,
+                      ),
+                      _tableCell(
+                        _formatNum(current['consumption']),
+                        cellPadding,
+                      ),
+                      _tableCell(
+                        _formatNum(
+                          current['averageEnergy'] ?? current['average'],
+                        ),
+                        cellPadding,
+                      ),
+                      _tableCell(_formatNum(current['peak']), cellPadding),
+                    ],
                   ),
-                ),
+                if (previous != null)
+                  TableRow(
+                    children: [
+                      _tableCell(
+                        _formatPeriod(previous['period']),
+                        cellPadding,
+                        alignLeft: true,
+                      ),
+                      _tableCell(
+                        _formatNum(previous['consumption']),
+                        cellPadding,
+                      ),
+                      _tableCell(
+                        _formatNum(
+                          previous['averageEnergy'] ?? previous['average'],
+                        ),
+                        cellPadding,
+                      ),
+                      _tableCell(_formatNum(previous['peak']), cellPadding),
+                    ],
+                  ),
+                if (change != null)
+                  TableRow(
+                    children: [
+                      _tableCell('Change', cellPadding, alignLeft: true),
+                      _tableCell(
+                        _formatNum(change['consumption']),
+                        cellPadding,
+                      ),
+                      _tableCell(
+                        _formatNum(
+                          change['averageEnergy'] ?? change['average'],
+                        ),
+                        cellPadding,
+                      ),
+                      _tableCell(_formatNum(change['peak']), cellPadding),
+                    ],
+                  ),
               ],
-              if (change != null) ...[
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _periodTile(
-                    'Change',
-                    change['consumption']?.toString(),
-                    change['consumptionUnit']?.toString(),
-                    null,
-                    isChange: true,
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _periodTile(
-    String label,
-    String? value,
-    String? unit,
-    Map? period, {
-    bool isChange = false,
+  String _formatPeriod(dynamic period) {
+    if (period is! Map) return '–';
+    final start = period['start'] ?? period['startDate'];
+    if (start == null) return '–';
+    final startStr = start.toString();
+    if (startStr.isEmpty) return '–';
+    // Parse ISO date (e.g. 2026-01-27 or 2026-01-27T13:46:00.000Z)
+    final dateMatch = RegExp(r'(\d{4}-\d{2}-\d{2})').firstMatch(startStr);
+    final timeMatch = RegExp(r'T(\d{2}:\d{2})').firstMatch(startStr);
+    final date = dateMatch?.group(1) ?? startStr.split('T').first;
+    final time = timeMatch?.group(1);
+    if (time != null) return '$date\n$time';
+    return date;
+  }
+
+  String _formatNum(dynamic value) {
+    if (value == null) return '–';
+    if (value is num) return value.toStringAsFixed(3);
+    return value.toString();
+  }
+
+  Widget _tableCell(
+    String text,
+    EdgeInsets padding, {
+    bool isHeader = false,
+    bool alignLeft = false,
+    bool isBold = false,
   }) {
-    String sub = '';
-    if (period != null) {
-      final start = period['start'] ?? period['startDate'];
-      final end = period['end'] ?? period['endDate'];
-      if (start != null && end != null) sub = '$start – $end';
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTextStyles.labelMedium.copyWith(
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w600,
-          ),
+    return Padding(
+      padding: padding,
+      child: Align(
+        alignment: alignLeft ? Alignment.centerLeft : Alignment.center,
+        child: Text(
+          text,
+          style: isHeader
+              ? AppTextStyles.labelMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                )
+              : AppTextStyles.bodyMedium.copyWith(
+                  color: Colors.grey[800],
+                  fontWeight: isBold ? FontWeight.w600 : null,
+                ),
+          textAlign: alignLeft ? TextAlign.left : TextAlign.center,
         ),
-        const SizedBox(height: 8),
-        Text(
-          '${value ?? '–'} ${unit ?? ''}'.trim(),
-          style: AppTextStyles.titleMedium.copyWith(
-            fontWeight: FontWeight.bold,
-            color: isChange ? AppTheme.primary : null,
-          ),
-        ),
-        if (sub.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(
-            sub,
-            style: AppTextStyles.labelSmall.copyWith(color: Colors.grey[500]),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ],
+      ),
     );
   }
 
@@ -507,83 +342,86 @@ class ReportDetailView extends StatelessWidget {
     final buildings = comp['buildings'];
     if (buildings is! List || buildings.isEmpty) return const SizedBox.shrink();
 
-    final list = buildings
-        .whereType<Map>()
-        .map(
-          (b) => (
-            (b['buildingName'] ?? b['building_name'] ?? '—').toString(),
-            (b['consumption'] is num)
-                ? (b['consumption'] as num).toDouble()
-                : 0.0,
-            (b['consumptionUnit'] ?? b['consumption_unit'] ?? 'kWh').toString(),
-          ),
-        )
-        .toList();
+    final list = buildings.whereType<Map>().toList();
     if (list.isEmpty) return const SizedBox.shrink();
 
-    final maxConsumption = list
-        .map((e) => e.$2)
-        .reduce((a, b) => a > b ? a : b);
+    const headerBg = Color(0xFFE0F2F1); // Light teal
+    const cellPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 12);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: _sectionSpacing),
         _sectionWrapper(
-          title: 'Building comparison',
-          icon: Icons.apartment,
-          child: Column(
-            children: list.map((e) {
-              final pct = maxConsumption > 0 ? (e.$2 / maxConsumption) : 0.0;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          title: 'Building Comparison',
+          showBorder: false,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!),
+              color: Colors.white,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Table(
+              border: TableBorder.all(color: Colors.grey[300]!),
+              columnWidths: const {
+                0: FlexColumnWidth(1.5),
+                1: FlexColumnWidth(1),
+                2: FlexColumnWidth(1.2),
+                3: FlexColumnWidth(1),
+                4: FlexColumnWidth(1),
+              },
+              children: [
+                TableRow(
+                  decoration: const BoxDecoration(color: headerBg),
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            e.$1,
-                            style: AppTextStyles.titleSmall.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Text(
-                          '${e.$2.toStringAsFixed(2)} ${e.$3}',
-                          style: AppTextStyles.labelMedium.copyWith(
-                            color: Colors.grey[700],
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                    _tableCell('', cellPadding, isHeader: true),
+                    _tableCell(
+                      'Consumption (kWh)',
+                      cellPadding,
+                      isHeader: true,
                     ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: pct,
-                        minHeight: 8,
-                        backgroundColor: Colors.grey[200],
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppTheme.primary.withOpacity(0.7),
-                        ),
-                      ),
+                    _tableCell(
+                      'Average Energy (kWh)',
+                      cellPadding,
+                      isHeader: true,
                     ),
+                    _tableCell('Peak (kW)', cellPadding, isHeader: true),
+                    _tableCell('EUI (kWh/m²)', cellPadding, isHeader: true),
                   ],
                 ),
-              );
-            }).toList(),
+                ...list.map(
+                  (b) => TableRow(
+                    children: [
+                      _tableCell(
+                        (b['buildingName'] ?? b['building_name'] ?? '—')
+                            .toString(),
+                        cellPadding,
+                        alignLeft: true,
+                        isBold: true,
+                      ),
+                      _tableCell(_formatNum(b['consumption']), cellPadding),
+                      _tableCell(
+                        _formatNum(b['average'] ?? b['averageEnergy']),
+                        cellPadding,
+                      ),
+                      _tableCell(_formatNum(b['peak']), cellPadding),
+                      _tableCell(_formatNum(b['eui']), cellPadding),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildAnomaliesSection(Map<String, dynamic> contents) {
+  Widget _buildAnomaliesSection(
+    BuildContext context,
+    Map<String, dynamic> contents,
+  ) {
     final anomaliesData = contents['Anomalies'];
     if (anomaliesData is! Map) return const SizedBox.shrink();
 
@@ -598,82 +436,174 @@ class ReportDetailView extends StatelessWidget {
     final anomalies = anomaliesData['anomalies'] is List
         ? (anomaliesData['anomalies'] as List).whereType<Map>().toList()
         : <Map>[];
-    final showList = anomalies.isNotEmpty;
+
+    int toInt(dynamic v) {
+      if (v is num) return v.toInt();
+      return int.tryParse(v?.toString() ?? '0') ?? 0;
+    }
+
+    final highCount = toInt(bySeverity['High']);
+    final mediumCount = toInt(bySeverity['Medium']);
+    final lowCount = toInt(bySeverity['Low']);
+
+    final severityValues = [highCount, mediumCount, lowCount];
+    final minCount = severityValues.reduce((a, b) => a < b ? a : b);
+    final maxCount = severityValues.reduce((a, b) => a > b ? a : b);
+
+    final sensorCount = anomalies
+        .map(
+          (a) =>
+              a['sensorName']?.toString() ?? a['sensor_id']?.toString() ?? '',
+        )
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: _sectionSpacing),
-        _sectionWrapper(
-          title: 'Anomalies',
-          icon: Icons.warning_amber_rounded,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  if (total != null)
-                    _anomalyChip('Total', total.toString(), Colors.grey[700]!),
-                  ...bySeverity.entries.map((e) {
-                    Color c = Colors.grey[600]!;
-                    if (e.key == 'High') c = Colors.red[700]!;
-                    if (e.key == 'Medium') c = Colors.orange[700]!;
-                    if (e.key == 'Low') c = Colors.amber[700]!;
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 12),
-                      child: _anomalyChip(
-                        e.key.toString(),
-                        e.value?.toString() ?? '0',
-                        c,
-                      ),
-                    );
-                  }),
-                ],
+        Row(
+          children: [
+            Text(
+              'ANOMALIES (SEVERITY)',
+              style: AppTextStyles.overline.copyWith(
+                color: Colors.grey[800],
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.bold,
               ),
-              if (showList) ...[
-                const SizedBox(height: 20),
-                Text(
-                  'Recent anomalies',
-                  style: AppTextStyles.titleSmall.copyWith(
+            ),
+            const Spacer(),
+            if (anomalies.isNotEmpty)
+              GestureDetector(
+                onTap: () => AnomaliesDetailDialog.show(context, anomalies),
+                child: Text(
+                  'Detail View',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppTheme.primary,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[800],
+                    decoration: TextDecoration.underline,
                   ),
                 ),
-                const SizedBox(height: 12),
-                ...anomalies
-                    .take(_maxAnomaliesShown)
-                    .map((a) => _buildAnomalyTile(a)),
-              ],
-            ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final crossAxisCount = constraints.maxWidth > 500 ? 2 : 1;
+              return GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: crossAxisCount,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 4.5,
+                children: [
+                  _buildAnomalyCard(total?.toString() ?? '0', 'Total'),
+                  _buildAnomalyCard(
+                    (bySeverity['High'] ?? 0).toString(),
+                    'High',
+                  ),
+                  _buildAnomalyMinMaxCard(
+                    minCount.toString(),
+                    maxCount.toString(),
+                  ),
+                  _buildAnomalyCard(sensorCount.toString(), 'Sensor Count'),
+                ],
+              );
+            },
           ),
         ),
       ],
     );
   }
 
-  Widget _anomalyChip(String label, String value, Color color) {
+  Widget _buildAnomalyCard(String value, String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.5)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[300]!),
+        color: Colors.white,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
-            style: AppTextStyles.labelSmall.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
+            value,
+            style: AppTextStyles.titleLarge.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[900],
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(height: 2),
           Text(
-            value,
-            style: AppTextStyles.labelMedium.copyWith(
-              color: color,
-              fontWeight: FontWeight.bold,
+            label,
+            style: AppTextStyles.labelSmall.copyWith(color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnomalyMinMaxCard(String minValue, String maxValue) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[300]!),
+        color: Colors.white,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  minValue,
+                  style: AppTextStyles.titleLarge.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[900],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Minimum',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(width: 1, height: 28, color: Colors.grey[300]),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  maxValue,
+                  style: AppTextStyles.titleLarge.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[900],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Maximum',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -681,84 +611,256 @@ class ReportDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildAnomalyTile(Map a) {
-    final ts = a['timestamp']?.toString() ?? '';
-    final sensor = a['sensorName']?.toString() ?? '—';
-    final rule = a['violatedRule']?.toString() ?? '';
-    final severity = a['severity']?.toString() ?? '—';
-    final value = a['value']?.toString() ?? '—';
-    final status = a['status']?.toString() ?? '—';
-    Color severityColor = Colors.grey[700]!;
-    if (severity == 'High') severityColor = Colors.red[700]!;
-    if (severity == 'Medium') severityColor = Colors.orange[700]!;
-    if (severity == 'Low') severityColor = Colors.amber[700]!;
+  Widget _buildTimeBasedAnalysisSection(Map<String, dynamic> contents) {
+    final timeData = contents['TimeBasedAnalysis'];
+    if (timeData is! Map) return const SizedBox.shrink();
 
-    String timeStr = ts;
-    if (ts.length > 19) timeStr = ts.substring(0, 19).replaceFirst('T', ' ');
+    final dayNight = timeData['dayNight'] is Map
+        ? timeData['dayNight'] as Map
+        : null;
+    final weekdayWeekend = timeData['weekdayWeekend'] is Map
+        ? timeData['weekdayWeekend'] as Map
+        : null;
+
+    if (dayNight == null && weekdayWeekend == null) {
+      return const SizedBox.shrink();
+    }
+
+    const dayColor = Color(0xFF26A69A);
+    const nightColor = Color(0xFF8BC34A);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: _sectionSpacing),
+        Text(
+          'TIMEBASEDANALYSIS',
+          style: AppTextStyles.overline.copyWith(
+            color: Colors.grey[800],
+            letterSpacing: 1.2,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 700;
+            if (isWide) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (dayNight != null)
+                    Expanded(
+                      child: _buildDayNightCard(dayNight, dayColor, nightColor),
+                    ),
+                  if (dayNight != null && weekdayWeekend != null)
+                    const SizedBox(width: 16),
+                  if (weekdayWeekend != null)
+                    Expanded(
+                      child: _buildWeekdayWeekendCard(
+                        weekdayWeekend,
+                        dayColor,
+                        nightColor,
+                      ),
+                    ),
+                ],
+              );
+            }
+            return Column(
+              children: [
+                if (dayNight != null) ...[
+                  _buildDayNightCard(dayNight, dayColor, nightColor),
+                  const SizedBox(height: 16),
+                ],
+                if (weekdayWeekend != null)
+                  _buildWeekdayWeekendCard(
+                    weekdayWeekend,
+                    dayColor,
+                    nightColor,
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDayNightCard(Map dayNight, Color dayColor, Color nightColor) {
+    final day = (dayNight['day'] is num)
+        ? (dayNight['day'] as num).toDouble()
+        : 0.0;
+    final night = (dayNight['night'] is num)
+        ? (dayNight['night'] as num).toDouble()
+        : 0.0;
+    final total = day + night;
+    final dayPct = total > 0 ? (day / total * 100).round() : 0;
+    final dayVal = day > 0 ? day : 0.01;
+    final nightVal = night > 0 ? night : 0.01;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: severityColor.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+        color: Colors.white,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: severityColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(6),
+          Text(
+            'Day & Night Comparison (kWh)',
+            style: AppTextStyles.titleSmall.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[800],
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 180,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                PieChart(
+                  PieChartData(
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 50,
+                    sections: [
+                      PieChartSectionData(
+                        value: dayVal,
+                        color: dayColor,
+                        radius: 55,
+                        showTitle: false,
+                      ),
+                      PieChartSectionData(
+                        value: nightVal,
+                        color: nightColor,
+                        radius: 55,
+                        showTitle: false,
+                      ),
+                    ],
+                  ),
+                  duration: const Duration(milliseconds: 300),
                 ),
-                child: Text(
-                  severity,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: severityColor,
-                    fontWeight: FontWeight.w700,
+                Text(
+                  '$dayPct%',
+                  style: AppTextStyles.titleLarge.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[900],
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                timeStr,
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: Colors.grey[600],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  day.toStringAsFixed(2),
+                  style: AppTextStyles.titleSmall.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: dayColor,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              Text(
-                status,
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: Colors.grey[600],
+                Text(
+                  night.toStringAsFixed(2),
+                  style: AppTextStyles.titleSmall.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: nightColor,
+                  ),
                 ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: dayColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Day',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: nightColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Night',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeekdayWeekendCard(
+    Map weekdayWeekend,
+    Color weekdayColor,
+    Color weekendColor,
+  ) {
+    final weekday = (weekdayWeekend['weekday'] is num)
+        ? (weekdayWeekend['weekday'] as num).toDouble()
+        : 0.0;
+    final weekend = (weekdayWeekend['weekend'] is num)
+        ? (weekdayWeekend['weekend'] as num).toDouble()
+        : 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+        color: Colors.white,
+      ),
+      child: Column(
+        children: [
           Text(
-            sensor,
+            'Weekday & Weekend\nComparison (kWh)',
+            textAlign: TextAlign.center,
             style: AppTextStyles.titleSmall.copyWith(
               fontWeight: FontWeight.w600,
+              color: Colors.grey[800],
             ),
           ),
-          if (rule.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              rule,
-              style: AppTextStyles.labelSmall.copyWith(color: Colors.grey[700]),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-          if (value != '—')
-            Text(
-              'Value: $value',
-              style: AppTextStyles.labelSmall.copyWith(color: Colors.grey[600]),
-            ),
+          const SizedBox(height: 20),
+          WeekdayWeekendCylinderChart(
+            weekendValue: weekend,
+            weekdayValue: weekday,
+            weekendColor: weekendColor,
+            weekdayColor: weekdayColor,
+          ),
         ],
       ),
     );
@@ -778,78 +880,69 @@ class ReportDetailView extends StatelessWidget {
           : 0.0;
       byHour[hour] = (byHour[hour] ?? 0) + c;
     }
+    final maxHour = byHour.keys.isEmpty
+        ? 23
+        : byHour.keys.reduce((a, b) => a > b ? a : b);
+    final hourCount = (maxHour > 23 ? maxHour + 1 : 24).clamp(24, 48);
     final spots = List.generate(
-      24,
+      hourCount,
       (i) => FlSpot(i.toDouble(), byHour[i] ?? 0),
     );
     final maxY = spots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
     if (maxY <= 0) return const SizedBox.shrink();
 
+    // Round Y range to nearest 10 (e.g. 0-70)
+    final yMax = (maxY * 1.1).clamp(10, double.infinity);
+    final yMaxRounded = ((yMax / 10).ceil() * 10).toDouble();
+    const chartGreen = Color(0xFF2E7D32);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: _sectionSpacing),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(_cardPadding),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey[300]!, width: 1),
-          ),
+        _sectionWrapper(
+          title: 'Consumption by hour',
+          showBorder: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.schedule, size: 20, color: AppTheme.primary),
-                  const SizedBox(width: 10),
                   Text(
-                    'Consumption by hour',
-                    style: AppTextStyles.titleSmall.copyWith(
+                    'KWH',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: Colors.grey[600],
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey[800],
                     ),
                   ),
                 ],
               ),
-              if (timeData['dayNight'] is Map) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Day ${timeData['dayNight']['day']?.toString() ?? '—'} · Night ${timeData['dayNight']['night']?.toString() ?? '—'} (Day ${timeData['dayNight']['dayPercentage'] ?? '—'}%)',
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               SizedBox(
                 height: _hourlyChartHeight,
                 child: LineChart(
                   LineChartData(
                     minX: 0,
-                    maxX: 23,
+                    maxX: (hourCount - 1).toDouble(),
                     minY: 0,
-                    maxY: maxY * 1.15,
+                    maxY: yMaxRounded,
                     gridData: FlGridData(
                       show: true,
-                      drawVerticalLine: true,
-                      verticalInterval: 4,
-                      horizontalInterval: maxY > 0 ? maxY / 4 : 1,
+                      drawVerticalLine: false,
+                      horizontalInterval: yMaxRounded / 7,
                       getDrawingHorizontalLine: (v) =>
-                          FlLine(color: Colors.grey[200]!, strokeWidth: 1),
-                      getDrawingVerticalLine: (v) =>
-                          FlLine(color: Colors.grey[100]!, strokeWidth: 1),
+                          FlLine(color: Colors.grey[300]!, strokeWidth: 1),
                     ),
                     titlesData: FlTitlesData(
                       leftTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
-                          reservedSize: 44,
-                          interval: maxY > 0 ? maxY / 4 : 1,
+                          reservedSize: 36,
+                          interval: yMaxRounded / 7,
                           getTitlesWidget: (v, m) => Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: Text(
-                              _formatChartValue(v),
+                              v.toInt().toString(),
                               style: AppTextStyles.labelSmall.copyWith(
                                 color: Colors.grey[600],
                               ),
@@ -863,7 +956,7 @@ class ReportDetailView extends StatelessWidget {
                           reservedSize: 28,
                           interval: 2,
                           getTitlesWidget: (v, m) => Text(
-                            '${v.toInt()}h',
+                            '${v.toInt()}',
                             style: AppTextStyles.labelSmall.copyWith(
                               color: Colors.grey[600],
                             ),
@@ -882,12 +975,17 @@ class ReportDetailView extends StatelessWidget {
                       enabled: true,
                       touchTooltipData: LineTouchTooltipData(
                         tooltipRoundedRadius: 8,
+                        getTooltipColor: (_) => Colors.white,
+                        tooltipPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         getTooltipItems: (touchedSpots) => touchedSpots
                             .map(
                               (s) => LineTooltipItem(
-                                '${s.x.toInt()}h: ${_formatChartValue(s.y)}',
+                                '${_formatChartValue(s.y)}KWH /${s.x.toInt()} hr',
                                 AppTextStyles.labelSmall.copyWith(
-                                  color: Colors.white,
+                                  color: Colors.grey[800],
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -898,29 +996,39 @@ class ReportDetailView extends StatelessWidget {
                     lineBarsData: [
                       LineChartBarData(
                         spots: spots,
-                        isCurved: true,
-                        curveSmoothness: 0.35,
-                        color: AppTheme.primary,
+                        isCurved: false,
+                        color: chartGreen.withValues(alpha: 0.75),
                         barWidth: 2.5,
-                        isStrokeCapRound: true,
-                        dotData: FlDotData(
-                          show: true,
-                          getDotPainter: (spot, percent, barData, index) =>
-                              FlDotCirclePainter(
-                                radius: 3,
-                                color: AppTheme.primary,
-                                strokeWidth: 1.5,
-                                strokeColor: Colors.white,
-                              ),
-                        ),
+                        isStrokeCapRound: false,
+                        dotData: FlDotData(show: false),
                         belowBarData: BarAreaData(
                           show: true,
-                          color: AppTheme.primary.withOpacity(0.12),
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              // Bottom: very transparent
+                              chartGreen.withValues(alpha: 0.10),
+                              // Mid: medium transparency
+                              chartGreen.withValues(alpha: 0.40),
+                              // Top: around 0.75 opacity as requested
+                              chartGreen.withValues(alpha: 0.75),
+                            ],
+                            stops: const [0.0, 0.5, 1.0],
+                          ),
                         ),
                       ),
                     ],
                   ),
                   duration: const Duration(milliseconds: 300),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'hr',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -933,34 +1041,33 @@ class ReportDetailView extends StatelessWidget {
   Widget _sectionWrapper({
     required String title,
     required Widget child,
-    IconData? icon,
+    bool showBorder = true,
+    bool zeroHorizontalPadding = false,
+    double titleToContentSpacing = 10,
   }) {
+    final padding = zeroHorizontalPadding
+        ? const EdgeInsets.only(top: 8, bottom: 16)
+        : EdgeInsets.all(showBorder ? _cardPadding : 16);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 20, color: AppTheme.primary),
-              const SizedBox(width: 10),
-            ],
-            Text(
-              title.toUpperCase(),
-              style: AppTextStyles.overline.copyWith(
-                color: Colors.grey[600],
-                letterSpacing: 1.2,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        Text(
+          title.toUpperCase(),
+          style: AppTextStyles.overline.copyWith(
+            color: Colors.grey[800],
+            letterSpacing: 1.2,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: titleToContentSpacing),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(_cardPadding),
+          padding: padding,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey[300]!, width: 1),
+            border: showBorder
+                ? Border.all(color: Colors.grey[300]!, width: 1)
+                : null,
           ),
           child: child,
         ),
@@ -973,74 +1080,97 @@ class ReportDetailView extends StatelessWidget {
     ReportDetailReportingEntity reporting,
     Map<String, dynamic>? timeRange,
   ) {
-    String timeRangeStr = '';
+    String periodLabel = reporting.interval.isNotEmpty
+        ? reporting.interval[0].toUpperCase() +
+              reporting.interval.substring(1).toLowerCase()
+        : 'Weekly';
     if (timeRange != null) {
-      final start = timeRange['start'] ?? timeRange['startDate'];
-      final end = timeRange['end'] ?? timeRange['endDate'];
-      if (start != null && end != null) {
-        timeRangeStr = '$start – $end';
+      final startRaw = timeRange['start'] ?? timeRange['startDate'];
+      final endRaw = timeRange['end'] ?? timeRange['endDate'];
+      if (startRaw != null && endRaw != null) {
+        final start = _parseReportDate(startRaw);
+        final end = _parseReportDate(endRaw);
+        if (start != null && end != null) {
+          final formatter = DateFormat('MMM d, yyyy');
+          periodLabel = '${formatter.format(start)} – ${formatter.format(end)}';
+        }
       }
     }
-    return _sectionWrapper(
-      title: 'Report',
-      icon: Icons.assessment_outlined,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            building.name,
-            style: AppTextStyles.headlineSmall.copyWith(
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.5,
-            ),
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          building.name,
+          style: AppTextStyles.headlineSmall.copyWith(
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.5,
+            color: Colors.black,
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [_chip(reporting.name), _chip(reporting.interval)],
-          ),
-          if (timeRangeStr.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(Icons.schedule, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 8),
-                Text(
-                  timeRangeStr,
-                  style: AppTextStyles.labelMedium.copyWith(
+        ),
+        if (building.address != null && building.address!.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                Icons.location_on_outlined,
+                size: 16,
+                color: Colors.grey[600],
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  building.address!,
+                  style: AppTextStyles.bodyMedium.copyWith(
                     color: Colors.grey[600],
                   ),
                 ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _chip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.primary.withOpacity(0.5)),
-      ),
-      child: Text(
-        label,
-        style: AppTextStyles.labelMedium.copyWith(
-          color: AppTheme.primary,
-          fontWeight: FontWeight.w600,
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.zero,
+            border: Border.all(color: const Color(0xFF4A6B5A)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                periodLabel,
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(width: 16),
+              GestureDetector(
+                onTap: () {
+                  // TODO: Open period change dialog/sheet
+                },
+                child: Text(
+                  'Change',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
   Widget _buildRecipientsSection(List<ReportRecipientEntity> recipients) {
     return _sectionWrapper(
       title: 'Recipients',
-      icon: Icons.people_outline,
       child: Column(
         children: recipients.map((r) {
           return Padding(
@@ -1104,50 +1234,131 @@ class ReportDetailView extends StatelessWidget {
     }
 
     return _sectionWrapper(
-      title: 'Key metrics',
-      icon: Icons.show_chart,
-      child: Wrap(
-        spacing: 20,
-        runSpacing: 16,
+      title: 'Key Metrics',
+      showBorder: false,
+      zeroHorizontalPadding: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (energy != null) ...[
-            _kpiTile(
-              'Total consumption',
-              energy['total_consumption']?.toString() ?? '–',
-              energy['unit']?.toString() ?? '',
-              Icons.bolt,
-            ),
-            _kpiTile(
-              'Average',
-              energy['average']?.toString() ?? '–',
-              energy['unit']?.toString() ?? '',
-              Icons.trending_up,
-            ),
-          ],
-          if (power != null) ...[
-            _kpiTile(
-              'Peak',
-              power['peak']?.toString() ?? '–',
-              power['unit']?.toString() ?? '',
-              Icons.offline_bolt,
-            ),
-            _kpiTile(
-              'Average power',
-              power['average']?.toString() ?? '–',
-              power['unit']?.toString() ?? '',
-              Icons.speed,
-            ),
-          ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final crossAxisCount = constraints.maxWidth > 600 ? 2 : 1;
+              return GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: crossAxisCount,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 4.5,
+                children: [
+                  if (energy != null) ...[
+                    _kpiTile(
+                      'Total Consumption',
+                      energy['total_consumption']?.toString() ?? '–',
+                      energy['unit']?.toString() ?? 'kWh',
+                      Icons.bolt,
+                    ),
+                    _kpiTile(
+                      'Average Energy',
+                      energy['average']?.toString() ?? '–',
+                      energy['unit']?.toString() ?? 'kWh',
+                      Icons.trending_up,
+                    ),
+                  ],
+                  if (power != null) ...[
+                    _kpiTile(
+                      'Peak-Load',
+                      power['peak']?.toString() ?? '–',
+                      power['unit']?.toString() ?? 'kW',
+                      Icons.offline_bolt,
+                    ),
+                    _kpiTile(
+                      'Average Power',
+                      power['average']?.toString() ?? '–',
+                      power['unit']?.toString() ?? 'kW',
+                      Icons.speed,
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
           if (quality != null &&
               quality['average'] != null &&
               quality['warning'] != null) ...[
-            _kpiTile(
-              'Data quality',
-              '${quality['average']}%',
-              quality['warning'] == true ? 'Warning' : 'OK',
-              Icons.verified,
-            ),
+            const SizedBox(height: 10),
+            _buildDataQualityKpiCard(quality),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDataQualityKpiCard(Map quality) {
+    final avg = quality['average']?.toString() ?? '0';
+    final isWarning = quality['warning'] == true;
+    final statusText = isWarning
+        ? 'Needs attention'
+        : 'Excellent, Data quality is good';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isWarning ? Colors.orange[200]! : Colors.green[200]!,
+          width: 1,
+        ),
+        color: isWarning ? Colors.orange[50] : Colors.green[50],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      '$avg%',
+                      style: AppTextStyles.titleLarge.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isWarning
+                            ? Colors.orange[800]
+                            : Colors.green[800],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '($statusText)',
+                        style: AppTextStyles.labelMedium.copyWith(
+                          color: isWarning
+                              ? Colors.orange[700]
+                              : Colors.green[700],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Average Data Quality',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            isWarning ? Icons.warning_amber_rounded : Icons.check_circle,
+            size: 20,
+            color: isWarning ? Colors.orange[600] : Colors.green[600],
+          ),
         ],
       ),
     );
@@ -1155,115 +1366,102 @@ class ReportDetailView extends StatelessWidget {
 
   Widget _kpiTile(String label, String value, String unit, IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      constraints: const BoxConstraints(minWidth: 140),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey[300]!),
+        color: Colors.white,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 18, color: AppTheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
           Text(
             value,
             style: AppTextStyles.titleLarge.copyWith(
               fontWeight: FontWeight.bold,
               letterSpacing: -0.5,
+              color: Colors.grey[900],
             ),
           ),
-          if (unit.isNotEmpty)
-            Text(
-              unit,
-              style: AppTextStyles.labelSmall.copyWith(color: Colors.grey[500]),
-            ),
+          const SizedBox(height: 2),
+          Text(
+            '$label ($unit)',
+            style: AppTextStyles.labelSmall.copyWith(color: Colors.grey[600]),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildChartsSection(Map<String, dynamic> contents) {
-    final breakdownChart = _buildBreakdownBarChart(contents);
-    final roomChart = _buildConsumptionByRoomChart(contents);
-    if (breakdownChart == null && roomChart == null) {
+    final lineChart = _buildConsumptionAndAverageEnergyLineChart(contents);
+    final peakLoadChart = _buildPeakLoadByRoomBarChart(contents);
+    if (lineChart == null && peakLoadChart == null) {
       return const SizedBox.shrink();
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: _sectionSpacing),
-        Row(
-          children: [
-            Icon(Icons.bar_chart, size: 20, color: AppTheme.primary),
-            const SizedBox(width: 10),
-            Text(
-              'OVERVIEW',
-              style: AppTextStyles.overline.copyWith(
-                color: Colors.grey[600],
-                letterSpacing: 1.2,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        Text(
+          'OVERVIEW',
+          style: AppTextStyles.overline.copyWith(
+            color: Colors.grey[800],
+            letterSpacing: 1.2,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 16),
-        if (breakdownChart != null) ...[
+        if (lineChart != null) ...[
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(_cardPadding),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.grey[300]!, width: 1),
+              color: Colors.white,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'By measurement type',
+                  'Average Energy and Consumption by room (kWh)',
                   style: AppTextStyles.titleSmall.copyWith(
                     fontWeight: FontWeight.w600,
                     color: Colors.grey[800],
                   ),
                 ),
                 const SizedBox(height: 20),
-                SizedBox(height: _chartHeight, child: breakdownChart),
+                SizedBox(height: _chartHeight, child: lineChart),
+                const SizedBox(height: 16),
+                _buildLineChartLegend(),
               ],
             ),
           ),
           const SizedBox(height: 20),
         ],
-        if (roomChart != null)
+        if (peakLoadChart != null)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(_cardPadding),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.grey[300]!, width: 1),
+              color: Colors.white,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Consumption by room (top $_maxBars)',
+                  'Peak load by room (kW)',
                   style: AppTextStyles.titleSmall.copyWith(
                     fontWeight: FontWeight.w600,
                     color: Colors.grey[800],
                   ),
                 ),
                 const SizedBox(height: 20),
-                SizedBox(height: _chartHeight, child: roomChart),
+                SizedBox(height: _chartHeight, child: peakLoadChart),
               ],
             ),
           ),
@@ -1271,94 +1469,138 @@ class ReportDetailView extends StatelessWidget {
     );
   }
 
-  static String _formatChartValue(double v) {
-    if (v >= 1e6) return '${(v / 1e6).toStringAsFixed(1)}M';
-    if (v >= 1e3) return '${(v / 1e3).toStringAsFixed(1)}K';
-    return v >= 1 ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+  Widget _buildLineChartLegend() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 12,
+              height: 3,
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Consumption',
+              style: AppTextStyles.labelSmall.copyWith(color: Colors.grey[700]),
+            ),
+          ],
+        ),
+        const SizedBox(width: 24),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 12,
+              height: 3,
+              decoration: BoxDecoration(
+                color: const Color(0xFF9C27B0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Average Energy',
+              style: AppTextStyles.labelSmall.copyWith(color: Colors.grey[700]),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
-  Widget? _buildBreakdownBarChart(Map<String, dynamic> contents) {
-    final breakdownData = contents['MeasurementTypeBreakdown'];
-    if (breakdownData is! Map || breakdownData['breakdown'] is! List) {
-      return null;
-    }
-    final list = breakdownData['breakdown'] as List;
+  Widget? _buildConsumptionAndAverageEnergyLineChart(
+    Map<String, dynamic> contents,
+  ) {
+    final roomData = contents['ConsumptionByRoom'];
+    if (roomData is! Map || roomData['rooms'] is! List) return null;
+    final list = roomData['rooms'] as List;
     if (list.isEmpty) return null;
 
-    final items = list
-        .whereType<Map>()
-        .map(
-          (e) => (
-            (e['measurement_type'] ?? e['measurementType'] ?? '—').toString(),
-            (e['total'] is num) ? (e['total'] as num).toDouble() : 0.0,
-            (e['unit'] ?? '').toString(),
+    final rooms = list.whereType<Map>().take(_maxBars).toList();
+    final consumptionSpots = <FlSpot>[];
+    final averageEnergySpots = <FlSpot>[];
+
+    for (var i = 0; i < rooms.length; i++) {
+      final r = rooms[i];
+      final consumption = (r['consumption'] is num)
+          ? (r['consumption'] as num).toDouble()
+          : 0.0;
+      final avgEnergy = (r['averageEnergy'] ?? r['average']) is num
+          ? ((r['averageEnergy'] ?? r['average']) as num).toDouble()
+          : 0.0;
+      consumptionSpots.add(FlSpot(i.toDouble(), consumption));
+      averageEnergySpots.add(FlSpot(i.toDouble(), avgEnergy));
+    }
+
+    final maxY = [
+      ...consumptionSpots.map((s) => s.y),
+      ...averageEnergySpots.map((s) => s.y),
+    ].reduce((a, b) => a > b ? a : b);
+    if (maxY <= 0) return null;
+
+    const consumptionColor = Color(0xFF4CAF50);
+    const averageEnergyColor = Color(0xFF9C27B0);
+
+    return LineChart(
+      LineChartData(
+        minX: 0,
+        maxX: (rooms.length - 1).toDouble(),
+        minY: 0,
+        maxY: maxY * 1.15,
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: true,
+          verticalInterval: 1,
+          horizontalInterval: maxY > 0 ? maxY / 4 : 1,
+          getDrawingHorizontalLine: (v) => FlLine(
+            color: Colors.grey[200]!,
+            strokeWidth: 1,
+            dashArray: [5, 5],
           ),
-        )
-        .where((e) => e.$2 > 0)
-        .take(_maxBars)
-        .toList();
-    if (items.isEmpty) return null;
-
-    final maxVal = items.map((e) => e.$2).reduce((a, b) => a > b ? a : b);
-    final primary = AppTheme.primary;
-    final barColors = [
-      primary,
-      primary.withOpacity(0.88),
-      primary.withOpacity(0.76),
-      primary.withOpacity(0.64),
-      primary.withOpacity(0.52),
-    ];
-
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: maxVal * 1.2,
-        barTouchData: BarTouchData(
-          enabled: true,
-          touchTooltipData: BarTouchTooltipData(
-            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              final i = group.x.toInt();
-              if (i >= 0 && i < items.length) {
-                return BarTooltipItem(
-                  '${items[i].$1}\n',
-                  AppTextStyles.labelMedium.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: '${items[i].$2.toStringAsFixed(2)} ${items[i].$3}'
-                          .trim(),
-                      style: AppTextStyles.labelSmall.copyWith(
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
-                );
-              }
-              return null;
-            },
-            tooltipPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 8,
-            ),
-            tooltipMargin: 8,
-            tooltipRoundedRadius: 8,
+          getDrawingVerticalLine: (v) => FlLine(
+            color: Colors.grey[100]!,
+            strokeWidth: 1,
+            dashArray: [5, 5],
           ),
         ),
         titlesData: FlTitlesData(
-          show: true,
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 44,
+              interval: maxY > 0 ? maxY / 4 : 1,
+              getTitlesWidget: (v, m) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  _formatChartValue(v),
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
+            ),
+          ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              getTitlesWidget: (value, meta) {
-                final i = value.toInt();
-                if (i >= 0 && i < items.length) {
-                  final label = items[i].$1;
+              reservedSize: 36,
+              interval: 1,
+              getTitlesWidget: (v, m) {
+                final i = v.toInt();
+                if (i >= 0 && i < rooms.length) {
+                  final label =
+                      (rooms[i]['roomName'] ?? rooms[i]['room_name'] ?? '—')
+                          .toString();
                   return Padding(
                     padding: const EdgeInsets.only(top: 10),
                     child: Text(
-                      label,
+                      label.length > 12 ? '${label.substring(0, 12)}…' : label,
                       style: AppTextStyles.labelSmall.copyWith(
                         color: Colors.grey[700],
                         fontWeight: FontWeight.w500,
@@ -1371,24 +1613,6 @@ class ReportDetailView extends StatelessWidget {
                 }
                 return const SizedBox.shrink();
               },
-              reservedSize: 36,
-              interval: 1,
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 42,
-              interval: maxVal > 0 ? maxVal / 4 : 1,
-              getTitlesWidget: (value, meta) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Text(
-                  _formatChartValue(value),
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ),
             ),
           ),
           topTitles: const AxisTitles(
@@ -1398,76 +1622,100 @@ class ReportDetailView extends StatelessWidget {
             sideTitles: SideTitles(showTitles: false),
           ),
         ),
-        gridData: FlGridData(
+        borderData: FlBorderData(
           show: true,
-          drawVerticalLine: false,
-          horizontalInterval: maxVal > 0 ? maxVal / 4 : 1,
-          getDrawingHorizontalLine: (value) =>
-              FlLine(color: Colors.grey[200]!, strokeWidth: 1),
+          border: Border(
+            left: BorderSide(color: Colors.grey[400]!, width: 1),
+            bottom: BorderSide(color: Colors.grey[400]!, width: 1),
+          ),
         ),
-        borderData: FlBorderData(show: false),
-        barGroups: List.generate(items.length, (i) {
-          final c = barColors[i % barColors.length];
-          return BarChartGroupData(
-            x: i,
-            barRods: [
-              BarChartRodData(
-                toY: items[i].$2,
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [c.withOpacity(0.85), c],
-                ),
-                width: 26,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(8),
-                ),
-                backDrawRodData: BackgroundBarChartRodData(
-                  show: true,
-                  toY: maxVal * 1.2,
-                  color: Colors.grey[100]!,
-                ),
-              ),
-            ],
-            showingTooltipIndicators: [0],
-          );
-        }),
+        lineTouchData: LineTouchData(
+          enabled: true,
+          touchTooltipData: LineTouchTooltipData(
+            tooltipRoundedRadius: 8,
+            getTooltipItems: (touchedSpots) => touchedSpots
+                .map(
+                  (s) => LineTooltipItem(
+                    '${(rooms[s.x.toInt()]['roomName'] ?? 'Room')}: ${_formatChartValue(s.y)}',
+                    AppTextStyles.labelSmall.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: consumptionSpots,
+            isCurved: true,
+            curveSmoothness: 0.35,
+            color: consumptionColor,
+            barWidth: 2.5,
+            isStrokeCapRound: true,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) =>
+                  FlDotCirclePainter(
+                    radius: 4,
+                    color: consumptionColor,
+                    strokeWidth: 1.5,
+                    strokeColor: Colors.white,
+                  ),
+            ),
+            belowBarData: BarAreaData(show: false),
+          ),
+          LineChartBarData(
+            spots: averageEnergySpots,
+            isCurved: true,
+            curveSmoothness: 0.35,
+            color: averageEnergyColor,
+            barWidth: 2.5,
+            isStrokeCapRound: true,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) =>
+                  FlDotCirclePainter(
+                    radius: 4,
+                    color: averageEnergyColor,
+                    strokeWidth: 1.5,
+                    strokeColor: Colors.white,
+                  ),
+            ),
+            belowBarData: BarAreaData(show: false),
+          ),
+        ],
       ),
       duration: const Duration(milliseconds: 300),
     );
   }
 
-  Widget? _buildConsumptionByRoomChart(Map<String, dynamic> contents) {
+  Widget? _buildPeakLoadByRoomBarChart(Map<String, dynamic> contents) {
     final roomData = contents['ConsumptionByRoom'];
     if (roomData is! Map || roomData['rooms'] is! List) return null;
     final list = roomData['rooms'] as List;
     if (list.isEmpty) return null;
 
-    final items =
-        list
-            .whereType<Map>()
-            .map(
-              (e) => (
-                (e['roomName'] ?? e['room_name'] ?? '—').toString(),
-                (e['consumption'] is num)
-                    ? (e['consumption'] as num).toDouble()
-                    : 0.0,
-              ),
-            )
-            .where((e) => e.$2 > 0)
-            .toList()
-          ..sort((a, b) => b.$2.compareTo(a.$2));
-    final top = items.take(_maxBars).toList();
+    final rooms = list.whereType<Map>().take(_maxBars).toList();
+    final top = rooms
+        .map(
+          (e) => (
+            (e['roomName'] ?? e['room_name'] ?? '—').toString(),
+            (e['peak'] is num) ? (e['peak'] as num).toDouble() : 0.0,
+          ),
+        )
+        .toList();
     if (top.isEmpty) return null;
 
     final maxVal = top.map((e) => e.$2).reduce((a, b) => a > b ? a : b);
-    final barColor = AppTheme.primary;
+    const barColor = Color(0xFF8BC34A);
 
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
         maxY: maxVal * 1.15,
-        barTouchData: BarTouchData(enabled: true),
+        barTouchData: BarTouchData(enabled: false),
         titlesData: FlTitlesData(
           show: true,
           bottomTitles: AxisTitles(
@@ -1497,10 +1745,14 @@ class ReportDetailView extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 44,
-              getTitlesWidget: (value, meta) => Text(
-                value.toInt().toString(),
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: Colors.grey[600],
+              interval: maxVal > 0 ? maxVal / 4 : 1,
+              getTitlesWidget: (value, meta) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  _formatChartValue(value),
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: Colors.grey[600],
+                  ),
                 ),
               ),
             ),
@@ -1514,12 +1766,21 @@ class ReportDetailView extends StatelessWidget {
         ),
         gridData: FlGridData(
           show: true,
-          drawVerticalLine: false,
+          drawVerticalLine: true,
+          verticalInterval: 1,
           horizontalInterval: maxVal > 0 ? maxVal / 4 : 1,
           getDrawingHorizontalLine: (value) =>
               FlLine(color: Colors.grey[200]!, strokeWidth: 1),
+          getDrawingVerticalLine: (value) =>
+              FlLine(color: Colors.grey[100]!, strokeWidth: 1),
         ),
-        borderData: FlBorderData(show: false),
+        borderData: FlBorderData(
+          show: true,
+          border: Border(
+            left: BorderSide(color: Colors.grey[400]!, width: 1),
+            bottom: BorderSide(color: Colors.grey[400]!, width: 1),
+          ),
+        ),
         barGroups: List.generate(
           top.length,
           (i) => BarChartGroupData(
@@ -1527,14 +1788,14 @@ class ReportDetailView extends StatelessWidget {
             barRods: [
               BarChartRodData(
                 toY: top[i].$2,
-                color: barColor.withOpacity(0.6 + (0.4 * (1 - i / top.length))),
+                color: barColor,
                 width: 20,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(6),
                 ),
               ),
             ],
-            showingTooltipIndicators: [0],
+            showingTooltipIndicators: [],
           ),
         ),
       ),
@@ -1542,114 +1803,162 @@ class ReportDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildContents(Map<String, dynamic> contents) {
-    if (contents.isEmpty) return const SizedBox.shrink();
+  static String _formatChartValue(double v) {
+    if (v >= 1e6) return '${(v / 1e6).toStringAsFixed(1)}M';
+    if (v >= 1e3) return '${(v / 1e3).toStringAsFixed(1)}K';
+    return v >= 1 ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+  }
 
-    const skipKeys = {
-      'MeasurementTypeBreakdown',
-      'ConsumptionByRoom',
-      'Anomalies',
-      'PeriodComparison',
-      'BuildingComparison',
-      'DataQualityReport',
-      'TimeBasedAnalysis',
-      'TemperatureAnalysis',
-    };
-    final entries = contents.entries
-        .where((e) => e.value != null && !skipKeys.contains(e.key))
-        .toList();
-    if (entries.isEmpty) return const SizedBox.shrink();
+  static DateTime? _parseReportDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    final s = value.toString();
+    if (s.isEmpty) return null;
+    return DateTime.tryParse(s);
+  }
+
+  /// Detail Metrics: overview by measurement type. Uses MeasurementTypeBreakdown
+  /// plus EUI and PerCapita from contents when available.
+  Widget _buildContents(Map<String, dynamic> contents) {
+    final breakdownData = contents['MeasurementTypeBreakdown'];
+    List<Map> items = [];
+    if (breakdownData is Map && breakdownData['breakdown'] is List) {
+      items = (breakdownData['breakdown'] as List)
+          .whereType<Map>()
+          .where(
+            (e) => (e['measurement_type'] ?? e['measurementType'] ?? '')
+                .toString()
+                .isNotEmpty,
+          )
+          .toList();
+    }
+
+    // Include EUI and PerCapita from contents when available
+    final eui = contents['EUI'];
+    if (eui is Map && (eui['available'] == true || eui['eui'] != null)) {
+      items.add({
+        'measurement_type': 'EUI',
+        'unit': eui['unit'] ?? 'kWh/m²',
+        'eui': eui['eui'],
+        'average': eui['annualizedEUI'],
+      });
+    }
+    final perCapita = contents['PerCapitaConsumption'];
+    if (perCapita is Map &&
+        (perCapita['available'] == true || perCapita['perCapita'] != null)) {
+      items.add({
+        'measurement_type': 'Per-Capita',
+        'unit': perCapita['unit'] ?? 'kWh/person',
+        'perCapita': perCapita['perCapita'],
+      });
+    }
+
+    if (items.isEmpty) return const SizedBox.shrink();
 
     return _sectionWrapper(
-      title: 'Report contents',
-      icon: Icons.list_alt,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: entries
-            .map(
-              (e) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _contentSection(_formatKey(e.key), e.value),
-              ),
-            )
-            .toList(),
+      title: 'Detail Metrics',
+      showBorder: false,
+      zeroHorizontalPadding: true,
+      titleToContentSpacing: 4,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final crossAxisCount = constraints.maxWidth > 700 ? 2 : 1;
+          return GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 2.0,
+            children: items.map((e) => _buildMeasurementTypeCard(e)).toList(),
+          );
+        },
       ),
     );
   }
 
-  String _formatKey(String key) {
-    return key
-        .replaceAllMapped(
-          RegExp(r'([A-Z])'),
-          (m) => ' ${m.group(1)!.toLowerCase()}',
-        )
-        .trim()
-        .split(' ')
-        .map((s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}')
-        .join(' ');
-  }
+  /// Field display order and label mapping for measurement type cards.
+  static const _detailMetricFields = [
+    ('total', 'Total'),
+    ('average', 'Average'),
+    ('maximum', 'Maximum'),
+    ('max', 'Maximum'),
+    ('minimum', 'Minimum'),
+    ('min', 'Minimum'),
+    ('eui', 'EUI'),
+    ('perCapita', 'Per Capita'),
+    ('per_capita', 'Per Capita'),
+  ];
 
-  Widget _contentSection(String title, dynamic data) {
-    if (data is Map) {
-      final map = data;
-      // Skip keys ending with "Unit"; merge unit with the value key
-      final entries = map.entries
-          .where((e) => e.key is String && !e.key.toString().endsWith('Unit'))
-          .take(10)
-          .toList();
-      return Column(
+  Widget _buildMeasurementTypeCard(Map item) {
+    final type = (item['measurement_type'] ?? item['measurementType'] ?? '—')
+        .toString();
+    final unit = (item['unit'] ?? '').toString();
+    final title = unit.isNotEmpty ? '$type ($unit)' : type;
+
+    final metricRows = <({String label, String value})>[];
+    final seenLabels = <String>{};
+
+    for (final (key, label) in _detailMetricFields) {
+      if (seenLabels.contains(label)) continue;
+      final val = item[key];
+      if (val == null) continue;
+      seenLabels.add(label);
+      final valueStr = val is num
+          ? val.toStringAsFixed(val.truncateToDouble() == val ? 0 : 2)
+          : val.toString();
+      metricRows.add((label: label, value: valueStr));
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[300]!),
+        color: Colors.white,
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: AppTextStyles.labelMedium.copyWith(
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[800],
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...entries.map((e) {
-            final key = e.key.toString();
-            final unitKey = '${key}Unit';
-            final unit = map.containsKey(unitKey)
-                ? map[unitKey]?.toString().trim()
-                : null;
-            final valueStr = e.value?.toString() ?? '—';
-            final displayValue = (unit != null && unit.isNotEmpty)
-                ? '$valueStr $unit'
-                : valueStr;
-            return Padding(
-              padding: const EdgeInsets.only(left: 12, bottom: 4),
-              child: Text(
-                '${_formatKey(key)}: $displayValue',
-                style: AppTextStyles.titleSmall.copyWith(
-                  color: Colors.grey[700],
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTextStyles.titleSmall.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[800],
+                  ),
                 ),
               ),
-            );
-          }),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...metricRows.map(
+            (row) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    row.label,
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  Text(
+                    row.value,
+                    style: AppTextStyles.titleSmall.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: AppTextStyles.labelMedium.copyWith(
-            fontWeight: FontWeight.w600,
-            color: Colors.grey[800],
-          ),
-        ),
-        const SizedBox(height: 6),
-        Padding(
-          padding: const EdgeInsets.only(left: 12),
-          child: Text(
-            data.toString(),
-            style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[700]),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
