@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const { isConnectionHealthy } = require('../db/connection');
 const deletionQueueService = require('./deletionQueueService');
+const measurementCollectionService = require('./measurementCollectionService');
+const { ServiceUnavailableError, InternalServerError } = require('../utils/errors');
 
 /**
  * Measurement Aggregation Service
@@ -75,6 +77,31 @@ class MeasurementAggregationService {
             console.warn(`[AGGREGATION] Error checking if collection is Time Series:`, error.message);
             return false;
         }
+    }
+
+    /**
+     * Ensure measurements_aggregated collection exists as a Time Series collection
+     * If it doesn't exist or is not a Time Series, initializes it properly
+     * This prevents MongoDB from auto-creating a regular collection on insert
+     * @param {Object} db - MongoDB database instance
+     * @param {string} logPrefix - Log prefix for aggregation type (e.g., '[15-min]', '[hourly]')
+     * @returns {Promise<boolean>} True if collection is now a Time Series collection
+     */
+    async ensureTimeSeriesCollection(db, logPrefix = '') {
+        let isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements_aggregated');
+        
+        if (!isTimeSeries) {
+            console.log(`[AGGREGATION] ${logPrefix} Collection is not a Time Series - initializing as Time Series collection...`);
+            try {
+                await measurementCollectionService.initializeAggregatedCollection();
+                isTimeSeries = true;
+                console.log(`[AGGREGATION] ${logPrefix} ✓ Time Series collection initialized`);
+            } catch (error) {
+                console.warn(`[AGGREGATION] ${logPrefix} Warning: Failed to initialize Time Series collection:`, error.message);
+            }
+        }
+        
+        return isTimeSeries;
     }
 
     /**
@@ -167,14 +194,16 @@ class MeasurementAggregationService {
     /**
      * Aggregate raw measurements into 15-minute buckets
      * 
-     * @param {string|null} buildingId - Optional building ID to filter aggregation
+     * Note: buildingId is no longer used - measurements are now server-scoped and aggregated by sensorId only.
+     * To get building-specific data, use the sensorLookup utility to get sensor IDs for a building.
+     * 
      * @param {boolean} deleteAfterAggregation - Whether to delete raw data after aggregation (default: true)
      * @param {number} bufferMinutes - Safety buffer to keep raw data (default: 30 minutes)
      * @returns {Promise<Object>} Aggregation result with count of created aggregates
      */
-    async aggregate15Minutes(buildingId = null, deleteAfterAggregation = true, bufferMinutes = 30) {
+    async aggregate15Minutes(deleteAfterAggregation = true, bufferMinutes = 30) {
         const functionStartTime = Date.now();
-        console.log(`[AGGREGATION] [15-min] [TIMING] Starting aggregate15Minutes for building: ${buildingId || 'all buildings'}`);
+        console.log(`[AGGREGATION] [15-min] [TIMING] Starting aggregate15Minutes for all sensors`);
         
         // Helper function for retrying database queries with timeout handling
         const queryWithRetry = async (queryFn, retries = 3) => {
@@ -196,12 +225,12 @@ class MeasurementAggregationService {
         
         // Check connection health before starting heavy operations
         if (!isConnectionHealthy()) {
-            throw new Error('Database connection not healthy. Please check MongoDB connection.');
+            throw new ServiceUnavailableError('Database connection not healthy. Please check MongoDB connection.');
         }
         
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
         
         // Get the database name - check if it's 'admin' (which MongoDB doesn't allow $merge to)
@@ -220,13 +249,14 @@ class MeasurementAggregationService {
         
         console.log(`[AGGREGATION] Database name: ${dbName || currentDbName || 'using current database context'}`);
 
-        // Check if measurements_aggregated collection is a Time Series collection
+        // Check and ensure measurements_aggregated collection is a Time Series collection
+        // This prevents MongoDB from auto-creating a regular collection if someone dropped it
         const collectionCheckStartTime = Date.now();
-        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements_aggregated');
+        const isTimeSeries = await this.ensureTimeSeriesCollection(db, '[15-min]');
         const collectionCheckDuration = Date.now() - collectionCheckStartTime;
-        console.log(`[AGGREGATION] [15-min] [TIMING] Collection type check took ${collectionCheckDuration}ms`);
+        console.log(`[AGGREGATION] [15-min] [TIMING] Collection type check/init took ${collectionCheckDuration}ms`);
         if (isTimeSeries) {
-            console.log(`[AGGREGATION] [15-min] Detected Time Series collection - will use direct inserts instead of $merge`);
+            console.log(`[AGGREGATION] [15-min] Using Time Series collection - will use direct inserts instead of $merge`);
         }
 
         const now = new Date();
@@ -250,12 +280,7 @@ class MeasurementAggregationService {
                 timestamp: { 
                     $gte: recentDataStart,
                     $lt: safeAggregationEnd 
-                },
-                ...(buildingId ? {
-                    'meta.buildingId': { 
-                        $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                    }
-                } : {})
+                }
             })
         );
         const recentDataCountDuration = Date.now() - recentDataCountStartTime;
@@ -279,12 +304,7 @@ class MeasurementAggregationService {
                     timestamp: { 
                         $gte: oldDataStart,
                         $lt: recentDataStart
-                    },
-                    ...(buildingId ? {
-                        'meta.buildingId': { 
-                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                        }
-                    } : {})
+                    }
                 })
             );
             const oldDataCountDuration = Date.now() - oldDataCountStartTime;
@@ -317,23 +337,12 @@ class MeasurementAggregationService {
             timestamp: { $gte: bucketStart, $lt: safeAggregationEnd }
         };
         
-        if (buildingId) {
-            if (!mongoose.Types.ObjectId.isValid(buildingId)) {
-                throw new Error(`Invalid buildingId: ${buildingId}`);
-            }
-            // Match both string and ObjectId for backwards compatibility
-            matchStage['meta.buildingId'] = { 
-                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-            };
-        }
-        
         const pipeline = [
             { $match: matchStage },
             {
                 $group: {
                     _id: {
                         sensorId: '$meta.sensorId',
-                        buildingId: '$meta.buildingId',
                         measurementType: '$meta.measurementType',
                         stateType: '$meta.stateType',
                         bucket: {
@@ -362,38 +371,30 @@ class MeasurementAggregationService {
                     timestamp: '$_id.bucket',
                     meta: {
                         sensorId: '$_id.sensorId',
-                        buildingId: '$_id.buildingId',
                         measurementType: '$_id.measurementType',
                         stateType: '$_id.stateType'
                     },
                     // Aggregation strategy based on measurementType AND stateType:
                     // - Power (actual* states): use average (instantaneous values)
-                    // - Energy (total* states): use last - first (cumulative counter consumption)
+                    // - Energy (total state): use last - first (cumulative counter consumption)
+                    // - Energy (totalDay/Week/Month/Year): use last (period totals, not cumulative)
                     // - All others: use average
                     value: {
                         $cond: [
-                            // Case 1: Energy (total* states) → consumption = last - first
+                            // Case 1: Energy (total state) → consumption = last - first (cumulative counter)
                             {
                                 $and: [
                                     { $eq: ['$_id.measurementType', 'Energy'] },
                                     {
                                         $or: [
                                             { $eq: ['$_id.stateType', 'total'] },
-                                            { $eq: ['$_id.stateType', 'totalDay'] },
-                                            { $eq: ['$_id.stateType', 'totalWeek'] },
-                                            { $eq: ['$_id.stateType', 'totalMonth'] },
-                                            { $eq: ['$_id.stateType', 'totalYear'] },
-                                            { $eq: ['$_id.stateType', 'totalNeg'] },
-                                            { $eq: ['$_id.stateType', 'totalNegDay'] },
-                                            { $eq: ['$_id.stateType', 'totalNegWeek'] },
-                                            { $eq: ['$_id.stateType', 'totalNegMonth'] },
-                                            { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                            { $eq: ['$_id.stateType', 'totalNeg'] }
                                         ]
                                     }
                                 ]
                             },
                             {
-                                // Energy consumption calculation with reset detection
+                                // Energy consumption calculation with reset detection for cumulative counter
                                 $let: {
                                     vars: {
                                         consumption: { $subtract: ['$lastValue', '$firstValue'] },
@@ -420,65 +421,107 @@ class MeasurementAggregationService {
                                     }
                                 }
                             },
-                            // Case 2: Power (actual* states) → average
+                            // Case 1b: Energy (totalDay/Week/Month/Year) → use last value (period totals)
                             {
                                 $cond: [
                                     {
                                         $and: [
-                                            { $eq: ['$_id.measurementType', 'Power'] },
+                                            { $eq: ['$_id.measurementType', 'Energy'] },
                                             {
-                                                $regexMatch: {
-                                                    input: '$_id.stateType',
-                                                    regex: '^actual'
-                                                }
+                                                $or: [
+                                                    { $eq: ['$_id.stateType', 'totalDay'] },
+                                                    { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                    { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                    { $eq: ['$_id.stateType', 'totalYear'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegDay'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegWeek'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegMonth'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                                ]
                                             }
                                         ]
                                     },
-                                    '$avgValue',
-                                    // Case 3: Water/Gas (if cumulative total* states) → consumption = last - first
+                                    // Period totals: use last value (represents the period's total consumption)
+                                    '$lastValue',
+                                    // Case 2: Power (actual* states) → average
                                     {
                                         $cond: [
                                             {
                                                 $and: [
+                                                    { $eq: ['$_id.measurementType', 'Power'] },
                                                     {
-                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
-                                                    },
-                                                    {
-                                                        $or: [
-                                                            { $eq: ['$_id.stateType', 'total'] },
-                                                            { $eq: ['$_id.stateType', 'totalDay'] },
-                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
-                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
-                                                            { $eq: ['$_id.stateType', 'totalYear'] }
-                                                        ]
+                                                        $regexMatch: {
+                                                            input: '$_id.stateType',
+                                                            regex: '^actual'
+                                                        }
                                                     }
                                                 ]
                                             },
+                                            '$avgValue',
+                                            // Case 3: Water/Gas (total state) → consumption = last - first (cumulative counter)
                                             {
-                                                // Water/Gas consumption with reset detection
-                                                $let: {
-                                                    vars: {
-                                                        consumption: { $subtract: ['$lastValue', '$firstValue'] },
-                                                        resetThreshold: 10 // Lower threshold for water/gas
-                                                    },
-                                                    in: {
-                                                        $cond: {
-                                                            if: {
-                                                                $and: [
-                                                                    { $lt: ['$$consumption', 0] },
-                                                                    { $gt: ['$firstValue', '$$resetThreshold'] }
-                                                                ]
+                                                $cond: [
+                                                    {
+                                                        $and: [
+                                                            {
+                                                                $in: ['$_id.measurementType', ['Water', 'Heating']]
                                                             },
-                                                            then: '$lastValue',
-                                                            else: {
-                                                                $max: [0, '$$consumption']
+                                                            {
+                                                                $or: [
+                                                                    { $eq: ['$_id.stateType', 'total'] }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        // Water/Gas consumption with reset detection for cumulative counter
+                                                        $let: {
+                                                            vars: {
+                                                                consumption: { $subtract: ['$lastValue', '$firstValue'] },
+                                                                resetThreshold: 10 // Lower threshold for water/gas
+                                                            },
+                                                            in: {
+                                                                $cond: {
+                                                                    if: {
+                                                                        $and: [
+                                                                            { $lt: ['$$consumption', 0] },
+                                                                            { $gt: ['$firstValue', '$$resetThreshold'] }
+                                                                        ]
+                                                                    },
+                                                                    then: '$lastValue',
+                                                                    else: {
+                                                                        $max: [0, '$$consumption']
+                                                                    }
+                                                                }
                                                             }
                                                         }
+                                                    },
+                                                    // Case 3b: Water/Gas (totalDay/Week/Month/Year) → use last value (period totals)
+                                                    {
+                                                        $cond: [
+                                                            {
+                                                                $and: [
+                                                                    {
+                                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
+                                                                    },
+                                                                    {
+                                                                        $or: [
+                                                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                                            { $eq: ['$_id.stateType', 'totalYear'] }
+                                                                        ]
+                                                                    }
+                                                                ]
+                                                            },
+                                                            // Period totals: use last value
+                                                            '$lastValue',
+                                                            // Case 4: All others (Temperature, Humidity, etc.) → average
+                                                            '$avgValue'
+                                                        ]
                                                     }
-                                                }
-                                            },
-                                            // Case 4: All others (Temperature, Humidity, etc.) → average
-                                            '$avgValue'
+                                                ]
+                                            }
                                         ]
                                     }
                                 ]
@@ -574,13 +617,7 @@ class MeasurementAggregationService {
             if (dataCount === 0) {
                 // Check if there's any raw data at all (even if too recent)
                 // Note: measurements_raw only contains raw data, so no need to filter by resolution_minutes: 0
-                const allRawDataQuery = {
-                    ...(buildingId ? {
-                        'meta.buildingId': { 
-                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                        }
-                    } : {})
-                };
+                const allRawDataQuery = {};
                 const allRawDataCountStartTime = Date.now();
                 const allRawDataCount = await queryWithRetry(() =>
                     db.collection('measurements_raw').countDocuments(allRawDataQuery)
@@ -597,7 +634,6 @@ class MeasurementAggregationService {
                                 projection: { 
                                     timestamp: 1, 
                                     resolution_minutes: 1, 
-                                    'meta.buildingId': 1, 
                                     'meta.sensorId': 1,
                                     'meta.measurementType': 1,
                                     source: 1,
@@ -616,12 +652,7 @@ class MeasurementAggregationService {
                 const currentWindowCountStartTime = Date.now();
                 const currentWindowCount = await queryWithRetry(() =>
                     db.collection('measurements_raw').countDocuments({
-                        timestamp: { $gte: currentWindowStart, $lt: currentWindowEnd },
-                        ...(buildingId ? {
-                            'meta.buildingId': { 
-                                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                            }
-                        } : {})
+                        timestamp: { $gte: currentWindowStart, $lt: currentWindowEnd }
                     })
                 );
                 const currentWindowCountDuration = Date.now() - currentWindowCountStartTime;
@@ -632,12 +663,7 @@ class MeasurementAggregationService {
                 const oldDataOutsideWindowStartTime = Date.now();
                 const oldDataCount = await queryWithRetry(() =>
                     db.collection('measurements_raw').countDocuments({
-                        timestamp: { $lt: bucketStart },
-                        ...(buildingId ? {
-                            'meta.buildingId': { 
-                                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                            }
-                        } : {})
+                        timestamp: { $lt: bucketStart }
                     })
                 );
                 const oldDataOutsideWindowDuration = Date.now() - oldDataOutsideWindowStartTime;
@@ -660,7 +686,7 @@ class MeasurementAggregationService {
                     console.log(`[AGGREGATION] [15-min] No raw data found in database`);
                 }
                 
-                return { success: true, count: 0, deleted: 0, buildingId, skipped: true, reason: 'No data in time range' };
+                return { success: true, count: 0, deleted: 0, skipped: true, reason: 'No data in time range' };
             }
             
             // Execute aggregation
@@ -695,7 +721,6 @@ class MeasurementAggregationService {
                         {
                             timestamp: doc.timestamp,
                             'meta.sensorId': doc.meta.sensorId,
-                            'meta.buildingId': doc.meta.buildingId,
                             'meta.measurementType': doc.meta.measurementType,
                             'meta.stateType': doc.meta.stateType,
                             resolution_minutes: 15
@@ -765,12 +790,6 @@ class MeasurementAggregationService {
                                 $lt: currentChunkEnd
                             }
                         };
-                        
-                        if (buildingId) {
-                            chunkMatchStage['meta.buildingId'] = { 
-                                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                            };
-                        }
                         
                         // Create chunk pipeline (replace match stage)
                         const chunkPipeline = [
@@ -874,12 +893,6 @@ class MeasurementAggregationService {
                             timestamp: { $in: uniqueBuckets }
                         };
                         
-                        if (buildingId) {
-                            deleteMatchStage['meta.buildingId'] = { 
-                                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                            };
-                        }
-                        
                         // Delete existing aggregates from measurements_aggregated
                         const deleteExistingStartTime = Date.now();
                         const deleteResult = await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
@@ -929,7 +942,7 @@ class MeasurementAggregationService {
                     // Double-check: verify all documents now have the field
                     const allHaveField = allAggregatedDocs.every(doc => doc.resolution_minutes === 15);
                     if (!allHaveField) {
-                        throw new Error(`[AGGREGATION] [15-min] FATAL: Some documents still missing resolution_minutes after all safeguards!`);
+                        throw new InternalServerError('[AGGREGATION] [15-min] FATAL: Some documents still missing resolution_minutes after all safeguards!');
                     }
                     
                     // Insert new aggregates into measurements_aggregated using insertMany
@@ -1027,12 +1040,6 @@ class MeasurementAggregationService {
                     timestamp: { $gte: bucketStart, $lt: safeAggregationEnd }
                 };
                 
-                if (buildingId) {
-                    aggregateMatchStage['meta.buildingId'] = { 
-                        $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                    };
-                }
-                
                 const totalAggregates = await db.collection('measurements_aggregated').countDocuments(aggregateMatchStage);
                 count = testResults.length; // Use the count from the test pipeline
                 console.log(`[AGGREGATION] [15-min] Created/updated ${count} aggregates (total in window: ${totalAggregates})`);
@@ -1042,7 +1049,6 @@ class MeasurementAggregationService {
             console.log(`\n========================================`);
             console.log(`✅ [AGGREGATION] [15-min] SUCCESS!`);
             console.log(`   Created ${count} aggregates`);
-            console.log(`   Building: ${buildingId || 'all buildings'}`);
             console.log(`   Window: ${bucketStart.toISOString()} to ${safeAggregationEnd.toISOString()}`);
             console.log(`   Raw data points processed: ${dataCount}`);
             console.log(`   Note: Meter resets (negative consumption) are automatically set to 0`);
@@ -1066,17 +1072,10 @@ class MeasurementAggregationService {
                         }
                     };
                     
-                    if (buildingId) {
-                        // Match both string and ObjectId for backwards compatibility
-                        deleteMatchStage['meta.buildingId'] = { 
-                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                        };
-                    }
-                    
                     try {
                         // Queue deletion for background processing instead of blocking
                         // This allows aggregation to complete immediately
-                        const description = `15-min aggregation cleanup: ${bucketStart.toISOString()} to ${deleteCutoff.toISOString()}${buildingId ? ` (building: ${buildingId})` : ''}`;
+                        const description = `15-min aggregation cleanup: ${bucketStart.toISOString()} to ${deleteCutoff.toISOString()}`;
                         
                         console.log(`[AGGREGATION] [15-min] Queuing deletion for background processing: ${description}`);
                         
@@ -1110,8 +1109,7 @@ class MeasurementAggregationService {
                 aggregationWindow: {
                     start: bucketStart.toISOString(),
                     end: safeAggregationEnd.toISOString()
-                },
-                buildingId 
+                }
             };
         } catch (error) {
             const functionTotalDuration = Date.now() - functionStartTime;
@@ -1126,12 +1124,11 @@ class MeasurementAggregationService {
      * 
      * @param {Date} startDate - Start date (will be rounded to 15-minute boundary)
      * @param {Date} endDate - End date (will be rounded to 15-minute boundary)
-     * @param {string|null} buildingId - Optional building ID to filter aggregation
      * @param {boolean} deleteAfterAggregation - Whether to delete raw data after aggregation (default: true)
      * @param {number} bufferMinutes - Safety buffer to keep raw data (default: 30 minutes)
      * @returns {Promise<Object>} Aggregation result with count of created aggregates
      */
-    async aggregateDateRange(startDate, endDate, buildingId = null, deleteAfterAggregation = true, bufferMinutes = 30) {
+    async aggregateDateRange(startDate, endDate, deleteAfterAggregation = true, bufferMinutes = 30) {
         console.log(`[AGGREGATION] [DateRange] Starting aggregation for date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
         
         // Round dates to 15-minute boundaries
@@ -1160,12 +1157,12 @@ class MeasurementAggregationService {
                 
                 // Check connection health
                 if (!isConnectionHealthy()) {
-                    throw new Error('Database connection not healthy');
+                    throw new ServiceUnavailableError('Database connection not healthy');
                 }
                 
                 const db = mongoose.connection.db;
                 if (!db) {
-                    throw new Error('Database connection not available');
+                    throw new ServiceUnavailableError('Database connection not available');
                 }
                 
                 // Build match stage for this chunk
@@ -1173,15 +1170,6 @@ class MeasurementAggregationService {
                 const matchStage = {
                     timestamp: { $gte: currentStart, $lt: currentEnd }
                 };
-                
-                if (buildingId) {
-                    if (!mongoose.Types.ObjectId.isValid(buildingId)) {
-                        throw new Error(`Invalid buildingId: ${buildingId}`);
-                    }
-                    matchStage['meta.buildingId'] = { 
-                        $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                    };
-                }
                 
                 // Check if there's data in this chunk (read from measurements_raw)
                 const dataCount = await db.collection('measurements_raw').countDocuments(matchStage);
@@ -1226,12 +1214,6 @@ class MeasurementAggregationService {
                                     resolution_minutes: 15,
                                     timestamp: { $in: uniqueBuckets }
                                 };
-                                if (buildingId) {
-                                    deleteMatchStage['meta.buildingId'] = { 
-                                        $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                                    };
-                                }
-                                
                                 // Delete existing aggregates from measurements_aggregated
                                 await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
                                 console.log(`[AGGREGATION] [DateRange] Deleted existing aggregates for ${uniqueBuckets.length} bucket(s) that will be recreated`);
@@ -1268,7 +1250,6 @@ class MeasurementAggregationService {
                                 {
                                     timestamp: doc.timestamp,
                                     'meta.sensorId': doc.meta.sensorId,
-                                    'meta.buildingId': doc.meta.buildingId,
                                     'meta.measurementType': doc.meta.measurementType,
                                     'meta.stateType': doc.meta.stateType,
                                     resolution_minutes: 15
@@ -1288,11 +1269,6 @@ class MeasurementAggregationService {
                             resolution_minutes: 15,
                             timestamp: { $gte: currentStart, $lt: currentEnd }
                         };
-                        if (buildingId) {
-                            aggregateMatchStage['meta.buildingId'] = { 
-                                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                            };
-                        }
                         const testPipeline = pipeline.slice(0, -1);
                         // Read from measurements_raw for test
                         const testResults = await db.collection('measurements_raw').aggregate(testPipeline).toArray();
@@ -1315,15 +1291,10 @@ class MeasurementAggregationService {
                                     $lt: deleteCutoff
                                 }
                             };
-                            if (buildingId) {
-                                deleteMatchStage['meta.buildingId'] = { 
-                                    $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                                };
-                            }
                             
                             try {
                                 // Queue deletion for background processing instead of blocking
-                                const description = `DateRange aggregation cleanup: ${currentStart.toISOString()} to ${deleteCutoff.toISOString()}${buildingId ? ` (building: ${buildingId})` : ''}`;
+                                const description = `DateRange aggregation cleanup: ${currentStart.toISOString()} to ${deleteCutoff.toISOString()}`;
                                 
                                 console.log(`[AGGREGATION] [DateRange] Queuing deletion for background processing: ${description}`);
                                 
@@ -1366,7 +1337,6 @@ class MeasurementAggregationService {
             success: errors.length === 0,
             count: totalCount,
             deleted: totalDeleted,
-            buildingId,
             errors: errors.length > 0 ? errors : undefined,
             dateRange: {
                 start: roundedStart.toISOString(),
@@ -1386,7 +1356,6 @@ class MeasurementAggregationService {
                 $group: {
                     _id: {
                         sensorId: '$meta.sensorId',
-                        buildingId: '$meta.buildingId',
                         measurementType: '$meta.measurementType',
                         stateType: '$meta.stateType',
                         bucket: {
@@ -1413,108 +1382,152 @@ class MeasurementAggregationService {
                     timestamp: '$_id.bucket',
                     meta: {
                         sensorId: '$_id.sensorId',
-                        buildingId: '$_id.buildingId',
                         measurementType: '$_id.measurementType',
                         stateType: '$_id.stateType'
                     },
                     value: {
                         $cond: [
+                            // Case 1: Energy (total state) → consumption = last - first (cumulative counter)
                             {
                                 $and: [
                                     { $eq: ['$_id.measurementType', 'Energy'] },
                                     {
                                         $or: [
                                             { $eq: ['$_id.stateType', 'total'] },
-                                            { $eq: ['$_id.stateType', 'totalDay'] },
-                                            { $eq: ['$_id.stateType', 'totalWeek'] },
-                                            { $eq: ['$_id.stateType', 'totalMonth'] },
-                                            { $eq: ['$_id.stateType', 'totalYear'] },
-                                            { $eq: ['$_id.stateType', 'totalNeg'] },
-                                            { $eq: ['$_id.stateType', 'totalNegDay'] },
-                                            { $eq: ['$_id.stateType', 'totalNegWeek'] },
-                                            { $eq: ['$_id.stateType', 'totalNegMonth'] },
-                                            { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                            { $eq: ['$_id.stateType', 'totalNeg'] }
                                         ]
                                     }
                                 ]
                             },
                             {
+                                // Energy consumption calculation with reset detection for cumulative counter
                                 $let: {
                                     vars: {
                                         consumption: { $subtract: ['$lastValue', '$firstValue'] },
-                                        resetThreshold: 100
+                                        resetThreshold: 100 // Threshold to detect significant resets
                                     },
                                     in: {
                                         $cond: {
+                                            // If consumption < 0 AND firstValue > threshold: reset detected
                                             if: {
                                                 $and: [
                                                     { $lt: ['$$consumption', 0] },
                                                     { $gt: ['$firstValue', '$$resetThreshold'] }
                                                 ]
                                             },
-                                            then: '$lastValue',
+                                            then: '$lastValue', // Reset detected: consumption = lastValue (new period started at 0)
                                             else: {
-                                                $max: [0, '$$consumption']
+                                                // Normal case: consumption = last - first (ensure non-negative)
+                                                $max: [
+                                                    0,
+                                                    '$$consumption'
+                                                ]
                                             }
                                         }
                                     }
                                 }
                             },
+                            // Case 1b: Energy (totalDay/Week/Month/Year) → use last value (period totals)
                             {
                                 $cond: [
                                     {
                                         $and: [
-                                            { $eq: ['$_id.measurementType', 'Power'] },
+                                            { $eq: ['$_id.measurementType', 'Energy'] },
                                             {
-                                                $regexMatch: {
-                                                    input: '$_id.stateType',
-                                                    regex: '^actual'
-                                                }
+                                                $or: [
+                                                    { $eq: ['$_id.stateType', 'totalDay'] },
+                                                    { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                    { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                    { $eq: ['$_id.stateType', 'totalYear'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegDay'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegWeek'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegMonth'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                                ]
                                             }
                                         ]
                                     },
-                                    '$avgValue',
+                                    // Period totals: use last value (represents the period's total consumption)
+                                    '$lastValue',
+                                    // Case 2: Power (actual* states) → average
                                     {
                                         $cond: [
                                             {
                                                 $and: [
+                                                    { $eq: ['$_id.measurementType', 'Power'] },
                                                     {
-                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
-                                                    },
-                                                    {
-                                                        $or: [
-                                                            { $eq: ['$_id.stateType', 'total'] },
-                                                            { $eq: ['$_id.stateType', 'totalDay'] },
-                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
-                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
-                                                            { $eq: ['$_id.stateType', 'totalYear'] }
-                                                        ]
+                                                        $regexMatch: {
+                                                            input: '$_id.stateType',
+                                                            regex: '^actual'
+                                                        }
                                                     }
                                                 ]
                                             },
+                                            '$avgValue',
+                                            // Case 3: Water/Gas (total state) → consumption = last - first (cumulative counter)
                                             {
-                                                $let: {
-                                                    vars: {
-                                                        consumption: { $subtract: ['$lastValue', '$firstValue'] },
-                                                        resetThreshold: 10
-                                                    },
-                                                    in: {
-                                                        $cond: {
-                                                            if: {
-                                                                $and: [
-                                                                    { $lt: ['$$consumption', 0] },
-                                                                    { $gt: ['$firstValue', '$$resetThreshold'] }
-                                                                ]
+                                                $cond: [
+                                                    {
+                                                        $and: [
+                                                            {
+                                                                $in: ['$_id.measurementType', ['Water', 'Heating']]
                                                             },
-                                                            then: '$lastValue',
-                                                            else: {
-                                                                $max: [0, '$$consumption']
+                                                            {
+                                                                $or: [
+                                                                    { $eq: ['$_id.stateType', 'total'] }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        // Water/Gas consumption with reset detection for cumulative counter
+                                                        $let: {
+                                                            vars: {
+                                                                consumption: { $subtract: ['$lastValue', '$firstValue'] },
+                                                                resetThreshold: 10 // Lower threshold for water/gas
+                                                            },
+                                                            in: {
+                                                                $cond: {
+                                                                    if: {
+                                                                        $and: [
+                                                                            { $lt: ['$$consumption', 0] },
+                                                                            { $gt: ['$firstValue', '$$resetThreshold'] }
+                                                                        ]
+                                                                    },
+                                                                    then: '$lastValue',
+                                                                    else: {
+                                                                        $max: [0, '$$consumption']
+                                                                    }
+                                                                }
                                                             }
                                                         }
+                                                    },
+                                                    // Case 3b: Water/Gas (totalDay/Week/Month/Year) → use last value (period totals)
+                                                    {
+                                                        $cond: [
+                                                            {
+                                                                $and: [
+                                                                    {
+                                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
+                                                                    },
+                                                                    {
+                                                                        $or: [
+                                                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                                            { $eq: ['$_id.stateType', 'totalYear'] }
+                                                                        ]
+                                                                    }
+                                                                ]
+                                                            },
+                                                            // Period totals: use last value
+                                                            '$lastValue',
+                                                            // Case 4: All others (Temperature, Humidity, etc.) → average
+                                                            '$avgValue'
+                                                        ]
                                                     }
-                                                }
-                                            },
-                                            '$avgValue'
+                                                ]
+                                            }
                                         ]
                                     }
                                 ]
@@ -1598,25 +1611,24 @@ class MeasurementAggregationService {
     /**
      * Aggregate 15-minute data into hourly buckets
      * 
-     * @param {string|null} buildingId - Optional building ID to filter aggregation
      * @returns {Promise<Object>} Aggregation result with count of created aggregates
      */
-    async aggregateHourly(buildingId = null) {
+    async aggregateHourly() {
         // Check connection health before starting heavy operations
         if (!isConnectionHealthy()) {
-            throw new Error('Database connection not healthy. Please check MongoDB connection.');
+            throw new ServiceUnavailableError('Database connection not healthy. Please check MongoDB connection.');
         }
         
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
         
         // Get the database name - if null, we'll omit it from $merge (uses current database)
         const dbName = this.getDatabaseName();
         
-        // Check if measurements_aggregated collection is a Time Series collection
-        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements_aggregated');
+        // Check and ensure measurements_aggregated collection is a Time Series collection
+        const isTimeSeries = await this.ensureTimeSeriesCollection(db, '[hourly]');
 
         const now = new Date();
         const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
@@ -1629,23 +1641,12 @@ class MeasurementAggregationService {
             timestamp: { $gte: bucketStart, $lt: bucketEnd }
         };
         
-        if (buildingId) {
-            if (!mongoose.Types.ObjectId.isValid(buildingId)) {
-                throw new Error(`Invalid buildingId: ${buildingId}`);
-            }
-            // Match both string and ObjectId for backwards compatibility
-            matchStage['meta.buildingId'] = { 
-                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-            };
-        }
-        
         const pipeline = [
             { $match: matchStage },
             {
                 $group: {
                     _id: {
                         sensorId: '$meta.sensorId',
-                        buildingId: '$meta.buildingId',
                         measurementType: '$meta.measurementType',
                         stateType: '$meta.stateType',
                         bucket: {
@@ -1676,79 +1677,113 @@ class MeasurementAggregationService {
                     timestamp: '$_id.bucket',
                     meta: {
                         sensorId: '$_id.sensorId',
-                        buildingId: '$_id.buildingId',
                         measurementType: '$_id.measurementType',
                         stateType: '$_id.stateType'
                     },
                     // Aggregation strategy for hourly from 15-minute aggregates:
-                    // - Energy (total* states): sum consumption from 15-min aggregates
+                    // - Energy (total state): sum consumption deltas from 15-min aggregates
+                    // - Energy (totalDay/Week/Month/Year): use last value (period totals)
                     // - Power (actual* states): average power from 15-min aggregates
                     // - Others: average
                     value: {
                         $cond: [
-                            // Case 1: Energy (total* states) → sum consumption
+                            // Case 1: Energy (total state) → sum consumption deltas
                             {
                                 $and: [
                                     { $eq: ['$_id.measurementType', 'Energy'] },
                                     {
                                         $or: [
                                             { $eq: ['$_id.stateType', 'total'] },
-                                            { $eq: ['$_id.stateType', 'totalDay'] },
-                                            { $eq: ['$_id.stateType', 'totalWeek'] },
-                                            { $eq: ['$_id.stateType', 'totalMonth'] },
-                                            { $eq: ['$_id.stateType', 'totalYear'] },
-                                            { $eq: ['$_id.stateType', 'totalNeg'] },
-                                            { $eq: ['$_id.stateType', 'totalNegDay'] },
-                                            { $eq: ['$_id.stateType', 'totalNegWeek'] },
-                                            { $eq: ['$_id.stateType', 'totalNegMonth'] },
-                                            { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                            { $eq: ['$_id.stateType', 'totalNeg'] }
                                         ]
                                     }
                                 ]
                             },
                             {
-                                // Sum consumption from 15-minute aggregates (ensure non-negative)
+                                // Sum consumption deltas from 15-minute aggregates (ensure non-negative)
                                 $max: [0, '$sumValue']
                             },
-                            // Case 2: Power (actual* states) → average
+                            // Case 1b: Energy (totalDay/Week/Month/Year) → use last value (period totals)
                             {
                                 $cond: [
                                     {
                                         $and: [
-                                            { $eq: ['$_id.measurementType', 'Power'] },
+                                            { $eq: ['$_id.measurementType', 'Energy'] },
                                             {
-                                                $regexMatch: {
-                                                    input: '$_id.stateType',
-                                                    regex: '^actual'
-                                                }
+                                                $or: [
+                                                    { $eq: ['$_id.stateType', 'totalDay'] },
+                                                    { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                    { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                    { $eq: ['$_id.stateType', 'totalYear'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegDay'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegWeek'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegMonth'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                                ]
                                             }
                                         ]
                                     },
-                                    '$avgValue',
-                                    // Case 3: Water/Gas (total* states) → sum consumption
+                                    // Period totals: use last value (represents the period's total consumption)
+                                    '$lastValue',
+                                    // Case 2: Power (actual* states) → average
                                     {
                                         $cond: [
                                             {
                                                 $and: [
+                                                    { $eq: ['$_id.measurementType', 'Power'] },
                                                     {
-                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
-                                                    },
-                                                    {
-                                                        $or: [
-                                                            { $eq: ['$_id.stateType', 'total'] },
-                                                            { $eq: ['$_id.stateType', 'totalDay'] },
-                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
-                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
-                                                            { $eq: ['$_id.stateType', 'totalYear'] }
-                                                        ]
+                                                        $regexMatch: {
+                                                            input: '$_id.stateType',
+                                                            regex: '^actual'
+                                                        }
                                                     }
                                                 ]
                                             },
+                                            '$avgValue',
+                                            // Case 3: Water/Gas (total state) → sum consumption deltas
                                             {
-                                                $max: [0, '$sumValue']
-                                            },
-                                            // Case 4: All others → average
-                                            '$avgValue'
+                                                $cond: [
+                                                    {
+                                                        $and: [
+                                                            {
+                                                                $in: ['$_id.measurementType', ['Water', 'Heating']]
+                                                            },
+                                                            {
+                                                                $or: [
+                                                                    { $eq: ['$_id.stateType', 'total'] }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        $max: [0, '$sumValue']
+                                                    },
+                                                    // Case 3b: Water/Gas (totalDay/Week/Month/Year) → use last value (period totals)
+                                                    {
+                                                        $cond: [
+                                                            {
+                                                                $and: [
+                                                                    {
+                                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
+                                                                    },
+                                                                    {
+                                                                        $or: [
+                                                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                                            { $eq: ['$_id.stateType', 'totalYear'] }
+                                                                        ]
+                                                                    }
+                                                                ]
+                                                            },
+                                                            // Period totals: use last value
+                                                            '$lastValue',
+                                                            // Case 4: All others → average
+                                                            '$avgValue'
+                                                        ]
+                                                    }
+                                                ]
+                                            }
                                         ]
                                     }
                                 ]
@@ -1791,12 +1826,6 @@ class MeasurementAggregationService {
                         timestamp: { $gte: bucketStart, $lt: bucketEnd }
                     };
                     
-                    if (buildingId) {
-                        deleteMatchStage['meta.buildingId'] = { 
-                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                        };
-                    }
-                    
                     await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
                     
                     // Ensure resolution_minutes is set (safeguard - always set explicitly)
@@ -1816,12 +1845,12 @@ class MeasurementAggregationService {
                         }
                     }
                 }
-                console.log(`[AGGREGATION] [Hourly] Created ${count} aggregates for ${buildingId || 'all buildings'} (Time Series)`);
+                console.log(`[AGGREGATION] [Hourly] Created ${count} aggregates (Time Series)`);
             } else {
                 // Regular collection: use $merge
                 const result = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
                 count = result.length;
-                console.log(`[AGGREGATION] [Hourly] Created ${count} aggregates for ${buildingId || 'all buildings'}`);
+                console.log(`[AGGREGATION] [Hourly] Created ${count} aggregates`);
             }
             
             // Delete 15-minute aggregates older than 1 hour (now that we have hourly aggregates)
@@ -1830,7 +1859,7 @@ class MeasurementAggregationService {
             let deleted15MinCount = 0;
             if (count > 0) {
                 const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-                deleted15MinCount = await this.deleteOldAggregates(15, oneHourAgo, buildingId);
+                deleted15MinCount = await this.deleteOldAggregates(15, oneHourAgo);
                 if (deleted15MinCount > 0) {
                     console.log(`[AGGREGATION] [Hourly] Deleted ${deleted15MinCount} old 15-minute aggregates (older than 1 hour)`);
                 }
@@ -1842,14 +1871,12 @@ class MeasurementAggregationService {
             if (deleted15MinCount > 0) {
                 console.log(`   Deleted ${deleted15MinCount} old 15-minute aggregates (older than 1 hour)`);
             }
-            console.log(`   Building: ${buildingId || 'all buildings'}`);
             console.log(`========================================\n`);
             
             return { 
                 success: true, 
                 count, 
-                deleted: deleted15MinCount,
-                buildingId 
+                deleted: deleted15MinCount
             };
         } catch (error) {
             console.error(`[AGGREGATION] [Hourly] Error:`, error.message);
@@ -1860,25 +1887,24 @@ class MeasurementAggregationService {
     /**
      * Aggregate hourly data into daily buckets
      * 
-     * @param {string|null} buildingId - Optional building ID to filter aggregation
      * @returns {Promise<Object>} Aggregation result with count of created aggregates
      */
-    async aggregateDaily(buildingId = null) {
+    async aggregateDaily() {
         // Check connection health before starting heavy operations
         if (!isConnectionHealthy()) {
-            throw new Error('Database connection not healthy. Please check MongoDB connection.');
+            throw new ServiceUnavailableError('Database connection not healthy. Please check MongoDB connection.');
         }
         
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
         
         // Get the database name - if null, we'll omit it from $merge (uses current database)
         const dbName = this.getDatabaseName();
         
-        // Check if measurements_aggregated collection is a Time Series collection
-        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements_aggregated');
+        // Check and ensure measurements_aggregated collection is a Time Series collection
+        const isTimeSeries = await this.ensureTimeSeriesCollection(db, '[daily]');
 
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
@@ -1892,23 +1918,12 @@ class MeasurementAggregationService {
             timestamp: { $gte: yesterday, $lt: today }
         };
         
-        if (buildingId) {
-            if (!mongoose.Types.ObjectId.isValid(buildingId)) {
-                throw new Error(`Invalid buildingId: ${buildingId}`);
-            }
-            // Match both string and ObjectId for backwards compatibility
-            matchStage['meta.buildingId'] = { 
-                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-            };
-        }
-        
         const pipeline = [
             { $match: matchStage },
             {
                 $group: {
                     _id: {
                         sensorId: '$meta.sensorId',
-                        buildingId: '$meta.buildingId',
                         measurementType: '$meta.measurementType',
                         stateType: '$meta.stateType',
                         bucket: {
@@ -1919,10 +1934,12 @@ class MeasurementAggregationService {
                         }
                     },
                     // Aggregate from hourly aggregates:
-                    // - Energy (total* states): sum consumption values
+                    // - Energy (total state): sum consumption deltas
+                    // - Energy (totalDay/Week/Month/Year): use last value (period totals)
                     // - Power (actual* states): average power values
                     // - Others: average
                     sumValue: { $sum: '$value' },
+                    lastValue: { $last: '$value' },
                     avgValue: { $avg: '$avgValue' },
                     minValue: { $min: '$minValue' },
                     maxValue: { $max: '$maxValue' },
@@ -1937,79 +1954,113 @@ class MeasurementAggregationService {
                     timestamp: '$_id.bucket',
                     meta: {
                         sensorId: '$_id.sensorId',
-                        buildingId: '$_id.buildingId',
                         measurementType: '$_id.measurementType',
                         stateType: '$_id.stateType'
                     },
                     // Aggregation strategy for daily from hourly aggregates:
-                    // - Energy (total* states): sum consumption from hourly aggregates
+                    // - Energy (total state): sum consumption deltas from hourly aggregates
+                    // - Energy (totalDay/Week/Month/Year): use last value (period totals)
                     // - Power (actual* states): average power from hourly aggregates
                     // - Others: average
                     value: {
                         $cond: [
-                            // Case 1: Energy (total* states) → sum consumption
+                            // Case 1: Energy (total state) → sum consumption deltas
                             {
                                 $and: [
                                     { $eq: ['$_id.measurementType', 'Energy'] },
                                     {
                                         $or: [
                                             { $eq: ['$_id.stateType', 'total'] },
-                                            { $eq: ['$_id.stateType', 'totalDay'] },
-                                            { $eq: ['$_id.stateType', 'totalWeek'] },
-                                            { $eq: ['$_id.stateType', 'totalMonth'] },
-                                            { $eq: ['$_id.stateType', 'totalYear'] },
-                                            { $eq: ['$_id.stateType', 'totalNeg'] },
-                                            { $eq: ['$_id.stateType', 'totalNegDay'] },
-                                            { $eq: ['$_id.stateType', 'totalNegWeek'] },
-                                            { $eq: ['$_id.stateType', 'totalNegMonth'] },
-                                            { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                            { $eq: ['$_id.stateType', 'totalNeg'] }
                                         ]
                                     }
                                 ]
                             },
                             {
-                                // Sum consumption from hourly aggregates (ensure non-negative)
+                                // Sum consumption deltas from hourly aggregates (ensure non-negative)
                                 $max: [0, '$sumValue']
                             },
-                            // Case 2: Power (actual* states) → average
+                            // Case 1b: Energy (totalDay/Week/Month/Year) → use last value (period totals)
                             {
                                 $cond: [
                                     {
                                         $and: [
-                                            { $eq: ['$_id.measurementType', 'Power'] },
+                                            { $eq: ['$_id.measurementType', 'Energy'] },
                                             {
-                                                $regexMatch: {
-                                                    input: '$_id.stateType',
-                                                    regex: '^actual'
-                                                }
+                                                $or: [
+                                                    { $eq: ['$_id.stateType', 'totalDay'] },
+                                                    { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                    { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                    { $eq: ['$_id.stateType', 'totalYear'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegDay'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegWeek'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegMonth'] },
+                                                    { $eq: ['$_id.stateType', 'totalNegYear'] }
+                                                ]
                                             }
                                         ]
                                     },
-                                    '$avgValue',
-                                    // Case 3: Water/Gas (total* states) → sum consumption
+                                    // Period totals: use last value (represents the period's total consumption)
+                                    '$lastValue',
+                                    // Case 2: Power (actual* states) → average
                                     {
                                         $cond: [
                                             {
                                                 $and: [
+                                                    { $eq: ['$_id.measurementType', 'Power'] },
                                                     {
-                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
-                                                    },
-                                                    {
-                                                        $or: [
-                                                            { $eq: ['$_id.stateType', 'total'] },
-                                                            { $eq: ['$_id.stateType', 'totalDay'] },
-                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
-                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
-                                                            { $eq: ['$_id.stateType', 'totalYear'] }
-                                                        ]
+                                                        $regexMatch: {
+                                                            input: '$_id.stateType',
+                                                            regex: '^actual'
+                                                        }
                                                     }
                                                 ]
                                             },
+                                            '$avgValue',
+                                            // Case 3: Water/Gas (total state) → sum consumption deltas
                                             {
-                                                $max: [0, '$sumValue']
-                                            },
-                                            // Case 4: All others → average
-                                            '$avgValue'
+                                                $cond: [
+                                                    {
+                                                        $and: [
+                                                            {
+                                                                $in: ['$_id.measurementType', ['Water', 'Heating']]
+                                                            },
+                                                            {
+                                                                $or: [
+                                                                    { $eq: ['$_id.stateType', 'total'] }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        $max: [0, '$sumValue']
+                                                    },
+                                                    // Case 3b: Water/Gas (totalDay/Week/Month/Year) → use last value (period totals)
+                                                    {
+                                                        $cond: [
+                                                            {
+                                                                $and: [
+                                                                    {
+                                                                        $in: ['$_id.measurementType', ['Water', 'Heating']]
+                                                                    },
+                                                                    {
+                                                                        $or: [
+                                                                            { $eq: ['$_id.stateType', 'totalDay'] },
+                                                                            { $eq: ['$_id.stateType', 'totalWeek'] },
+                                                                            { $eq: ['$_id.stateType', 'totalMonth'] },
+                                                                            { $eq: ['$_id.stateType', 'totalYear'] }
+                                                                        ]
+                                                                    }
+                                                                ]
+                                                            },
+                                                            // Period totals: use last value
+                                                            '$lastValue',
+                                                            // Case 4: All others → average
+                                                            '$avgValue'
+                                                        ]
+                                                    }
+                                                ]
+                                            }
                                         ]
                                     }
                                 ]
@@ -2052,12 +2103,6 @@ class MeasurementAggregationService {
                         timestamp: { $gte: yesterday, $lt: today }
                     };
                     
-                    if (buildingId) {
-                        deleteMatchStage['meta.buildingId'] = { 
-                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                        };
-                    }
-                    
                     await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
                     
                     // Ensure resolution_minutes is set (safeguard - always set explicitly)
@@ -2077,12 +2122,12 @@ class MeasurementAggregationService {
                         }
                     }
                 }
-                console.log(`[AGGREGATION] [Daily] Created ${count} aggregates for ${buildingId || 'all buildings'} (Time Series)`);
+                console.log(`[AGGREGATION] [Daily] Created ${count} aggregates (Time Series)`);
             } else {
                 // Regular collection: use $merge
                 const result = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
                 count = result.length;
-                console.log(`[AGGREGATION] [Daily] Created ${count} aggregates for ${buildingId || 'all buildings'}`);
+                console.log(`[AGGREGATION] [Daily] Created ${count} aggregates`);
             }
             
             // Delete 15-minute aggregates older than 1 day (now that we have daily aggregates)
@@ -2090,21 +2135,19 @@ class MeasurementAggregationService {
             if (count > 0) {
                 // Delete 15-minute aggregates older than yesterday (1 day ago)
                 const oneDayAgo = this.roundToDay(new Date(yesterday.getTime() - 24 * 60 * 60 * 1000));
-                deleted15MinCount = await this.deleteOldAggregates(15, oneDayAgo, buildingId);
+                deleted15MinCount = await this.deleteOldAggregates(15, oneDayAgo);
             }
             
             console.log(`\n========================================`);
             console.log(`✅ [AGGREGATION] [Daily] SUCCESS!`);
             console.log(`   Created ${count} daily aggregates`);
             console.log(`   Deleted ${deleted15MinCount} old 15-minute aggregates (older than 1 day)`);
-            console.log(`   Building: ${buildingId || 'all buildings'}`);
             console.log(`========================================\n`);
             
             return { 
                 success: true, 
                 count, 
-                deleted: deleted15MinCount,
-                buildingId 
+                deleted: deleted15MinCount
             };
         } catch (error) {
             console.error(`[AGGREGATION] [Daily] Error:`, error.message);
@@ -2116,25 +2159,24 @@ class MeasurementAggregationService {
      * Aggregate daily data into weekly buckets
      * Also deletes hourly aggregates older than 1 week
      * 
-     * @param {string|null} buildingId - Optional building ID to filter aggregation
      * @returns {Promise<Object>} Aggregation result with count of created aggregates
      */
-    async aggregateWeekly(buildingId = null) {
+    async aggregateWeekly() {
         // Check connection health before starting heavy operations
         if (!isConnectionHealthy()) {
-            throw new Error('Database connection not healthy. Please check MongoDB connection.');
+            throw new ServiceUnavailableError('Database connection not healthy. Please check MongoDB connection.');
         }
         
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
         
         // Get the database name
         const dbName = this.getDatabaseName();
         
-        // Check if measurements_aggregated collection is a Time Series collection
-        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements_aggregated');
+        // Check and ensure measurements_aggregated collection is a Time Series collection
+        const isTimeSeries = await this.ensureTimeSeriesCollection(db, '[weekly]');
 
         const now = new Date();
         const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -2146,15 +2188,6 @@ class MeasurementAggregationService {
             resolution_minutes: 1440, // Aggregate from daily data
             timestamp: { $gte: weekStart, $lt: currentWeekStart }
         };
-        
-        if (buildingId) {
-            if (!mongoose.Types.ObjectId.isValid(buildingId)) {
-                throw new Error(`Invalid buildingId: ${buildingId}`);
-            }
-            matchStage['meta.buildingId'] = { 
-                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-            };
-        }
         
         const pipeline = [
             { $match: matchStage },
@@ -2196,7 +2229,6 @@ class MeasurementAggregationService {
                 $group: {
                     _id: {
                         sensorId: '$meta.sensorId',
-                        buildingId: '$meta.buildingId',
                         measurementType: '$meta.measurementType',
                         stateType: '$meta.stateType',
                         bucket: '$weekStart'
@@ -2220,7 +2252,6 @@ class MeasurementAggregationService {
                     timestamp: '$_id.bucket',
                     meta: {
                         sensorId: '$_id.sensorId',
-                        buildingId: '$_id.buildingId',
                         measurementType: '$_id.measurementType',
                         stateType: '$_id.stateType'
                     },
@@ -2333,12 +2364,6 @@ class MeasurementAggregationService {
                         timestamp: { $gte: weekStart, $lt: currentWeekStart }
                     };
                     
-                    if (buildingId) {
-                        deleteMatchStage['meta.buildingId'] = { 
-                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                        };
-                    }
-                    
                     await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
                     
                     // Ensure resolution_minutes is set (safeguard - always set explicitly)
@@ -2358,33 +2383,31 @@ class MeasurementAggregationService {
                         }
                     }
                 }
-                console.log(`[AGGREGATION] [Weekly] Created ${count} aggregates for ${buildingId || 'all buildings'} (Time Series)`);
+                console.log(`[AGGREGATION] [Weekly] Created ${count} aggregates (Time Series)`);
             } else {
                 // Regular collection: use $merge
                 const result = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
                 count = result.length;
-                console.log(`[AGGREGATION] [Weekly] Created ${count} aggregates for ${buildingId || 'all buildings'}`);
+                console.log(`[AGGREGATION] [Weekly] Created ${count} aggregates`);
             }
             
             // Delete hourly aggregates older than 1 week (now that we have weekly aggregates)
             let deletedHourlyCount = 0;
             if (count > 0) {
                 const oneWeekAgoCutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                deletedHourlyCount = await this.deleteOldAggregates(60, oneWeekAgoCutoff, buildingId);
+                deletedHourlyCount = await this.deleteOldAggregates(60, oneWeekAgoCutoff);
             }
             
             console.log(`\n========================================`);
             console.log(`✅ [AGGREGATION] [Weekly] SUCCESS!`);
             console.log(`   Created ${count} weekly aggregates`);
             console.log(`   Deleted ${deletedHourlyCount} old hourly aggregates (older than 1 week)`);
-            console.log(`   Building: ${buildingId || 'all buildings'}`);
             console.log(`========================================\n`);
             
             return { 
                 success: true, 
                 count, 
-                deleted: deletedHourlyCount,
-                buildingId 
+                deleted: deletedHourlyCount
             };
         } catch (error) {
             console.error(`[AGGREGATION] [Weekly] Error:`, error.message);
@@ -2395,25 +2418,24 @@ class MeasurementAggregationService {
     /**
      * Aggregate daily/weekly data into monthly buckets
      * 
-     * @param {string|null} buildingId - Optional building ID to filter aggregation
      * @returns {Promise<Object>} Aggregation result with count of created aggregates
      */
-    async aggregateMonthly(buildingId = null) {
+    async aggregateMonthly() {
         // Check connection health before starting heavy operations
         if (!isConnectionHealthy()) {
-            throw new Error('Database connection not healthy. Please check MongoDB connection.');
+            throw new ServiceUnavailableError('Database connection not healthy. Please check MongoDB connection.');
         }
         
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
         
         // Get the database name
         const dbName = this.getDatabaseName();
         
-        // Check if measurements_aggregated collection is a Time Series collection
-        const isTimeSeries = await this.isTimeSeriesCollection(db, 'measurements_aggregated');
+        // Check and ensure measurements_aggregated collection is a Time Series collection
+        const isTimeSeries = await this.ensureTimeSeriesCollection(db, '[monthly]');
 
         const now = new Date();
         const oneMonthAgo = new Date(now);
@@ -2430,15 +2452,6 @@ class MeasurementAggregationService {
             ],
             timestamp: { $gte: monthStart, $lt: currentMonthStart }
         };
-        
-        if (buildingId) {
-            if (!mongoose.Types.ObjectId.isValid(buildingId)) {
-                throw new Error(`Invalid buildingId: ${buildingId}`);
-            }
-            matchStage['meta.buildingId'] = { 
-                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-            };
-        }
         
         const pipeline = [
             { $match: matchStage },
@@ -2461,7 +2474,6 @@ class MeasurementAggregationService {
                 $group: {
                     _id: {
                         sensorId: '$meta.sensorId',
-                        buildingId: '$meta.buildingId',
                         measurementType: '$meta.measurementType',
                         stateType: '$meta.stateType',
                         bucket: '$monthStart'
@@ -2485,7 +2497,6 @@ class MeasurementAggregationService {
                     timestamp: '$_id.bucket',
                     meta: {
                         sensorId: '$_id.sensorId',
-                        buildingId: '$_id.buildingId',
                         measurementType: '$_id.measurementType',
                         stateType: '$_id.stateType'
                     },
@@ -2598,12 +2609,6 @@ class MeasurementAggregationService {
                         timestamp: { $gte: monthStart, $lt: currentMonthStart }
                     };
                     
-                    if (buildingId) {
-                        deleteMatchStage['meta.buildingId'] = { 
-                            $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-                        };
-                    }
-                    
                     await db.collection('measurements_aggregated').deleteMany(deleteMatchStage);
                     
                     // Ensure resolution_minutes is set (safeguard - always set explicitly)
@@ -2623,24 +2628,22 @@ class MeasurementAggregationService {
                         }
                     }
                 }
-                console.log(`[AGGREGATION] [Monthly] Created ${count} aggregates for ${buildingId || 'all buildings'} (Time Series)`);
+                console.log(`[AGGREGATION] [Monthly] Created ${count} aggregates (Time Series)`);
             } else {
                 // Regular collection: use $merge
                 const result = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
                 count = result.length;
-                console.log(`[AGGREGATION] [Monthly] Created ${count} aggregates for ${buildingId || 'all buildings'}`);
+                console.log(`[AGGREGATION] [Monthly] Created ${count} aggregates`);
             }
             
             console.log(`\n========================================`);
             console.log(`✅ [AGGREGATION] [Monthly] SUCCESS!`);
             console.log(`   Created ${count} monthly aggregates`);
-            console.log(`   Building: ${buildingId || 'all buildings'}`);
             console.log(`========================================\n`);
             
             return { 
                 success: true, 
-                count,
-                buildingId 
+                count
             };
         } catch (error) {
             console.error(`[AGGREGATION] [Monthly] Error:`, error.message);
@@ -2652,18 +2655,17 @@ class MeasurementAggregationService {
      * Clean up old raw data (keep only last N days)
      * 
      * @param {number} retentionDays - Number of days to keep raw data (default: 30)
-     * @param {string|null} buildingId - Optional building ID to filter cleanup
      * @returns {Promise<number>} Number of deleted documents
      */
-    async cleanupRawData(retentionDays = 30, buildingId = null) {
+    async cleanupRawData(retentionDays = 30) {
         // Check connection health before starting operations
         if (!isConnectionHealthy()) {
-            throw new Error('Database connection not healthy. Please check MongoDB connection.');
+            throw new ServiceUnavailableError('Database connection not healthy. Please check MongoDB connection.');
         }
         
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
 
         const cutoffDate = new Date();
@@ -2673,16 +2675,6 @@ class MeasurementAggregationService {
         const matchStage = {
             timestamp: { $lt: cutoffDate }
         };
-        
-        if (buildingId) {
-            if (!mongoose.Types.ObjectId.isValid(buildingId)) {
-                throw new Error(`Invalid buildingId: ${buildingId}`);
-            }
-            // Match both string and ObjectId for backwards compatibility
-            matchStage['meta.buildingId'] = { 
-                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-            };
-        }
         
         try {
             // Delete raw data from measurements_raw
@@ -2769,28 +2761,18 @@ class MeasurementAggregationService {
      * 
      * @param {number} resolutionMinutes - Resolution to delete (15, 60, etc.)
      * @param {Date} cutoffDate - Delete aggregates older than this date
-     * @param {string|null} buildingId - Optional building ID to filter
      * @returns {Promise<number>} Number of deleted documents
      */
-    async deleteOldAggregates(resolutionMinutes, cutoffDate, buildingId = null) {
+    async deleteOldAggregates(resolutionMinutes, cutoffDate) {
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
         
         const matchStage = {
             resolution_minutes: resolutionMinutes,
             timestamp: { $lt: cutoffDate }
         };
-        
-        if (buildingId) {
-            if (!mongoose.Types.ObjectId.isValid(buildingId)) {
-                throw new Error(`Invalid buildingId: ${buildingId}`);
-            }
-            matchStage['meta.buildingId'] = { 
-                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-            };
-        }
         
         try {
             // Count before deletion for better logging (delete from measurements_aggregated)

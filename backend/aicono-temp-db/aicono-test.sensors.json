@@ -1,0 +1,300 @@
+[{
+  "_id": {
+    "$oid": "698447fac2c42135dd204733"
+  },
+  "room_id": {
+    "$oid": "698447f7c2c42135dd20472e"
+  },
+  "name": "Balkonkraftwerk",
+  "unit": "W",
+  "loxone_control_uuid": "1fcacb89-0052-e50a-ffffce026101d865",
+  "loxone_category_uuid": "1fa3729e-0096-07b6-ffffce026101d865",
+  "loxone_category_name": "Sonne",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:18.019Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:18.019Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447fac2c42135dd204734"
+  },
+  "room_id": {
+    "$oid": "698447f7c2c42135dd20472e"
+  },
+  "name": "PV Prognose Heute",
+  "unit": "kWh",
+  "loxone_control_uuid": "1fb862e4-0135-d62b-ffffce026101d865",
+  "loxone_category_uuid": "1fa3729e-0096-07b6-ffffce026101d865",
+  "loxone_category_name": "Sonne",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:18.583Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:18.583Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447fbc2c42135dd204735"
+  },
+  "room_id": {
+    "$oid": "698447f7c2c42135dd20472e"
+  },
+  "name": "PV Prognose Morgen",
+  "unit": "kWh",
+  "loxone_control_uuid": "1fb87f4a-038f-bc42-ffffce026101d865",
+  "loxone_category_uuid": "1fa3729e-0096-07b6-ffffce026101d865",
+  "loxone_category_name": "Sonne",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:19.137Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:19.137Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447fbc2c42135dd204736"
+  },
+  "room_id": {
+    "$oid": "698447f7c2c42135dd20472e"
+  },
+  "name": "Temperaturverlauf",
+  "unit": "°C",
+  "loxone_control_uuid": "1fa60a0a-02c2-0f67-ffffd4442a4b20e4",
+  "loxone_category_uuid": "1fa3729e-0092-0766-ffffce026101d865",
+  "loxone_category_name": "Temperatur",
+  "loxone_category_type": "indoortemperature",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:19.713Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:19.713Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447fcc2c42135dd204737"
+  },
+  "room_id": {
+    "$oid": "698447f7c2c42135dd20472e"
+  },
+  "name": "Witterungsbereinigter Verbrauch",
+  "unit": "kW",
+  "loxone_control_uuid": "1fa60a0a-02c3-0f91-ffffd4442a4b20e4",
+  "loxone_category_uuid": "1fa3729e-0092-0766-ffffce026101d865",
+  "loxone_category_name": "Temperatur",
+  "loxone_category_type": "indoortemperature",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:20.258Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:20.258Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447fcc2c42135dd204738"
+  },
+  "room_id": {
+    "$oid": "698447f9c2c42135dd204732"
+  },
+  "name": "Zähler Gas",
+  "unit": "m³/h",
+  "loxone_control_uuid": "1fa481eb-025e-263d-ffffce026101d865",
+  "loxone_category_uuid": "1fa3729e-0090-0752-ffffce026101d865",
+  "loxone_category_name": "Heizung",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:20.812Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:20.812Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447fdc2c42135dd204739"
+  },
+  "room_id": {
+    "$oid": "698447d8f5b476ee787b13ad"
+  },
+  "name": "Zähler Kühlschrank",
+  "unit": "kW",
+  "loxone_control_uuid": "1fa463e1-0131-d061-ffff9f79bd282f72",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:21.376Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:21.376Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447fdc2c42135dd20473a"
+  },
+  "room_id": {
+    "$oid": "698447d8f5b476ee787b13ad"
+  },
+  "name": "Zähler Wasserkocher",
+  "unit": "kW",
+  "loxone_control_uuid": "1fa47cc6-0395-4bd8-ffffcc3ec83b9d77",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:21.920Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:21.920Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447fec2c42135dd20473b"
+  },
+  "room_id": {
+    "$oid": "698447f7c2c42135dd20472f"
+  },
+  "name": "Energieflussmonitor",
+  "unit": "W",
+  "loxone_control_uuid": "1fcada4b-031b-63cd-ffff4cfafef57a5e",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:22.453Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:22.453Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447fec2c42135dd20473c"
+  },
+  "room_id": {
+    "$oid": "698447f7c2c42135dd20472f"
+  },
+  "name": "Rest",
+  "unit": "W",
+  "loxone_control_uuid": "1fcada4b-031b-63e0-ffff4cfafef57a5e",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:22.994Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:22.994Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447ffc2c42135dd20473d"
+  },
+  "room_id": {
+    "$oid": "698447f7c2c42135dd20472f"
+  },
+  "name": "Rest",
+  "unit": "W",
+  "loxone_control_uuid": "1fcada4b-031b-63fb-ffff4cfafef57a5e",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:23.527Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:23.527Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69844800c2c42135dd20473e"
+  },
+  "room_id": {
+    "$oid": "698447f7c2c42135dd20472f"
+  },
+  "name": "Rest",
+  "unit": "W",
+  "loxone_control_uuid": "1fcacce8-0063-645a-ffff7217d09c8456",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:24.091Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:24.091Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69844800c2c42135dd20473f"
+  },
+  "room_id": {
+    "$oid": "698447f7c2c42135dd20472f"
+  },
+  "name": "Rest",
+  "unit": "W",
+  "loxone_control_uuid": "1fcacd10-01b2-7701-ffff3e832a8378c7",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:24.662Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:24.662Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69844801c2c42135dd204740"
+  },
+  "room_id": {
+    "$oid": "698447f7c2c42135dd20472f"
+  },
+  "name": "Zähler Hauptanschluss",
+  "unit": "kW",
+  "loxone_control_uuid": "1fa373c7-026b-22e0-ffffce026101d865",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:25.202Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:25.202Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69844801c2c42135dd204741"
+  },
+  "room_id": {
+    "$oid": "698447f7c2c42135dd20472f"
+  },
+  "name": "Zähler PC-Raum",
+  "unit": "kW",
+  "loxone_control_uuid": "1fa37866-0040-7495-fffff087a9bf780d",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:25.759Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:25.759Z"
+  }
+}]

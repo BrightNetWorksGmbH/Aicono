@@ -9,9 +9,9 @@ const { getPoolStatistics, PRIORITY } = require('../db/connection');
 
 class LoxoneConnectionManager {
     constructor() {
-        // Map of buildingId -> connection state
+        // Map of serialNumber -> connection state
         this.connections = new Map();
-        // Map of buildingId -> reconnect timers
+        // Map of serialNumber -> reconnect timers
         this.reconnectTimers = new Map();
         // Health check timer for periodic connection restoration
         this.healthCheckTimer = null;
@@ -21,24 +21,20 @@ class LoxoneConnectionManager {
         
         // Track lastModified timestamps to prevent redundant structure reprocessing
         // Per Loxone documentation, structure should only be reimported when lastModified changes
-        this.structureLastModified = new Map(); // buildingId -> lastModified string
+        this.structureLastModified = new Map(); // serialNumber -> lastModified string
         
-        // Throttle "structure unchanged" log messages to reduce noise (log once per minute per building)
-        this.structureUnchangedLogTimestamps = new Map(); // buildingId -> last log timestamp
+        // Throttle "structure unchanged" log messages to reduce noise (log once per minute per server)
+        this.structureUnchangedLogTimestamps = new Map(); // serialNumber -> last log timestamp
         
         // Ensure directory exists (async, but don't await in constructor)
         this.ensureDirectoryExists();
 
-        // Design Decision: One connection per building
-        // Even if two buildings use the same Loxone server (same credentials),
-        // we create separate connections because:
-        // 1. Each building has its own structure file (LoxAPP3_<buildingId>.json)
-        // 2. Each building has its own sensor/room mappings in MongoDB
-        // 3. Each building maintains independent connection state
-        // 4. Simpler error handling and reconnection logic
-        // 
-        // Future optimization: Could detect matching credentials and reuse connections,
-        // but would need to handle structure file routing and state management per building.
+        // Design Decision: One connection per server (identified by miniserver_serial)
+        // Multiple buildings using the same server share one connection:
+        // 1. One structure file per server (LoxAPP3_<serialNumber>.json)
+        // 2. Rooms and sensors are scoped to server (miniserver_serial), not building
+        // 3. Connection state is shared, but we track which buildings use it
+        // 4. More efficient resource usage and eliminates duplicate data
     }
 
     /**
@@ -101,10 +97,30 @@ class LoxoneConnectionManager {
     }
 
     /**
-     * Get structure file path for a building
+     * Get structure file path for a server
      */
-    getStructureFilePath(buildingId) {
-        return path.join(this.structureFilesDir, `LoxAPP3_${buildingId}.json`);
+    getStructureFilePath(serialNumber) {
+        return path.join(this.structureFilesDir, `LoxAPP3_${serialNumber}.json`);
+    }
+
+    /**
+     * Get buildings using a server connection
+     */
+    getBuildingsForServer(serialNumber) {
+        const connection = this.connections.get(serialNumber);
+        return connection ? Array.from(connection.buildings) : [];
+    }
+
+    /**
+     * Get server serial number for a building
+     */
+    getServerForBuilding(buildingId) {
+        for (const [serial, state] of this.connections.entries()) {
+            if (state.buildings && state.buildings.has(buildingId)) {
+                return serial;
+            }
+        }
+        return null;
     }
 
     /**
@@ -135,14 +151,33 @@ class LoxoneConnectionManager {
      * Start a connection for a building
      */
     async connect(buildingId, credentials) {
-        // Prevent duplicate connections
-        if (this.connections.has(buildingId)) {
-            // //console.log(`[LOXONE] [${buildingId}] Connection already exists`);
-            return { success: false, message: 'Connection already exists' };
+        // Extract serial number from credentials
+        const serialNumber = credentials.serialNumber || '';
+        if (!serialNumber) {
+            return { success: false, message: 'Serial number is required' };
         }
 
-        const state = {
-            buildingId: buildingId,
+        // Check if connection already exists for this server
+        let state = this.connections.get(serialNumber);
+        
+        if (state) {
+            // Connection exists - add building to the set
+            if (!state.buildings) {
+                state.buildings = new Set();
+            }
+            if (state.buildings.has(buildingId)) {
+                return { success: false, message: 'Building already connected to this server' };
+            }
+            state.buildings.add(buildingId);
+            // Update building connection status
+            await this.updateBuildingConnectionStatus(buildingId, true);
+            return { success: true, message: 'Building added to existing connection' };
+        }
+
+        // Create new connection state
+        state = {
+            serialNumber: serialNumber,
+            buildings: new Set([buildingId]), // Track which buildings use this connection
             ws: null,
             key: null,
             salt: null,
@@ -171,22 +206,24 @@ class LoxoneConnectionManager {
                 permission: credentials.permission || 2,
                 keepaliveInterval: credentials.keepaliveInterval || 300000,
                 externalAddress: credentials.externalAddress || '',
-                serialNumber: credentials.serialNumber || ''
+                serialNumber: serialNumber
             }
         };
 
-        this.connections.set(buildingId, state);
+        this.connections.set(serialNumber, state);
         
         // Ensure directory exists before connecting
         await this.ensureDirectoryExists();
         
         try {
-            await this.establishConnection(buildingId);
-            // Update building connection status in database
-            await this.updateBuildingConnectionStatus(buildingId, true);
+            await this.establishConnection(serialNumber);
+            // Update all buildings' connection status in database
+            for (const bid of state.buildings) {
+                await this.updateBuildingConnectionStatus(bid, true);
+            }
             return { success: true, message: 'Connection established' };
         } catch (error) {
-            this.connections.delete(buildingId);
+            this.connections.delete(serialNumber);
             // Update building connection status on failure
             await this.updateBuildingConnectionStatus(buildingId, false);
             return { success: false, message: error.message };
@@ -196,17 +233,17 @@ class LoxoneConnectionManager {
     /**
      * Establish WebSocket connection
      */
-    async establishConnection(buildingId, redirectUrl = null, redirectCount = 0) {
+    async establishConnection(serialNumber, redirectUrl = null, redirectCount = 0) {
         const maxRedirects = 5;
         const connectionTimeout = 30000; // 30 seconds timeout
         
         // Always get fresh state reference - don't cache it
-        let state = this.connections.get(buildingId);
+        let state = this.connections.get(serialNumber);
         if (!state) {
-            throw new Error(`No state found for building ${buildingId}`);
+            throw new Error(`No state found for server ${serialNumber}`);
         }
         if (!state.config) {
-            throw new Error(`State exists but config is missing for building ${buildingId}`);
+            throw new Error(`State exists but config is missing for server ${serialNumber}`);
         }
 
         if (redirectCount >= maxRedirects) {
@@ -215,15 +252,15 @@ class LoxoneConnectionManager {
         
         // Log state info for debugging
         if (redirectCount > 0) {
-            //console.log(`[LOXONE] [${buildingId}] Redirect attempt ${redirectCount}, state exists: ${!!state}, config exists: ${!!state.config}`);
+            //console.log(`[LOXONE] [${serialNumber}] Redirect attempt ${redirectCount}, state exists: ${!!state}, config exists: ${!!state.config}`);
         }
 
         const wsUrl = redirectUrl || this.buildWebSocketURL(state.config);
-        // //console.log(`[LOXONE] [${buildingId}] Connecting to: ${wsUrl}`);
+        console.log(`[LOXONE] [${serialNumber}] Connecting to: ${wsUrl}${redirectUrl ? ' (redirect #' + redirectCount + ')' : ' (initial)'}`);
         
         // Warn if using CloudDNS without serial number
         if (state.config.externalAddress && !state.config.serialNumber) {
-            //console.warn(`[LOXONE] [${buildingId}] Warning: CloudDNS connection without serial number. Some Miniservers may require serial in URL format: wss://dns.loxonecloud.com/{serial}/ws/rfc6455`);
+            //console.warn(`[LOXONE] [${serialNumber}] Warning: CloudDNS connection without serial number. Some Miniservers may require serial in URL format: wss://dns.loxonecloud.com/{serial}/ws/rfc6455`);
         }
 
         return new Promise((resolve, reject) => {
@@ -270,42 +307,42 @@ class LoxoneConnectionManager {
             }, connectionTimeout);
 
             ws.on('open', () => {
-                //console.log(`[LOXONE] [${buildingId}] WebSocket connected`);
+                //console.log(`[LOXONE] [${serialNumber}] WebSocket connected`);
                 // Verify state exists before proceeding - get fresh reference
-                const currentState = this.connections.get(buildingId);
+                const currentState = this.connections.get(serialNumber);
                 if (!currentState) {
-                    // //console.error(`[LOXONE] [${buildingId}] State missing after WebSocket open (redirectCount: ${redirectCount})`);
+                    // //console.error(`[LOXONE] [${serialNumber}] State missing after WebSocket open (redirectCount: ${redirectCount})`);
                     rejectOnce(new Error('Connection state lost'));
                     return;
                 }
                 if (!currentState.config) {
-                    // //console.error(`[LOXONE] [${buildingId}] Config missing after WebSocket open (redirectCount: ${redirectCount})`);
-                    // //console.error(`[LOXONE] [${buildingId}] State keys:`, Object.keys(currentState));
+                    // //console.error(`[LOXONE] [${serialNumber}] Config missing after WebSocket open (redirectCount: ${redirectCount})`);
+                    // //console.error(`[LOXONE] [${serialNumber}] State keys:`, Object.keys(currentState));
                     rejectOnce(new Error('Connection config lost'));
                     return;
                 }
-                // //console.log(`[LOXONE] [${buildingId}] State verified, user: ${currentState.config.user}`);
+                // //console.log(`[LOXONE] [${serialNumber}] State verified, user: ${currentState.config.user}`);
                 currentState.ws = ws;
-                this.setupWebSocketHandlers(buildingId, ws);
-                this.startAuthentication(buildingId);
+                this.setupWebSocketHandlers(serialNumber, ws);
+                this.startAuthentication(serialNumber);
                 resolveOnce();
             });
 
             ws.on('error', (error) => {
                 // Don't reject on redirect-related errors - they're handled by unexpected-response
                 if (error.message.includes('Unexpected server response') || isRedirecting) {
-                    // //console.log(`[LOXONE] [${buildingId}] WebSocket error during redirect (ignored):`, error.message);
+                    console.log(`[LOXONE] [${serialNumber}] WebSocket error during redirect (ignored):`, error.message);
                     return;
                 }
-                // //console.error(`[LOXONE] [${buildingId}] WebSocket error:`, error.message);
+                console.error(`[LOXONE] [${serialNumber}] WebSocket error:`, error.message);
                 rejectOnce(error);
             });
 
             ws.on('close', (code, reason) => {
-                //console.log(`[LOXONE] [${buildingId}] Connection closed. Code: ${code}`);
+                //console.log(`[LOXONE] [${serialNumber}] Connection closed. Code: ${code}`);
                 // If we're redirecting, don't handle this as a disconnection or error
                 if (isRedirecting) {
-                    //console.log(`[LOXONE] [${buildingId}] Ignoring close event during redirect`);
+                    //console.log(`[LOXONE] [${serialNumber}] Ignoring close event during redirect`);
                     return;
                 }
                 if (!resolved) {
@@ -313,7 +350,7 @@ class LoxoneConnectionManager {
                     // But don't reject if it's a redirect-related close (code 1006 is common for redirects)
                     if (code === 1006) {
                         // Code 1006 often happens during redirects - wait a bit to see if redirect handler processes it
-                        //console.log(`[LOXONE] [${buildingId}] Connection closed with code 1006 (may be redirect), waiting...`);
+                        //console.log(`[LOXONE] [${serialNumber}] Connection closed with code 1006 (may be redirect), waiting...`);
                         // Give redirect handler a chance to process
                         setTimeout(() => {
                             if (!isRedirecting && !resolved) {
@@ -325,7 +362,7 @@ class LoxoneConnectionManager {
                     }
                 } else {
                     // Connection was established but then closed - handle disconnection
-                    this.handleDisconnection(buildingId, code);
+                    this.handleDisconnection(serialNumber, code);
                 }
             });
 
@@ -340,12 +377,12 @@ class LoxoneConnectionManager {
                         } else if (location.startsWith('http://')) {
                             redirectUrl = location.replace('http://', 'ws://');
                         }
-                        //console.log(`[LOXONE] [${buildingId}] Redirect to: ${redirectUrl}`);
+                        console.log(`[LOXONE] [${serialNumber}] CloudDNS redirect received: ${location} -> ${redirectUrl}`);
                         
                         // Verify state still exists before redirecting
-                        const currentState = this.connections.get(buildingId);
+                        const currentState = this.connections.get(serialNumber);
                         if (!currentState || !currentState.config) {
-                            //console.error(`[LOXONE] [${buildingId}] State lost before redirect!`);
+                            //console.error(`[LOXONE] [${serialNumber}] State lost before redirect!`);
                             rejectOnce(new Error('Connection state lost during redirect'));
                             return;
                         }
@@ -355,7 +392,7 @@ class LoxoneConnectionManager {
                         
                         // Recursively establish connection with redirect URL
                         // This will create a new promise, and we'll resolve/reject that one
-                        this.establishConnection(buildingId, redirectUrl, redirectCount + 1)
+                        this.establishConnection(serialNumber, redirectUrl, redirectCount + 1)
                             .then(resolve)
                             .catch(reject);
                     } else {
@@ -371,8 +408,8 @@ class LoxoneConnectionManager {
     /**
      * Setup WebSocket message handlers
      */
-    setupWebSocketHandlers(buildingId, ws) {
-        const state = this.connections.get(buildingId);
+    setupWebSocketHandlers(serialNumber, ws) {
+        const state = this.connections.get(serialNumber);
         let binaryFileBuffer = null;
         let expectedFileLength = 0;
 
@@ -382,7 +419,7 @@ class LoxoneConnectionManager {
                 if (state.pendingBinaryHeader) {
                     const completeMessage = Buffer.concat([state.pendingBinaryHeader, data]);
                     state.pendingBinaryHeader = null;
-                    this.handleBinaryMessage(buildingId, completeMessage);
+                    this.handleBinaryMessage(serialNumber, completeMessage);
                 } else if (data.length === 8) {
                     // Check if this is a header
                     const identifier = data.readUInt8(1);
@@ -395,7 +432,7 @@ class LoxoneConnectionManager {
                             binaryFileBuffer = Buffer.alloc(0);
                         }
                     } else {
-                        this.handleBinaryMessage(buildingId, data);
+                        this.handleBinaryMessage(serialNumber, data);
                     }
                 } else if (binaryFileBuffer !== null) {
                     // Accumulate binary file data
@@ -410,17 +447,17 @@ class LoxoneConnectionManager {
                         setImmediate(() => {
                             try {
                                 const json = JSON.parse(fileData);
-                                this.handleStructureFile(buildingId, json).catch(err => {
-                                    console.error(`[LOXONE] [${buildingId}] Error handling structure file:`, err.message);
+                                this.handleStructureFile(serialNumber, json).catch(err => {
+                                    console.error(`[LOXONE] [${serialNumber}] Error handling structure file:`, err.message);
                                 });
                             } catch (error) {
-                                console.error(`[LOXONE] [${buildingId}] Error parsing structure file:`, error.message);
+                                console.error(`[LOXONE] [${serialNumber}] Error parsing structure file:`, error.message);
                             }
                         });
                     }
                 } else {
                     // Complete message (header + payload in one frame)
-                    this.handleBinaryMessage(buildingId, data);
+                    this.handleBinaryMessage(serialNumber, data);
                 }
             } else {
                 // Text message - could be structure file JSON
@@ -432,15 +469,15 @@ class LoxoneConnectionManager {
                         const json = JSON.parse(text);
                         // Check if it's a structure file (has lastModified or rooms/controls)
                         if (json.lastModified || json.rooms || json.controls) {
-                            this.handleStructureFile(buildingId, json).catch(err => {
-                                console.error(`[LOXONE] [${buildingId}] Error handling structure file:`, err.message);
+                            this.handleStructureFile(serialNumber, json).catch(err => {
+                                console.error(`[LOXONE] [${serialNumber}] Error handling structure file:`, err.message);
                             });
                         } else {
-                            this.handleTextMessage(buildingId, text);
+                            this.handleTextMessage(serialNumber, text);
                         }
                     } catch (error) {
                         // Not JSON, handle as plain text
-                        this.handleTextMessage(buildingId, text);
+                        this.handleTextMessage(serialNumber, text);
                     }
                 });
             }
@@ -450,10 +487,10 @@ class LoxoneConnectionManager {
     /**
      * Send command over WebSocket
      */
-    send(buildingId, cmd) {
-        const state = this.connections.get(buildingId);
+    send(serialNumber, cmd) {
+        const state = this.connections.get(serialNumber);
         if (state && state.ws && state.ws.readyState === WebSocket.OPEN) {
-            //console.log(`[LOXONE] [${buildingId}] [SEND] ${cmd}`);
+            //console.log(`[LOXONE] [${serialNumber}] [SEND] ${cmd}`);
             state.ws.send(cmd);
         }
     }
@@ -461,21 +498,21 @@ class LoxoneConnectionManager {
     /**
      * Start authentication flow
      */
-    startAuthentication(buildingId) {
-        const state = this.connections.get(buildingId);
+    startAuthentication(serialNumber) {
+        const state = this.connections.get(serialNumber);
         if (!state || !state.config || !state.config.user) {
-            //console.error(`[LOXONE] [${buildingId}] Cannot start authentication: state or config missing`);
+            //console.error(`[LOXONE] [${serialNumber}] Cannot start authentication: state or config missing`);
             return;
         }
-        //console.log(`[LOXONE] [${buildingId}] Requesting key and salt...`);
-        this.send(buildingId, `jdev/sys/getkey2/${state.config.user}`);
+        //console.log(`[LOXONE] [${serialNumber}] Requesting key and salt...`);
+        this.send(serialNumber, `jdev/sys/getkey2/${state.config.user}`);
     }
 
     /**
      * Handle text messages
      */
-    handleTextMessage(buildingId, msg) {
-        const state = this.connections.get(buildingId);
+    handleTextMessage(serialNumber, msg) {
+        const state = this.connections.get(serialNumber);
         if (!state) return;
 
         try {
@@ -483,28 +520,28 @@ class LoxoneConnectionManager {
 
             if (json.LL && json.LL.control) {
                 if (json.LL.control.includes('jdev/sys/getkey2')) {
-                    this.handleGetKey2Response(buildingId, json);
+                    this.handleGetKey2Response(serialNumber, json);
                 } else if (json.LL.control.includes('jdev/sys/getjwt')) {
-                    this.handleGetJWTResponse(buildingId, json);
+                    this.handleGetJWTResponse(serialNumber, json);
                 } else if (json.LL.control.includes('authwithtoken')) {
-                    this.handleAuthResponse(buildingId, json);
+                    this.handleAuthResponse(serialNumber, json);
                 }
             }
 
             if (json.lastModified || json.LL?.value?.lastModified) {
-                this.handleStructureFile(buildingId, json);
+                this.handleStructureFile(serialNumber, json);
             }
         } catch (error) {
             // Not JSON, might be plain text
-            //console.log(`[LOXONE] [${buildingId}] [RECEIVE TEXT]`, msg);
+            //console.log(`[LOXONE] [${serialNumber}] [RECEIVE TEXT]`, msg);
         }
     }
 
     /**
      * Handle getkey2 response
      */
-    handleGetKey2Response(buildingId, json) {
-        const state = this.connections.get(buildingId);
+    handleGetKey2Response(serialNumber, json) {
+        const state = this.connections.get(serialNumber);
         if (!state) return;
 
         try {
@@ -522,17 +559,17 @@ class LoxoneConnectionManager {
             const authHash = this.hmacPayload(userPwHashString, state.key, state.hashAlg);
 
             const encodedInfo = encodeURIComponent(state.config.info);
-            this.send(buildingId, `jdev/sys/getjwt/${authHash}/${state.config.user}/${state.config.permission}/${state.config.uuid}/${encodedInfo}`);
+            this.send(serialNumber, `jdev/sys/getjwt/${authHash}/${state.config.user}/${state.config.permission}/${state.config.uuid}/${encodedInfo}`);
         } catch (error) {
-            //console.error(`[LOXONE] [${buildingId}] Error processing getkey2:`, error);
+            //console.error(`[LOXONE] [${serialNumber}] Error processing getkey2:`, error);
         }
     }
 
     /**
      * Handle getjwt response
      */
-    async handleGetJWTResponse(buildingId, json) {
-        const state = this.connections.get(buildingId);
+    async handleGetJWTResponse(serialNumber, json) {
+        const state = this.connections.get(serialNumber);
         if (!state) return;
 
         try {
@@ -544,116 +581,116 @@ class LoxoneConnectionManager {
                 }
 
                 state.authenticated = true;
-                //console.log(`[LOXONE] [${buildingId}] ✓ Authentication successful`);
+                //console.log(`[LOXONE] [${serialNumber}] ✓ Authentication successful`);
 
-                this.startKeepalive(buildingId);
-                //console.log(`[LOXONE] [${buildingId}] Fetching structure file...`);
-                this.send(buildingId, 'data/LoxAPP3.json');
+                this.startKeepalive(serialNumber);
+                //console.log(`[LOXONE] [${serialNumber}] Fetching structure file...`);
+                this.send(serialNumber, 'data/LoxAPP3.json');
             } else {
-                //console.error(`[LOXONE] [${buildingId}] Authentication failed:`, json.LL);
+                //console.error(`[LOXONE] [${serialNumber}] Authentication failed:`, json.LL);
             }
         } catch (error) {
-            //console.error(`[LOXONE] [${buildingId}] Error processing getjwt:`, error);
+            //console.error(`[LOXONE] [${serialNumber}] Error processing getjwt:`, error);
         }
     }
 
     /**
      * Handle auth response
      */
-    handleAuthResponse(buildingId, json) {
+    handleAuthResponse(serialNumber, json) {
         // Not needed for modern Loxone - JWT token acquisition is sufficient
-        //console.log(`[LOXONE] [${buildingId}] Auth response received (not needed for JWT auth)`);
+        //console.log(`[LOXONE] [${serialNumber}] Auth response received (not needed for JWT auth)`);
     }
 
     /**
      * Handle structure file
      * Per Loxone documentation, checks lastModified to avoid redundant reimports
      */
-    async handleStructureFile(buildingId, json) {
-        const state = this.connections.get(buildingId);
+    async handleStructureFile(serialNumber, json) {
+        const state = this.connections.get(serialNumber);
         if (!state) return;
 
         try {
             // Extract lastModified from structure file (per Loxone StructureFile.pdf documentation)
             const newLastModified = json.lastModified || json.LL?.value?.lastModified;
-            const existingLastModified = this.structureLastModified.get(buildingId);
+            const existingLastModified = this.structureLastModified.get(serialNumber);
             
             // Check if structure has actually changed
             if (existingLastModified && newLastModified && existingLastModified === newLastModified) {
                 // Structure hasn't changed - skip reprocessing to save database connections
                 // This is the key fix for connection pool exhaustion
                 
-                // Throttle log messages: only log once per minute per building to reduce noise
+                // Throttle log messages: only log once per minute per server to reduce noise
                 const now = Date.now();
-                const lastLogTime = this.structureUnchangedLogTimestamps.get(buildingId) || 0;
+                const lastLogTime = this.structureUnchangedLogTimestamps.get(serialNumber) || 0;
                 if (now - lastLogTime > 60000) { // Log at most once per minute
-                    console.log(`[LOXONE] [${buildingId}] Structure unchanged (lastModified: ${newLastModified}), skipping reimport`);
-                    this.structureUnchangedLogTimestamps.set(buildingId, now);
+                    console.log(`[LOXONE] [${serialNumber}] Structure unchanged (lastModified: ${newLastModified}), skipping reimport`);
+                    this.structureUnchangedLogTimestamps.set(serialNumber, now);
                 }
                 
                 // Still enable live updates if not already enabled
                 if (!state.structureLoaded) {
                     state.structureLoaded = true;
-                    this.send(buildingId, 'jdev/sps/enablebinstatusupdate');
+                    this.send(serialNumber, 'jdev/sps/enablebinstatusupdate');
                 }
                 return;
             }
             
             // Structure is new or changed - process it
             if (newLastModified) {
-                this.structureLastModified.set(buildingId, newLastModified);
-                console.log(`[LOXONE] [${buildingId}] Structure file received (lastModified: ${newLastModified})`);
+                this.structureLastModified.set(serialNumber, newLastModified);
+                console.log(`[LOXONE] [${serialNumber}] Structure file received (lastModified: ${newLastModified})`);
             } else {
-                console.log(`[LOXONE] [${buildingId}] Structure file received (no lastModified field)`);
+                console.log(`[LOXONE] [${serialNumber}] Structure file received (no lastModified field)`);
             }
 
-            // Save structure file per building (async to avoid blocking)
-            const structureFilePath = this.getStructureFilePath(buildingId);
+            // Save structure file per server (async to avoid blocking)
+            const structureFilePath = this.getStructureFilePath(serialNumber);
             await fsPromises.writeFile(structureFilePath, JSON.stringify(json, null, 2), 'utf8');
-            //console.log(`[LOXONE] [${buildingId}] Structure file saved: ${structureFilePath}`);
+            //console.log(`[LOXONE] [${serialNumber}] Structure file saved: ${structureFilePath}`);
 
             state.structureLoaded = true;
             state.structureData = json;
 
             // Initialize storage and import structure
             try {
-                await loxoneStorageService.initializeForBuilding(buildingId);
-                const uuidMap = await loxoneStorageService.loadStructureMapping(buildingId, json);
+                await loxoneStorageService.initializeForBuilding(serialNumber);
+                const uuidMap = await loxoneStorageService.loadStructureMapping(serialNumber, json);
                 state.sensorUuidMap = uuidMap;
                 
                 // Verify structure import completed successfully
                 if (!uuidMap || uuidMap.size === 0) {
-                    console.warn(`[LOXONE] [${buildingId}] ⚠️  Structure import completed but UUID mapping is empty! Measurements will be skipped until structure is properly imported.`);
-                    console.warn(`[LOXONE] [${buildingId}] Check if sensors exist in database and are properly linked to Loxone controls.`);
+                    console.warn(`[LOXONE] [${serialNumber}] ⚠️  Structure import completed but UUID mapping is empty! Measurements will be skipped until structure is properly imported.`);
+                    console.warn(`[LOXONE] [${serialNumber}] Check if sensors exist in database and are properly linked to Loxone controls.`);
                 } else {
-                    console.log(`[LOXONE] [${buildingId}] ✓ Structure imported and mapping loaded (${uuidMap.size} UUID mappings ready)`);
+                    console.log(`[LOXONE] [${serialNumber}] ✓ Structure imported and mapping loaded (${uuidMap.size} UUID mappings ready)`);
                 }
             } catch (error) {
-                console.error(`[LOXONE] [${buildingId}] Error initializing storage:`, error.message);
-                console.error(`[LOXONE] [${buildingId}] Stack trace:`, error.stack);
+                console.error(`[LOXONE] [${serialNumber}] Error initializing storage:`, error.message);
+                console.error(`[LOXONE] [${serialNumber}] Stack trace:`, error.stack);
                 // Don't enable live updates if structure import failed
                 return;
             }
 
             // Enable live updates only after structure import is complete
-            // console.log(`[LOXONE] [${buildingId}] Enabling live status updates...`);
-            this.send(buildingId, 'jdev/sps/enablebinstatusupdate');
+            // console.log(`[LOXONE] [${serialNumber}] Enabling live status updates...`);
+            this.send(serialNumber, 'jdev/sps/enablebinstatusupdate');
             
             // Reset reconnect attempts and ping failures on successful connection
             state.reconnectAttempts = 0;
             state.pingFailures = 0;
             
-            // console.log(`[LOXONE] [${buildingId}] ✓ Connection ready - receiving measurements`);
+            // console.log(`[LOXONE] [${serialNumber}] ✓ Connection ready - receiving measurements`);
         } catch (error) {
-            //console.error(`[LOXONE] [${buildingId}] Error handling structure file:`, error);
+            //console.error(`[LOXONE] [${serialNumber}] Error handling structure file:`, error);
         }
     }
 
     /**
      * Handle binary messages
      */
-    handleBinaryMessage(buildingId, buffer) {
-        const state = this.connections.get(buildingId);
+    handleBinaryMessage(serialNumber, buffer) {
+        const state = this.connections.get(serialNumber);
         if (!state) return;
 
         if (buffer.length < 8) return;
@@ -665,9 +702,9 @@ class LoxoneConnectionManager {
             case 0:
                 try {
                     const textPayload = buffer.slice(8).toString('utf8');
-                    this.handleTextMessage(buildingId, textPayload);
+                    this.handleTextMessage(serialNumber, textPayload);
                 } catch (error) {
-                    //console.error(`[LOXONE] [${buildingId}] Error parsing binary text:`, error);
+                    //console.error(`[LOXONE] [${serialNumber}] Error parsing binary text:`, error);
                 }
                 break;
 
@@ -675,39 +712,37 @@ class LoxoneConnectionManager {
                 // Binary file (structure file LoxAPP3.json)
                 // The structure file comes as binary, but we need to wait for the actual JSON payload
                 // It will arrive as a text message after this binary file indicator
-                // //console.log(`[LOXONE] [${buildingId}] Received binary file indicator (structure file)`);
+                // //console.log(`[LOXONE] [${serialNumber}] Received binary file indicator (structure file)`);
                 // The actual JSON will come in a subsequent message
                 break;
 
             case 2:
                 const valueStatesBuffer = buffer.slice(8);
-                this.handleValueStates(buildingId, valueStatesBuffer).catch(err => {
-                    //console.error(`[LOXONE] [${buildingId}] Error handling value states:`, err.message);
+                this.handleValueStates(serialNumber, valueStatesBuffer).catch(err => {
+                    //console.error(`[LOXONE] [${serialNumber}] Error handling value states:`, err.message);
                 });
                 break;
 
             case 3:
-                //console.log(`[LOXONE] [${buildingId}] Received text state update(s)`);
+                //console.log(`[LOXONE] [${serialNumber}] Received text state update(s)`);
                 break;
 
             default:
-                //console.log(`[LOXONE] [${buildingId}] Unknown identifier: ${identifier}`);
+                //console.log(`[LOXONE] [${serialNumber}] Unknown identifier: ${identifier}`);
         }
     }
 
     /**
      * Handle value states
      */
-    async handleValueStates(buildingId, buffer) {
-        const state = this.connections.get(buildingId);
+    async handleValueStates(serialNumber, buffer) {
+        const state = this.connections.get(serialNumber);
         if (!state) return;
 
         const entrySize = 24;
         const entryCount = Math.floor(buffer.length / entrySize);
 
         if (entryCount === 0) return;
-
-        //console.log(`[LOXONE] [${buildingId}] Received ${entryCount} value state update(s)`);
 
         const measurements = [];
         for (let i = 0; i < entryCount; i++) {
@@ -729,11 +764,11 @@ class LoxoneConnectionManager {
                 const measurementQueueService = require('./measurementQueueService');
                 // Enqueue measurements for background processing
                 // This allows WebSocket handler to return immediately
-                measurementQueueService.enqueue(buildingId, measurements).catch(err => {
-                    console.error(`[LOXONE] [${buildingId}] Error enqueueing measurements:`, err.message);
+                measurementQueueService.enqueue(serialNumber, measurements).catch(err => {
+                    console.error(`[LOXONE] [${serialNumber}] Error enqueueing measurements:`, err.message);
                 });
             } catch (err) {
-                console.error(`[LOXONE] [${buildingId}] Error enqueueing measurements:`, err.message);
+                console.error(`[LOXONE] [${serialNumber}] Error enqueueing measurements:`, err.message);
             }
         }
     }
@@ -767,8 +802,8 @@ class LoxoneConnectionManager {
     /**
      * Start keepalive with enhanced ping detection
      */
-    startKeepalive(buildingId) {
-        const state = this.connections.get(buildingId);
+    startKeepalive(serialNumber) {
+        const state = this.connections.get(serialNumber);
         if (!state) return;
 
         if (state.keepaliveTimer) {
@@ -790,7 +825,7 @@ class LoxoneConnectionManager {
                         // Ping failed - connection may be dead
                         state.pingFailures++;
                         if (state.pingFailures >= maxPingFailures) {
-                            console.warn(`[LOXONE] [${buildingId}] Multiple ping failures detected (${state.pingFailures}), forcing reconnection`);
+                            console.warn(`[LOXONE] [${serialNumber}] Multiple ping failures detected (${state.pingFailures}), forcing reconnection`);
                             // Force disconnection to trigger reconnection logic
                             if (state.ws) {
                                 state.ws.terminate();
@@ -805,7 +840,7 @@ class LoxoneConnectionManager {
                     // Ping error - connection likely dead
                     state.pingFailures++;
                     if (state.pingFailures >= maxPingFailures) {
-                        console.warn(`[LOXONE] [${buildingId}] Ping error detected (${state.pingFailures} failures), forcing reconnection:`, error.message);
+                        console.warn(`[LOXONE] [${serialNumber}] Ping error detected (${state.pingFailures} failures), forcing reconnection:`, error.message);
                         if (state.ws) {
                             state.ws.terminate();
                         }
@@ -814,20 +849,20 @@ class LoxoneConnectionManager {
                 }
                 
                 // Also send keepalive command (Loxone protocol)
-                this.send(buildingId, 'keepalive');
+                this.send(serialNumber, 'keepalive');
             }
         }, state.config.keepaliveInterval);
 
         // Reset ping failures on successful keepalive start
         state.pingFailures = 0;
-        //console.log(`[LOXONE] [${buildingId}] Keepalive started`);
+        //console.log(`[LOXONE] [${serialNumber}] Keepalive started`);
     }
 
     /**
      * Handle disconnection
      */
-    handleDisconnection(buildingId, code) {
-        const state = this.connections.get(buildingId);
+    handleDisconnection(serialNumber, code) {
+        const state = this.connections.get(serialNumber);
         if (!state) return;
 
         if (state.keepaliveTimer) {
@@ -842,8 +877,11 @@ class LoxoneConnectionManager {
         state.pingFailures = 0; // Reset ping failures
 
         if (code === 1000) {
-            // Manual disconnect
-            this.connections.delete(buildingId);
+            // Manual disconnect - update all buildings and close connection
+            for (const buildingId of state.buildings) {
+                this.updateBuildingConnectionStatus(buildingId, false).catch(() => {});
+            }
+            this.connections.delete(serialNumber);
             return;
         }
 
@@ -851,23 +889,25 @@ class LoxoneConnectionManager {
         if (state.reconnectAttempts < state.maxReconnectAttempts) {
             state.reconnectAttempts++;
             const delay = state.reconnectDelay * state.reconnectAttempts;
-            //console.log(`[LOXONE] [${buildingId}] Reconnecting in ${delay}ms (attempt ${state.reconnectAttempts})`);
+            //console.log(`[LOXONE] [${serialNumber}] Reconnecting in ${delay}ms (attempt ${state.reconnectAttempts})`);
 
             const timer = setTimeout(() => {
-                this.reconnectTimers.delete(buildingId);
-                this.establishConnection(buildingId).catch(err => {
-                    //console.error(`[LOXONE] [${buildingId}] Reconnection failed:`, err.message);
+                this.reconnectTimers.delete(serialNumber);
+                this.establishConnection(serialNumber).catch(err => {
+                    //console.error(`[LOXONE] [${serialNumber}] Reconnection failed:`, err.message);
                 });
             }, delay);
 
-            this.reconnectTimers.set(buildingId, timer);
+            this.reconnectTimers.set(serialNumber, timer);
         } else {
-            //console.error(`[LOXONE] [${buildingId}] Max reconnection attempts reached`);
+            //console.error(`[LOXONE] [${serialNumber}] Max reconnection attempts reached`);
             // Don't delete connection - let health check restore it
             // Reset reconnect attempts to allow health check to retry
             state.reconnectAttempts = 0;
-            // Update building connection status when max attempts reached
-            this.updateBuildingConnectionStatus(buildingId, false).catch(() => {});
+            // Update all buildings' connection status when max attempts reached
+            for (const buildingId of state.buildings) {
+                this.updateBuildingConnectionStatus(buildingId, false).catch(() => {});
+            }
         }
     }
 
@@ -875,43 +915,60 @@ class LoxoneConnectionManager {
      * Disconnect a building
      */
     async disconnect(buildingId) {
-        const state = this.connections.get(buildingId);
+        // Find the connection that has this building
+        const serialNumber = this.getServerForBuilding(buildingId);
+        if (!serialNumber) {
+            return { success: false, message: 'No connection found for building' };
+        }
+
+        const state = this.connections.get(serialNumber);
         if (!state) {
-            return { success: false, message: 'No connection found' };
+            return { success: false, message: 'Connection state not found' };
         }
 
-        if (this.reconnectTimers.has(buildingId)) {
-            clearTimeout(this.reconnectTimers.get(buildingId));
-            this.reconnectTimers.delete(buildingId);
-        }
-
-        if (state.ws) {
-            state.ws.close(1000, 'Manual disconnect');
-        }
-
-        if (state.keepaliveTimer) {
-            clearInterval(state.keepaliveTimer);
-        }
-
-        this.connections.delete(buildingId);
+        // Remove building from the set
+        state.buildings.delete(buildingId);
         
-        // Clear lastModified cache so structure is reloaded on reconnect
-        this.structureLastModified.delete(buildingId);
-        // Clear log throttle timestamp
-        this.structureUnchangedLogTimestamps.delete(buildingId);
-        
-        // Update building connection status in database
+        // Update building connection status
         await this.updateBuildingConnectionStatus(buildingId, false);
+
+        // If no more buildings use this connection, close it
+        if (state.buildings.size === 0) {
+            if (this.reconnectTimers.has(serialNumber)) {
+                clearTimeout(this.reconnectTimers.get(serialNumber));
+                this.reconnectTimers.delete(serialNumber);
+            }
+
+            if (state.ws) {
+                state.ws.close(1000, 'Manual disconnect - no buildings using connection');
+            }
+
+            if (state.keepaliveTimer) {
+                clearInterval(state.keepaliveTimer);
+            }
+
+            this.connections.delete(serialNumber);
+            
+            // Clear lastModified cache so structure is reloaded on reconnect
+            this.structureLastModified.delete(serialNumber);
+            // Clear log throttle timestamp
+            this.structureUnchangedLogTimestamps.delete(serialNumber);
+        }
         
-        //console.log(`[LOXONE] [${buildingId}] Disconnected`);
+        //console.log(`[LOXONE] [${buildingId}] Disconnected from server ${serialNumber}`);
         return { success: true, message: 'Disconnected' };
     }
 
     /**
-     * Get connection status
+     * Get connection status for a building
      */
     getConnectionStatus(buildingId) {
-        const state = this.connections.get(buildingId);
+        const serialNumber = this.getServerForBuilding(buildingId);
+        if (!serialNumber) {
+            return { connected: false, authenticated: false };
+        }
+
+        const state = this.connections.get(serialNumber);
         if (!state) {
             return { connected: false, authenticated: false };
         }
@@ -920,7 +977,9 @@ class LoxoneConnectionManager {
             connected: state.ws && state.ws.readyState === WebSocket.OPEN,
             authenticated: state.authenticated,
             structureLoaded: state.structureLoaded,
-            reconnectAttempts: state.reconnectAttempts
+            reconnectAttempts: state.reconnectAttempts,
+            serialNumber: serialNumber,
+            buildings: Array.from(state.buildings)
         };
     }
 
@@ -929,11 +988,12 @@ class LoxoneConnectionManager {
      */
     getAllConnections() {
         const statuses = {};
-        for (const [buildingId, state] of this.connections.entries()) {
-            statuses[buildingId] = {
+        for (const [serialNumber, state] of this.connections.entries()) {
+            statuses[serialNumber] = {
                 connected: state.ws && state.ws.readyState === WebSocket.OPEN,
                 authenticated: state.authenticated,
-                structureLoaded: state.structureLoaded
+                structureLoaded: state.structureLoaded,
+                buildings: Array.from(state.buildings)
             };
         }
         return statuses;
@@ -976,88 +1036,128 @@ class LoxoneConnectionManager {
 
             console.log(`[LOXONE] Found ${buildings.length} building(s) with Loxone configuration. Restoring connections...`);
 
+            // Group buildings by serial number
+            const buildingsBySerial = new Map();
+            for (const building of buildings) {
+                const serialNumber = building.miniserver_serial;
+                if (!serialNumber) {
+                    console.warn(`[LOXONE] Building ${building.name} (${building._id}) has no serial number, skipping`);
+                    continue;
+                }
+                if (!buildingsBySerial.has(serialNumber)) {
+                    buildingsBySerial.set(serialNumber, []);
+                }
+                buildingsBySerial.get(serialNumber).push(building);
+            }
+
             let restored = 0;
             let failed = 0;
             const results = [];
-            const failedBuildings = []; // Track failed buildings for retry
+            const failedSerials = []; // Track failed serials for retry
 
-            // First pass: Try to restore all connections
-            for (const building of buildings) {
+            // First pass: Try to restore all connections (one per serial)
+            for (const [serialNumber, serialBuildings] of buildingsBySerial.entries()) {
                 try {
-                    const buildingId = building._id.toString();
-                    
-                    // Skip if connection already exists (from previous restore attempt or manual connection)
-                    if (this.connections.has(buildingId)) {
-                        const existingState = this.connections.get(buildingId);
+                    // Skip if connection already exists for this serial
+                    if (this.connections.has(serialNumber)) {
+                        const existingState = this.connections.get(serialNumber);
                         if (existingState.ws && existingState.ws.readyState === WebSocket.OPEN) {
-                            console.log(`[LOXONE] Connection already active for building: ${building.name} (${buildingId}), skipping restore`);
-                            restored++;
-                            results.push({
-                                buildingId: buildingId,
-                                buildingName: building.name,
-                                success: true,
-                                message: 'Connection already active'
-                            });
+                            // Add all buildings to existing connection
+                            for (const building of serialBuildings) {
+                                const buildingId = building._id.toString();
+                                if (!existingState.buildings.has(buildingId)) {
+                                    existingState.buildings.add(buildingId);
+                                    await this.updateBuildingConnectionStatus(buildingId, true);
+                                }
+                                restored++;
+                                results.push({
+                                    buildingId: buildingId,
+                                    buildingName: building.name,
+                                    success: true,
+                                    message: 'Added to existing connection'
+                                });
+                            }
+                            console.log(`[LOXONE] Connection already active for serial ${serialNumber}, added ${serialBuildings.length} building(s)`);
                             continue;
                         } else {
                             // Connection exists but is not open, remove it first
-                            this.connections.delete(buildingId);
+                            this.connections.delete(serialNumber);
                         }
                     }
                     
+                    // Use first building's credentials (all should be the same for same serial)
+                    const firstBuilding = serialBuildings[0];
                     const credentials = {
-                        ip: building.miniserver_ip,
-                        port: building.miniserver_port,
-                        protocol: building.miniserver_protocol,
-                        user: building.miniserver_user,
-                        pass: building.miniserver_pass,
-                        externalAddress: building.miniserver_external_address,
-                        serialNumber: building.miniserver_serial
+                        ip: firstBuilding.miniserver_ip,
+                        port: firstBuilding.miniserver_port,
+                        protocol: firstBuilding.miniserver_protocol,
+                        user: firstBuilding.miniserver_user,
+                        pass: firstBuilding.miniserver_pass,
+                        externalAddress: firstBuilding.miniserver_external_address,
+                        serialNumber: serialNumber
                     };
 
-                    const result = await this.connect(buildingId, credentials);
+                    // Connect first building (will create connection for the serial)
+                    const firstBuildingId = firstBuilding._id.toString();
+                    const result = await this.connect(firstBuildingId, credentials);
                     
                     if (result.success) {
-                        restored++;
-                        console.log(`[LOXONE] ✓ Restored connection for building: ${building.name} (${buildingId})`);
-                        results.push({
-                            buildingId: buildingId,
-                            buildingName: building.name,
-                            success: true,
-                            message: result.message
-                        });
+                        // Add remaining buildings to the connection
+                        const state = this.connections.get(serialNumber);
+                        for (let i = 1; i < serialBuildings.length; i++) {
+                            const building = serialBuildings[i];
+                            const buildingId = building._id.toString();
+                            if (state && !state.buildings.has(buildingId)) {
+                                state.buildings.add(buildingId);
+                                await this.updateBuildingConnectionStatus(buildingId, true);
+                            }
+                        }
+                        
+                        restored += serialBuildings.length;
+                        console.log(`[LOXONE] ✓ Restored connection for serial ${serialNumber} with ${serialBuildings.length} building(s)`);
+                        for (const building of serialBuildings) {
+                            results.push({
+                                buildingId: building._id.toString(),
+                                buildingName: building.name,
+                                success: true,
+                                message: result.message
+                            });
+                        }
                     } else {
-                        failed++;
-                        failedBuildings.push({ building, buildingId, attempt: 1 }); // Track for retry
-                        console.warn(`[LOXONE] ✗ Failed to restore connection for building: ${building.name} (${buildingId}): ${result.message}`);
-                        results.push({
-                            buildingId: buildingId,
-                            buildingName: building.name,
-                            success: false,
-                            message: result.message
-                        });
+                        failed += serialBuildings.length;
+                        failedSerials.push({ serialNumber, buildings: serialBuildings, attempt: 1 });
+                        console.warn(`[LOXONE] ✗ Failed to restore connection for serial ${serialNumber}: ${result.message}`);
+                        for (const building of serialBuildings) {
+                            results.push({
+                                buildingId: building._id.toString(),
+                                buildingName: building.name,
+                                success: false,
+                                message: result.message
+                            });
+                        }
                     }
 
                     // Small delay between connections to avoid overwhelming the server
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 } catch (error) {
-                    failed++;
-                    const buildingId = building._id.toString();
-                    failedBuildings.push({ building, buildingId, attempt: 1 }); // Track for retry
-                    console.error(`[LOXONE] Error restoring connection for building ${buildingId}:`, error.message);
-                    results.push({
-                        buildingId: buildingId,
-                        buildingName: building.name,
-                        success: false,
-                        message: error.message
-                    });
+                    failed += serialBuildings.length;
+                    failedSerials.push({ serialNumber, buildings: serialBuildings, attempt: 1 });
+                    console.error(`[LOXONE] Error restoring connection for serial ${serialNumber}:`, error.message);
+                    for (const building of serialBuildings) {
+                        results.push({
+                            buildingId: building._id.toString(),
+                            buildingName: building.name,
+                            success: false,
+                            message: error.message
+                        });
+                    }
                 }
             }
 
             // Retry failed connections with exponential backoff (3-4 attempts)
             const maxRetries = 3;
-            if (failedBuildings.length > 0) {
-                console.log(`[LOXONE] Retrying ${failedBuildings.length} failed connection(s) (up to ${maxRetries} attempts)...`);
+            if (failedSerials.length > 0) {
+                console.log(`[LOXONE] Retrying ${failedSerials.length} failed connection(s) (up to ${maxRetries} attempts)...`);
                 
                 for (let retryAttempt = 1; retryAttempt <= maxRetries; retryAttempt++) {
                     const delay = Math.pow(2, retryAttempt) * 1000; // 2s, 4s, 8s
@@ -1066,66 +1166,87 @@ class LoxoneConnectionManager {
                     
                     const stillFailed = [];
                     
-                    for (const { building, buildingId } of failedBuildings) {
+                    for (const { serialNumber, buildings } of failedSerials) {
                         try {
                             // Skip if already connected (might have been restored by another process)
-                            if (this.connections.has(buildingId)) {
-                                const existingState = this.connections.get(buildingId);
+                            if (this.connections.has(serialNumber)) {
+                                const existingState = this.connections.get(serialNumber);
                                 if (existingState.ws && existingState.ws.readyState === WebSocket.OPEN) {
-                                    restored++;
-                                    failed--;
-                                    console.log(`[LOXONE] ✓ Connection restored on retry ${retryAttempt} for building: ${building.name} (${buildingId})`);
-                                    
-                                    // Update result
+                                    // Add all buildings to existing connection
+                                    for (const building of buildings) {
+                                        const buildingId = building._id.toString();
+                                        if (!existingState.buildings.has(buildingId)) {
+                                            existingState.buildings.add(buildingId);
+                                            await this.updateBuildingConnectionStatus(buildingId, true);
+                                        }
+                                        restored++;
+                                        failed--;
+                                        const resultIndex = results.findIndex(r => r.buildingId === buildingId);
+                                        if (resultIndex !== -1) {
+                                            results[resultIndex].success = true;
+                                            results[resultIndex].message = `Restored on retry ${retryAttempt}`;
+                                        }
+                                    }
+                                    console.log(`[LOXONE] ✓ Connection restored on retry ${retryAttempt} for serial ${serialNumber}`);
+                                    continue;
+                                } else {
+                                    // Connection exists but is not open, remove it first
+                                    this.connections.delete(serialNumber);
+                                }
+                            }
+                            
+                            const firstBuilding = buildings[0];
+                            const credentials = {
+                                ip: firstBuilding.miniserver_ip,
+                                port: firstBuilding.miniserver_port,
+                                protocol: firstBuilding.miniserver_protocol,
+                                user: firstBuilding.miniserver_user,
+                                pass: firstBuilding.miniserver_pass,
+                                externalAddress: firstBuilding.miniserver_external_address,
+                                serialNumber: serialNumber
+                            };
+
+                            const firstBuildingId = firstBuilding._id.toString();
+                            const result = await this.connect(firstBuildingId, credentials);
+                            
+                            if (result.success) {
+                                // Add remaining buildings
+                                const state = this.connections.get(serialNumber);
+                                for (let i = 1; i < buildings.length; i++) {
+                                    const building = buildings[i];
+                                    const buildingId = building._id.toString();
+                                    if (state && !state.buildings.has(buildingId)) {
+                                        state.buildings.add(buildingId);
+                                        await this.updateBuildingConnectionStatus(buildingId, true);
+                                    }
+                                }
+                                
+                                restored += buildings.length;
+                                failed -= buildings.length;
+                                console.log(`[LOXONE] ✓ Connection restored on retry ${retryAttempt} for serial ${serialNumber}`);
+                                
+                                for (const building of buildings) {
+                                    const buildingId = building._id.toString();
                                     const resultIndex = results.findIndex(r => r.buildingId === buildingId);
                                     if (resultIndex !== -1) {
                                         results[resultIndex].success = true;
                                         results[resultIndex].message = `Restored on retry ${retryAttempt}`;
                                     }
-                                    continue;
-                                } else {
-                                    // Connection exists but is not open, remove it first
-                                    this.connections.delete(buildingId);
-                                }
-                            }
-                            
-                            const credentials = {
-                                ip: building.miniserver_ip,
-                                port: building.miniserver_port,
-                                protocol: building.miniserver_protocol,
-                                user: building.miniserver_user,
-                                pass: building.miniserver_pass,
-                                externalAddress: building.miniserver_external_address,
-                                serialNumber: building.miniserver_serial
-                            };
-
-                            const result = await this.connect(buildingId, credentials);
-                            
-                            if (result.success) {
-                                restored++;
-                                failed--;
-                                console.log(`[LOXONE] ✓ Connection restored on retry ${retryAttempt} for building: ${building.name} (${buildingId})`);
-                                
-                                // Update result
-                                const resultIndex = results.findIndex(r => r.buildingId === buildingId);
-                                if (resultIndex !== -1) {
-                                    results[resultIndex].success = true;
-                                    results[resultIndex].message = `Restored on retry ${retryAttempt}`;
                                 }
                             } else {
-                                stillFailed.push({ building, buildingId, attempt: retryAttempt + 1 });
-                                console.warn(`[LOXONE] ✗ Retry ${retryAttempt} failed for building: ${building.name} (${buildingId}): ${result.message}`);
+                                stillFailed.push({ serialNumber, buildings, attempt: retryAttempt + 1 });
+                                console.warn(`[LOXONE] ✗ Retry ${retryAttempt} failed for serial ${serialNumber}: ${result.message}`);
                             }
                         } catch (error) {
-                            stillFailed.push({ building, buildingId, attempt: retryAttempt + 1 });
-                            console.error(`[LOXONE] Error on retry ${retryAttempt} for building ${buildingId}:`, error.message);
+                            stillFailed.push({ serialNumber, buildings, attempt: retryAttempt + 1 });
+                            console.error(`[LOXONE] Error on retry ${retryAttempt} for serial ${serialNumber}:`, error.message);
                         }
                     }
                     
-                    failedBuildings.length = 0;
-                    failedBuildings.push(...stillFailed);
+                    failedSerials.length = 0;
+                    failedSerials.push(...stillFailed);
                     
-                    if (failedBuildings.length === 0) {
+                    if (failedSerials.length === 0) {
                         console.log(`[LOXONE] ✓ All connections restored successfully after ${retryAttempt} retry attempt(s)`);
                         break; // All connections restored
                     }
@@ -1189,19 +1310,31 @@ class LoxoneConnectionManager {
                 return;
             }
 
+            // Group buildings by serial number
+            const buildingsBySerial = new Map();
+            for (const building of buildings) {
+                const serialNumber = building.miniserver_serial;
+                if (!serialNumber) {
+                    continue; // Skip buildings without serial
+                }
+                if (!buildingsBySerial.has(serialNumber)) {
+                    buildingsBySerial.set(serialNumber, []);
+                }
+                buildingsBySerial.get(serialNumber).push(building);
+            }
+
             let restored = 0;
             let checked = 0;
 
-            // Process buildings sequentially with delays to avoid overwhelming the system
-            for (const building of buildings) {
+            // Process servers sequentially with delays to avoid overwhelming the system
+            for (const [serialNumber, serialBuildings] of buildingsBySerial.entries()) {
                 try {
-                    // Yield to event loop before processing each building
+                    // Yield to event loop before processing each server
                     await new Promise(resolve => setImmediate(resolve));
                     
-                    const buildingId = building._id.toString();
                     checked++;
                     
-                    const state = this.connections.get(buildingId);
+                    const state = this.connections.get(serialNumber);
                     // Check if connection is fully ready: WebSocket open, authenticated, and structure loaded
                     const isConnected = state && 
                         state.ws && 
@@ -1218,7 +1351,7 @@ class LoxoneConnectionManager {
                     
                     if (isPartiallyConnected) {
                         // Connection is authenticated but structure not loaded - this means measurements will be skipped
-                        console.warn(`[LOXONE] [HEALTH-CHECK] [${buildingId}] Connection authenticated but structure not loaded for building: ${building.name}. Measurements will be skipped until structure loads.`);
+                        console.warn(`[LOXONE] [HEALTH-CHECK] [${serialNumber}] Connection authenticated but structure not loaded. Measurements will be skipped until structure loads.`);
                         // Don't restore - let it complete structure loading, but log the issue
                     }
                     
@@ -1238,40 +1371,54 @@ class LoxoneConnectionManager {
                                 }
                             }
                             // Remove stale state
-                            this.connections.delete(buildingId);
+                            this.connections.delete(serialNumber);
                         }
                         
-                        // Reset reconnect attempts for fresh start
+                        // Use first building's credentials (all should be the same for same serial)
+                        const firstBuilding = serialBuildings[0];
                         const credentials = {
-                            ip: building.miniserver_ip,
-                            port: building.miniserver_port,
-                            protocol: building.miniserver_protocol,
-                            user: building.miniserver_user,
-                            pass: building.miniserver_pass,
-                            externalAddress: building.miniserver_external_address,
-                            serialNumber: building.miniserver_serial
+                            ip: firstBuilding.miniserver_ip,
+                            port: firstBuilding.miniserver_port,
+                            protocol: firstBuilding.miniserver_protocol,
+                            user: firstBuilding.miniserver_user,
+                            pass: firstBuilding.miniserver_pass,
+                            externalAddress: firstBuilding.miniserver_external_address,
+                            serialNumber: serialNumber
                         };
 
                         // Fire-and-forget connection attempt (non-blocking)
                         // Don't await to avoid blocking health check
-                        this.connect(buildingId, credentials)
-                            .then(result => {
+                        const firstBuildingId = firstBuilding._id.toString();
+                        this.connect(firstBuildingId, credentials)
+                            .then(async result => {
                                 if (result.success) {
-                                    restored++;
-                                    console.log(`[LOXONE] [HEALTH-CHECK] ✓ Restored connection for building: ${building.name} (${buildingId})`);
+                                    // Add remaining buildings to the connection
+                                    const newState = this.connections.get(serialNumber);
+                                    if (newState) {
+                                        for (let i = 1; i < serialBuildings.length; i++) {
+                                            const building = serialBuildings[i];
+                                            const buildingId = building._id.toString();
+                                            if (!newState.buildings.has(buildingId)) {
+                                                newState.buildings.add(buildingId);
+                                                await this.updateBuildingConnectionStatus(buildingId, true);
+                                            }
+                                        }
+                                    }
+                                    restored += serialBuildings.length;
+                                    console.log(`[LOXONE] [HEALTH-CHECK] ✓ Restored connection for serial ${serialNumber} with ${serialBuildings.length} building(s)`);
                                 }
                             })
                             .catch(error => {
-                                // Log but don't throw - continue with other buildings
-                                console.error(`[LOXONE] [HEALTH-CHECK] Error restoring connection for building ${building.name} (${buildingId}):`, error.message);
+                                // Log but don't throw - continue with other servers
+                                console.error(`[LOXONE] [HEALTH-CHECK] Error restoring connection for serial ${serialNumber}:`, error.message);
                             });
                     }
                     
-                    // Small delay between buildings to avoid overwhelming the server
+                    // Small delay between servers to avoid overwhelming the system
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 } catch (error) {
-                    // Log but continue checking other buildings
-                    console.error(`[LOXONE] [HEALTH-CHECK] Error checking building ${building._id}:`, error.message);
+                    // Log but continue checking other servers
+                    console.error(`[LOXONE] [HEALTH-CHECK] Error checking serial ${serialNumber}:`, error.message);
                 }
             }
 

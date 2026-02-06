@@ -65,13 +65,18 @@ exports.getReports = asyncHandler(async (req, res) => {
 
 /**
  * GET /api/v1/dashboard/reports/view/:reportId
- * Get report content for a specific report (current period)
+ * Get report content for a specific report
  * Query parameters:
  * - building_id (optional): Building ID - if not provided, will use first assignment for this report
- * - startDate (optional): Override start date
- * - endDate (optional): Override end date
+ * - startDate (optional): Start date for the report period (ISO 8601 format). If provided, endDate will be calculated based on report interval
+ * - endDate (optional): End date (ISO 8601 format). If not provided and startDate is provided, will be calculated from startDate + interval
  * - resolution (optional): Override resolution
  * - measurementType (optional): Filter by measurement type
+ * 
+ * Time Range Logic:
+ * - If both startDate and endDate provided: use them directly
+ * - If only startDate provided: calculate endDate based on report interval (Daily = same day, Weekly = week containing startDate, etc.)
+ * - If neither provided: use report interval to calculate previous period (Daily = previous day, Weekly = previous week, etc.)
  */
 exports.getReportContent = asyncHandler(async (req, res) => {
   const { reportId } = req.params;
@@ -131,23 +136,43 @@ exports.getReportContent = asyncHandler(async (req, res) => {
     }
   }
 
-  // Build time range if provided
+  // Get reporting configuration to access interval
+  const Reporting = require('../models/Reporting');
+  const reporting = await Reporting.findById(reportId);
+  if (!reporting) {
+    return res.status(404).json({
+      success: false,
+      error: 'Reporting configuration not found'
+    });
+  }
+
+  const reportGenerationService = require('../services/reportGenerationService');
   let timeRange = null;
+
+  // Build time range based on query parameters and report interval
   if (startDate && endDate) {
+    // Both dates provided: use them directly
     timeRange = {
       startDate: new Date(startDate),
       endDate: new Date(endDate)
     };
+  } else if (startDate) {
+    // Only startDate provided: calculate endDate based on report interval
+    timeRange = reportGenerationService.calculateTimeRangeFromStart(reporting.interval, new Date(startDate));
+  } else {
+    // Neither provided: use report interval to calculate previous period
+    // This matches the behavior of scheduled reports (previous day/week/month/year)
+    timeRange = reportGenerationService.calculateTimeRange(reporting.interval);
   }
 
   // Build options
   const options = {};
   if (resolution) options.resolution = parseInt(resolution, 10);
   if (measurementType) options.measurementType = measurementType;
-  // For dashboard viewing, use current period (last 7 days) when timeRange is not provided
-  options.useCurrentPeriod = !timeRange; // true if timeRange is null/undefined
+  // Always pass the interval so analytics can use it
+  options.interval = reporting.interval;
 
-  // Get report content (uses current period if timeRange not provided)
+  // Get report content
   const reportContent = await reportContentService.getReportContent(
     buildingId,
     reportId,

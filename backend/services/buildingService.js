@@ -1,6 +1,7 @@
 const Building = require('../models/Building');
 const buildingContactService = require('./buildingContactService');
 const reportingService = require('./reportingService');
+const { NotFoundError, ValidationError, ConflictError } = require('../utils/errors');
 
 class BuildingService {
   /**
@@ -11,13 +12,13 @@ class BuildingService {
    */
   async createBuildings(siteId, buildingNames) {
     if (!buildingNames || !Array.isArray(buildingNames) || buildingNames.length === 0) {
-      throw new Error('Building names array is required');
+      throw new ValidationError('Building names array is required');
     }
 
     // Check for duplicate names within the request
     const uniqueNames = [...new Set(buildingNames)];
     if (uniqueNames.length !== buildingNames.length) {
-      throw new Error('Duplicate building names are not allowed');
+      throw new ValidationError('Duplicate building names are not allowed');
     }
 
     // Check for existing buildings with same names in this site
@@ -28,7 +29,7 @@ class BuildingService {
 
     if (existingBuildings.length > 0) {
       const existingNames = existingBuildings.map(b => b.name);
-      throw new Error(`Buildings with these names already exist: ${existingNames.join(', ')}`);
+      throw new ConflictError(`Buildings with these names already exist: ${existingNames.join(', ')}`);
     }
 
     // Create buildings
@@ -58,7 +59,7 @@ class BuildingService {
   async getBuildingById(buildingId) {
     const building = await Building.findById(buildingId);
     if (!building) {
-      throw new Error('Building not found');
+      throw new NotFoundError('Building');
     }
     return building;
   }
@@ -73,7 +74,7 @@ class BuildingService {
     // console.log("updateBuilding's updateData is ", updateData);
     const building = await Building.findById(buildingId);
     if (!building) {
-      throw new Error('Building not found');
+      throw new NotFoundError('Building');
     }
 
     // If name is being updated, check for duplicates
@@ -84,7 +85,7 @@ class BuildingService {
         _id: { $ne: buildingId }
       });
       if (existing) {
-        throw new Error(`A building with the name "${updateData.name}" already exists in this site`);
+        throw new ConflictError(`A building with the name "${updateData.name}" already exists in this site`);
       }
     }
 
@@ -106,14 +107,14 @@ class BuildingService {
       // Validate reportingRecipients if provided
       if (reportingRecipients !== undefined) {
         if (!Array.isArray(reportingRecipients)) {
-          throw new Error('reportingRecipients must be an array');
+          throw new ValidationError('reportingRecipients must be an array');
         }
       }
       
       // Validate reportConfigs if provided (general templates)
       if (reportConfigs !== undefined) {
         if (!Array.isArray(reportConfigs)) {
-          throw new Error('reportConfigs must be an array');
+          throw new ValidationError('reportConfigs must be an array');
         }
       }
 

@@ -18,7 +18,7 @@ const measurementDataSchema = new mongoose.Schema({
     buildingId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Building',
-      required: true,
+      required: false, // Optional - measurements are server-scoped, buildingId can be derived via sensor->room->building
     },
     measurementType: String, // e.g., 'Energy', 'Temperature', 'Water', 'Power'
     stateType: String, // e.g., 'actual', 'total', 'totalDay'
@@ -47,8 +47,10 @@ const measurementDataSchema = new mongoose.Schema({
 });
 
 // Indexes for efficient querying
+// Note: buildingId index removed - measurements are now server-scoped and queried by sensorId
+// To get building-specific data, traverse: Building -> Floor -> LocalRoom -> Room -> Sensor
 measurementDataSchema.index({ 'meta.sensorId': 1, timestamp: -1 });
-measurementDataSchema.index({ 'meta.buildingId': 1, timestamp: -1 });
+measurementDataSchema.index({ 'meta.sensorId': 1, resolution_minutes: 1, timestamp: -1 });
 measurementDataSchema.index({ timestamp: -1 });
 
 // Static helper method to get collection name based on resolution

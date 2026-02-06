@@ -3,6 +3,8 @@ const Building = require('../models/Building');
 const BuildingContact = require('../models/BuildingContact');
 const Sensor = require('../models/Sensor');
 const Room = require('../models/Room');
+const LocalRoom = require('../models/LocalRoom');
+const Floor = require('../models/Floor');
 const { sendAlertReportEmail } = require('./emailService');
 
 /**
@@ -12,6 +14,32 @@ const { sendAlertReportEmail } = require('./emailService');
  * when plausibility check violations are detected.
  */
 class AlertNotificationService {
+    /**
+     * Find building associated with a Loxone Room
+     * Traverses Room -> LocalRoom -> Floor -> Building path
+     * @param {string} roomId - Loxone Room ID
+     * @returns {Promise<Object|null>} Building with populated buildingContact_id or null
+     */
+    async findBuildingForRoom(roomId) {
+        // Find LocalRoom that references this Loxone Room
+        const localRoom = await LocalRoom.findOne({ loxone_room_id: roomId });
+        if (!localRoom) {
+            return null;
+        }
+
+        // Find the Floor
+        const floor = await Floor.findById(localRoom.floor_id);
+        if (!floor) {
+            return null;
+        }
+
+        // Find the Building with populated buildingContact_id
+        const building = await Building.findById(floor.building_id)
+            .populate('buildingContact_id');
+        
+        return building;
+    }
+
     /**
      * Send alert report email for an alarm log entry
      * @param {string|ObjectId} alarmLogId - AlarmLog ID
@@ -35,19 +63,18 @@ class AlertNotificationService {
                 return { ok: false, error: 'Sensor not found' };
             }
 
-            // Get room and building information
+            // Get room (Loxone Room) information
             const room = await Room.findById(sensor.room_id);
             if (!room) {
                 console.error(`[ALERT] Room not found for sensor: ${sensor._id}`);
                 return { ok: false, error: 'Room not found' };
             }
 
-            // Fetch building with populated buildingContact_id
-            const building = await Building.findById(room.building_id)
-                .populate('buildingContact_id');
+            // Find building via Room -> LocalRoom -> Floor -> Building path
+            const building = await this.findBuildingForRoom(room._id);
             
             if (!building) {
-                console.error(`[ALERT] Building not found for room: ${room._id}`);
+                console.error(`[ALERT] Building not found for room: ${room._id}. The room may not be mapped to a LocalRoom.`);
                 return { ok: false, error: 'Building not found' };
             }
 

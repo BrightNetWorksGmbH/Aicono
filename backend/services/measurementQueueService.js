@@ -11,9 +11,9 @@ const { getPoolStatistics, PRIORITY } = require('../db/connection');
  */
 class MeasurementQueueService {
     constructor() {
-        // Queue: Map<buildingId, Array<measurements>>
+        // Queue: Map<serialNumber, Array<measurements>>
         this.queue = new Map();
-        // Processing flags: Map<buildingId, boolean>
+        // Processing flags: Map<serialNumber, boolean>
         this.processing = new Map();
         // Batch size for processing
         this.batchSize = parseInt(process.env.MEASUREMENT_QUEUE_BATCH_SIZE || '200', 10); // Increased default from 50 to 200
@@ -28,9 +28,9 @@ class MeasurementQueueService {
         // Throttle factor: reduce processing when API load is high
         this.throttleFactor = parseFloat(process.env.MEASUREMENT_QUEUE_THROTTLE_FACTOR || '0.5', 10);
         
-        // Track last warning time per building to reduce log spam
-        this.lastWarningTime = new Map(); // buildingId -> timestamp
-        this.warningCooldown = 60000; // Only warn once per minute per building
+        // Track last warning time per server to reduce log spam
+        this.lastWarningTime = new Map(); // serialNumber -> timestamp
+        this.warningCooldown = 60000; // Only warn once per minute per server
         
         // Pool throttle multiplier (1.0 = full speed, 0.1 = 10% speed)
         this.currentPoolThrottle = 1.0;
@@ -43,38 +43,38 @@ class MeasurementQueueService {
     }
 
     /**
-     * Add measurements to queue for a building
-     * @param {string} buildingId - Building ID
+     * Add measurements to queue for a server
+     * @param {string} serialNumber - Server serial number
      * @param {Array} measurements - Array of measurement objects
      * @returns {Promise<void>}
      */
-    async enqueue(buildingId, measurements) {
-        if (!buildingId || !measurements || measurements.length === 0) {
+    async enqueue(serialNumber, measurements) {
+        if (!serialNumber || !measurements || measurements.length === 0) {
             return;
         }
 
-        // Initialize queue for building if needed
-        if (!this.queue.has(buildingId)) {
-            this.queue.set(buildingId, []);
+        // Initialize queue for server if needed
+        if (!this.queue.has(serialNumber)) {
+            this.queue.set(serialNumber, []);
         }
 
-        const buildingQueue = this.queue.get(buildingId);
+        const serverQueue = this.queue.get(serialNumber);
         
         // Check queue size limit
-        if (buildingQueue.length >= this.maxQueueSize) {
-            // Only log warning once per minute per building to reduce log spam
+        if (serverQueue.length >= this.maxQueueSize) {
+            // Only log warning once per minute per server to reduce log spam
             const now = Date.now();
-            const lastWarning = this.lastWarningTime.get(buildingId) || 0;
+            const lastWarning = this.lastWarningTime.get(serialNumber) || 0;
             
             if (now - lastWarning > this.warningCooldown) {
-                console.warn(`[MEASUREMENT-QUEUE] [${buildingId}] Queue full (${buildingQueue.length}), dropping measurements. Processing may be too slow.`);
-                this.lastWarningTime.set(buildingId, now);
+                console.warn(`[MEASUREMENT-QUEUE] [${serialNumber}] Queue full (${serverQueue.length}), dropping measurements. Processing may be too slow.`);
+                this.lastWarningTime.set(serialNumber, now);
             }
             return;
         }
 
         // Add measurements to queue
-        buildingQueue.push(...measurements);
+        serverQueue.push(...measurements);
     }
 
     /**
@@ -178,12 +178,12 @@ class MeasurementQueueService {
         // Store throttle multiplier for use in processBuildingQueue
         this.currentPoolThrottle = poolThrottleMultiplier;
 
-        // Process buildings in parallel for better throughput
+        // Process servers in parallel for better throughput
         const processingPromises = [];
         
-        for (const [buildingId, measurements] of this.queue.entries()) {
-            // Skip if already processing this building
-            if (this.processing.get(buildingId)) {
+        for (const [serialNumber, measurements] of this.queue.entries()) {
+            // Skip if already processing this server
+            if (this.processing.get(serialNumber)) {
                 continue;
             }
 
@@ -192,15 +192,15 @@ class MeasurementQueueService {
                 continue;
             }
 
-            // Process this building's queue asynchronously (in parallel with others)
+            // Process this server's queue asynchronously (in parallel with others)
             processingPromises.push(
-                this.processBuildingQueue(buildingId).catch(err => {
-                    console.error(`[MEASUREMENT-QUEUE] [${buildingId}] Error processing queue:`, err.message);
+                this.processServerQueue(serialNumber).catch(err => {
+                    console.error(`[MEASUREMENT-QUEUE] [${serialNumber}] Error processing queue:`, err.message);
                 })
             );
         }
         
-        // Wait for all buildings to finish processing (but don't block the next interval)
+        // Wait for all servers to finish processing (but don't block the next interval)
         // This allows parallel processing while still respecting the interval
         if (processingPromises.length > 0) {
             Promise.all(processingPromises).catch(() => {
@@ -210,21 +210,21 @@ class MeasurementQueueService {
     }
 
     /**
-     * Process queued measurements for a specific building
-     * @param {string} buildingId - Building ID
+     * Process queued measurements for a specific server
+     * @param {string} serialNumber - Server serial number
      */
-    async processBuildingQueue(buildingId) {
-        const buildingQueue = this.queue.get(buildingId);
-        if (!buildingQueue || buildingQueue.length === 0) {
+    async processServerQueue(serialNumber) {
+        const serverQueue = this.queue.get(serialNumber);
+        if (!serverQueue || serverQueue.length === 0) {
             return;
         }
 
         // Mark as processing
-        this.processing.set(buildingId, true);
+        this.processing.set(serialNumber, true);
 
         try {
             // Adaptive batch processing: use larger batches when queue is full
-            const queueSize = buildingQueue.length;
+            const queueSize = serverQueue.length;
             const queuePercent = queueSize / this.maxQueueSize;
             const isQueueCritical = queuePercent > 0.9; // >90% full
             const isQueueFull = queuePercent > 0.7; // >70% full
@@ -253,9 +253,9 @@ class MeasurementQueueService {
             let batchesProcessed = 0;
             
             // Process in batches
-            while (buildingQueue.length > 0 && batchesProcessed < maxBatchesPerCycle) {
+            while (serverQueue.length > 0 && batchesProcessed < maxBatchesPerCycle) {
                 // Take a batch
-                const batch = buildingQueue.splice(0, adaptiveBatchSize);
+                const batch = serverQueue.splice(0, adaptiveBatchSize);
                 
                 if (batch.length === 0) {
                     break;
@@ -268,13 +268,13 @@ class MeasurementQueueService {
                 // Store measurements
                 try {
                     await loxoneStorageService.storeMeasurements(
-                        buildingId, 
+                        serialNumber, 
                         batch,
                         { skipPlausibilityCheck: shouldSkipPlausibility }
                     );
                     batchesProcessed++;
                 } catch (error) {
-                    console.error(`[MEASUREMENT-QUEUE] [${buildingId}] Error storing batch:`, error.message);
+                    console.error(`[MEASUREMENT-QUEUE] [${serialNumber}] Error storing batch:`, error.message);
                     // Continue with next batch even if this one fails
                     batchesProcessed++;
                 }
@@ -286,7 +286,7 @@ class MeasurementQueueService {
             }
         } finally {
             // Mark as not processing
-            this.processing.set(buildingId, false);
+            this.processing.set(serialNumber, false);
         }
     }
 
@@ -312,22 +312,22 @@ class MeasurementQueueService {
      */
     getStats() {
         const stats = {
-            totalBuildings: this.queue.size,
+            totalServers: this.queue.size,
             totalMeasurements: 0,
             processing: 0,
             activeApiRequests: this.activeApiRequests,
             throttled: this.activeApiRequests >= this.apiRequestThreshold,
-            buildings: {}
+            servers: {}
         };
 
-        for (const [buildingId, measurements] of this.queue.entries()) {
+        for (const [serialNumber, measurements] of this.queue.entries()) {
             const count = measurements.length;
             stats.totalMeasurements += count;
-            stats.buildings[buildingId] = {
+            stats.servers[serialNumber] = {
                 queued: count,
-                processing: this.processing.get(buildingId) || false
+                processing: this.processing.get(serialNumber) || false
             };
-            if (stats.buildings[buildingId].processing) {
+            if (stats.servers[serialNumber].processing) {
                 stats.processing++;
             }
         }
@@ -336,13 +336,13 @@ class MeasurementQueueService {
     }
 
     /**
-     * Clear queue for a building (useful for testing or cleanup)
-     * @param {string} buildingId - Building ID
+     * Clear queue for a server (useful for testing or cleanup)
+     * @param {string} serialNumber - Server serial number
      */
-    clearQueue(buildingId) {
-        if (buildingId) {
-            this.queue.delete(buildingId);
-            this.processing.delete(buildingId);
+    clearQueue(serialNumber) {
+        if (serialNumber) {
+            this.queue.delete(serialNumber);
+            this.processing.delete(serialNumber);
         } else {
             this.queue.clear();
             this.processing.clear();

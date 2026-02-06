@@ -9,6 +9,8 @@ const UserRole = require('../models/UserRole');
 const User = require('../models/User');
 const measurementQueryService = require('./measurementQueryService');
 const analyticsService = require('./analyticsService');
+const sensorLookup = require('../utils/sensorLookup');
+const { NotFoundError, ValidationError, AuthorizationError, ServiceUnavailableError } = require('../utils/errors');
 
 /**
  * Unit normalization helper functions
@@ -138,7 +140,7 @@ class DashboardDiscoveryService {
         
         // Ensure startDate is before endDate
         if (startDate >= endDate) {
-            throw new Error('Start date must be before end date');
+            throw new ValidationError('Start date must be before end date');
         }
         
         return { startDate, endDate };
@@ -215,7 +217,7 @@ class DashboardDiscoveryService {
         // Verify access
         const site = await Site.findById(siteId).populate('bryteswitch_id', 'organization_name');
         if (!site) {
-            throw new Error('Site not found');
+            throw new NotFoundError('Site');
         }
         
         const userRole = await UserRole.findOne({
@@ -226,7 +228,7 @@ class DashboardDiscoveryService {
         if (!userRole) {
             const user = await User.findById(userId);
             if (!user || !user.is_superadmin) {
-                throw new Error('You do not have access to this site');
+                throw new AuthorizationError('You do not have access to this site');
             }
         }
         
@@ -394,12 +396,12 @@ class DashboardDiscoveryService {
         // Verify access
         const building = await Building.findById(buildingId).populate('site_id');
         if (!building) {
-            throw new Error('Building not found');
+            throw new NotFoundError('Building');
         }
         
         const site = await Site.findById(building.site_id._id || building.site_id);
         if (!site) {
-            throw new Error('Site not found');
+            throw new NotFoundError('Site');
         }
         
         const userRole = await UserRole.findOne({
@@ -410,7 +412,7 @@ class DashboardDiscoveryService {
         if (!userRole) {
             const user = await User.findById(userId);
             if (!user || !user.is_superadmin) {
-                throw new Error('You do not have access to this building');
+                throw new AuthorizationError('You do not have access to this building');
             }
         }
         
@@ -535,17 +537,17 @@ class DashboardDiscoveryService {
         console.log('getFloorDetails', floorId, userId, options);
         const floor = await Floor.findById(floorId).populate('building_id');
         if (!floor) {
-            throw new Error('Floor not found');
+            throw new NotFoundError('Floor');
         }
         
         const building = await Building.findById(floor.building_id._id || floor.building_id);
         if (!building) {
-            throw new Error('Building not found');
+            throw new NotFoundError('Building');
         }
         
         const site = await Site.findById(building.site_id);
         if (!site) {
-            throw new Error('Site not found');
+            throw new NotFoundError('Site');
         }
         
         // Verify access
@@ -557,7 +559,7 @@ class DashboardDiscoveryService {
         if (!userRole) {
             const user = await User.findById(userId);
             if (!user || !user.is_superadmin) {
-                throw new Error('You do not have access to this floor');
+                throw new AuthorizationError('You do not have access to this floor');
             }
         }
         
@@ -659,22 +661,22 @@ class DashboardDiscoveryService {
         });
         
         if (!localRoom) {
-            throw new Error('Room not found');
+            throw new NotFoundError('Room');
         }
         
         const floor = localRoom.floor_id;
         if (!floor) {
-            throw new Error('Floor not found');
+            throw new NotFoundError('Floor');
         }
         
         const building = floor.building_id;
         if (!building) {
-            throw new Error('Building not found');
+            throw new NotFoundError('Building');
         }
         
         const site = building.site_id;
         if (!site) {
-            throw new Error('Site not found');
+            throw new NotFoundError('Site');
         }
         
         // Verify access
@@ -686,7 +688,7 @@ class DashboardDiscoveryService {
         if (!userRole) {
             const user = await User.findById(userId);
             if (!user || !user.is_superadmin) {
-                throw new Error('You do not have access to this room');
+                throw new AuthorizationError('You do not have access to this room');
             }
         }
         
@@ -758,22 +760,34 @@ class DashboardDiscoveryService {
     async getSensorDetails(sensorId, userId, options = {}) {
         const sensor = await Sensor.findById(sensorId).populate('room_id');
         if (!sensor) {
-            throw new Error('Sensor not found');
+            throw new NotFoundError('Sensor');
         }
         
         const room = await Room.findById(sensor.room_id._id || sensor.room_id);
         if (!room) {
-            throw new Error('Room not found');
+            throw new NotFoundError('Room');
         }
         
-        const building = await Building.findById(room.building_id);
-        if (!building) {
-            throw new Error('Building not found');
+        // Find building through LocalRoom -> Floor path since Room no longer has building_id
+        const localRoom = await LocalRoom.findOne({ loxone_room_id: room._id }).populate({
+            path: 'floor_id',
+            populate: {
+                path: 'building_id',
+                populate: {
+                    path: 'site_id'
+                }
+            }
+        });
+        
+        if (!localRoom || !localRoom.floor_id || !localRoom.floor_id.building_id) {
+            throw new NotFoundError('Building for sensor');
         }
         
-        const site = await Site.findById(building.site_id);
+        const building = localRoom.floor_id.building_id;
+        const site = building.site_id;
+        
         if (!site) {
-            throw new Error('Site not found');
+            throw new NotFoundError('Site');
         }
         
         // Verify access
@@ -785,7 +799,7 @@ class DashboardDiscoveryService {
         if (!userRole) {
             const user = await User.findById(userId);
             if (!user || !user.is_superadmin) {
-                throw new Error('You do not have access to this sensor');
+                throw new AuthorizationError('You do not have access to this sensor');
             }
         }
         
@@ -846,18 +860,34 @@ class DashboardDiscoveryService {
      * @returns {Object} KPIs object with normalized units
      */
     calculateKPIsFromResults(rawResults, options = {}) {
-        // Process results: normalize units and aggregate by measurementType
+        // Process results: normalize units and aggregate by measurementType and stateType
         console.log("rawResults", rawResults);
         const processedResults = new Map();
         
+        // Track stateType for Energy measurements to handle totalDay correctly
+        const energyStateTypes = new Map(); // measurementType -> Set of stateTypes
+        
         for (const result of rawResults) {
             const measurementType = result._id.measurementType;
+            const stateType = result._id.stateType || null;
             const unit = result.units || '';
             const baseUnit = getBaseUnit(measurementType);
             
-            if (!processedResults.has(measurementType)) {
-                processedResults.set(measurementType, {
+            // Track stateTypes for Energy measurements
+            if (measurementType === 'Energy' && stateType) {
+                if (!energyStateTypes.has(measurementType)) {
+                    energyStateTypes.set(measurementType, new Set());
+                }
+                energyStateTypes.get(measurementType).add(stateType);
+            }
+            
+            // Use a composite key to separate different stateTypes
+            const key = `${measurementType}:${stateType || 'unknown'}`;
+            
+            if (!processedResults.has(key)) {
+                processedResults.set(key, {
                     measurementType: measurementType,
+                    stateType: stateType,
                     values: [],
                     baseUnit: baseUnit,
                     avgQuality: [],
@@ -865,7 +895,7 @@ class DashboardDiscoveryService {
                 });
             }
             
-            const processed = processedResults.get(measurementType);
+            const processed = processedResults.get(key);
             
             // Normalize all values to base unit
             const normalizedValues = result.values.map(v => normalizeToBaseUnit(v, unit));
@@ -888,27 +918,87 @@ class DashboardDiscoveryService {
         const powerUnit = 'kW';
         
         // Find Energy data for total_consumption, base, averageEnergy
-        const energyData = processedResults.get('Energy');
+        // Prioritize totalDay for reports, total for cumulative, or any Energy data
+        let energyData = null;
+        let energyStateType = null;
+        
+        // Check for Energy data with different stateTypes
+        const energyKeys = Array.from(processedResults.keys()).filter(k => k.startsWith('Energy:'));
+        
+        if (energyKeys.length > 0) {
+            // For reports with interval: prefer totalDay/totalWeek/totalMonth/totalYear
+            if (options.interval) {
+                const intervalStateType = getStateTypeForInterval(options.interval);
+                const preferredKey = `Energy:${intervalStateType}`;
+                if (processedResults.has(preferredKey)) {
+                    energyData = processedResults.get(preferredKey);
+                    energyStateType = intervalStateType;
+                } else {
+                    // Fallback to any Energy data
+                    energyData = processedResults.get(energyKeys[0]);
+                    energyStateType = energyData?.stateType;
+                }
+            } else {
+                // For arbitrary ranges: prefer total (cumulative), then any Energy
+                const totalKey = energyKeys.find(k => k.includes(':total') && !k.includes('totalDay') && !k.includes('totalWeek') && !k.includes('totalMonth') && !k.includes('totalYear'));
+                if (totalKey) {
+                    energyData = processedResults.get(totalKey);
+                    energyStateType = 'total';
+                } else {
+                    energyData = processedResults.get(energyKeys[0]);
+                    energyStateType = energyData?.stateType;
+                }
+            }
+        }
+        
         // For dashboard arbitrary ranges: calculate energy from Power if no Energy data
-        const powerData = processedResults.get('Power');
+        const powerKey = Array.from(processedResults.keys()).find(k => k.startsWith('Power:'));
+        const powerData = powerKey ? processedResults.get(powerKey) : null;
         const usePowerForEnergy = !energyData && powerData && powerData.values.length > 0 && !options.interval;
+        
         // console.log(`[DEBUG] calculateKPIsFromResults:`, {
         //     hasEnergyData: !!energyData,
+        //     energyStateType: energyStateType,
         //     energyValuesCount: energyData?.values?.length || 0,
         //     allMeasurementTypes: Array.from(processedResults.keys()),
         //     rawResultsCount: rawResults.length
         // });
+        
         if (energyData && energyData.values.length > 0) {
             // Filter out negative values (meter resets or data issues)
-            // Consumption cannot be negative - negative values indicate meter resets
             const validEnergyValues = energyData.values.filter(v => v >= 0);
             
             if (validEnergyValues.length > 0) {
                 const energyValues = validEnergyValues;
-                totalConsumption = energyValues.reduce((sum, v) => sum + v, 0);
-                // Base is minimum energy consumption (kWh) from Energy measurements
-                base = Math.min(...energyValues);
-                averageEnergy = totalConsumption / energyValues.length;
+                
+                // Handle different stateTypes correctly:
+                // - totalDay/totalWeek/totalMonth/totalYear: period totals - use latest or average (NOT sum)
+                // - total: cumulative counter - sum all values (they're already deltas)
+                const isPeriodTotal = energyStateType && (
+                    energyStateType === 'totalDay' || 
+                    energyStateType === 'totalWeek' || 
+                    energyStateType === 'totalMonth' || 
+                    energyStateType === 'totalYear' ||
+                    energyStateType === 'totalNegDay' ||
+                    energyStateType === 'totalNegWeek' ||
+                    energyStateType === 'totalNegMonth' ||
+                    energyStateType === 'totalNegYear'
+                );
+                
+                if (isPeriodTotal) {
+                    // Period totals: use latest value (or average if multiple periods)
+                    // For a single day/week/month/year: use latest
+                    // For multiple periods: sum the latest value per period
+                    // Since we're aggregating, we'll use the maximum (latest) value
+                    totalConsumption = Math.max(...energyValues);
+                    base = Math.min(...energyValues);
+                    averageEnergy = totalConsumption; // For period totals, average = latest
+                } else {
+                    // Cumulative counter (total) or unknown: sum all values
+                    totalConsumption = energyValues.reduce((sum, v) => sum + v, 0);
+                    base = Math.min(...energyValues);
+                    averageEnergy = totalConsumption / energyValues.length;
+                }
                 
                 // Calculate quality from Energy measurements
                 const qualitySum = energyData.avgQuality.reduce((sum, q) => sum + q, 0);
@@ -962,21 +1052,64 @@ class DashboardDiscoveryService {
         }
         
         // Build breakdown for ALL measurement types found in the data
-        // Includes: Power, Energy, Temperature, Analog, Heating, and any other measurement types that have data
-        // Note: Breakdown shows raw values in their native units (kW for Power, °C for Temperature, m³ for Heating, etc.)
-        // For Power: breakdown.min is in kW (power), while KPIs.base is in kWh (energy) - they represent different metrics
-        // Temperature, Analog, and other non-energy types are included for informational purposes but don't contribute to total_consumption
-        // All measurement types that have data will appear in the breakdown
-        for (const [measurementType, data] of processedResults.entries()) {
+        // Group by measurementType (combine different stateTypes for same measurementType)
+        // Track stateTypes to handle period totals correctly
+        const breakdownMap = new Map();
+        
+        for (const [key, data] of processedResults.entries()) {
+            const measurementType = data.measurementType;
+            const stateType = data.stateType;
             const values = data.values;
             if (values.length === 0) continue;
             
-            const total = values.reduce((sum, v) => sum + v, 0);
+            if (!breakdownMap.has(measurementType)) {
+                breakdownMap.set(measurementType, {
+                    measurement_type: measurementType,
+                    values: [],
+                    stateTypes: new Set(), // Track all stateTypes for this measurementType
+                    avgQuality: [],
+                    count: 0,
+                    baseUnit: data.baseUnit
+                });
+            }
+            
+            const breakdownItem = breakdownMap.get(measurementType);
+            breakdownItem.values.push(...values);
+            if (stateType) {
+                breakdownItem.stateTypes.add(stateType);
+            }
+            breakdownItem.avgQuality.push(...data.avgQuality);
+            breakdownItem.count += data.count;
+        }
+        
+        // Calculate statistics for each measurement type
+        for (const [measurementType, item] of breakdownMap.entries()) {
+            const values = item.values;
+            const stateTypes = Array.from(item.stateTypes);
+            
+            // Check if this measurementType contains period totals (totalDay, totalWeek, etc.)
+            const hasPeriodTotals = stateTypes.some(st => 
+                st === 'totalDay' || st === 'totalWeek' || st === 'totalMonth' || st === 'totalYear' ||
+                st === 'totalNegDay' || st === 'totalNegWeek' || st === 'totalNegMonth' || st === 'totalNegYear'
+            );
+            
+            // For Energy/Water/Heating with period totals: use max (latest period total) instead of sum
+            // For cumulative counters or other types: sum all values
+            let total;
+            if ((measurementType === 'Energy' || measurementType === 'Water' || measurementType === 'Heating') && hasPeriodTotals) {
+                // Period totals: use max (latest period total)
+                // If multiple periods exist, this shows the latest period's total
+                total = Math.max(...values);
+            } else {
+                // Cumulative counters or other types: sum all values
+                total = values.reduce((sum, v) => sum + v, 0);
+            }
+            
             const avg = total / values.length;
             const min = Math.min(...values);
             const max = Math.max(...values);
-            const qualitySum = data.avgQuality.reduce((sum, q) => sum + q, 0);
-            const avgQ = qualitySum / data.avgQuality.length;
+            const qualitySum = item.avgQuality.reduce((sum, q) => sum + q, 0);
+            const avgQ = qualitySum / item.avgQuality.length;
             
             breakdown.push({
                 measurement_type: measurementType,
@@ -984,8 +1117,8 @@ class DashboardDiscoveryService {
                 average: Math.round(avg * 1000) / 1000,
                 min: Math.round(min * 1000) / 1000, // Raw min value in native unit (kW for Power, °C for Temperature, etc.)
                 max: Math.round(max * 1000) / 1000, // Raw max value in native unit
-                count: data.count,
-                unit: data.baseUnit // Native unit for this measurement type
+                count: item.count,
+                unit: item.baseUnit // Native unit for this measurement type
             });
         }
         
@@ -1038,6 +1171,7 @@ class DashboardDiscoveryService {
 
     /**
      * Get site-level KPIs (aggregate all buildings in site)
+     * Uses sensorLookup to get sensor IDs for the site, then queries by meta.sensorId
      * @param {String} siteId - Site ID
      * @param {Date} startDate - Start date
      * @param {Date} endDate - End date
@@ -1045,17 +1179,19 @@ class DashboardDiscoveryService {
      * @returns {Promise<Object>} KPIs object
      */
     async getSiteKPIs(siteId, startDate, endDate, options = {}) {
-        const buildings = await Building.find({ site_id: siteId }).select('_id').lean();
-        const buildingIds = buildings.map(b => b._id);
+        // Get all sensor IDs for the site via sensorLookup
+        const sensorIdsSet = await sensorLookup.getSensorIdsForSite(siteId);
         
-        if (buildingIds.length === 0) {
+        if (sensorIdsSet.size === 0) {
             return this.getEmptyKPIs();
         }
         
-        // Aggregate all buildings
+        const sensorIds = Array.from(sensorIdsSet).map(id => new mongoose.Types.ObjectId(id));
+        
+        // Aggregate all sensors in the site
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
         
         const duration = endDate - startDate;
@@ -1087,11 +1223,9 @@ class DashboardDiscoveryService {
             }
         }
         
-        // Two-stage match for index optimization:
-        // 1. First match uses compound index: { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 }
-        // 2. Second match filters by measurementType/stateType on already-reduced dataset
+        // Query by sensor IDs (measurements no longer have buildingId in meta)
         const firstMatchStage = {
-            'meta.buildingId': { $in: buildingIds.map(id => new mongoose.Types.ObjectId(id)) },
+            'meta.sensorId': { $in: sensorIds },
             resolution_minutes: resolution,
             timestamp: { $gte: startDate, $lt: endDate }
         };
@@ -1138,6 +1272,7 @@ class DashboardDiscoveryService {
                 $group: {
                     _id: {
                         measurementType: '$meta.measurementType',
+                        stateType: '$meta.stateType', // Track stateType to distinguish total vs totalDay
                         unit: '$unit'
                     },
                     values: { $push: '$value' },
@@ -1225,6 +1360,7 @@ class DashboardDiscoveryService {
 
     /**
      * Get building-level KPIs
+     * Uses sensorLookup to get sensor IDs for the building, then queries by meta.sensorId
      * @param {String} buildingId - Building ID
      * @param {Date} startDate - Start date
      * @param {Date} endDate - End date
@@ -1237,12 +1373,21 @@ class DashboardDiscoveryService {
         
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
         
         if (!mongoose.Types.ObjectId.isValid(buildingId)) {
-            throw new Error(`Invalid buildingId: ${buildingId}`);
+            throw new ValidationError(`Invalid buildingId: ${buildingId}`);
         }
+        
+        // Get all sensor IDs for this building via sensorLookup
+        const sensorIdsSet = await sensorLookup.getSensorIdsForBuilding(buildingId);
+        
+        if (sensorIdsSet.size === 0) {
+            return this.getEmptyKPIs();
+        }
+        
+        const sensorIds = Array.from(sensorIdsSet).map(id => new mongoose.Types.ObjectId(id));
         
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
@@ -1276,10 +1421,9 @@ class DashboardDiscoveryService {
         // Start timing matchStage construction
         const matchStageStartTime = Date.now();
         
+        // Query by sensor IDs (measurements no longer have buildingId in meta)
         const matchStage = {
-            'meta.buildingId': { 
-                $in: [new mongoose.Types.ObjectId(buildingId), buildingId] 
-            },
+            'meta.sensorId': { $in: sensorIds },
             resolution_minutes: resolution,
             timestamp: { $gte: startDate, $lt: endDate }
         };
@@ -1349,6 +1493,7 @@ class DashboardDiscoveryService {
                 $group: {
                     _id: {
                         measurementType: '$meta.measurementType',
+                        stateType: '$meta.stateType', // Track stateType to distinguish total vs totalDay
                         unit: '$unit'
                     },
                     values: { $push: '$value' },
@@ -1384,6 +1529,7 @@ class DashboardDiscoveryService {
                         $group: {
                             _id: {
                                 measurementType: '$meta.measurementType',
+                                stateType: '$meta.stateType', // Track stateType to distinguish total vs totalDay
                                 unit: '$unit'
                             },
                             values: { $push: '$value' },
@@ -1511,7 +1657,7 @@ class DashboardDiscoveryService {
         // Get building object
         const building = await Building.findById(buildingId);
         if (!building) {
-            throw new Error(`Building with ID ${buildingId} not found`);
+            throw new NotFoundError('Building');
         }
 
         // Get KPIs
@@ -1666,7 +1812,7 @@ class DashboardDiscoveryService {
         
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
         
         const duration = endDate - startDate;
@@ -1741,6 +1887,7 @@ class DashboardDiscoveryService {
                 $group: {
                     _id: {
                         measurementType: '$meta.measurementType',
+                        stateType: '$meta.stateType', // Track stateType to distinguish total vs totalDay
                         unit: '$unit'
                     },
                     values: { $push: '$value' },
@@ -1830,7 +1977,7 @@ class DashboardDiscoveryService {
 
     /**
      * Get KPIs for all rooms in a building (optimized single query)
-     * Uses meta.buildingId compound index instead of multiple meta.sensorId queries
+     * Uses sensorLookup to get sensor IDs, then queries by meta.sensorId
      * @param {String} buildingId - Building ID
      * @param {Date} startDate - Start date
      * @param {Date} endDate - End date
@@ -1840,12 +1987,21 @@ class DashboardDiscoveryService {
     async getRoomsKPIs(buildingId, startDate, endDate, options = {}) {
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
 
         if (!mongoose.Types.ObjectId.isValid(buildingId)) {
-            throw new Error(`Invalid buildingId: ${buildingId}`);
+            throw new ValidationError(`Invalid buildingId: ${buildingId}`);
         }
+
+        // Get all sensor IDs for this building via sensorLookup
+        const sensorIdsSet = await sensorLookup.getSensorIdsForBuilding(buildingId);
+        
+        if (sensorIdsSet.size === 0) {
+            return new Map();
+        }
+        
+        const sensorIds = Array.from(sensorIdsSet).map(id => new mongoose.Types.ObjectId(id));
 
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
@@ -1869,11 +2025,9 @@ class DashboardDiscoveryService {
             }
         }
 
-        // Two-stage match for index optimization:
-        // 1. First match uses compound index: { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 }
-        // 2. Second match filters by measurementType/stateType on already-reduced dataset
+        // Query by sensor IDs (measurements no longer have buildingId in meta)
         const firstMatchStage = {
-            'meta.buildingId': new mongoose.Types.ObjectId(buildingId),
+            'meta.sensorId': { $in: sensorIds },
             resolution_minutes: resolution,
             timestamp: { $gte: startDate, $lt: endDate },
         };
@@ -1928,6 +2082,7 @@ class DashboardDiscoveryService {
                     _id: {
                         roomId: '$sensor.room_id',
                         measurementType: '$meta.measurementType',
+                        stateType: '$meta.stateType', // Track stateType to distinguish total vs totalDay
                         unit: '$unit'
                     },
                     values: { $push: '$value' },
@@ -1972,6 +2127,7 @@ class DashboardDiscoveryService {
                             _id: {
                                 roomId: '$sensor.room_id',
                                 measurementType: '$meta.measurementType',
+                                stateType: '$meta.stateType', // Track stateType to distinguish total vs totalDay
                                 unit: '$unit'
                             },
                             values: { $push: '$value' },
@@ -2014,7 +2170,7 @@ class DashboardDiscoveryService {
 
     /**
      * Get KPIs for all buildings in a site (optimized single query)
-     * Uses meta.buildingId compound index instead of multiple parallel queries
+     * Uses sensorLookup to get sensor IDs for all buildings, then queries by meta.sensorId
      * @param {Array<String>} buildingIds - Array of Building IDs
      * @param {Date} startDate - Start date
      * @param {Date} endDate - End date
@@ -2028,12 +2184,28 @@ class DashboardDiscoveryService {
 
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
 
         // Validate all building IDs
         const validBuildingIds = buildingIds.filter(id => mongoose.Types.ObjectId.isValid(id));
         if (validBuildingIds.length === 0) {
+            return new Map();
+        }
+
+        // Build sensor-to-building map and collect all sensor IDs
+        const sensorToBuildingMap = new Map(); // sensorId (string) -> buildingId (string)
+        const allSensorIds = [];
+        
+        for (const buildingId of validBuildingIds) {
+            const sensorIdsSet = await sensorLookup.getSensorIdsForBuilding(buildingId);
+            for (const sensorId of sensorIdsSet) {
+                sensorToBuildingMap.set(sensorId, buildingId.toString());
+                allSensorIds.push(new mongoose.Types.ObjectId(sensorId));
+            }
+        }
+        
+        if (allSensorIds.length === 0) {
             return new Map();
         }
 
@@ -2059,11 +2231,9 @@ class DashboardDiscoveryService {
             }
         }
 
-        // Two-stage match for index optimization:
-        // 1. First match uses compound index: { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 }
-        // 2. Second match filters by measurementType/stateType on already-reduced dataset
+        // Query by sensor IDs (measurements no longer have buildingId in meta)
         const firstMatchStage = {
-            'meta.buildingId': { $in: validBuildingIds.map(id => new mongoose.Types.ObjectId(id)) },
+            'meta.sensorId': { $in: allSensorIds },
             resolution_minutes: resolution,
             timestamp: { $gte: startDate, $lt: endDate },
         };
@@ -2100,15 +2270,16 @@ class DashboardDiscoveryService {
             secondMatchStage.$or = orConditions;
         }
 
-        // Pipeline: match -> group by building and measurementType
+        // Pipeline: match -> group by sensorId and measurementType
         const pipeline = [
-            { $match: firstMatchStage }, // Uses compound index
-            { $match: secondMatchStage }, // Filters reduced dataset
+            { $match: firstMatchStage },
+            { $match: secondMatchStage },
             {
                 $group: {
                     _id: {
-                        buildingId: '$meta.buildingId',
+                        sensorId: '$meta.sensorId',
                         measurementType: '$meta.measurementType',
+                        stateType: '$meta.stateType', // Track stateType to distinguish total vs totalDay
                         unit: '$unit'
                     },
                     values: { $push: '$value' },
@@ -2142,7 +2313,7 @@ class DashboardDiscoveryService {
                     {
                         $group: {
                             _id: {
-                                buildingId: '$meta.buildingId',
+                                sensorId: '$meta.sensorId',
                                 measurementType: '$meta.measurementType',
                                 unit: '$unit'
                             },
@@ -2162,22 +2333,61 @@ class DashboardDiscoveryService {
             }
         }
 
-        // Group results by buildingId
+        // Group results by buildingId using the sensor-to-building map
         const buildingResultsMap = new Map();
         for (const result of rawResults) {
-            const buildingId = result._id.buildingId?.toString();
+            const sensorId = result._id.sensorId?.toString();
+            if (!sensorId) continue;
+            
+            const buildingId = sensorToBuildingMap.get(sensorId);
             if (!buildingId) continue;
 
             if (!buildingResultsMap.has(buildingId)) {
                 buildingResultsMap.set(buildingId, []);
             }
-            buildingResultsMap.get(buildingId).push(result);
+            
+            // Transform result to expected format (replace sensorId with buildingId in _id for compatibility)
+            buildingResultsMap.get(buildingId).push({
+                ...result,
+                _id: {
+                    measurementType: result._id.measurementType,
+                    unit: result._id.unit
+                }
+            });
         }
 
-        // Calculate KPIs for each building
+        // Calculate KPIs for each building (merge results for same measurementType/unit)
         const buildingsKPIsMap = new Map();
         for (const [buildingId, buildingResults] of buildingResultsMap.entries()) {
-            const kpis = this.calculateKPIsFromResults(buildingResults, { startDate, endDate, interval });
+            // Merge results by measurementType, stateType, and unit
+            const mergedResultsMap = new Map();
+            for (const result of buildingResults) {
+                const key = `${result._id.measurementType}:${result._id.stateType || 'unknown'}:${result._id.unit}`;
+                if (!mergedResultsMap.has(key)) {
+                    mergedResultsMap.set(key, {
+                        _id: result._id,
+                        values: [],
+                        units: result.units,
+                        avgQuality: 0,
+                        count: 0,
+                        qualitySum: 0
+                    });
+                }
+                const merged = mergedResultsMap.get(key);
+                merged.values.push(...result.values);
+                merged.count += result.count;
+                merged.qualitySum = (merged.qualitySum || 0) + (result.avgQuality * result.count);
+            }
+            
+            // Finalize merged results
+            const mergedResults = [];
+            for (const merged of mergedResultsMap.values()) {
+                merged.avgQuality = merged.count > 0 ? merged.qualitySum / merged.count : 0;
+                delete merged.qualitySum;
+                mergedResults.push(merged);
+            }
+            
+            const kpis = this.calculateKPIsFromResults(mergedResults, { startDate, endDate, interval });
             buildingsKPIsMap.set(buildingId, kpis);
         }
 
@@ -2195,11 +2405,11 @@ class DashboardDiscoveryService {
     async getSensorKPIs(sensorId, startDate, endDate, options = {}) {
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
         
         if (!mongoose.Types.ObjectId.isValid(sensorId)) {
-            throw new Error(`Invalid sensorId: ${sensorId}`);
+            throw new ValidationError(`Invalid sensorId: ${sensorId}`);
         }
         
         const duration = endDate - startDate;
@@ -2274,6 +2484,7 @@ class DashboardDiscoveryService {
                 $group: {
                     _id: {
                         measurementType: '$meta.measurementType',
+                        stateType: '$meta.stateType', // Track stateType to distinguish total vs totalDay
                         unit: '$unit'
                     },
                     values: { $push: '$value' },
@@ -2374,7 +2585,7 @@ class DashboardDiscoveryService {
         // roomId is a Loxone Room ID (for sensor queries)
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
         
         const duration = endDate - startDate;
@@ -2404,45 +2615,7 @@ class DashboardDiscoveryService {
             }
         }
         
-        let measurements = [];
-        
-        // Optimize: If buildingId is provided, use buildingId query with sensor lookup
-        // This uses the compound index and is faster than sensorId queries
-        if (options.buildingId && mongoose.Types.ObjectId.isValid(options.buildingId)) {
-            // Two-stage match for index optimization
-            const firstMatchStage = {
-                'meta.buildingId': new mongoose.Types.ObjectId(options.buildingId),
-                resolution_minutes: resolution,
-                timestamp: { $gte: startDate, $lt: endDate },
-            };
-            
-            const secondMatchStage = {};
-            if (options.measurementType) {
-                secondMatchStage['meta.measurementType'] = options.measurementType;
-            }
-            
-            const pipeline = [
-                { $match: firstMatchStage }, // Uses compound index
-                { $match: secondMatchStage }, // Filters reduced dataset
-                {
-                    $lookup: {
-                        from: 'sensors',
-                        localField: 'meta.sensorId',
-                        foreignField: '_id',
-                        as: 'sensor'
-                    }
-                },
-                { $unwind: { path: '$sensor', preserveNullAndEmptyArrays: false } },
-                { $match: { 'sensor.room_id': new mongoose.Types.ObjectId(roomId) } }, // Filter by room
-                { $sort: { timestamp: 1 } },
-                { $limit: options.limit || 1000 }
-            ];
-            
-            // Query measurements_aggregated (or measurements_raw for resolution 0)
-            const collectionName = resolution === 0 ? 'measurements_raw' : 'measurements_aggregated';
-            measurements = await db.collection(collectionName).aggregate(pipeline).toArray();
-        } else {
-            // Fallback: Use sensorId query (original implementation)
+        // Query by sensor IDs (measurements no longer have buildingId in meta)
             const sensors = await Sensor.find({ room_id: roomId }).select('_id').lean();
             const sensorIds = sensors.map(s => s._id);
             
@@ -2467,12 +2640,11 @@ class DashboardDiscoveryService {
             
             // Query appropriate collection based on resolution
             const collectionName = resolution === 0 ? 'measurements_raw' : 'measurements_aggregated';
-            measurements = await db.collection(collectionName)
+        const measurements = await db.collection(collectionName)
                 .find(matchStage)
                 .sort({ timestamp: 1 })
                 .limit(options.limit || 1000)
                 .toArray();
-        }
         
         return {
             data: measurements,

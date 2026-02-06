@@ -7,18 +7,23 @@ const plausibilityCheckService = require('./plausibilityCheckService');
 // 🔥 REMOVED: Pool statistics imports - throttling is now handled by measurementQueueService
 // const { getPoolStatistics, PRIORITY, canAcquireConnection, waitForConnection } = require('../db/connection');
 
-// Per-building UUID to Sensor mapping cache
-const uuidMaps = new Map(); // buildingId -> Map<uuid, sensorMapping>
+// Per-server UUID to Sensor mapping cache
+const uuidMaps = new Map(); // serialNumber -> Map<uuid, sensorMapping>
 // Track last warning time for UUID empty warnings (to avoid spam)
-const lastUuidEmptyWarning = new Map(); // buildingId -> timestamp
+const lastUuidEmptyWarning = new Map(); // serialNumber -> timestamp
 
 // 🔥 NEW: Structure loading state tracking to prevent duplicate loads
-const structureLoadingState = new Map(); // buildingId -> { loading: boolean, lastLoaded: timestamp }
+const structureLoadingState = new Map(); // serialNumber -> { loading: boolean, lastLoaded: timestamp }
 const STRUCTURE_LOAD_COOLDOWN = 60000; // Don't reload structure more than once per minute
 
 // 🔥 NEW: Sensor cache to avoid repeated database queries
-const sensorCache = new Map(); // buildingId -> Map<sensorId, sensor>
+const sensorCache = new Map(); // serialNumber -> Map<sensorId, sensor>
 const SENSOR_CACHE_TTL = 300000; // Cache sensors for 5 minutes
+
+// 🔥 NEW: Cache for allowed sensor IDs (sensors in rooms mapped to LocalRooms)
+// This prevents querying the database on every measurement batch
+const allowedSensorIdsCache = new Map(); // serialNumber -> { sensorIds: Set, timestamp: number }
+const ALLOWED_SENSOR_IDS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Normalize UUID format
 function normalizeUUID(uuid) {
@@ -308,56 +313,53 @@ function getUnitFromControl(controlData) {
 
 class LoxoneStorageService {
     /**
-     * Initialize storage for a building (create Time Series collections if needed)
+     * Initialize storage for a server (create Time Series collections if needed)
      */
-    async initializeForBuilding(buildingId) {
+    async initializeForBuilding(serialNumber) {
         try {
             // Use measurementCollectionService to ensure both collections exist
             const measurementCollectionService = require('./measurementCollectionService');
             await measurementCollectionService.ensureCollectionsExist();
         } catch (error) {
-            // console.error(`[LOXONE-STORAGE] [${buildingId}] Error initializing:`, error.message);
+            // console.error(`[LOXONE-STORAGE] [${serialNumber}] Error initializing:`, error.message);
             throw error;
         }
     }
 
     /**
-     * Import structure from LoxAPP3.json for a building
+     * Import structure from LoxAPP3.json for a server
      */
-    async importStructureFromLoxAPP3(buildingId, loxAPP3Data) {
+    async importStructureFromLoxAPP3(serialNumber, loxAPP3Data) {
         const db = mongoose.connection.db;
-        const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
-        // Verify building exists
-        const building = await db.collection('buildings').findOne({ _id: buildingObjectId });
-        if (!building) {
-            throw new Error(`Building ${buildingId} not found`);
+        if (!serialNumber) {
+            throw new Error('Serial number is required');
         }
 
-        // console.log(`[LOXONE-STORAGE] [${buildingId}] Importing structure from LoxAPP3.json...`);
+        // console.log(`[LOXONE-STORAGE] [${serialNumber}] Importing structure from LoxAPP3.json...`);
 
-        // 1. Import Rooms from LoxAPP3.json (Loxone rooms - with building_id, not floor_id)
+        // 1. Import Rooms from LoxAPP3.json (Loxone rooms - scoped to server serial, not building)
         const roomMap = new Map(); // loxone_room_uuid -> room _id
         if (loxAPP3Data.rooms) {
             for (const [roomUUID, roomData] of Object.entries(loxAPP3Data.rooms)) {
-                // Check for room by building_id AND loxone_room_uuid (not just UUID)
-                // This ensures each building gets its own rooms even if they share the same Loxone server
+                // Check for room by miniserver_serial AND loxone_room_uuid
+                // This ensures rooms are shared across buildings using the same server
                 let room = await db.collection('rooms').findOne({
-                    building_id: buildingObjectId,
+                    miniserver_serial: serialNumber,
                     loxone_room_uuid: roomUUID
                 });
                 if (!room) {
                     const roomResult = await db.collection('rooms').insertOne({
-                        building_id: buildingObjectId,
+                        miniserver_serial: serialNumber,
                         name: roomData.name || 'Unnamed Room',
                         loxone_room_uuid: roomUUID,
                         createdAt: new Date(),
                         updatedAt: new Date()
                     });
                     room = await db.collection('rooms').findOne({ _id: roomResult.insertedId });
-                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Created Room: ${room.name} (${roomUUID.substring(0, 8)}...)`);
+                    // console.log(`[LOXONE-STORAGE] [${serialNumber}] Created Room: ${room.name} (${roomUUID.substring(0, 8)}...)`);
                 } else {
-                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Room already exists: ${room.name} (${roomUUID.substring(0, 8)}...)`);
+                    // console.log(`[LOXONE-STORAGE] [${serialNumber}] Room already exists: ${room.name} (${roomUUID.substring(0, 8)}...)`);
                 }
                 roomMap.set(roomUUID, room._id);
             }
@@ -380,23 +382,17 @@ class LoxoneStorageService {
         const importControlAsSensor = async (controlUUID, controlData, roomUUID) => {
             if (!roomUUID || !roomMap.has(roomUUID)) {
                 if (!roomUUID) {
-                    console.warn(`[LOXONE-STORAGE] [${buildingId}] Control ${controlData?.name || controlUUID.substring(0, 8)} has no room UUID`);
+                    console.warn(`[LOXONE-STORAGE] [${serialNumber}] Control ${controlData?.name || controlUUID.substring(0, 8)} has no room UUID`);
                 } else {
-                    console.warn(`[LOXONE-STORAGE] [${buildingId}] Room UUID ${roomUUID.substring(0, 8)}... not found in roomMap for control ${controlData?.name || controlUUID.substring(0, 8)}`);
+                    console.warn(`[LOXONE-STORAGE] [${serialNumber}] Room UUID ${roomUUID.substring(0, 8)}... not found in roomMap for control ${controlData?.name || controlUUID.substring(0, 8)}`);
                 }
                 return null;
             }
 
             const roomId = roomMap.get(roomUUID);
 
-            // Check for sensor by control UUID AND that it belongs to a room in this building
-            // Use aggregation to join with rooms and filter by building_id
-            // CRITICAL: Check for sensor by control UUID ONLY in the specific room for this building
-            // This ensures each building gets its own sensors even when using the same Loxone server
-            // We check by room_id directly (which is already scoped to this building) rather than
-            // relying on aggregation to avoid any edge cases
-            // IMPORTANT: Each building should have its own sensors, even with the same loxone_control_uuid,
-            // because they belong to different rooms (via room_id) which belong to different buildings
+            // Check for sensor by control UUID AND that it belongs to a room for this server
+            // Sensors are scoped to rooms, which are scoped to server serial
             // Ensure roomId is an ObjectId (it should be, but verify for safety)
             const roomObjectId = roomId instanceof mongoose.Types.ObjectId
                 ? roomId
@@ -404,7 +400,7 @@ class LoxoneStorageService {
 
             let sensor = await db.collection('sensors').findOne({
                 loxone_control_uuid: controlUUID,
-                room_id: roomObjectId  // Direct room_id match ensures sensor belongs to this building's room
+                room_id: roomObjectId  // Direct room_id match ensures sensor belongs to this server's room
             });
 
             if (!sensor) {
@@ -425,9 +421,9 @@ class LoxoneStorageService {
                     updatedAt: new Date()
                 });
                 sensor = await db.collection('sensors').findOne({ _id: sensorResult.insertedId });
-                // console.log(`[LOXONE-STORAGE] [${buildingId}] Created Sensor: ${sensor.name} (${controlUUID.substring(0, 8)}...)`);
+                // console.log(`[LOXONE-STORAGE] [${serialNumber}] Created Sensor: ${sensor.name} (${controlUUID.substring(0, 8)}...)`);
             } else {
-                // console.log(`[LOXONE-STORAGE] [${buildingId}] Sensor already exists: ${sensor.name} (${controlUUID.substring(0, 8)}...)`);
+                // console.log(`[LOXONE-STORAGE] [${serialNumber}] Sensor already exists: ${sensor.name} (${controlUUID.substring(0, 8)}...)`);
             }
             sensorMap.set(controlUUID, sensor._id);
             return sensor;
@@ -439,7 +435,7 @@ class LoxoneStorageService {
         let skippedControls = 0;
         const progressInterval = 50; // Log progress every 50 controls
 
-        // console.log(`[LOXONE-STORAGE] [${buildingId}] Starting sensor import from ${totalControls} controls...`);
+        // console.log(`[LOXONE-STORAGE] [${serialNumber}] Starting sensor import from ${totalControls} controls...`);
 
         if (loxAPP3Data.controls) {
             for (const [controlUUID, controlData] of Object.entries(loxAPP3Data.controls)) {
@@ -447,7 +443,7 @@ class LoxoneStorageService {
 
                 // Log progress periodically
                 if (processedControls % progressInterval === 0) {
-                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Processing controls... ${processedControls}/${totalControls} (${sensorMap.size} sensors created so far)`);
+                    // console.log(`[LOXONE-STORAGE] [${serialNumber}] Processing controls... ${processedControls}/${totalControls} (${sensorMap.size} sensors created so far)`);
                 }
 
                 if (!measurementTypes.includes(controlData.type)) {
@@ -457,7 +453,7 @@ class LoxoneStorageService {
 
                 const roomUUID = controlData.room;
                 if (!roomUUID) {
-                    console.warn(`[LOXONE-STORAGE] [${buildingId}] Control ${controlData.name || controlUUID.substring(0, 8)} has no room UUID, skipping`);
+                    console.warn(`[LOXONE-STORAGE] [${serialNumber}] Control ${controlData.name || controlUUID.substring(0, 8)} has no room UUID, skipping`);
                     continue;
                 }
 
@@ -473,81 +469,75 @@ class LoxoneStorageService {
             }
         }
 
-        // console.log(`[LOXONE-STORAGE] [${buildingId}] Processed ${processedControls} controls (${skippedControls} skipped, ${processedControls - skippedControls} processed for sensors)`);
+        // console.log(`[LOXONE-STORAGE] [${serialNumber}] Processed ${processedControls} controls (${skippedControls} skipped, ${processedControls - skippedControls} processed for sensors)`);
 
-        // console.log(`[LOXONE-STORAGE] [${buildingId}] Imported ${roomMap.size} rooms and ${sensorMap.size} sensors`);
+        // console.log(`[LOXONE-STORAGE] [${serialNumber}] Imported ${roomMap.size} rooms and ${sensorMap.size} sensors`);
 
         // Log sensor creation summary
         const sensorCount = sensorMap.size;
         if (sensorCount > 0) {
-            console.log(`[LOXONE-STORAGE] [${buildingId}] ✓ Structure import complete: ${roomMap.size} rooms, ${sensorCount} sensors`);
+            console.log(`[LOXONE-STORAGE] [${serialNumber}] ✓ Structure import complete: ${roomMap.size} rooms, ${sensorCount} sensors`);
         } else {
-            console.warn(`[LOXONE-STORAGE] [${buildingId}] ⚠️  WARNING: Structure import completed but no sensors were created!`);
+            console.warn(`[LOXONE-STORAGE] [${serialNumber}] ⚠️  WARNING: Structure import completed but no sensors were created!`);
         }
 
         return { roomMap, sensorMap };
     }
 
     /**
-     * 🔥 OPTIMIZED: Load structure mapping for a building (with duplicate load prevention)
+     * 🔥 OPTIMIZED: Load structure mapping for a server (with duplicate load prevention)
      */
-    async loadStructureMapping(buildingId, loxAPP3Data = null) {
+    async loadStructureMapping(serialNumber, loxAPP3Data = null) {
         try {
-            if (!mongoose.Types.ObjectId.isValid(buildingId)) {
-                throw new Error(`Invalid Building ID: ${buildingId}`);
+            if (!serialNumber) {
+                throw new Error(`Invalid Serial Number: ${serialNumber}`);
             }
 
             // 🔥 NEW: Check if structure is already loading or recently loaded
-            const loadingState = structureLoadingState.get(buildingId);
+            const loadingState = structureLoadingState.get(serialNumber);
             if (loadingState) {
                 if (loadingState.loading) {
                     // Structure is currently being loaded by another process - wait for it
-                    console.log(`[LOXONE-STORAGE] [${buildingId}] Structure is already loading, waiting...`);
+                    console.log(`[LOXONE-STORAGE] [${serialNumber}] Structure is already loading, waiting...`);
                     // Wait up to 30 seconds for the other load to complete
                     for (let i = 0; i < 60; i++) {
                         await new Promise(resolve => setTimeout(resolve, 500));
-                        const currentState = structureLoadingState.get(buildingId);
+                        const currentState = structureLoadingState.get(serialNumber);
                         if (!currentState || !currentState.loading) {
                             // Loading completed
-                            const existingMap = uuidMaps.get(buildingId);
+                            const existingMap = uuidMaps.get(serialNumber);
                             if (existingMap && existingMap.size > 0) {
-                                console.log(`[LOXONE-STORAGE] [${buildingId}] ✓ Structure loaded by another process (${existingMap.size} UUID mappings)`);
+                                console.log(`[LOXONE-STORAGE] [${serialNumber}] ✓ Structure loaded by another process (${existingMap.size} UUID mappings)`);
                                 return existingMap;
                             }
                             break;
                         }
                     }
                     // If still loading after 30s, proceed anyway (but log warning)
-                    if (structureLoadingState.get(buildingId)?.loading) {
-                        console.warn(`[LOXONE-STORAGE] [${buildingId}] Structure loading timeout, proceeding with new load`);
+                    if (structureLoadingState.get(serialNumber)?.loading) {
+                        console.warn(`[LOXONE-STORAGE] [${serialNumber}] Structure loading timeout, proceeding with new load`);
                     }
                 }
 
                 // Check if recently loaded (within cooldown period)
                 const timeSinceLoad = Date.now() - (loadingState.lastLoaded || 0);
                 if (timeSinceLoad < STRUCTURE_LOAD_COOLDOWN) {
-                    const existingMap = uuidMaps.get(buildingId);
+                    const existingMap = uuidMaps.get(serialNumber);
                     if (existingMap && existingMap.size > 0) {
-                        console.log(`[LOXONE-STORAGE] [${buildingId}] ✓ Using cached structure (loaded ${Math.round(timeSinceLoad / 1000)}s ago)`);
+                        console.log(`[LOXONE-STORAGE] [${serialNumber}] ✓ Using cached structure (loaded ${Math.round(timeSinceLoad / 1000)}s ago)`);
                         return existingMap;
                     }
                 }
             }
 
             // 🔥 NEW: Mark as loading
-            structureLoadingState.set(buildingId, { loading: true, lastLoaded: Date.now() });
+            structureLoadingState.set(serialNumber, { loading: true, lastLoaded: Date.now() });
 
             try {
-                const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
                 const db = mongoose.connection.db;
 
-                const building = await db.collection('buildings').findOne({ _id: buildingObjectId });
-                if (!building) {
-                    throw new Error(`Building ${buildingId} not found`);
-                }
-
                 // Check if structure needs to be imported
-                const roomCount = await db.collection('rooms').countDocuments({ building_id: buildingObjectId });
+                const roomCount = await db.collection('rooms').countDocuments({ miniserver_serial: serialNumber });
                 const sensorCount = await db.collection('sensors').aggregate([
                     {
                         $lookup: {
@@ -558,18 +548,18 @@ class LoxoneStorageService {
                         }
                     },
                     { $unwind: '$room' },
-                    { $match: { 'room.building_id': buildingObjectId } }
+                    { $match: { 'room.miniserver_serial': serialNumber } }
                 ]).toArray();
 
                 if (roomCount === 0 || sensorCount.length === 0) {
                     if (loxAPP3Data) {
-                        // console.log(`[LOXONE-STORAGE] [${buildingId}] Importing structure...`);
-                        await this.importStructureFromLoxAPP3(buildingId, loxAPP3Data);
+                        // console.log(`[LOXONE-STORAGE] [${serialNumber}] Importing structure...`);
+                        await this.importStructureFromLoxAPP3(serialNumber, loxAPP3Data);
                     } else {
                         throw new Error('No structure data available');
                     }
                 } else {
-                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Structure already imported (${sensorCount.length} sensors found)`);
+                    // console.log(`[LOXONE-STORAGE] [${serialNumber}] Structure already imported (${sensorCount.length} sensors found)`);
                 }
 
                 // 🔥 OPTIMIZED: Load sensors with simpler query (no aggregation)
@@ -584,7 +574,7 @@ class LoxoneStorageService {
                         }
                     },
                     { $unwind: '$room' },
-                    { $match: { 'room.building_id': buildingObjectId } },
+                    { $match: { 'room.miniserver_serial': serialNumber } },
                     {
                         $project: {
                             _id: 1,
@@ -598,17 +588,17 @@ class LoxoneStorageService {
                     }
                 ]).toArray();
 
-                // 🔥 NEW: Cache sensors for this building
-                const buildingSensorCache = new Map();
+                // 🔥 NEW: Cache sensors for this server
+                const serverSensorCache = new Map();
                 sensors.forEach(sensor => {
-                    buildingSensorCache.set(sensor._id.toString(), sensor);
+                    serverSensorCache.set(sensor._id.toString(), sensor);
                 });
-                sensorCache.set(buildingId, {
-                    sensors: buildingSensorCache,
+                sensorCache.set(serialNumber, {
+                    sensors: serverSensorCache,
                     timestamp: Date.now()
                 });
 
-                // console.log(`[LOXONE-STORAGE] [${buildingId}] Found ${sensors.length} sensors for this building`);
+                // console.log(`[LOXONE-STORAGE] [${serialNumber}] Found ${sensors.length} sensors for this server`);
 
                 // Build UUID mapping
                 const uuidToSensorMap = new Map();
@@ -628,7 +618,7 @@ class LoxoneStorageService {
                         }
                     });
 
-                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Building UUID mapping from ${controlToSensorMap.size} sensors and ${Object.keys(loxAPP3Data.controls).length} controls`);
+                    // console.log(`[LOXONE-STORAGE] [${serialNumber}] Building UUID mapping from ${controlToSensorMap.size} sensors and ${Object.keys(loxAPP3Data.controls).length} controls`);
 
                     let mappedControls = 0;
                     for (const [controlUUID, controlData] of Object.entries(loxAPP3Data.controls)) {
@@ -664,7 +654,7 @@ class LoxoneStorageService {
                         }
                     }
 
-                    // console.log(`[LOXONE-STORAGE] [${buildingId}] Mapped ${mappedControls} controls to sensors (created ${uuidToSensorMap.size} UUID entries so far)`);
+                    // console.log(`[LOXONE-STORAGE] [${serialNumber}] Mapped ${mappedControls} controls to sensors (created ${uuidToSensorMap.size} UUID entries so far)`);
 
                     // Map subControls
                     for (const [controlUUID, controlData] of Object.entries(loxAPP3Data.controls)) {
@@ -704,33 +694,33 @@ class LoxoneStorageService {
                     });
                 }
 
-                // Store mapping for this building
-                uuidMaps.set(buildingId, uuidToSensorMap);
+                // Store mapping for this server
+                uuidMaps.set(serialNumber, uuidToSensorMap);
 
                 if (uuidToSensorMap.size === 0) {
-                    // console.warn(`[LOXONE-STORAGE] [${buildingId}] ⚠️  WARNING: UUID mapping is empty! No measurements can be stored for this building.`);
-                    // console.warn(`[LOXONE-STORAGE] [${buildingId}] Sensors found: ${sensors.length}, Controls in structure: ${loxAPP3Data?.controls ? Object.keys(loxAPP3Data.controls).length : 0}`);
+                    // console.warn(`[LOXONE-STORAGE] [${serialNumber}] ⚠️  WARNING: UUID mapping is empty! No measurements can be stored for this server.`);
+                    // console.warn(`[LOXONE-STORAGE] [${serialNumber}] Sensors found: ${sensors.length}, Controls in structure: ${loxAPP3Data?.controls ? Object.keys(loxAPP3Data.controls).length : 0}`);
                 } else {
-                    // console.log(`[LOXONE-STORAGE] [${buildingId}] ✓ Loaded ${uuidToSensorMap.size} UUID mappings`);
+                    // console.log(`[LOXONE-STORAGE] [${serialNumber}] ✓ Loaded ${uuidToSensorMap.size} UUID mappings`);
                 }
 
                 // 🔥 NEW: Mark loading as complete
-                structureLoadingState.set(buildingId, { loading: false, lastLoaded: Date.now() });
+                structureLoadingState.set(serialNumber, { loading: false, lastLoaded: Date.now() });
 
                 return uuidToSensorMap;
             } catch (error) {
                 // 🔥 NEW: Mark loading as failed
-                structureLoadingState.set(buildingId, { loading: false, lastLoaded: Date.now() });
+                structureLoadingState.set(serialNumber, { loading: false, lastLoaded: Date.now() });
                 throw error;
             }
         } catch (error) {
-            console.error(`[LOXONE-STORAGE] [${buildingId}] Error loading structure mapping:`, error.message);
+            console.error(`[LOXONE-STORAGE] [${serialNumber}] Error loading structure mapping:`, error.message);
             // Check if it's a duplicate key error (index issue)
             if (error.message.includes('E11000') || error.message.includes('duplicate key')) {
-                console.error(`[LOXONE-STORAGE] [${buildingId}] ⚠️  Duplicate key error detected!`);
-                console.error(`[LOXONE-STORAGE] [${buildingId}] This indicates the old unique indexes still exist in MongoDB.`);
-                console.error(`[LOXONE-STORAGE] [${buildingId}] Please run: node scripts/fixRoomSensorIndexes.js`);
-                console.error(`[LOXONE-STORAGE] [${buildingId}] Then restart the server to retry structure import.`);
+                console.error(`[LOXONE-STORAGE] [${serialNumber}] ⚠️  Duplicate key error detected!`);
+                console.error(`[LOXONE-STORAGE] [${serialNumber}] This indicates the old unique indexes still exist in MongoDB.`);
+                console.error(`[LOXONE-STORAGE] [${serialNumber}] Please run: node scripts/fixRoomSensorIndexes.js`);
+                console.error(`[LOXONE-STORAGE] [${serialNumber}] Then restart the server to retry structure import.`);
             }
             throw error;
         }
@@ -739,13 +729,13 @@ class LoxoneStorageService {
     /**
      * 🔥 NEW: Get cached sensor data
      */
-    getCachedSensor(buildingId, sensorId) {
-        const cache = sensorCache.get(buildingId);
+    getCachedSensor(serialNumber, sensorId) {
+        const cache = sensorCache.get(serialNumber);
         if (!cache) return null;
 
         // Check cache expiry
         if (Date.now() - cache.timestamp > SENSOR_CACHE_TTL) {
-            sensorCache.delete(buildingId);
+            sensorCache.delete(serialNumber);
             return null;
         }
 
@@ -753,45 +743,135 @@ class LoxoneStorageService {
     }
 
     /**
-     * Store measurements for a building
-     * Optimized to avoid N+1 queries by batching sensor lookups
+     * Get sensor IDs for sensors in rooms mapped to LocalRooms for a server
+     * Only sensors in rooms that are mapped to LocalRooms should have measurements stored
+     * 🔥 OPTIMIZED: Uses caching to avoid DB queries on every measurement batch
      */
-    async storeMeasurements(buildingId, measurements, options = {}) {
+    async getMappedSensorIdsForServer(serialNumber, forceRefresh = false) {
+        // 🔥 Check cache first to avoid DB queries on every measurement batch
+        if (!forceRefresh) {
+            const cached = allowedSensorIdsCache.get(serialNumber);
+            if (cached && (Date.now() - cached.timestamp) < ALLOWED_SENSOR_IDS_CACHE_TTL) {
+                return cached.sensorIds;
+            }
+        }
+
+        const db = mongoose.connection.db;
+        const LocalRoom = require('../models/LocalRoom');
+
+        try {
+            // Get all LocalRooms that have loxone_room_id set
+            const localRooms = await LocalRoom.find({
+                loxone_room_id: { $exists: true, $ne: null }
+            }).populate('loxone_room_id');
+            
+            // Filter to only LocalRooms whose Loxone Room belongs to this server
+            const mappedLoxoneRoomIds = localRooms
+                .filter(lr => lr.loxone_room_id && lr.loxone_room_id.miniserver_serial === serialNumber)
+                .map(lr => lr.loxone_room_id._id);
+
+            if (mappedLoxoneRoomIds.length === 0) {
+                console.warn(`[LOXONE-STORAGE] [${serialNumber}] ⚠️  No LocalRooms mapped to Loxone Rooms for this server - ALL measurements will be filtered out!`);
+                // 🔥 Cache empty result to avoid repeated queries
+                const emptySet = new Set();
+                allowedSensorIdsCache.set(serialNumber, { sensorIds: emptySet, timestamp: Date.now() });
+                return emptySet;
+            }
+
+            // Get all sensors in those Loxone Rooms
+            const sensors = await db.collection('sensors').find({
+                room_id: { $in: mappedLoxoneRoomIds }
+            }).project({ _id: 1 }).toArray();
+
+            // Return Set of sensor IDs
+            const sensorIds = new Set(sensors.map(s => s._id.toString()));
+            
+            // Log only when cache refreshes (every 5 minutes)
+            console.log(`[LOXONE-STORAGE] [${serialNumber}] 🔄 Cache refresh: ${sensorIds.size} sensor(s) from ${mappedLoxoneRoomIds.length} LocalRoom(s) allowed`);
+            
+            // 🔥 Cache the result
+            allowedSensorIdsCache.set(serialNumber, { sensorIds, timestamp: Date.now() });
+            
+            return sensorIds;
+        } catch (error) {
+            console.error(`[LOXONE-STORAGE] [${serialNumber}] Error getting mapped sensor IDs:`, error.message);
+            // Return empty set on error - this will cause all measurements to be filtered out
+            // Better to be safe than store unwanted data
+            return new Set();
+        }
+    }
+    
+    /**
+     * Invalidate the allowed sensor IDs cache for a server
+     * Call this when LocalRooms are created, updated, or deleted
+     */
+    invalidateAllowedSensorIdsCache(serialNumber = null) {
+        if (serialNumber) {
+            allowedSensorIdsCache.delete(serialNumber);
+        } else {
+            allowedSensorIdsCache.clear();
+        }
+    }
+
+    /**
+     * Store measurements for a server
+     * Optimized to avoid N+1 queries by batching sensor lookups
+     * Only stores measurements for sensors in rooms mapped to LocalRooms
+     */
+    async storeMeasurements(serialNumber, measurements, options = {}) {
+        const now = Date.now();
+
+        // 🔥 EARLY EXIT: Check cache first to avoid ANY DB queries when no LocalRooms configured
+        // This is critical for performance - measurements come in very frequently
+        const cachedAllowed = allowedSensorIdsCache.get(serialNumber);
+        if (cachedAllowed && 
+            cachedAllowed.sensorIds.size === 0 && 
+            (Date.now() - cachedAllowed.timestamp) < ALLOWED_SENSOR_IDS_CACHE_TTL) {
+            // Cache confirms no mapped rooms - skip all measurements without DB query
+            return { stored: 0, skipped: measurements.length, error: 'no_mapped_rooms' };
+        }
+
         // Check connection health
         if (mongoose.connection.readyState !== 1) {
-            console.warn(`[LOXONE-STORAGE] [${buildingId}] MongoDB not connected (readyState: ${mongoose.connection.readyState})`);
+            console.warn(`[LOXONE-STORAGE] [${serialNumber}] MongoDB not connected (readyState: ${mongoose.connection.readyState})`);
             return { stored: 0, skipped: measurements.length, error: 'not_connected' };
         }
 
         // Import services for plausibility checks (lazy load to avoid circular dependencies)
-
         const alarmService = require('./alarmService');
         const alertNotificationService = require('./alertNotificationService');
 
         // 🔥 OPTIMIZED: Get UUID map without automatic reload
-        let uuidToSensorMap = uuidMaps.get(buildingId);
+        let uuidToSensorMap = uuidMaps.get(serialNumber);
 
         // 🔥 REMOVED: Don't automatically reload structure here!
         // The structure should be loaded once during connection setup
         // If it's missing, something is wrong and we should just skip measurements
         if (!uuidToSensorMap || uuidToSensorMap.size === 0) {
             // Only log warning once per minute to avoid spam
-            const now = Date.now();
-            const lastWarning = lastUuidEmptyWarning.get(buildingId) || 0;
+            const lastWarning = lastUuidEmptyWarning.get(serialNumber) || 0;
 
             if (now - lastWarning > 60000) {
-                console.warn(`[LOXONE-STORAGE] [${buildingId}] ⚠️  UUID mapping is empty, skipping ${measurements.length} measurement(s)`);
-                console.warn(`[LOXONE-STORAGE] [${buildingId}] Structure file should be loaded during connection setup. Check connection manager.`);
-                lastUuidEmptyWarning.set(buildingId, now);
+                console.warn(`[LOXONE-STORAGE] [${serialNumber}] ⚠️  UUID mapping is empty, skipping ${measurements.length} measurement(s)`);
+                console.warn(`[LOXONE-STORAGE] [${serialNumber}] Structure file should be loaded during connection setup. Check connection manager.`);
+                lastUuidEmptyWarning.set(serialNumber, now);
             }
 
             return { stored: 0, skipped: measurements.length, error: 'no_mapping' };
+        }
+
+        // 🔥 NEW: Get allowed sensor IDs (only sensors in mapped LocalRooms)
+        const allowedSensorIds = await this.getMappedSensorIdsForServer(serialNumber);
+        if (allowedSensorIds.size === 0) {
+            // No mapped rooms for this server - skip all measurements
+            return { stored: 0, skipped: measurements.length, error: 'no_mapped_rooms' };
         }
 
         const db = mongoose.connection.db;
         const currentMap = uuidToSensorMap;
 
         // Step 1: Collect all unique sensor IDs (optimize N+1 query problem)
+        // Filter to only sensors in mapped rooms
         const sensorIds = new Set();
         const validMeasurements = [];
 
@@ -801,6 +881,13 @@ class LoxoneStorageService {
 
             if (!mapping || !mapping.sensor_id) {
                 continue;
+            }
+
+            const sensorIdStr = mapping.sensor_id.toString();
+            
+            // 🔥 CRITICAL: Only include sensors that are in mapped LocalRooms
+            if (!allowedSensorIds.has(sensorIdStr)) {
+                continue; // Skip sensors not in mapped rooms
             }
 
             sensorIds.add(mapping.sensor_id);
@@ -820,7 +907,7 @@ class LoxoneStorageService {
         const missingIds = [];
 
         for (const sensorId of sensorIds) {
-            const cachedSensor = this.getCachedSensor(buildingId, sensorId);
+            const cachedSensor = this.getCachedSensor(serialNumber, sensorId);
             if (cachedSensor) {
                 sensorMap.set(sensorId.toString(), cachedSensor);
             } else {
@@ -837,22 +924,22 @@ class LoxoneStorageService {
                     .toArray();
 
                 // Add to sensor map and cache
-                const cache = sensorCache.get(buildingId);
-                const buildingCache = cache?.sensors || new Map();
+                const cache = sensorCache.get(serialNumber);
+                const serverCache = cache?.sensors || new Map();
 
                 fetchedSensors.forEach(sensor => {
                     const sensorIdStr = sensor._id.toString();
                     sensorMap.set(sensorIdStr, sensor);
-                    buildingCache.set(sensorIdStr, sensor);
+                    serverCache.set(sensorIdStr, sensor);
                 });
 
                 // Update cache
-                sensorCache.set(buildingId, {
-                    sensors: buildingCache,
+                sensorCache.set(serialNumber, {
+                    sensors: serverCache,
                     timestamp: Date.now()
                 });
             } catch (error) {
-                console.error(`[LOXONE-STORAGE] [${buildingId}] Error fetching sensors:`, error.message);
+                console.error(`[LOXONE-STORAGE] [${serialNumber}] Error fetching sensors:`, error.message);
                 return { stored: 0, skipped: measurements.length, error: 'sensor_fetch_failed' };
             }
         }
@@ -860,9 +947,9 @@ class LoxoneStorageService {
         // Step 3: Build documents using the sensor map and validate plausibility
         const documents = [];
         let skippedCount = 0;
-        const buildingObjectId = mongoose.Types.ObjectId.isValid(buildingId)
-            ? new mongoose.Types.ObjectId(buildingId)
-            : buildingId;
+        
+        // 🔥 CHANGED: Don't use buildingId in meta - measurements are server-scoped
+        // If buildingId is needed for queries, we can add it later via aggregation
 
         for (const { measurement, mapping } of validMeasurements) {
             const sensor = sensorMap.get(mapping.sensor_id.toString());
@@ -925,7 +1012,7 @@ class LoxoneStorageService {
             if (measurementType === 'Temperature' &&
                 (mapping.stateType.startsWith('total') || mapping.stateType.startsWith('totalNeg'))) {
                 // Skip storing cumulative temperature values as temperature measurements
-                // console.warn(`[LOXONE-STORAGE] [${buildingId}] Skipping temperature total state: ${mapping.stateType} for sensor ${sensor.name} (value: ${measurement.value})`);
+                // console.warn(`[LOXONE-STORAGE] [${serialNumber}] Skipping temperature total state: ${mapping.stateType} for sensor ${sensor.name} (value: ${measurement.value})`);
                 skippedCount++;
                 continue;
             }
@@ -934,7 +1021,7 @@ class LoxoneStorageService {
             // Reasonable temperature range: -50°C to 100°C for indoor/outdoor sensors
             if (measurementType === 'Temperature') {
                 if (measurement.value < -50 || measurement.value > 100) {
-                    console.warn(`[LOXONE-STORAGE] [${buildingId}] Implausible temperature value: ${measurement.value}°C for sensor ${sensor.name} (stateType: ${mapping.stateType}). Skipping measurement.`);
+                    console.warn(`[LOXONE-STORAGE] [${serialNumber}] Implausible temperature value: ${measurement.value}°C for sensor ${sensor.name} (stateType: ${mapping.stateType}). Skipping measurement.`);
                     skippedCount++;
                     continue;
                 }
@@ -978,11 +1065,12 @@ class LoxoneStorageService {
             }
 
             // Store measurement regardless of validation result (to maintain data integrity)
+            // 🔥 CHANGED: Removed buildingId from meta - measurements are server-scoped
+            // buildingId can be derived via sensor -> room -> building relationship if needed
             documents.push({
                 timestamp: measurementTimestamp,
                 meta: {
                     sensorId: sensor._id,
-                    buildingId: buildingObjectId,
                     measurementType: measurementType,
                     stateType: mapping.stateType
                 },
@@ -1045,17 +1133,17 @@ class LoxoneStorageService {
                         if (batchError.code === 11000) {
                             // Duplicate key - count as partial success
                             totalInserted += (batchError.insertedCount || 0);
-                            console.warn(`[LOXONE-STORAGE] [${buildingId}] Batch duplicate key error: ${batchError.insertedCount || 0}/${batch.length} inserted`);
+                            console.warn(`[LOXONE-STORAGE] [${serialNumber}] Batch duplicate key error: ${batchError.insertedCount || 0}/${batch.length} inserted`);
                         } else if (
                             batchError.message.includes('timeout') ||
                             batchError.message.includes('Connection') ||
                             batchError.message.includes('pool')
                         ) {
                             // Timeout/connection error for this batch - skip it, continue with next
-                            // console.warn(`[LOXONE-STORAGE] [${buildingId}] Batch timeout/error (${batch.length} docs), continuing with next batch:`, batchError.message);
+                            // console.warn(`[LOXONE-STORAGE] [${serialNumber}] Batch timeout/error (${batch.length} docs), continuing with next batch:`, batchError.message);
                         } else {
                             // Unexpected error - log but continue
-                            console.error(`[LOXONE-STORAGE] [${buildingId}] Batch insert error:`, batchError.message);
+                            console.error(`[LOXONE-STORAGE] [${serialNumber}] Batch insert error:`, batchError.message);
                         }
                     }
                 }
@@ -1063,7 +1151,7 @@ class LoxoneStorageService {
                 storedCount = totalInserted;
             } catch (error) {
                 // Fallback error handling (should not reach here with new batching approach)
-                console.error(`[LOXONE-STORAGE] [${buildingId}] Unexpected error in batch insert loop:`, error.message);
+                console.error(`[LOXONE-STORAGE] [${serialNumber}] Unexpected error in batch insert loop:`, error.message);
                 // Return partial success if any batches succeeded
                 storedCount = 0;
             }

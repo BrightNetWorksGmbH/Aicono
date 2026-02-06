@@ -234,24 +234,9 @@ class AggregationScheduler {
                     // Yield to event loop before starting heavy operation
                     await new Promise(resolve => setImmediate(resolve));
                     
-                    // Optimized: Process buildings sequentially to avoid overwhelming connection pool
-                    // Get all buildings with active Loxone connections
-                    const Building = require('../models/Building');
-                    let buildings = [];
-                    
-                    try {
-                        buildings = await Building.find({ 
-                            'loxone_config.ip': { $exists: true, $ne: null } 
-                        }).select('_id').lean();
-                    } catch (buildingError) {
-                        console.warn(`[SCHEDULER] [${timestamp}] Could not fetch buildings list, falling back to all-buildings aggregation:`, buildingError.message);
-                    }
-                    
-                    if (buildings.length === 0) {
-                        // Fallback: aggregate all buildings at once (original behavior)
-                        console.log(`[SCHEDULER] [${timestamp}] No buildings found, aggregating all data...`);
+                    // Simplified: Aggregate all sensors at once (no per-building iteration needed)
+                    // Since measurements are now server-scoped, we aggregate by sensorId only
                         const result = await measurementAggregationService.aggregate15Minutes(
-                            null, // buildingId (null = all buildings)
                             this.config.deleteAfterAggregation,
                             this.config.rawDataBufferMinutes
                         );
@@ -260,69 +245,6 @@ class AggregationScheduler {
                             console.log(`[SCHEDULER] [${timestamp}] ⏭️  15-minute aggregation skipped: ${result.reason || 'Not enough data'}`);
                         } else {
                             console.log(`[SCHEDULER] [${timestamp}] ✅ 15-minute aggregation completed: ${result.count} aggregates created, ${result.deleted || 0} raw data points queued for deletion`);
-                        }
-                    } else {
-                        // Process buildings sequentially with delays to avoid connection pool exhaustion
-                        console.log(`[SCHEDULER] [${timestamp}] Processing ${buildings.length} buildings sequentially...`);
-                        
-                        let totalCount = 0;
-                        let totalDeleted = 0;
-                        let successCount = 0;
-                        let errorCount = 0;
-                        
-                        // Get building delay from env (default 5 seconds - increased from 2s for better pool management)
-                        const buildingDelay = parseInt(process.env.AGGREGATION_BUILDING_DELAY_MS || '5000', 10);
-                        
-                        for (let i = 0; i < buildings.length; i++) {
-                            const buildingId = buildings[i]._id.toString();
-                            
-                            // Check pool usage before each building to avoid overwhelming the database
-                            const prePoolStats = await getPoolStatistics();
-                            if (prePoolStats.available && prePoolStats.usagePercent >= 90) {
-                                // Pool is very high - wait longer before processing
-                                console.log(`[SCHEDULER] [${timestamp}] Pool usage high (${prePoolStats.usagePercent}%), waiting 10s before building ${i + 1}...`);
-                                await new Promise(resolve => setTimeout(resolve, 10000));
-                            } else if (prePoolStats.available && prePoolStats.usagePercent >= 80) {
-                                // Pool is moderately high - small additional wait
-                                await new Promise(resolve => setTimeout(resolve, 3000));
-                            }
-                            
-                            console.log(`[SCHEDULER] [${timestamp}] Processing building ${i + 1}/${buildings.length}: ${buildingId}`);
-                            
-                            try {
-                                const result = await measurementAggregationService.aggregate15Minutes(
-                                    buildingId,
-                                    this.config.deleteAfterAggregation,
-                                    this.config.rawDataBufferMinutes
-                                );
-                                
-                                if (result && result.success) {
-                                    totalCount += result.count || 0;
-                                    totalDeleted += result.deleted || 0;
-                                    if (!result.skipped) {
-                                        successCount++;
-                                    }
-                                }
-                                
-                                // Delay between buildings to avoid overwhelming connection pool
-                                // Only delay if not the last building
-                                if (i < buildings.length - 1) {
-                                    await new Promise(resolve => setTimeout(resolve, buildingDelay)); // Configurable delay (default 5s)
-                                }
-                            } catch (buildingError) {
-                                errorCount++;
-                                console.error(`[SCHEDULER] [${timestamp}] ❌ Error processing building ${buildingId}:`, buildingError.message);
-                                // Continue with next building
-                            }
-                        }
-                        
-                        console.log(`[SCHEDULER] [${timestamp}] ✅ 15-minute aggregation completed across ${buildings.length} buildings:`);
-                        console.log(`[SCHEDULER] [${timestamp}]   - ${totalCount} aggregates created`);
-                        console.log(`[SCHEDULER] [${timestamp}]   - ${totalDeleted} raw data points queued for deletion`);
-                        console.log(`[SCHEDULER] [${timestamp}]   - ${successCount} buildings processed successfully`);
-                        if (errorCount > 0) {
-                            console.log(`[SCHEDULER] [${timestamp}]   - ${errorCount} buildings had errors`);
-                        }
                     }
                 } catch (error) {
                     console.error(`[SCHEDULER] [${timestamp}] ❌ 15-minute aggregation failed:`, error.message);
@@ -632,18 +554,16 @@ class AggregationScheduler {
     /**
      * Manually trigger 15-minute aggregation (for testing)
      * 
-     * @param {string|null} buildingId - Optional building ID
      * @param {boolean} deleteAfterAggregation - Whether to delete raw data after aggregation
      * @returns {Promise<Object>} Aggregation result
      */
-    async trigger15MinuteAggregation(buildingId = null, deleteAfterAggregation = null) {
+    async trigger15MinuteAggregation(deleteAfterAggregation = null) {
         const timestamp = new Date().toISOString();
         console.log(`[SCHEDULER] [${timestamp}] 🔧 Manually triggering 15-minute aggregation...`);
         const shouldDelete = deleteAfterAggregation !== null 
             ? deleteAfterAggregation 
             : this.config.deleteAfterAggregation;
         const result = await measurementAggregationService.aggregate15Minutes(
-            buildingId, 
             shouldDelete,
             this.config.rawDataBufferMinutes
         );
@@ -657,45 +577,41 @@ class AggregationScheduler {
     /**
      * Manually trigger hourly aggregation (for testing)
      * 
-     * @param {string|null} buildingId - Optional building ID
      * @returns {Promise<Object>} Aggregation result
      */
-    async triggerHourlyAggregation(buildingId = null) {
+    async triggerHourlyAggregation() {
         console.log('[SCHEDULER] Manually triggering hourly aggregation...');
-        return await measurementAggregationService.aggregateHourly(buildingId);
+        return await measurementAggregationService.aggregateHourly();
     }
 
     /**
      * Manually trigger daily aggregation (for testing)
      * 
-     * @param {string|null} buildingId - Optional building ID
      * @returns {Promise<Object>} Aggregation result
      */
-    async triggerDailyAggregation(buildingId = null) {
+    async triggerDailyAggregation() {
         console.log('[SCHEDULER] Manually triggering daily aggregation...');
-        return await measurementAggregationService.aggregateDaily(buildingId);
+        return await measurementAggregationService.aggregateDaily();
     }
 
     /**
      * Manually trigger weekly aggregation (for testing)
      * 
-     * @param {string|null} buildingId - Optional building ID
      * @returns {Promise<Object>} Aggregation result
      */
-    async triggerWeeklyAggregation(buildingId = null) {
+    async triggerWeeklyAggregation() {
         console.log('[SCHEDULER] Manually triggering weekly aggregation...');
-        return await measurementAggregationService.aggregateWeekly(buildingId);
+        return await measurementAggregationService.aggregateWeekly();
     }
 
     /**
      * Manually trigger monthly aggregation (for testing)
      * 
-     * @param {string|null} buildingId - Optional building ID
      * @returns {Promise<Object>} Aggregation result
      */
-    async triggerMonthlyAggregation(buildingId = null) {
+    async triggerMonthlyAggregation() {
         console.log('[SCHEDULER] Manually triggering monthly aggregation...');
-        return await measurementAggregationService.aggregateMonthly(buildingId);
+        return await measurementAggregationService.aggregateMonthly();
     }
 }
 

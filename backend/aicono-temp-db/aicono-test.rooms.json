@@ -1,0 +1,504 @@
+[{
+  "_id": {
+    "$oid": "698447d4f5b476ee787b139c"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Nicht zugeordnet",
+  "loxone_room_uuid": "1fa3729e-0089-06b6-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:33:40.609Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:33:40.609Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447d5f5b476ee787b13a0"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Vorzimmer EG",
+  "loxone_room_uuid": "1fa3729e-0089-06ba-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:33:41.756Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:33:41.756Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447d7f5b476ee787b13a7"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Vorzimmer OG",
+  "loxone_room_uuid": "1fa3729e-008a-06be-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:33:43.062Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:33:43.062Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447d8f5b476ee787b13aa"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Wohnzimmer",
+  "loxone_room_uuid": "1fa3729e-008a-06c2-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:33:44.039Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:33:44.039Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447d8f5b476ee787b13ad"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Küche",
+  "loxone_room_uuid": "1fa3729e-008a-06c6-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:33:44.839Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:33:44.839Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447e8c2c42135dd204710"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Bad",
+  "loxone_room_uuid": "1fa3729e-008a-06ca-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:00.608Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:00.608Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447e9c2c42135dd204715"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Bad OG",
+  "loxone_room_uuid": "1fa3729e-008b-06ce-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:01.360Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:01.360Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447e9c2c42135dd204716"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Schlafzimmer",
+  "loxone_room_uuid": "1fa3729e-008b-06d2-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:01.914Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:01.914Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447eac2c42135dd204717"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Kinderzimmer",
+  "loxone_room_uuid": "1fa3729e-008b-06d6-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:02.460Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:02.460Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447ebc2c42135dd204718"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "WC",
+  "loxone_room_uuid": "1fa3729e-008b-06da-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:03.011Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:03.011Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447ebc2c42135dd204719"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Ankleidezimmer",
+  "loxone_room_uuid": "1fa3729e-008c-06de-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:03.561Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:03.561Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447ecc2c42135dd20471a"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Garage",
+  "loxone_room_uuid": "1fa3729e-008c-06e2-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:04.099Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:04.099Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447ecc2c42135dd20471b"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Windfang",
+  "loxone_room_uuid": "1fa3729e-008c-06e6-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:04.639Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:04.639Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447edc2c42135dd20471c"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Stiege",
+  "loxone_room_uuid": "1fa3729e-008c-06ea-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:05.175Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:05.175Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447edc2c42135dd20471d"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Saunaraum",
+  "loxone_room_uuid": "1fa3729e-008c-06ee-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:05.737Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:05.737Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447eec2c42135dd20471e"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Wintergarten",
+  "loxone_room_uuid": "1fa3729e-008c-06f2-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:06.267Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:06.267Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447eec2c42135dd20471f"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Arbeitszimmer",
+  "loxone_room_uuid": "1fa3729e-008d-06f6-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:06.891Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:06.891Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447efc2c42135dd204720"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Spielzimmer",
+  "loxone_room_uuid": "1fa3729e-008d-06fa-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:07.452Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:07.452Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f0c2c42135dd204721"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Waschzimmer",
+  "loxone_room_uuid": "1fa3729e-008d-06fe-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:08.002Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:08.002Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f0c2c42135dd204722"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Bügelzimmer",
+  "loxone_room_uuid": "1fa3729e-008d-0702-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:08.542Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:08.542Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f1c2c42135dd204723"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Trainingszimmer",
+  "loxone_room_uuid": "1fa3729e-008e-0706-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:09.089Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:09.089Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f1c2c42135dd204724"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Terrasse",
+  "loxone_room_uuid": "1fa3729e-008e-070a-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:09.636Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:09.636Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f2c2c42135dd204725"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Garten",
+  "loxone_room_uuid": "1fa3729e-008e-070e-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:10.181Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:10.181Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f2c2c42135dd204726"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Esszimmer",
+  "loxone_room_uuid": "1fa3729e-008e-0712-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:10.721Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:10.721Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f3c2c42135dd204727"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Dachboden",
+  "loxone_room_uuid": "1fa3729e-008e-0716-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:11.334Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:11.334Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f3c2c42135dd204728"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Vorratskeller",
+  "loxone_room_uuid": "1fa3729e-008e-071a-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:11.925Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:11.925Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f4c2c42135dd204729"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Bar",
+  "loxone_room_uuid": "1fa3729e-008f-071e-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:12.484Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:12.484Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f5c2c42135dd20472a"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Sanitär",
+  "loxone_room_uuid": "1fa3729e-008f-0722-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:13.041Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:13.041Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f5c2c42135dd20472b"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Konferenz",
+  "loxone_room_uuid": "1fa3729e-008f-0726-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:13.597Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:13.597Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f6c2c42135dd20472c"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Pool",
+  "loxone_room_uuid": "1fa3729e-008f-072a-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:14.142Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:14.142Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f6c2c42135dd20472d"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Flur",
+  "loxone_room_uuid": "1fa3729e-008f-072e-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:14.720Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:14.720Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f7c2c42135dd20472e"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Außenbereich",
+  "loxone_room_uuid": "1fa3729e-008f-0732-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:15.263Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:15.263Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f7c2c42135dd20472f"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Strom HV und UV",
+  "loxone_room_uuid": "1fa3729e-008f-0736-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:15.796Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:15.796Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f8c2c42135dd204730"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Zentral",
+  "loxone_room_uuid": "1fa3729e-008f-073a-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:16.340Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:16.340Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f8c2c42135dd204731"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Serverraum",
+  "loxone_room_uuid": "1fa3729e-008f-073e-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:16.899Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:16.899Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698447f9c2c42135dd204732"
+  },
+  "miniserver_serial": "504F94D107EE",
+  "name": "Heizung",
+  "loxone_room_uuid": "1fa3729e-008f-0742-ffffce026101d865",
+  "createdAt": {
+    "$date": "2026-02-05T07:34:17.453Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:34:17.453Z"
+  }
+}]
