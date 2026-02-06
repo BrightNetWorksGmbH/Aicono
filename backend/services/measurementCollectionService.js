@@ -144,6 +144,7 @@ class MeasurementCollectionService {
 
     /**
      * Create indexes for measurements_raw collection
+     * Indexes optimized for sensor-based queries (buildingId is no longer stored in measurements)
      * @param {string} collectionName - Collection name
      * @returns {Promise<void>}
      */
@@ -152,23 +153,22 @@ class MeasurementCollectionService {
         const collection = db.collection(collectionName);
 
         try {
-            // Index for building queries
-            await collection.createIndex({ 'meta.buildingId': 1, timestamp: -1 }, { background: true });
-            console.log(`[MEASUREMENT-COLLECTIONS] ✓ Created index on ${collectionName}: meta.buildingId + timestamp`);
-
-            // Index for sensor queries
+            // Primary index for sensor queries with timestamp ordering
             await collection.createIndex({ 'meta.sensorId': 1, timestamp: -1 }, { background: true });
             console.log(`[MEASUREMENT-COLLECTIONS] ✓ Created index on ${collectionName}: meta.sensorId + timestamp`);
 
-            // Index for resolution queries (always 0, but useful for consistency)
+            // Index for resolution queries (always 0 for raw, but useful for consistency)
             await collection.createIndex({ resolution_minutes: 1, timestamp: -1 }, { background: true });
             console.log(`[MEASUREMENT-COLLECTIONS] ✓ Created index on ${collectionName}: resolution_minutes + timestamp`);
             
-            // Optimized compound index for deletion queries (timestamp range + buildingId)
+            // Optimized compound index for deletion queries (timestamp range)
             // This is critical for efficient deletion operations
-            // Order: timestamp first (for range queries), then buildingId (for filtering)
-            await collection.createIndex({ timestamp: 1, 'meta.buildingId': 1 }, { background: true });
-            console.log(`[MEASUREMENT-COLLECTIONS] ✓ Created optimized deletion index on ${collectionName}: timestamp + meta.buildingId`);
+            await collection.createIndex({ timestamp: 1 }, { background: true });
+            console.log(`[MEASUREMENT-COLLECTIONS] ✓ Created index on ${collectionName}: timestamp`);
+            
+            // Compound index for sensor + resolution queries
+            await collection.createIndex({ 'meta.sensorId': 1, resolution_minutes: 1, timestamp: -1 }, { background: true });
+            console.log(`[MEASUREMENT-COLLECTIONS] ✓ Created compound index on ${collectionName}: meta.sensorId + resolution_minutes + timestamp`);
         } catch (error) {
             // Index might already exist, which is fine
             if (!error.message.includes('already exists') && !error.message.includes('duplicate key')) {
@@ -179,6 +179,7 @@ class MeasurementCollectionService {
 
     /**
      * Create indexes for measurements_aggregated collection
+     * Indexes optimized for sensor-based queries (buildingId is no longer stored in measurements)
      * @param {string} collectionName - Collection name
      * @returns {Promise<void>}
      */
@@ -187,23 +188,21 @@ class MeasurementCollectionService {
         const collection = db.collection(collectionName);
 
         try {
-            // Compound index for building queries with resolution
-            await collection.createIndex(
-                { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 },
-                { background: true }
-            );
-            console.log(`[MEASUREMENT-COLLECTIONS] ✓ Created compound index on ${collectionName}: meta.buildingId + resolution_minutes + timestamp`);
-
-            // Compound index for sensor queries with resolution
+            // Primary compound index for sensor queries with resolution
+            // This is the main index for all dashboard/analytics queries
             await collection.createIndex(
                 { 'meta.sensorId': 1, resolution_minutes: 1, timestamp: -1 },
                 { background: true }
             );
             console.log(`[MEASUREMENT-COLLECTIONS] ✓ Created compound index on ${collectionName}: meta.sensorId + resolution_minutes + timestamp`);
 
-            // Index for resolution queries
+            // Index for resolution queries (for aggregation scheduling)
             await collection.createIndex({ resolution_minutes: 1, timestamp: -1 }, { background: true });
             console.log(`[MEASUREMENT-COLLECTIONS] ✓ Created index on ${collectionName}: resolution_minutes + timestamp`);
+            
+            // Index for timestamp-only queries (for cleanup/deletion)
+            await collection.createIndex({ timestamp: 1 }, { background: true });
+            console.log(`[MEASUREMENT-COLLECTIONS] ✓ Created index on ${collectionName}: timestamp`);
         } catch (error) {
             // Index might already exist, which is fine
             if (!error.message.includes('already exists') && !error.message.includes('duplicate key')) {

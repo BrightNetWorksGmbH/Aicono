@@ -2,10 +2,15 @@ const Sensor = require('../models/Sensor');
 const Room = require('../models/Room');
 const Building = require('../models/Building');
 const Site = require('../models/Site');
+const Floor = require('../models/Floor');
+const LocalRoom = require('../models/LocalRoom');
+const sensorLookup = require('../utils/sensorLookup');
+const { NotFoundError, ValidationError } = require('../utils/errors');
 
 class SensorService {
     /**
      * Get all sensors for a building
+     * Uses Floor -> LocalRoom -> Loxone Room -> Sensor path
      * @param {String} buildingId - Building ID
      * @returns {Promise<Array>} Array of sensors with room information
      */
@@ -13,16 +18,20 @@ class SensorService {
         // Verify building exists
         const building = await Building.findById(buildingId);
         if (!building) {
-            throw new Error('Building not found');
+            throw new NotFoundError('Building');
         }
 
-        // Get all rooms for this building
-        const rooms = await Room.find({ building_id: buildingId });
-        const roomIds = rooms.map(room => room._id);
+        // Get sensor IDs for this building via sensorLookup
+        const sensorIdsSet = await sensorLookup.getSensorIdsForBuilding(buildingId);
+        const sensorIds = Array.from(sensorIdsSet);
 
-        // Get all sensors for these rooms
-        const sensors = await Sensor.find({ room_id: { $in: roomIds } })
-            .populate('room_id', 'name loxone_room_uuid building_id')
+        if (sensorIds.length === 0) {
+            return [];
+        }
+
+        // Get all sensors with room information
+        const sensors = await Sensor.find({ _id: { $in: sensorIds } })
+            .populate('room_id', 'name loxone_room_uuid miniserver_serial')
             .sort({ name: 1 });
 
         return sensors.map(sensor => ({
@@ -43,6 +52,7 @@ class SensorService {
 
     /**
      * Get all sensors for a site (across all buildings)
+     * Uses Floor -> LocalRoom -> Loxone Room -> Sensor path for each building
      * @param {String} siteId - Site ID
      * @returns {Promise<Array>} Array of sensors with room and building information
      */
@@ -50,28 +60,20 @@ class SensorService {
         // Verify site exists
         const site = await Site.findById(siteId);
         if (!site) {
-            throw new Error('Site not found');
+            throw new NotFoundError('Site');
         }
 
-        // Get all buildings for this site
-        const buildings = await Building.find({ site_id: siteId });
-        const buildingIds = buildings.map(building => building._id);
+        // Get sensor IDs for this site via sensorLookup
+        const sensorIdsSet = await sensorLookup.getSensorIdsForSite(siteId);
+        const sensorIds = Array.from(sensorIdsSet);
 
-        // Get all rooms for these buildings
-        const rooms = await Room.find({ building_id: { $in: buildingIds } })
-            .populate('building_id', 'name site_id');
-        const roomIds = rooms.map(room => room._id);
+        if (sensorIds.length === 0) {
+            return [];
+        }
 
-        // Get all sensors for these rooms
-        const sensors = await Sensor.find({ room_id: { $in: roomIds } })
-            .populate({
-                path: 'room_id',
-                select: 'name loxone_room_uuid building_id',
-                populate: {
-                    path: 'building_id',
-                    select: 'name site_id'
-                }
-            })
+        // Get all sensors with room information
+        const sensors = await Sensor.find({ _id: { $in: sensorIds } })
+            .populate('room_id', 'name loxone_room_uuid miniserver_serial')
             .sort({ name: 1 });
 
         return sensors.map(sensor => ({
@@ -97,29 +99,29 @@ class SensorService {
      */
     async bulkUpdateThresholds(sensorUpdates) {
         if (!Array.isArray(sensorUpdates) || sensorUpdates.length === 0) {
-            throw new Error('sensorUpdates must be a non-empty array');
+            throw new ValidationError('sensorUpdates must be a non-empty array');
         }
 
         const updatePromises = sensorUpdates.map(async (update) => {
             const { sensorId, threshold_min, threshold_max } = update;
 
             if (!sensorId) {
-                throw new Error('sensorId is required for each update');
+                throw new ValidationError('sensorId is required for each update');
             }
 
             // Find the sensor first to check existing values
             const sensor = await Sensor.findById(sensorId);
             if (!sensor) {
-                throw new Error(`Sensor with ID ${sensorId} not found`);
+                throw new NotFoundError(`Sensor ${sensorId}`);
             }
 
             // Validate threshold values if provided
             if (threshold_min !== undefined && threshold_min !== null && isNaN(threshold_min)) {
-                throw new Error(`Invalid threshold_min value for sensor ${sensorId}`);
+                throw new ValidationError(`Invalid threshold_min value for sensor ${sensorId}`);
             }
 
             if (threshold_max !== undefined && threshold_max !== null && isNaN(threshold_max)) {
-                throw new Error(`Invalid threshold_max value for sensor ${sensorId}`);
+                throw new ValidationError(`Invalid threshold_max value for sensor ${sensorId}`);
             }
 
             // Determine the values to validate (use existing if not being updated)
@@ -132,7 +134,7 @@ class SensorService {
                 finalMax !== undefined && finalMax !== null &&
                 finalMin >= finalMax
             ) {
-                throw new Error(`threshold_min (${finalMin}) must be less than threshold_max (${finalMax}) for sensor ${sensorId}`);
+                throw new ValidationError(`threshold_min (${finalMin}) must be less than threshold_max (${finalMax}) for sensor ${sensorId}`);
             }
 
             // Prepare update data
@@ -173,10 +175,10 @@ class SensorService {
      */
     async getSensorById(sensorId) {
         const sensor = await Sensor.findById(sensorId)
-            .populate('room_id', 'name loxone_room_uuid building_id');
+            .populate('room_id', 'name loxone_room_uuid miniserver_serial');
 
         if (!sensor) {
-            throw new Error('Sensor not found');
+            throw new NotFoundError('Sensor');
         }
 
         return {

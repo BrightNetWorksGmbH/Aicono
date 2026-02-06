@@ -66,6 +66,68 @@ class ReportGenerationService {
     }
   }
   /**
+   * Calculate time range from a start date based on interval
+   * @param {String} interval - 'Daily', 'Weekly', 'Monthly', 'Yearly'
+   * @param {Date} startDate - Start date for the period
+   * @returns {Object} { startDate, endDate }
+   */
+  calculateTimeRangeFromStart(interval, startDate) {
+    const start = new Date(startDate);
+    let endDate;
+
+    switch (interval) {
+      case 'Daily':
+        // Same day (00:00 to 23:59:59.999)
+        start.setUTCHours(0, 0, 0, 0);
+        endDate = new Date(start);
+        endDate.setUTCHours(23, 59, 59, 999);
+        break;
+
+      case 'Weekly':
+        // Week starting from the Monday of the week containing startDate
+        const dayOfWeek = start.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Days to go back to Monday
+        start.setUTCDate(start.getUTCDate() - daysToMonday);
+        start.setUTCHours(0, 0, 0, 0);
+        endDate = new Date(start);
+        endDate.setUTCDate(endDate.getUTCDate() + 6); // Sunday of that week
+        endDate.setUTCHours(23, 59, 59, 999);
+        break;
+
+      case 'Monthly':
+        // Month containing startDate (1st 00:00 to last day 23:59:59.999)
+        start.setUTCDate(1);
+        start.setUTCHours(0, 0, 0, 0);
+        // Last day of month using UTC
+        endDate = new Date(Date.UTC(
+          start.getUTCFullYear(),
+          start.getUTCMonth() + 1,
+          0, // Day 0 = last day of previous month
+          23, 59, 59, 999
+        ));
+        break;
+
+      case 'Yearly':
+        // Year containing startDate (Jan 1 00:00 to Dec 31 23:59:59.999)
+        start.setUTCMonth(0, 1); // January 1st
+        start.setUTCHours(0, 0, 0, 0);
+        // December 31st using UTC
+        endDate = new Date(Date.UTC(
+          start.getUTCFullYear(),
+          11, // December (0-indexed)
+          31,
+          23, 59, 59, 999
+        ));
+        break;
+
+      default:
+        throw new Error(`Invalid interval: ${interval}`);
+    }
+
+    return { startDate: start, endDate };
+  }
+
+  /**
    * Calculate time range for a given interval
    * @param {String} interval - 'Daily', 'Weekly', 'Monthly', 'Yearly'
    * @param {Date} referenceDate - Reference date (default: now)

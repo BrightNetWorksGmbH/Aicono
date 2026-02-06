@@ -3,6 +3,7 @@ const Reporting = require('../models/Reporting');
 const BuildingReportingAssignment = require('../models/BuildingReportingAssignment');
 const Building = require('../models/Building');
 const mongoose = require('mongoose');
+const { NotFoundError, ValidationError } = require('../utils/errors');
 
 class ReportingService {
   /**
@@ -19,26 +20,26 @@ class ReportingService {
     if (typeof input === 'string') {
       const recipient = await ReportingRecipient.findById(input);
       if (!recipient) {
-        throw new Error(`ReportingRecipient with ID ${input} not found`);
+        throw new NotFoundError(`ReportingRecipient ${input}`);
       }
       return recipient._id.toString();
     }
 
     // If input is an object, validate and create/find recipient
     if (typeof input !== 'object' || input === null) {
-      throw new Error('Recipient must be either a string ID or an object with name, email, and optional phone');
+      throw new ValidationError('Recipient must be either a string ID or an object with name, email, and optional phone');
     }
 
     const { name, email, phone } = input;
 
     if (!email) {
-      throw new Error('Email is required for recipient');
+      throw new ValidationError('Email is required for recipient');
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      throw new Error('Invalid email format in recipient');
+      throw new ValidationError('Invalid email format in recipient');
     }
 
     // Try to find existing recipient by email
@@ -85,23 +86,23 @@ class ReportingService {
     const { name, interval, reportContents } = config;
 
     if (!name) {
-      throw new Error('Reporting name is required');
+      throw new ValidationError('Reporting name is required');
     }
 
     if (!interval) {
-      throw new Error('Reporting interval is required');
+      throw new ValidationError('Reporting interval is required');
     }
 
     // Validate interval
     const validIntervals = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
     if (!validIntervals.includes(interval)) {
-      throw new Error(`Invalid interval. Must be one of: ${validIntervals.join(', ')}`);
+      throw new ValidationError(`Invalid interval. Must be one of: ${validIntervals.join(', ')}`);
     }
 
     // Validate reportContents if provided
     if (reportContents !== undefined) {
       if (!Array.isArray(reportContents)) {
-        throw new Error('reportContents must be an array');
+        throw new ValidationError('reportContents must be an array');
       }
 
       const validReportContents = [
@@ -122,7 +123,7 @@ class ReportingService {
       ];
       for (const content of reportContents) {
         if (!validReportContents.includes(content)) {
-          throw new Error(`Invalid reportContent: ${content}. Must be one of: ${validReportContents.join(', ')}`);
+          throw new ValidationError(`Invalid reportContent: ${content}. Must be one of: ${validReportContents.join(', ')}`);
         }
       }
     }
@@ -152,13 +153,13 @@ class ReportingService {
     ]);
 
     if (!building) {
-      throw new Error(`Building with ID ${buildingId} not found`);
+      throw new NotFoundError('Building');
     }
     if (!recipient) {
-      throw new Error(`ReportingRecipient with ID ${recipientId} not found`);
+      throw new NotFoundError('ReportingRecipient');
     }
     if (!reporting) {
-      throw new Error(`Reporting with ID ${reportingId} not found`);
+      throw new NotFoundError('Reporting');
     }
 
     // Use findOneAndUpdate with upsert for atomic operation (optimized)
@@ -230,14 +231,14 @@ class ReportingService {
     
     if (building_id) {
       if (!mongoose.Types.ObjectId.isValid(building_id)) {
-        throw new Error(`Invalid building_id: ${building_id}`);
+        throw new ValidationError(`Invalid building_id: ${building_id}`);
       }
       buildingQuery._id = new mongoose.Types.ObjectId(building_id);
     }
     
     if (site_id) {
       if (!mongoose.Types.ObjectId.isValid(site_id)) {
-        throw new Error(`Invalid site_id: ${site_id}`);
+        throw new ValidationError(`Invalid site_id: ${site_id}`);
       }
       buildingQuery.site_id = new mongoose.Types.ObjectId(site_id);
     }

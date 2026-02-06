@@ -1,6 +1,7 @@
 const Site = require('../models/Site');
 const BryteSwitchSettings = require('../models/BryteSwitchSettings');
 const UserRole = require('../models/UserRole');
+const { NotFoundError, AuthorizationError, ConflictError, ValidationError } = require('../utils/errors');
 
 class SiteService {
   /**
@@ -19,7 +20,7 @@ class SiteService {
     // Verify BryteSwitch exists
     const bryteSwitch = await BryteSwitchSettings.findById(bryteswitchId);
     if (!bryteSwitch) {
-      throw new Error('BryteSwitch not found');
+      throw new NotFoundError('BryteSwitch');
     }
 
     // Check if user has access to this BryteSwitch
@@ -33,7 +34,7 @@ class SiteService {
       const User = require('../models/User');
       const user = await User.findById(userId);
       if (!user || !user.is_superadmin) {
-        throw new Error('You do not have access to this BryteSwitch');
+        throw new AuthorizationError('You do not have access to this BryteSwitch');
       }
     }
 
@@ -44,7 +45,7 @@ class SiteService {
     });
 
     if (existingSite) {
-      throw new Error(`A site with the name "${name}" already exists in this BryteSwitch`);
+      throw new ConflictError(`A site with the name "${name}" already exists in this BryteSwitch`);
     }
 
     // Create site
@@ -70,7 +71,7 @@ class SiteService {
     // Verify BryteSwitch exists
     const bryteSwitch = await BryteSwitchSettings.findById(bryteswitchId);
     if (!bryteSwitch) {
-      throw new Error('BryteSwitch not found');
+      throw new NotFoundError('BryteSwitch');
     }
 
     // Check if user has access
@@ -83,7 +84,7 @@ class SiteService {
       const User = require('../models/User');
       const user = await User.findById(userId);
       if (!user || !user.is_superadmin) {
-        throw new Error('You do not have access to this BryteSwitch');
+        throw new AuthorizationError('You do not have access to this BryteSwitch');
       }
     }
 
@@ -103,7 +104,7 @@ class SiteService {
     const site = await Site.findById(siteId).populate('bryteswitch_id', 'organization_name');
     
     if (!site) {
-      throw new Error('Site not found');
+      throw new NotFoundError('Site');
     }
 
     // Check if user has access to the BryteSwitch
@@ -116,7 +117,7 @@ class SiteService {
       const User = require('../models/User');
       const user = await User.findById(userId);
       if (!user || !user.is_superadmin) {
-        throw new Error('You do not have access to this site');
+        throw new AuthorizationError('You do not have access to this site');
       }
     }
 
@@ -133,7 +134,7 @@ class SiteService {
   async updateSite(siteId, updateData, userId) {
     const site = await Site.findById(siteId);
     if (!site) {
-      throw new Error('Site not found');
+      throw new NotFoundError('Site');
     }
 
     // Check permissions
@@ -143,12 +144,12 @@ class SiteService {
     }).populate('role_id');
 
     if (!userRole || !userRole.role_id) {
-      throw new Error('You do not have access to this site');
+      throw new AuthorizationError('You do not have access to this site');
     }
 
     const role = userRole.role_id;
     if (!role.permissions.manage_sites) {
-      throw new Error('You do not have permission to update sites');
+      throw new AuthorizationError('You do not have permission to update sites');
     }
 
     // Update allowed fields
@@ -160,7 +161,7 @@ class SiteService {
         _id: { $ne: siteId }
       });
       if (existingSite) {
-        throw new Error(`A site with the name "${updateData.name}" already exists`);
+        throw new ConflictError(`A site with the name "${updateData.name}" already exists`);
       }
       site.name = updateData.name.trim();
     }
@@ -184,7 +185,7 @@ class SiteService {
   async deleteSite(siteId, userId) {
     const site = await Site.findById(siteId);
     if (!site) {
-      throw new Error('Site not found');
+      throw new NotFoundError('Site');
     }
 
     // Check permissions
@@ -194,19 +195,19 @@ class SiteService {
     }).populate('role_id');
 
     if (!userRole || !userRole.role_id) {
-      throw new Error('You do not have access to this site');
+      throw new AuthorizationError('You do not have access to this site');
     }
 
     const role = userRole.role_id;
     if (!role.permissions.manage_sites) {
-      throw new Error('You do not have permission to delete sites');
+      throw new AuthorizationError('You do not have permission to delete sites');
     }
 
     // Check if site has buildings
     const Building = require('../models/Building');
     const buildingCount = await Building.countDocuments({ site_id: siteId });
     if (buildingCount > 0) {
-      throw new Error(`Cannot delete site with ${buildingCount} building(s). Please delete or move buildings first.`);
+      throw new ConflictError(`Cannot delete site with ${buildingCount} building(s). Please delete or move buildings first.`);
     }
 
     await Site.findByIdAndDelete(siteId);

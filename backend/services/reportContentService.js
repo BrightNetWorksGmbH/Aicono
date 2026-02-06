@@ -15,9 +15,8 @@ class ReportContentService {
    * Get report content for a building and reporting configuration
    * @param {String} buildingId - Building ID
    * @param {String} reportingId - Reporting ID
-   * @param {Object} timeRange - { startDate, endDate } (optional, if not provided uses current period)
-   * @param {Object} options - Query options (resolution, measurementType, useCurrentPeriod, etc.)
-   *   - useCurrentPeriod: if true and timeRange is null, use last 7 days (default: false for backward compatibility)
+   * @param {Object} timeRange - { startDate, endDate } (required, should be provided by caller)
+   * @param {Object} options - Query options (resolution, measurementType, interval, etc.)
    * @returns {Promise<Object>} Report content data
    */
   async getReportContent(buildingId, reportingId, timeRange = null, options = {}) {
@@ -33,16 +32,13 @@ class ReportContentService {
       throw new Error(`Reporting with ID ${reportingId} not found`);
     }
 
-    // If timeRange not provided, determine based on useCurrentPeriod flag
+    // If timeRange not provided, use interval-based calculation (for backward compatibility)
+    // This should rarely happen now as controllers should always provide timeRange
     let reportTimeRange = timeRange;
     if (!reportTimeRange) {
-      if (options.useCurrentPeriod) {
-        // For dashboard viewing: use last 7 days (current/recent data)
-        reportTimeRange = dashboardDiscoveryService.getDefaultTimeRange({ days: 7 });
-      } else {
-        // For scheduled reports: use interval-based calculation (historical period)
-        reportTimeRange = reportGenerationService.calculateTimeRange(reporting.interval);
-      }
+      // Use interval from options if provided, otherwise from reporting config
+      const interval = options.interval || reporting.interval;
+      reportTimeRange = reportGenerationService.calculateTimeRange(interval);
     }
 
     // Generate full report

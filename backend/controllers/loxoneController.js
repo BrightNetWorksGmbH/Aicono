@@ -28,13 +28,27 @@ exports.connect = asyncHandler(async (req, res) => {
     });
   }
 
-  // Verify building exists
+  // Verify building exists and get building data
+  let building;
   try {
-    await buildingService.getBuildingById(buildingId);
+    building = await buildingService.getBuildingById(buildingId);
   } catch (error) {
     return res.status(404).json({
       success: false,
       error: 'Building not found'
+    });
+  }
+
+  // Ensure serialNumber is in credentials (use from building if not provided)
+  if (!credentials.serialNumber && building.miniserver_serial) {
+    credentials.serialNumber = building.miniserver_serial;
+  }
+
+  // Validate serialNumber is present
+  if (!credentials.serialNumber) {
+    return res.status(400).json({
+      success: false,
+      error: 'Serial number is required (miniserver_serial)'
     });
   }
 
@@ -95,11 +109,30 @@ exports.getAllConnections = asyncHandler(async (req, res) => {
 
 /**
  * GET /api/loxone/rooms/:buildingId
- * Get all Loxone rooms for a building
+ * Get all Loxone rooms for a building (via server serial)
  */
 exports.getLoxoneRooms = asyncHandler(async (req, res) => {
   const { buildingId } = req.params;
-  const rooms = await Room.find({ building_id: buildingId }).sort({ name: 1 });
+  
+  // Get building to find its server serial
+  const Building = require('../models/Building');
+  const building = await Building.findById(buildingId);
+  if (!building) {
+    return res.status(404).json({
+      success: false,
+      error: 'Building not found'
+    });
+  }
+  
+  if (!building.miniserver_serial) {
+    return res.status(400).json({
+      success: false,
+      error: 'Building has no Loxone server configured'
+    });
+  }
+  
+  // Get rooms for this server
+  const rooms = await Room.find({ miniserver_serial: building.miniserver_serial }).sort({ name: 1 });
   
   res.json({
     success: true,
@@ -287,10 +320,12 @@ exports.triggerDateRangeAggregation = asyncHandler(async (req, res) => {
 /**
  * GET /api/loxone/aggregation/unaggregated
  * Check for unaggregated raw data
- * Query params: buildingId (optional), startDate (optional), endDate (optional)
+ * Query params: buildingId (optional - filters by building's sensors), startDate (optional), endDate (optional)
+ * Note: buildingId filtering requires sensor lookup since measurements no longer contain buildingId
  */
 exports.getUnaggregatedData = asyncHandler(async (req, res) => {
   const mongoose = require('mongoose');
+  const sensorLookup = require('../utils/sensorLookup');
   const db = mongoose.connection.db;
   
   if (!db) {
@@ -306,6 +341,7 @@ exports.getUnaggregatedData = asyncHandler(async (req, res) => {
     resolution_minutes: 0
   };
   
+  // Filter by building's sensors if buildingId provided
   if (buildingId) {
     if (!mongoose.Types.ObjectId.isValid(buildingId)) {
       return res.status(400).json({
@@ -313,7 +349,23 @@ exports.getUnaggregatedData = asyncHandler(async (req, res) => {
         error: 'Invalid buildingId'
       });
     }
-    matchStage['meta.buildingId'] = new mongoose.Types.ObjectId(buildingId);
+    // Get sensor IDs for this building via sensorLookup
+    const sensorIdsSet = await sensorLookup.getSensorIdsForBuilding(buildingId);
+    if (sensorIdsSet.size > 0) {
+      const sensorIds = Array.from(sensorIdsSet).map(id => new mongoose.Types.ObjectId(id));
+      matchStage['meta.sensorId'] = { $in: sensorIds };
+    } else {
+      // No sensors for this building - return empty result
+      return res.json({
+        success: true,
+        data: {
+          count: 0,
+          dateRange: { oldest: null, newest: null },
+          sample: null,
+          buildingId: buildingId
+        }
+      });
+    }
   }
   
   if (startDate || endDate) {
@@ -350,7 +402,6 @@ exports.getUnaggregatedData = asyncHandler(async (req, res) => {
       projection: {
         timestamp: 1,
         resolution_minutes: 1,
-        'meta.buildingId': 1,
         'meta.sensorId': 1,
         'meta.measurementType': 1,
         source: 1,

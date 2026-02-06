@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const sensorLookup = require('../utils/sensorLookup');
+const { ValidationError, ServiceUnavailableError } = require('../utils/errors');
 
 /**
  * Measurement Query Service
@@ -11,6 +13,8 @@ const mongoose = require('mongoose');
  * - > 90 days: Daily aggregates (resolution_minutes: 1440)
  * 
  * This ensures optimal query performance while maintaining data accuracy.
+ * Measurements no longer contain buildingId in meta - queries use sensor IDs
+ * obtained via the sensorLookup utility.
  */
 class MeasurementQueryService {
     /**
@@ -30,11 +34,11 @@ class MeasurementQueryService {
     async getMeasurements(sensorId, startDate, endDate, options = {}) {
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
 
         if (!mongoose.Types.ObjectId.isValid(sensorId)) {
-            throw new Error(`Invalid sensorId: ${sensorId}`);
+            throw new ValidationError(`Invalid sensorId: ${sensorId}`);
         }
 
         const duration = endDate - startDate;
@@ -112,6 +116,7 @@ class MeasurementQueryService {
     
     /**
      * Get measurements for a building
+     * Uses sensorLookup to get sensor IDs, then queries by meta.sensorId
      * 
      * @param {string} buildingId - Building ID
      * @param {Date} startDate - Start date
@@ -125,12 +130,26 @@ class MeasurementQueryService {
     async getMeasurementsByBuilding(buildingId, startDate, endDate, options = {}) {
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
 
         if (!mongoose.Types.ObjectId.isValid(buildingId)) {
-            throw new Error(`Invalid buildingId: ${buildingId}`);
+            throw new ValidationError(`Invalid buildingId: ${buildingId}`);
         }
+
+        // Get sensor IDs for this building via sensorLookup
+        const sensorIdsSet = await sensorLookup.getSensorIdsForBuilding(buildingId);
+        
+        if (sensorIdsSet.size === 0) {
+            return {
+                measurements: [],
+                resolution: 0,
+                count: 0,
+                resolutionLabel: 'Raw'
+            };
+        }
+        
+        const sensorIds = Array.from(sensorIdsSet).map(id => new mongoose.Types.ObjectId(id));
 
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
@@ -160,9 +179,9 @@ class MeasurementQueryService {
             // else: use raw data (resolution = 0)
         }
         
+        // Query by sensor IDs (measurements no longer have buildingId in meta)
         const matchStage = {
-            // Match both string and ObjectId for backwards compatibility
-            'meta.buildingId': { $in: [new mongoose.Types.ObjectId(buildingId), buildingId] },
+            'meta.sensorId': { $in: sensorIds },
             resolution_minutes: resolution, // Field is at root level, not in meta
             timestamp: { $gte: startDate, $lt: endDate }
         };
@@ -233,6 +252,7 @@ class MeasurementQueryService {
     
     /**
      * Get aggregated statistics for reporting
+     * Uses sensorLookup to get sensor IDs, then queries by meta.sensorId
      * 
      * @param {string} buildingId - Building ID
      * @param {Date} startDate - Start date
@@ -244,12 +264,21 @@ class MeasurementQueryService {
     async getStatistics(buildingId, startDate, endDate, measurementType = null, stateType = null) {
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
 
         if (!mongoose.Types.ObjectId.isValid(buildingId)) {
-            throw new Error(`Invalid buildingId: ${buildingId}`);
+            throw new ValidationError(`Invalid buildingId: ${buildingId}`);
         }
+
+        // Get sensor IDs for this building via sensorLookup
+        const sensorIdsSet = await sensorLookup.getSensorIdsForBuilding(buildingId);
+        
+        if (sensorIdsSet.size === 0) {
+            return [];
+        }
+        
+        const sensorIds = Array.from(sensorIdsSet).map(id => new mongoose.Types.ObjectId(id));
 
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
@@ -262,9 +291,9 @@ class MeasurementQueryService {
             resolution = 60;
         }
         
+        // Query by sensor IDs (measurements no longer have buildingId in meta)
         const matchStage = {
-            // Match both string and ObjectId for backwards compatibility
-            'meta.buildingId': { $in: [new mongoose.Types.ObjectId(buildingId), buildingId] },
+            'meta.sensorId': { $in: sensorIds },
             resolution_minutes: resolution, // Field is at root level, not in meta
             timestamp: { $gte: startDate, $lt: endDate }
         };
@@ -329,11 +358,11 @@ class MeasurementQueryService {
     async getLatestMeasurement(sensorId, resolution = 0) {
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
 
         if (!mongoose.Types.ObjectId.isValid(sensorId)) {
-            throw new Error(`Invalid sensorId: ${sensorId}`);
+            throw new ValidationError(`Invalid sensorId: ${sensorId}`);
         }
 
         // Query appropriate collection based on resolution
@@ -352,6 +381,7 @@ class MeasurementQueryService {
     
     /**
      * Get daily summary for a building (for dashboard)
+     * Uses sensorLookup to get sensor IDs, then queries by meta.sensorId
      * 
      * @param {string} buildingId - Building ID
      * @param {Date} date - Date to get summary for
@@ -367,12 +397,27 @@ class MeasurementQueryService {
         // Use daily aggregates if available, otherwise hourly
         const db = mongoose.connection.db;
         if (!db) {
-            throw new Error('Database connection not available');
+            throw new ServiceUnavailableError('Database connection not available');
         }
 
+        // Get sensor IDs for this building via sensorLookup
+        const sensorIdsSet = await sensorLookup.getSensorIdsForBuilding(buildingId);
+        
+        if (sensorIdsSet.size === 0) {
+            return {
+                date: startDate.toISOString().split('T')[0],
+                totalEnergy: 0,
+                averagePower: 0,
+                peakPower: 0,
+                dataPoints: 0
+            };
+        }
+        
+        const sensorIds = Array.from(sensorIdsSet).map(id => new mongoose.Types.ObjectId(id));
+
+        // Query by sensor IDs (measurements no longer have buildingId in meta)
         const matchStage = {
-            // Match both string and ObjectId for backwards compatibility
-            'meta.buildingId': { $in: [new mongoose.Types.ObjectId(buildingId), buildingId] },
+            'meta.sensorId': { $in: sensorIds },
             resolution_minutes: { $in: [60, 1440] }, // Hourly or daily (field is at root level)
             timestamp: { $gte: startDate, $lt: endDate }
         };

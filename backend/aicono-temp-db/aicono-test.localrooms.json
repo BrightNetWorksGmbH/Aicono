@@ -1,0 +1,100 @@
+[{
+  "_id": {
+    "$oid": "69844dd3847a2a98bc3233a9"
+  },
+  "floor_id": {
+    "$oid": "69844dd2847a2a98bc3233a7"
+  },
+  "name": "Wohnzimmer",
+  "color": "#3498DB",
+  "loxone_room_id": {
+    "$oid": "698447d8f5b476ee787b13aa"
+  },
+  "createdAt": {
+    "$date": "2026-02-05T07:59:15.907Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:59:15.907Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69844dd4847a2a98bc3233ab"
+  },
+  "floor_id": {
+    "$oid": "69844dd2847a2a98bc3233a7"
+  },
+  "name": "Küche",
+  "color": "#E74C3C",
+  "loxone_room_id": {
+    "$oid": "698447d8f5b476ee787b13ad"
+  },
+  "createdAt": {
+    "$date": "2026-02-05T07:59:16.347Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:59:16.347Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69844dd5847a2a98bc3233ad"
+  },
+  "floor_id": {
+    "$oid": "69844dd2847a2a98bc3233a7"
+  },
+  "name": "Esszimmer",
+  "color": "#9B59B6",
+  "loxone_room_id": {
+    "$oid": "698447f2c2c42135dd204726"
+  },
+  "createdAt": {
+    "$date": "2026-02-05T07:59:17.747Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:59:17.747Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69844dd6847a2a98bc3233af"
+  },
+  "floor_id": {
+    "$oid": "69844dd2847a2a98bc3233a7"
+  },
+  "name": "Bad",
+  "color": "#1ABC9C",
+  "loxone_room_id": {
+    "$oid": "698447e8c2c42135dd204710"
+  },
+  "createdAt": {
+    "$date": "2026-02-05T07:59:18.399Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:59:18.399Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69844dd6847a2a98bc3233b1"
+  },
+  "floor_id": {
+    "$oid": "69844dd2847a2a98bc3233a7"
+  },
+  "name": "Wintergarten",
+  "color": "#27AE60",
+  "loxone_room_id": {
+    "$oid": "698447eec2c42135dd20471e"
+  },
+  "createdAt": {
+    "$date": "2026-02-05T07:59:18.600Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-05T07:59:18.600Z"
+  },
+  "__v": 0
+}]

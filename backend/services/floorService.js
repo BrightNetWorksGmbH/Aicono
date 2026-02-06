@@ -1,6 +1,8 @@
-  const Floor = require('../models/Floor');
+const Floor = require('../models/Floor');
 const LocalRoom = require('../models/LocalRoom');
 const Building = require('../models/Building');
+const loxoneStorageService = require('./loxoneStorageService');
+const { NotFoundError } = require('../utils/errors');
 
 class FloorService {
     /**
@@ -14,7 +16,7 @@ class FloorService {
         // Verify building exists
         const building = await Building.findById(buildingId);
         if (!building) {
-            throw new Error('Building not found');
+            throw new NotFoundError('Building');
         }
 
         // Create floor
@@ -27,6 +29,7 @@ class FloorService {
 
         // Create local rooms
         const createdRooms = [];
+        let hasLoxoneMapping = false;
         for (const roomData of rooms) {
             const localRoom = new LocalRoom({
                 floor_id: floor._id,
@@ -36,6 +39,14 @@ class FloorService {
             });
             await localRoom.save();
             createdRooms.push(localRoom);
+            if (roomData.loxone_room_id) {
+                hasLoxoneMapping = true;
+            }
+        }
+
+        // Invalidate allowed sensor IDs cache if any room has Loxone mapping
+        if (hasLoxoneMapping) {
+            loxoneStorageService.invalidateAllowedSensorIdsCache();
         }
 
         return {
@@ -74,7 +85,7 @@ class FloorService {
     async getFloorById(floorId) {
         const floor = await Floor.findById(floorId);
         if (!floor) {
-            throw new Error('Floor not found');
+            throw new NotFoundError('Floor');
         }
 
         const rooms = await LocalRoom.find({ floor_id: floorId });
@@ -93,7 +104,7 @@ class FloorService {
     async updateFloor(floorId, updateData) {
         const floor = await Floor.findById(floorId);
         if (!floor) {
-            throw new Error('Floor not found');
+            throw new NotFoundError('Floor');
         }
 
         Object.assign(floor, updateData);
@@ -110,7 +121,7 @@ class FloorService {
     async addRoomToFloor(floorId, roomData) {
         const floor = await Floor.findById(floorId);
         if (!floor) {
-            throw new Error('Floor not found');
+            throw new NotFoundError('Floor');
         }
 
         const localRoom = new LocalRoom({
@@ -120,6 +131,12 @@ class FloorService {
             loxone_room_id: roomData.loxone_room_id || null
         });
         await localRoom.save();
+
+        // Invalidate allowed sensor IDs cache if room has Loxone mapping
+        if (roomData.loxone_room_id) {
+            loxoneStorageService.invalidateAllowedSensorIdsCache();
+        }
+
         return localRoom;
     }
 
@@ -132,11 +149,21 @@ class FloorService {
     async updateLocalRoom(roomId, updateData) {
         const room = await LocalRoom.findById(roomId);
         if (!room) {
-            throw new Error('Local room not found');
+            throw new NotFoundError('Local room');
         }
+
+        // Check if loxone_room_id is being changed
+        const loxoneMappingChanged = 'loxone_room_id' in updateData && 
+            String(room.loxone_room_id || '') !== String(updateData.loxone_room_id || '');
 
         Object.assign(room, updateData);
         await room.save();
+
+        // Invalidate allowed sensor IDs cache if Loxone mapping changed
+        if (loxoneMappingChanged) {
+            loxoneStorageService.invalidateAllowedSensorIdsCache();
+        }
+
         return room;
     }
 
@@ -148,10 +175,16 @@ class FloorService {
     async deleteLocalRoom(roomId) {
         const room = await LocalRoom.findById(roomId);
         if (!room) {
-            throw new Error('Local room not found');
+            throw new NotFoundError('Local room');
         }
 
+        const hadLoxoneMapping = !!room.loxone_room_id;
         await LocalRoom.findByIdAndDelete(roomId);
+
+        // Invalidate allowed sensor IDs cache if room had Loxone mapping
+        if (hadLoxoneMapping) {
+            loxoneStorageService.invalidateAllowedSensorIdsCache();
+        }
     }
 }
 

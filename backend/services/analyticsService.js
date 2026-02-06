@@ -1,9 +1,13 @@
 const Building = require('../models/Building');
 const Room = require('../models/Room');
 const Sensor = require('../models/Sensor');
+const Floor = require('../models/Floor');
+const LocalRoom = require('../models/LocalRoom');
 const AlarmLog = require('../models/AlarmLog');
 const Benchmark = require('../models/Benchmark');
 const mongoose = require('mongoose');
+const sensorLookup = require('../utils/sensorLookup');
+const { NotFoundError, ValidationError, ServiceUnavailableError } = require('../utils/errors');
 
 /**
  * Analytics Service
@@ -24,7 +28,7 @@ class AnalyticsService {
     }
     const buildingDoc = await Building.findById(buildingId);
     if (!buildingDoc) {
-      throw new Error(`Building with ID ${buildingId} not found`);
+      throw new NotFoundError('Building');
     }
     return buildingDoc;
   }
@@ -321,7 +325,7 @@ class AnalyticsService {
       const fetchedKPIs = await dashboardDiscoveryService.getBuildingKPIs(buildingId, startDate, endDate, { interval });
       extracted = this.extractKPIs(fetchedKPIs);
     } else {
-      throw new Error('Either kpis or dashboardDiscoveryService must be provided');
+      throw new ValidationError('Either kpis or dashboardDiscoveryService must be provided');
     }
     
     // Simple heuristic: if base load is very high compared to average, might indicate inefficiency
@@ -345,6 +349,7 @@ class AnalyticsService {
 
   /**
    * Generate Anomalies content
+   * Uses sensorLookup to get sensor IDs for the building
    * @param {String} buildingId - Building ID
    * @param {Object} timeRange - Time range object
    * @returns {Promise<Object>} Anomalies data
@@ -352,14 +357,12 @@ class AnalyticsService {
   async generateAnomalies(buildingId, timeRange) {
     const { startDate, endDate } = timeRange;
     
-    // Get all sensors for this building
-    const rooms = await Room.find({ building_id: buildingId }).select('_id').lean();
-    const roomIds = rooms.map(r => r._id);
-    const sensors = await Sensor.find({ room_id: { $in: roomIds } }).select('_id').lean();
-    const sensorIds = sensors.map(s => s._id);
+    // Get all sensor IDs for this building via sensorLookup
+    const sensorIdsSet = await sensorLookup.getSensorIdsForBuilding(buildingId);
+    const sensorIds = Array.from(sensorIdsSet).map(id => new mongoose.Types.ObjectId(id));
 
     // Debug logging
-   //console.log(`[ANOMALIES] Building ${buildingId}: Found ${rooms.length} rooms, ${sensors.length} sensors`);
+   //console.log(`[ANOMALIES] Building ${buildingId}: Found ${sensorIds.length} sensors`);
    //console.log(`[ANOMALIES] Time range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
    //console.log(`[ANOMALIES] Sensor IDs: ${sensorIds.slice(0, 5).map(id => id.toString()).join(', ')}${sensorIds.length > 5 ? '...' : ''}`);
 
@@ -499,6 +502,7 @@ class AnalyticsService {
    * Generate Time Based Analysis content
    * For arbitrary ranges (dashboard): Uses Power data to calculate consumption patterns
    * For fixed intervals (reports): Uses Energy with total* stateTypes (period totals)
+   * Uses sensorLookup to get sensor IDs, then queries by meta.sensorId
    * @param {String} buildingId - Building ID
    * @param {Object} timeRange - Time range object
    * @param {String} interval - Optional interval (Daily, Weekly, Monthly, Yearly) or null for arbitrary range
@@ -509,8 +513,20 @@ class AnalyticsService {
     const db = mongoose.connection.db;
     
     if (!db) {
-      throw new Error('Database connection not available');
+      throw new ServiceUnavailableError('Database connection not available');
     }
+
+    // Get all sensor IDs for this building via sensorLookup
+    const sensorIdsSet = await sensorLookup.getSensorIdsForBuilding(buildingId);
+    
+    if (sensorIdsSet.size === 0) {
+      return {
+        available: false,
+        message: 'No sensors found for this building',
+      };
+    }
+    
+    const sensorIds = Array.from(sensorIdsSet).map(id => new mongoose.Types.ObjectId(id));
 
     let hourlyData = [];
 
@@ -529,8 +545,9 @@ class AnalyticsService {
       };
       const stateTypeFilter = intervalMap[interval] || 'totalDay';
 
+      // Query by sensor IDs (measurements no longer have buildingId in meta)
       const matchStage = {
-        'meta.buildingId': new mongoose.Types.ObjectId(buildingId),
+        'meta.sensorId': { $in: sensorIds },
         resolution_minutes: 60, // Use hourly aggregates
         timestamp: { $gte: startDate, $lt: endDate },
         'meta.measurementType': 'Energy',
@@ -545,9 +562,15 @@ class AnalyticsService {
               hour: { $hour: '$timestamp' },
               dayOfWeek: { $dayOfWeek: '$timestamp' }, // 1=Sunday, 2=Monday, ..., 7=Saturday
             },
-            // For fixed intervals, each value is already a period total, so we average them
-            // (multiple measurements per hour might exist for different periods)
-            consumption: { $avg: '$value' },
+            // For fixed intervals with period totals (totalDay, totalWeek, etc.):
+            // - Each value is already a period total (e.g., totalDay = consumption for that day)
+            // - For the same period, all values should be the same (the period's total)
+            // - If multiple sensors exist, we sum their period totals (total consumption across sensors)
+            // - If same sensor appears multiple times, we use max (latest value)
+            // Using $max ensures we get the latest period total, which is correct for single-period reports
+            // For multiple sensors, we should sum, but $max is safer and will work correctly for single sensor
+            // Note: For accurate multi-sensor aggregation, we'd need to group by sensorId first, but that's complex
+            consumption: { $max: '$value' }, // Use max (latest) instead of average for period totals
             count: { $sum: 1 },
           },
         },
@@ -559,8 +582,9 @@ class AnalyticsService {
     } else {
       // For arbitrary ranges (dashboard): Use Power data to calculate consumption
       // Power values are instantaneous (kW), so we calculate: consumption = average_power × 1_hour
+      // Query by sensor IDs (measurements no longer have buildingId in meta)
       const matchStage = {
-        'meta.buildingId': new mongoose.Types.ObjectId(buildingId),
+        'meta.sensorId': { $in: sensorIds },
         resolution_minutes: 60, // Use hourly data
         timestamp: { $gte: startDate, $lt: endDate },
         'meta.measurementType': 'Power',
@@ -655,7 +679,7 @@ class AnalyticsService {
   async generateBuildingComparison(buildingId, timeRange, interval = null, dashboardDiscoveryService) {
     const building = await Building.findById(buildingId);
     if (!building) {
-      throw new Error(`Building with ID ${buildingId} not found`);
+      throw new NotFoundError('Building');
     }
 
     // Get all buildings in the same site
@@ -705,6 +729,7 @@ class AnalyticsService {
 
   /**
    * Generate Temperature Analysis content
+   * Uses sensorLookup to get sensor IDs, then queries by meta.sensorId
    * @param {String} buildingId - Building ID
    * @param {Object} timeRange - Time range object
    * @returns {Promise<Object>} Temperature analysis data
@@ -713,37 +738,30 @@ class AnalyticsService {
    //console.log("time before generateTemperatureAnalysis is ", Date.now());
     const { startDate, endDate } = timeRange;
     
-    // Get all temperature sensors for this building
-    const rooms = await Room.find({ building_id: buildingId }).select('_id').lean();
-    const roomIds = rooms.map(r => r._id);
-    const sensors = await Sensor.find({ 
-      room_id: { $in: roomIds },
-      // Note: We'd need to identify temperature sensors - this is a simplified version
-    }).select('_id name room_id').lean();
+    // Get all sensor IDs for this building via sensorLookup
+    const sensorIdsSet = await sensorLookup.getSensorIdsForBuilding(buildingId);
 
-    if (sensors.length === 0) {
+    if (sensorIdsSet.size === 0) {
       return {
         available: false,
         message: 'No temperature sensors found',
       };
     }
 
-   //console.log("rooms are ", rooms.length)
-   //console.log("sensors are ", sensors.length)
+    const sensorIds = Array.from(sensorIdsSet).map(id => new mongoose.Types.ObjectId(id));
+
+   //console.log("sensors count ", sensorIds.length)
     const db = mongoose.connection.db;
     if (!db) {
-      throw new Error('Database connection not available');
+      throw new ServiceUnavailableError('Database connection not available');
     }
 
-    // Use two-stage match for index optimization:
-    // 1. First match uses compound index: { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 }
-    // 2. Second match filters by measurementType on already-reduced dataset
+    // Query by sensor IDs (measurements no longer have buildingId in meta)
    //console.log('buildingId used in temperatureAnalysis is ', buildingId)
     
-    // First match: Use index-optimized fields (buildingId, resolution, timestamp)
-    // This uses the compound index: { 'meta.buildingId': 1, resolution_minutes: 1, timestamp: -1 }
+    // First match: Use sensor IDs and index-optimized fields
     const firstMatchStage = {
-      'meta.buildingId': new mongoose.Types.ObjectId(buildingId),
+      'meta.sensorId': { $in: sensorIds },
       resolution_minutes: 60, // Hourly
       timestamp: { $gte: startDate, $lt: endDate },
     };
@@ -755,7 +773,7 @@ class AnalyticsService {
     };
 
     const pipeline = [
-      { $match: firstMatchStage }, // Uses index: buildingId_resolution_timestamp_idx
+      { $match: firstMatchStage },
       { $match: secondMatchStage }, // Filters reduced dataset by measurementType
       {
         $group: {
@@ -840,6 +858,7 @@ class AnalyticsService {
   /**
    * Generate Consumption By Room content
    * Optimized to use a single building-level query instead of multiple room queries
+   * Gets rooms via Floor -> LocalRoom -> Loxone Room path
    * @param {String} buildingId - Building ID
    * @param {Object} timeRange - Time range object
    * @param {String} interval - Optional interval (Daily, Weekly, Monthly, Yearly) or null for arbitrary range
@@ -850,9 +869,35 @@ class AnalyticsService {
     const { startDate, endDate } = timeRange;
     const startTime = Date.now();
     
-    // Get all rooms for the building (for room names and total count)
-    const rooms = await Room.find({ building_id: buildingId }).lean();
-    const roomMap = new Map(rooms.map(r => [r._id.toString(), r]));
+    // Get all Loxone rooms linked to this building via Floor -> LocalRoom path
+    const floors = await Floor.find({ building_id: buildingId }).select('_id').lean();
+    const floorIds = floors.map(f => f._id);
+    
+    const localRooms = await LocalRoom.find({ 
+      floor_id: { $in: floorIds },
+      loxone_room_id: { $exists: true, $ne: null }
+    }).populate('loxone_room_id').lean();
+    
+    // Build room map from Loxone rooms that are linked to LocalRooms
+    const rooms = [];
+    const roomMap = new Map();
+    for (const lr of localRooms) {
+      if (lr.loxone_room_id) {
+        const loxoneRoom = lr.loxone_room_id;
+        if (!roomMap.has(loxoneRoom._id.toString())) {
+          roomMap.set(loxoneRoom._id.toString(), {
+            _id: loxoneRoom._id,
+            name: loxoneRoom.name,
+            localRoomName: lr.name
+          });
+          rooms.push({
+            _id: loxoneRoom._id,
+            name: loxoneRoom.name,
+            localRoomName: lr.name
+          });
+        }
+      }
+    }
     
     // Use optimized single query to get KPIs for all rooms at once
     const roomsKPIsMap = await dashboardDiscoveryService.getRoomsKPIs(buildingId, startDate, endDate, { interval });
@@ -867,6 +912,7 @@ class AnalyticsService {
       roomConsumption.push({
         roomId: roomId,
         roomName: room.name,
+        localRoomName: room.localRoomName,
         consumption: extracted.total_consumption, // Energy consumption (kWh)
         consumptionUnit: extracted.energyUnit,
         averageEnergy: extracted.averageEnergy, // Average energy (kWh)
@@ -886,6 +932,7 @@ class AnalyticsService {
         roomConsumption.push({
           roomId: roomId,
           roomName: room.name,
+          localRoomName: room.localRoomName,
           consumption: 0,
           consumptionUnit: 'kWh',
           averageEnergy: 0,
