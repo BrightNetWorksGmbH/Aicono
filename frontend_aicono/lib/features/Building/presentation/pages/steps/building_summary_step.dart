@@ -5,12 +5,15 @@ class BuildingSummaryStep extends StatelessWidget {
   final BuildingEntity building;
   final VoidCallback onPrevious;
   final VoidCallback onSave;
-
+  final String? floorName; // Floor name from add floor name page
+  final String? fromDashboard;
   const BuildingSummaryStep({
     super.key,
     required this.building,
     required this.onPrevious,
     required this.onSave,
+    this.floorName,
+    this.fromDashboard,
   });
 
   @override
@@ -22,18 +25,12 @@ class BuildingSummaryStep extends StatelessWidget {
         children: [
           const Text(
             'Summary',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           const Text(
             'Review your building information before saving',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
           const SizedBox(height: 32),
           Expanded(
@@ -44,11 +41,7 @@ class BuildingSummaryStep extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildSummaryRow(
-                        'Name',
-                        building.name,
-                        Icons.business,
-                      ),
+                      _buildSummaryRow('Name', building.name, Icons.business),
                       if (building.description != null)
                         _buildSummaryRow(
                           'Description',
@@ -84,6 +77,12 @@ class BuildingSummaryStep extends StatelessWidget {
                           'Construction Year',
                           building.constructionYear!,
                           Icons.calendar_today,
+                        ),
+                      if (floorName != null && floorName!.isNotEmpty)
+                        _buildSummaryRow(
+                          'Floor Name',
+                          floorName!,
+                          Icons.layers,
                         ),
                     ],
                   ),
@@ -156,4 +155,3 @@ class BuildingSummaryStep extends StatelessWidget {
     );
   }
 }
-

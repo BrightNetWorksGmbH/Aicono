@@ -23,6 +23,7 @@ import 'package:frontend_aicono/features/upload/presentation/bloc/upload_event.d
 import 'package:frontend_aicono/features/upload/presentation/bloc/upload_state.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
+import 'package:frontend_aicono/core/network/dio_client.dart';
 import 'package:frontend_aicono/features/Building/presentation/pages/steps/building_floor_plan_step.dart'
     show DottedBorderContainer;
 
@@ -116,8 +117,14 @@ class _FloorPlanState {
 class FloorPlanBackupPage extends StatefulWidget {
   final VoidCallback? onComplete;
   final VoidCallback? onSkip;
+  final String? initialFloorPlanUrl; // URL to load existing floor plan SVG
 
-  const FloorPlanBackupPage({super.key, this.onComplete, this.onSkip});
+  const FloorPlanBackupPage({
+    super.key,
+    this.onComplete,
+    this.onSkip,
+    this.initialFloorPlanUrl,
+  });
 
   @override
   State<FloorPlanBackupPage> createState() => _FloorPlanBackupPageState();
@@ -185,6 +192,49 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
     super.initState();
     // Initialize history with empty state
     _saveState();
+    // Load initial floor plan if URL is provided
+    if (widget.initialFloorPlanUrl != null &&
+        widget.initialFloorPlanUrl!.isNotEmpty) {
+      _loadFloorPlanFromUrl();
+    }
+  }
+
+  Future<void> _loadFloorPlanFromUrl() async {
+    if (widget.initialFloorPlanUrl == null ||
+        widget.initialFloorPlanUrl!.isEmpty) {
+      return;
+    }
+
+    try {
+      final dioClient = sl<DioClient>();
+      // Fetch SVG content from URL
+      final response = await dioClient.get(widget.initialFloorPlanUrl!);
+
+      if (response.statusCode == 200 && mounted) {
+        String svgContent;
+        // If response is a string (SVG content), use it directly
+        if (response.data is String) {
+          svgContent = response.data as String;
+        } else {
+          // If response is JSON or other format, try to extract SVG content
+          svgContent = response.data.toString();
+        }
+
+        // Load the SVG content into the floor plan
+        _loadFromSVG(svgContent);
+      }
+    } catch (e) {
+      debugPrint('Error loading floor plan from URL: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading floor plan: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -3304,6 +3354,8 @@ class FloorPainter extends CustomPainter {
   final List<Offset> polygonPoints;
   final Offset? polygonPreviewPosition;
   final Color polygonColor;
+  final Rect? currentRectangle;
+  final Color rectangleColor;
 
   FloorPainter({
     required this.rooms,
@@ -3315,6 +3367,8 @@ class FloorPainter extends CustomPainter {
     this.polygonPoints = const [],
     this.polygonPreviewPosition,
     this.polygonColor = const Color(0xFFFFB74D),
+    this.currentRectangle,
+    this.rectangleColor = const Color(0xFFFFB74D),
   });
 
   @override
@@ -3322,8 +3376,14 @@ class FloorPainter extends CustomPainter {
     // Draw rooms with custom colors and dark gray walls
     for (final room in rooms) {
       // Room fill - use room's custom color
+      // Apply opacity if there's a background image so the background shows through
+      final fillColor = hasBackgroundImage
+          ? room.fillColor.withOpacity(
+              0.6,
+            ) // 60% opacity when background image exists
+          : room.fillColor;
       final fillPaint = Paint()
-        ..color = room.fillColor
+        ..color = fillColor
         ..style = PaintingStyle.fill;
 
       // Wall border - dark gray

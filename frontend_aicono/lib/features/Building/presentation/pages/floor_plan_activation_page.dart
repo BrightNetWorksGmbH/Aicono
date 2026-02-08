@@ -966,6 +966,7 @@ class _FloorPlanActivationPageState extends State<FloorPlanActivationPage> {
                   'numberOfRooms': widget.numberOfRooms.toString(),
                 if (widget.constructionYear != null)
                   'constructionYear': widget.constructionYear!,
+
                 'floorPlanUrl': state.url,
                 'rooms': Uri.encodeComponent(jsonEncode(roomsData)),
               },

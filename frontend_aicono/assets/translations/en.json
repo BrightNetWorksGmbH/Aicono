@@ -147,6 +147,14 @@
     "title": "What is the name of the property?",
     "hint": "Name of the property",
     "skip_link": "Skip step",
+    "button_text": "Continue"
+  },
+  "add_floor_name": {
+    "progress_text": "Almost done, {name}!",
+    "progress_text_fallback": "Almost done!",
+    "title": "What is the name of the floor?",
+    "hint": "Name of the floor",
+    "skip_link": "Skip step",
     "button_text": "That's fine"
   },
   "add_property_location": {

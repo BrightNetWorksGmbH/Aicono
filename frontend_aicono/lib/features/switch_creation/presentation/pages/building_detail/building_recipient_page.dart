@@ -23,6 +23,8 @@ class BuildingRecipientPage extends StatefulWidget {
   final String? totalArea;
   final String? numberOfRooms;
   final String? constructionYear;
+  final String? fromDashboard; // Flag to indicate if navigation is from dashboard
+  final String? floorName; // Floor name from add floor name page
 
   const BuildingRecipientPage({
     super.key,
@@ -35,6 +37,8 @@ class BuildingRecipientPage extends StatefulWidget {
     this.totalArea,
     this.numberOfRooms,
     this.constructionYear,
+    this.fromDashboard,
+    this.floorName,
   });
 
   @override
@@ -620,6 +624,12 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
       return;
     }
 
+    // Extract fromDashboard from widget or current route
+    final fromDashboard = widget.fromDashboard ??
+        Uri.parse(
+          GoRouterState.of(context).uri.toString(),
+        ).queryParameters['fromDashboard'];
+    
     // If confirmed, navigate to responsible persons page to add report configs for all users
     // This will combine individual recipient configs with all-user configs
     context.pushNamed(
@@ -636,6 +646,9 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
         'allRecipients': jsonEncode(_recipients),
         'recipientConfigs': jsonEncode(_recipientConfigs),
         'createForAll': 'true', // Flag to indicate "create for all" mode
+        if (fromDashboard != null) 'fromDashboard': fromDashboard,
+        if (widget.floorName != null && widget.floorName!.isNotEmpty)
+          'floorName': widget.floorName!,
       },
     );
   }
@@ -1599,6 +1612,8 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
             recipientsJson, // Use 'recipients' key for "create for all" mode
         'createForAll':
             'true', // Flag to indicate this is "create for all" mode
+        if (widget.floorName != null && widget.floorName!.isNotEmpty)
+          'floorName': widget.floorName!,
       },
     );
   }

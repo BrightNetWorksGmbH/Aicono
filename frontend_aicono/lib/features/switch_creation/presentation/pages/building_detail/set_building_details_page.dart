@@ -12,12 +12,15 @@ class SetBuildingDetailsPage extends StatefulWidget {
   final String? buildingAddress;
   final String? buildingId;
   final String? siteId;
+  final String?
+  fromDashboard; // Flag to indicate if navigation is from dashboard
   const SetBuildingDetailsPage({
     super.key,
     this.userName,
     this.buildingAddress,
     this.buildingId,
     this.siteId,
+    this.fromDashboard,
   });
 
   @override
@@ -241,8 +244,13 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
             : (_buildingData?['num_students_employees'] as int?);
 
         if (mounted) {
+          final fromDashboard =
+              widget.fromDashboard ??
+              Uri.parse(
+                GoRouterState.of(context).uri.toString(),
+              ).queryParameters['fromDashboard'];
           context.pushNamed(
-            Routelists.buildingFloorManagement,
+            Routelists.buildingSetup,
             queryParameters: {
               'buildingId': buildingId,
               'siteId':
@@ -259,6 +267,7 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
               if (totalArea != null) 'totalArea': totalArea.toString(),
               if (_buildingDetails['year'] != null)
                 'constructionYear': _buildingDetails['year']!,
+              if (fromDashboard != null) 'fromDashboard': fromDashboard,
             },
           );
         }
@@ -296,6 +305,11 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
 
   void _handleSkip() {
     // Navigate back to the previous page (skip this step)
+    final fromDashboard =
+        widget.fromDashboard ??
+        Uri.parse(
+          GoRouterState.of(context).uri.toString(),
+        ).queryParameters['fromDashboard'];
     context.pushNamed(
       Routelists.additionalBuildingList,
       queryParameters: {
@@ -304,6 +318,7 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
             Uri.parse(
               GoRouterState.of(context).uri.toString(),
             ).queryParameters['siteId'],
+        if (fromDashboard != null) 'fromDashboard': fromDashboard,
       },
     );
   }

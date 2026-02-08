@@ -174,6 +174,14 @@ class _RoomAssignmentPageState extends State<RoomAssignmentPage> {
 
   void _handleSkip() {
     // Skip to next step
+    // Preserve fromDashboard flag and other parameters when navigating back
+    final currentState = GoRouterState.of(context);
+
+    // Extract fromDashboard from current route
+    final fromDashboard = Uri.parse(
+      currentState.uri.toString(),
+    ).queryParameters['fromDashboard'];
+
     context.pushNamed(
       Routelists.buildingFloorManagement,
       queryParameters: {
@@ -182,14 +190,13 @@ class _RoomAssignmentPageState extends State<RoomAssignmentPage> {
         'numberOfFloors': widget.numberOfFloors.toString(),
         'buildingId': widget.buildingId.isNotEmpty
             ? widget.buildingId
-            : Uri.parse(
-                GoRouterState.of(context).uri.toString(),
-              ).queryParameters['buildingId'],
+            : currentState.uri.queryParameters['buildingId'],
         'siteId': widget.siteId.isNotEmpty
             ? widget.siteId
-            : Uri.parse(
-                GoRouterState.of(context).uri.toString(),
-              ).queryParameters['siteId'],
+            : currentState.uri.queryParameters['siteId'],
+        if (widget.floorName != null && widget.floorName!.isNotEmpty)
+          'completedFloorName': widget.floorName!,
+        if (fromDashboard != null) 'fromDashboard': fromDashboard,
       },
     );
   }
@@ -245,9 +252,14 @@ class _RoomAssignmentPageState extends State<RoomAssignmentPage> {
               }
             }
 
+            // Extract fromDashboard from current route
+            final fromDashboard = Uri.parse(
+              GoRouterState.of(context).uri.toString(),
+            ).queryParameters['fromDashboard'];
+
             // Navigate directly to building floor management with all correct parameters
             // This replaces the current route and ensures correct state
-            context.goNamed(
+            context.pushReplacementNamed(
               Routelists.buildingFloorManagement,
               queryParameters: {
                 if (widget.buildingName != null)
@@ -272,6 +284,7 @@ class _RoomAssignmentPageState extends State<RoomAssignmentPage> {
                 // Pass floorName to mark the floor as completed
                 if (widget.floorName != null && widget.floorName!.isNotEmpty)
                   'completedFloorName': widget.floorName!,
+                if (fromDashboard != null) 'fromDashboard': fromDashboard,
               },
             );
           } else if (state is SaveFloorFailure) {

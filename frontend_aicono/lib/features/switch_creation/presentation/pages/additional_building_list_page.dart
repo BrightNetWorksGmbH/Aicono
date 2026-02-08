@@ -20,12 +20,14 @@ class AdditionalBuildingListPage extends StatefulWidget {
   final String? userName;
   final String? siteId;
   final String? switchId;
+  final String? fromDashboard; // Flag to indicate if navigation is from dashboard
 
   const AdditionalBuildingListPage({
     super.key,
     this.userName,
     this.siteId,
     this.switchId,
+    this.fromDashboard,
   });
 
   @override
@@ -251,6 +253,7 @@ class _AdditionalBuildingListPageState
         'buildingAddress': building.name,
         'redirectTo':
             'setBuildingDetails', // Flag to redirect to setBuildingDetails after connection
+        if (widget.fromDashboard != null) 'fromDashboard': widget.fromDashboard!,
       },
     );
   }
@@ -264,8 +267,14 @@ class _AdditionalBuildingListPageState
     // Use the processed switchId from initState
     final switchId = currentSwitchId;
 
-    if (switchId != null && switchId.isNotEmpty) {
-      // Navigate directly to add-property page with switchId
+    // Check if navigation is from dashboard
+    final isFromDashboard = widget.fromDashboard == 'true';
+
+    if (isFromDashboard) {
+      // If from dashboard, redirect to dashboard after completion
+      context.goNamed(Routelists.dashboard);
+    } else if (switchId != null && switchId.isNotEmpty) {
+      // Navigate directly to add-property page with switchId (onboarding flow)
       context.goNamed(
         Routelists.addProperties,
         queryParameters: {'switchId': switchId},

@@ -68,6 +68,7 @@ class DashboardSidebar extends StatefulWidget {
 class _DashboardSidebarState extends State<DashboardSidebar> {
   String? currentVerseId;
   List<SwitchRoleEntity> _roles = [];
+  String? _userName; // Full name for navigation
 
   @override
   void initState() {
@@ -102,6 +103,13 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
             _roles = user.roles;
             // Keep currentVerseId in sync with saved
             currentVerseId = sl<LocalStorage>().getSelectedVerseId();
+            // Construct userName from firstName and lastName
+            final firstName = user.firstName.isNotEmpty ? user.firstName : '';
+            final lastName = user.lastName.isNotEmpty ? user.lastName : '';
+            _userName = '$firstName $lastName'.trim();
+            if (_userName!.isEmpty) {
+              _userName = 'User';
+            }
           });
         }
       });
@@ -541,16 +549,155 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                   }
                 },
                 onAddItem: () {
-                  // TODO: Navigate to add site/building/floor/room based on selection
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        propertyAddLabel +
-                            ' ' +
-                            'dashboard.main_content.coming_soon'.tr(),
+                  // Get siteId from DashboardSiteDetailsBloc
+                  final siteDetailsState = context
+                      .read<DashboardSiteDetailsBloc>()
+                      .state;
+                  String? siteId;
+                  if (siteDetailsState is DashboardSiteDetailsLoading) {
+                    siteId = siteDetailsState.siteId;
+                  } else if (siteDetailsState is DashboardSiteDetailsSuccess) {
+                    siteId = siteDetailsState.siteId;
+                  } else if (siteDetailsState is DashboardSiteDetailsFailure) {
+                    siteId = siteDetailsState.siteId;
+                  }
+
+                  // If no siteId from details, try to get from sites list
+                  if (siteId == null) {
+                    final sitesState = context.read<DashboardSitesBloc>().state;
+                    if (sitesState is DashboardSitesSuccess &&
+                        sitesState.sites.isNotEmpty) {
+                      siteId = sitesState.sites.first.id;
+                    }
+                  }
+                  if (propertyAddLabel ==
+                      'dashboard.sidebar.add_building'.tr()) {
+                    // Navigate to add additional buildings page
+                    if (siteId != null && siteId.isNotEmpty) {
+                      context.pushNamed(
+                        Routelists.addAdditionalBuildings,
+                        queryParameters: {
+                          if (_userName != null && _userName!.isNotEmpty)
+                            'userName': _userName!,
+                          if (widget.verseId != null &&
+                              widget.verseId!.isNotEmpty)
+                            'switchId': widget.verseId!,
+                          'siteId': siteId,
+                          'fromDashboard':
+                              'true', // Flag to indicate navigation from dashboard
+                        },
+                      );
+                    } else {
+                      // Show error if siteId is not available
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Please select a site first to add a building.',
+                          ),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                    }
+                    return;
+                  } else if (propertyAddLabel ==
+                      'dashboard.sidebar.add_floor'.tr()) {
+                    // Get buildingId and siteId from DashboardBuildingDetailsBloc
+                    final buildingDetailsState = context
+                        .read<DashboardBuildingDetailsBloc>()
+                        .state;
+                    String? buildingId;
+
+                    if (buildingDetailsState
+                            is DashboardBuildingDetailsLoading ||
+                        buildingDetailsState
+                            is DashboardBuildingDetailsSuccess ||
+                        buildingDetailsState
+                            is DashboardBuildingDetailsFailure) {
+                      if (buildingDetailsState
+                          is DashboardBuildingDetailsLoading) {
+                        buildingId = buildingDetailsState.buildingId;
+                      } else if (buildingDetailsState
+                          is DashboardBuildingDetailsSuccess) {
+                        buildingId = buildingDetailsState.buildingId;
+                      } else if (buildingDetailsState
+                          is DashboardBuildingDetailsFailure) {
+                        buildingId = buildingDetailsState.buildingId;
+                      }
+                    }
+
+                    // If no buildingId from details, try to get from site details
+                    if (buildingId == null) {
+                      final siteDetailsState = context
+                          .read<DashboardSiteDetailsBloc>()
+                          .state;
+                      if (siteDetailsState is DashboardSiteDetailsLoading ||
+                          siteDetailsState is DashboardSiteDetailsSuccess ||
+                          siteDetailsState is DashboardSiteDetailsFailure) {
+                        if (siteDetailsState is DashboardSiteDetailsLoading) {
+                          siteId = siteId ?? siteDetailsState.siteId;
+                        } else if (siteDetailsState
+                            is DashboardSiteDetailsSuccess) {
+                          siteId = siteId ?? siteDetailsState.siteId;
+                        } else if (siteDetailsState
+                            is DashboardSiteDetailsFailure) {
+                          siteId = siteId ?? siteDetailsState.siteId;
+                        }
+                      }
+                    }
+
+                    // Navigate to add floor name page
+                    if (buildingId != null && siteId != null) {
+                      context.pushNamed(
+                        Routelists.buildingFloorManagement,
+                        queryParameters: {
+                          if (_userName != null && _userName!.isNotEmpty)
+                            'userName': _userName!,
+                          if (widget.verseId != null &&
+                              widget.verseId!.isNotEmpty)
+                            'switchId': widget.verseId!,
+                          'siteId': siteId,
+                          'buildingId': buildingId,
+                          'fromDashboard': 'true',
+                        },
+                      );
+                    } else {
+                      // Show error if buildingId or siteId is not available
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Please select a building first to add a floor.',
+                          ),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                    }
+                    return;
+                  } else if (propertyAddLabel ==
+                      'dashboard.sidebar.add_site'.tr()) {
+                    // Navigate to add property page
+                    context.pushNamed(
+                      Routelists.addProperties,
+                      queryParameters: {
+                        'fromDashboard': 'true',
+                        if (_userName != null && _userName!.isNotEmpty)
+                          'userName': _userName!,
+                        if (widget.verseId != null &&
+                            widget.verseId!.isNotEmpty)
+                          'switchId': widget.verseId!,
+                      },
+                    );
+                  } else {
+                    // TODO: Navigate to add site/building/floor/room based on selection
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          propertyAddLabel +
+                              ' ' +
+                              'dashboard.main_content.coming_soon'.tr(),
+                        ),
                       ),
-                    ),
-                  );
+                    );
+                  }
                 },
                 addItemLabel: propertyAddLabel,
               );

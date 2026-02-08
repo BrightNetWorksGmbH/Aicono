@@ -28,6 +28,9 @@ class BuildingResponsiblePersonsPage extends StatefulWidget {
   final String? recipientConfigs; // Existing configurations
   final String? createForAll; // Flag to indicate "create for all" mode
   final String? reportConfigs; // Report configs from "create for all" dialog
+  final String?
+  fromDashboard; // Flag to indicate if navigation is from dashboard
+  final String? floorName; // Floor name from add floor name page
 
   const BuildingResponsiblePersonsPage({
     super.key,
@@ -43,6 +46,8 @@ class BuildingResponsiblePersonsPage extends StatefulWidget {
     this.recipientConfigs,
     this.createForAll,
     this.reportConfigs,
+    this.fromDashboard,
+    this.floorName,
   });
 
   @override
@@ -152,31 +157,50 @@ class _BuildingResponsiblePersonsPageState
 
   void _navigateAfterCompletion() {
     // Get switchId from PropertySetupCubit (saved at login stage)
-    final propertyCubit = sl<PropertySetupCubit>();
-    final switchId = propertyCubit.state.switchId;
-    final localStorage = sl<LocalStorage>();
-    final siteId =
-        widget.siteId ??
-        Uri.parse(
-          GoRouterState.of(context).uri.toString(),
-        ).queryParameters['siteId'];
-    // localStorage.getSelectedSiteId() ?? propertyCubit.state.siteId;
-    if (siteId == null && switchId != null && switchId.isNotEmpty) {
-      context.goNamed(
-        Routelists.addPropertyName,
-        queryParameters: {'switchId': switchId},
-      );
-    } else {
-      // Fallback: navigate to additional building list if switchId not available
+    context.goNamed(
+      Routelists.buildingSetup,
+      queryParameters: {
+        'userName': widget.userName!,
+        'siteId': widget.siteId!,
 
-      context.goNamed(
-        Routelists.additionalBuildingList,
-        queryParameters: {
-          if (widget.userName != null) 'userName': widget.userName!,
-          if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
-        },
-      );
-    }
+        'buildingId': widget.buildingId!,
+        'fromDashboard': widget.fromDashboard!,
+      },
+    );
+    // final propertyCubit = sl<PropertySetupCubit>();
+    // final switchId = propertyCubit.state.switchId;
+    // final localStorage = sl<LocalStorage>();
+    // final siteId =
+    //     widget.siteId ??
+    //     Uri.parse(
+    //       GoRouterState.of(context).uri.toString(),
+    //     ).queryParameters['siteId'];
+    // // localStorage.getSelectedSiteId() ?? propertyCubit.state.siteId;
+
+    // // Check if navigation is from dashboard
+    // final isFromDashboard = widget.fromDashboard == 'true';
+
+    // if (isFromDashboard) {
+    //   // If from dashboard, redirect to dashboard after completion
+    //   context.goNamed(Routelists.dashboard);
+    // } else if (siteId == null && switchId != null && switchId.isNotEmpty) {
+    //   context.goNamed(
+    //     Routelists.addPropertyName,
+    //     queryParameters: {'switchId': switchId},
+    //   );
+    // } else {
+    //   // Fallback: navigate to additional building list if switchId not available
+
+    //   context.goNamed(
+    //     Routelists.additionalBuildingList,
+    //     queryParameters: {
+    //       if (widget.userName != null) 'userName': widget.userName!,
+    //       if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
+    //       if (widget.fromDashboard != null)
+    //         'fromDashboard': widget.fromDashboard!,
+    //     },
+    //   );
+    // }
   }
 
   void _handleFrequencyChange() {

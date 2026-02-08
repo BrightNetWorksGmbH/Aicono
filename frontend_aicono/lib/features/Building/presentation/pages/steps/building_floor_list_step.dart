@@ -4,7 +4,6 @@ import 'package:frontend_aicono/core/widgets/page_header_row.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_floors_entity.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_places_api_flutter/google_places_api_flutter.dart';
 import 'package:dio/dio.dart';
 
 import '../../../../../core/routing/routeLists.dart';
@@ -73,7 +72,11 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
 
   Future<void> _fetchFloorsFromBackend() async {
     // Get buildingId from building entity
-    final buildingId = widget.building.id;
+    final buildingId =
+        widget.building.id ??
+        Uri.parse(
+          GoRouterState.of(context).uri.toString(),
+        ).queryParameters['buildingId'];
     if (buildingId == null || buildingId.isEmpty) {
       // No building ID, initialize with default floors
       _initializeFloorNames();
@@ -227,13 +230,25 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
   }
 
   void _navigateAfterCompletion() {
+    // Extract fromDashboard from current route
+    final fromDashboard = Uri.parse(
+      GoRouterState.of(context).uri.toString(),
+    ).queryParameters['fromDashboard'];
+
     // Get switchId from PropertySetupCubit (saved at login stage)
     final propertyCubit = sl<PropertySetupCubit>();
     final switchId = propertyCubit.state.switchId;
     final localStorage = sl<LocalStorage>();
     final siteId =
         localStorage.getSelectedSiteId() ?? propertyCubit.state.siteId;
-    if (siteId == null && switchId != null && switchId.isNotEmpty) {
+
+    // Check if navigation is from dashboard
+    final isFromDashboard = fromDashboard == 'true';
+
+    if (isFromDashboard) {
+      // If from dashboard, redirect to dashboard after completion
+      context.goNamed(Routelists.dashboard);
+    } else if (siteId == null && switchId != null && switchId.isNotEmpty) {
       context.goNamed(
         Routelists.addPropertyName,
         queryParameters: {'switchId': switchId},
@@ -246,6 +261,7 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
         queryParameters: {
           // if (widget.userName != null) 'userName': widget.userName!,
           if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
+          if (fromDashboard != null) 'fromDashboard': fromDashboard,
         },
       );
     }
@@ -654,121 +670,121 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
       ),
     );
   }
-
-  void _showPlaceSearchDialog(int floorNumber) async {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.9,
-          height: MediaQuery.of(context).size.height * 0.7,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              // Header
-              Row(
-                children: [
-                  Text(
-                    'Search Places - Floor $floorNumber',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // PlaceSearchField widget
-              Expanded(
-                child: PlaceSearchField(
-                  apiKey: _googlePlacesApiKey,
-                  isLatLongRequired: true,
-                  // Optional: Add CORS proxy URL for web if needed
-                  webCorsProxyUrl: "https://cors-anywhere.herokuapp.com",
-                  onPlaceSelected: (placeId, latLng) async {
-                    developer.log('Place ID: $placeId');
-                    developer.log('Latitude and Longitude: $latLng');
-
-                    // Get place details to get the name
-                    try {
-                      // Use the new Places API (New) REST endpoint to get place details
-                      final response = await _dio.get(
-                        'https://places.googleapis.com/v1/places/$placeId',
-                        options: Options(
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'X-Goog-Api-Key': _googlePlacesApiKey,
-                            'X-Goog-FieldMask':
-                                'id,displayName,formattedAddress',
-                          },
-                        ),
-                      );
-
-                      if (response.statusCode == 200 &&
-                          response.data != null &&
-                          mounted) {
-                        final place = response.data;
-
-                        // Handle displayName which can be an object with 'text' property or a string
-                        final displayName = place['displayName'];
-                        final displayNameText = displayName is Map
-                            ? (displayName['text'] ?? displayName.toString())
-                            : (displayName?.toString() ?? '');
-
-                        // Update the floor name with the place name
-                        final placeName = displayNameText.isNotEmpty
-                            ? displayNameText
-                            : (place['formattedAddress'] ?? '');
-
-                        if (_floorNameControllers.containsKey(floorNumber)) {
-                          _floorNameControllers[floorNumber]!.text = placeName;
-                          // Call onEditFloor to save the change
-                          widget.onEditFloor(floorNumber, placeName);
-                        }
-
-                        Navigator.of(context).pop();
-                      }
-                    } catch (e) {
-                      developer.log('Error getting place details: $e');
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error loading place details: $e'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  decorationBuilder: (context, child) {
-                    return Material(
-                      type: MaterialType.card,
-                      elevation: 4,
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      child: child,
-                    );
-                  },
-                  itemBuilder: (context, prediction) => ListTile(
-                    leading: const Icon(Icons.location_on),
-                    title: Text(
-                      prediction.description,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
+//   void _showPlaceSearchDialog(int floorNumber) async {
+//     showDialog(
+//       context: context,
+//       builder: (context) => Dialog(
+//         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+//         child: Container(
+//           width: MediaQuery.of(context).size.width * 0.9,
+//           height: MediaQuery.of(context).size.height * 0.7,
+//           padding: const EdgeInsets.all(16),
+//           child: Column(
+//             children: [
+//               // Header
+//               Row(
+//                 children: [
+//                   Text(
+//                     'Search Places - Floor $floorNumber',
+//                     style: const TextStyle(
+//                       fontSize: 20,
+//                       fontWeight: FontWeight.bold,
+//                     ),
+//                   ),
+//                   const Spacer(),
+//                   IconButton(
+//                     icon: const Icon(Icons.close),
+//                     onPressed: () => Navigator.of(context).pop(),
+//                   ),
+//                 ],
+//               ),
+//               const SizedBox(height: 16),
+//               // PlaceSearchField widget
+//               Expanded(
+//                 child: PlaceSearchField(
+//                   apiKey: _googlePlacesApiKey,
+//                   isLatLongRequired: true,
+//                   // Optional: Add CORS proxy URL for web if needed
+//                   webCorsProxyUrl: "https://cors-anywhere.herokuapp.com",
+//                   onPlaceSelected: (placeId, latLng) async {
+//                     developer.log('Place ID: $placeId');
+//                     developer.log('Latitude and Longitude: $latLng');
+
+//                     // Get place details to get the name
+//                     try {
+//                       // Use the new Places API (New) REST endpoint to get place details
+//                       final response = await _dio.get(
+//                         'https://places.googleapis.com/v1/places/$placeId',
+//                         options: Options(
+//                           headers: {
+//                             'Content-Type': 'application/json',
+//                             'X-Goog-Api-Key': _googlePlacesApiKey,
+//                             'X-Goog-FieldMask':
+//                                 'id,displayName,formattedAddress',
+//                           },
+//                         ),
+//                       );
+
+//                       if (response.statusCode == 200 &&
+//                           response.data != null &&
+//                           mounted) {
+//                         final place = response.data;
+
+//                         // Handle displayName which can be an object with 'text' property or a string
+//                         final displayName = place['displayName'];
+//                         final displayNameText = displayName is Map
+//                             ? (displayName['text'] ?? displayName.toString())
+//                             : (displayName?.toString() ?? '');
+
+//                         // Update the floor name with the place name
+//                         final placeName = displayNameText.isNotEmpty
+//                             ? displayNameText
+//                             : (place['formattedAddress'] ?? '');
+
+//                         if (_floorNameControllers.containsKey(floorNumber)) {
+//                           _floorNameControllers[floorNumber]!.text = placeName;
+//                           // Call onEditFloor to save the change
+//                           widget.onEditFloor(floorNumber, placeName);
+//                         }
+
+//                         Navigator.of(context).pop();
+//                       }
+//                     } catch (e) {
+//                       developer.log('Error getting place details: $e');
+//                       if (mounted) {
+//                         ScaffoldMessenger.of(context).showSnackBar(
+//                           SnackBar(
+//                             content: Text('Error loading place details: $e'),
+//                             backgroundColor: Colors.red,
+//                           ),
+//                         );
+//                       }
+//                     }
+//                   },
+//                   decorationBuilder: (context, child) {
+//                     return Material(
+//                       type: MaterialType.card,
+//                       elevation: 4,
+//                       color: Colors.white,
+//                       borderRadius: BorderRadius.circular(8),
+//                       child: child,
+//                     );
+//                   },
+//                   itemBuilder: (context, prediction) => ListTile(
+//                     leading: const Icon(Icons.location_on),
+//                     title: Text(
+//                       prediction.description,
+//                       maxLines: 1,
+//                       overflow: TextOverflow.ellipsis,
+//                     ),
+//                   ),
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }

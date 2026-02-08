@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
@@ -57,6 +61,24 @@ void main() async {
             create: (context) => ResetPasswordBloc(resetPasswordUseCase: sl()),
           ),
           BlocProvider<BuildingBloc>(create: (context) => BuildingBloc()),
+          BlocProvider<DashboardBuildingDetailsBloc>(
+            create: (context) => DashboardBuildingDetailsBloc(
+              getDashboardBuildingDetailsUseCase: sl(),
+            ),
+          ),
+          BlocProvider<DashboardFloorDetailsBloc>(
+            create: (context) => DashboardFloorDetailsBloc(
+              getDashboardFloorDetailsUseCase: sl(),
+            ),
+          ),
+          BlocProvider<DashboardSiteDetailsBloc>(
+            create: (context) =>
+                DashboardSiteDetailsBloc(getDashboardSiteDetailsUseCase: sl()),
+          ),
+          BlocProvider<DashboardRoomDetailsBloc>(
+            create: (context) =>
+                DashboardRoomDetailsBloc(getDashboardRoomDetailsUseCase: sl()),
+          ),
         ],
         child: const MyApp(),
       ),

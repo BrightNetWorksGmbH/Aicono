@@ -17,12 +17,13 @@ class AddPropertiesPage extends StatefulWidget {
   final String? userName;
   final String? switchId;
   final bool isSingleProperty;
-
+  final String? fromDashboard;
   const AddPropertiesPage({
     super.key,
     this.userName,
     this.switchId,
     required this.isSingleProperty,
+    this.fromDashboard,
   });
 
   @override
@@ -68,7 +69,7 @@ class _AddPropertiesPageState extends State<AddPropertiesPage> {
 
   void _handleGoToHome() {
     // Navigate to dashboard/home page
-    context.goNamed(Routelists.dashboard);
+    context.pushReplacementNamed(Routelists.dashboard);
   }
 
   void _handleConfirmProperties(
@@ -242,6 +243,7 @@ class _AddPropertiesPageState extends State<AddPropertiesPage> {
                     child: Column(
                       children: [
                         AddPropertiesWidget(
+                          fromDashboard: widget.fromDashboard,
                           userName: widget.userName,
                           switchId: widget.switchId,
                           isSingleProperty: widget.isSingleProperty,

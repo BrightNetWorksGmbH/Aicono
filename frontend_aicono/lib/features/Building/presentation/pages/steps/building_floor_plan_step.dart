@@ -36,6 +36,7 @@ class BuildingFloorPlanStep extends StatefulWidget {
   final List<FloorDetail> fetchedFloors;
   final String siteId;
   final String buildingId;
+  final String? fromDashboard;
   const BuildingFloorPlanStep({
     super.key,
     required this.building,
@@ -49,6 +50,7 @@ class BuildingFloorPlanStep extends StatefulWidget {
     this.fetchedFloors = const [],
     required this.siteId,
     required this.buildingId,
+    this.fromDashboard,
   });
 
   @override
@@ -69,7 +71,7 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
     // Use provided floor number or default to 1
     _currentFloorNumber = widget.floorNumber ?? 1;
     // Load existing floor plan image if available
-    _loadExistingFloorPlan();
+    // _loadExistingFloorPlan();
   }
 
   Future<void> _loadExistingFloorPlan() async {
@@ -677,6 +679,7 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                           numberOfRooms: widget.building.numberOfRooms,
                           constructionYear: widget.building.constructionYear,
                           floorName: widget.floorName,
+                          fromDashboard: widget.fromDashboard,
                         ),
                       const SizedBox(height: 24),
 

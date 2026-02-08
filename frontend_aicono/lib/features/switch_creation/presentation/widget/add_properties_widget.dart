@@ -25,9 +25,10 @@ class AddPropertiesWidget extends StatefulWidget {
   onAddPropertyDetails; // {propertyName, siteId}
   final VoidCallback? onGoToHome;
   final ValueChanged<List<String>>? onConfirmProperties; // propertyNames
-
+  final String? fromDashboard;
   const AddPropertiesWidget({
     super.key,
+    this.fromDashboard,
     this.userName,
     this.switchId,
     required this.isSingleProperty,
@@ -51,10 +52,15 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
   @override
   void initState() {
     super.initState();
-    // Initialize with one property field
-    _properties.add(PropertyItem(controller: TextEditingController()));
+    // If fromDashboard is true, don't initialize with a property field
+    // User will add fields by clicking "Add property" button
+    // Otherwise, initialize with one property field
+    if (widget.fromDashboard != 'true') {
+      _properties.add(PropertyItem(controller: TextEditingController()));
+    }
     // If sites already exist (returning from responsible persons page), show "Go to home" button
-    if (widget.createdSites.isNotEmpty) {
+    // BUT: If fromDashboard is true, always start with input fields (don't set _isConfirmed)
+    if (widget.createdSites.isNotEmpty && widget.fromDashboard != 'true') {
       _isConfirmed = true;
     }
   }
@@ -63,10 +69,27 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
   void didUpdateWidget(AddPropertiesWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     // If sites are loaded after widget initialization, show "Go to home" button
-    if (widget.createdSites.isNotEmpty && !_isConfirmed) {
-      setState(() {
-        _isConfirmed = true;
-      });
+    if (widget.createdSites.isNotEmpty) {
+      if (widget.fromDashboard == 'true') {
+        // When from dashboard: only set confirmed if sites were just fetched (after confirmation)
+        // Check if sites were just added (they weren't there before, or we just confirmed)
+        if (oldWidget.createdSites.isEmpty && widget.createdSites.isNotEmpty) {
+          // Sites were just fetched after confirmation
+          setState(() {
+            _isConfirmed = true;
+          });
+        } else if (_isConfirmed && widget.createdSites.isNotEmpty) {
+          // Already confirmed and sites exist, keep confirmed state
+          setState(() {
+            _isConfirmed = true;
+          });
+        }
+      } else {
+        // Not from dashboard, use normal flow
+        setState(() {
+          _isConfirmed = true;
+        });
+      }
     }
   }
 
@@ -162,66 +185,127 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
                         ),
 
                         const SizedBox(height: 40),
-                        // Show existing sites if available, otherwise show input fields
+                        // Show loading indicator if fetching sites
                         if (widget.isLoadingSites) ...[
                           const CircularProgressIndicator(),
                           const SizedBox(height: 24),
-                        ] else if (widget.createdSites.isNotEmpty) ...[
-                          // Show existing sites
-                          _buildExistingSitesView(),
                         ] else ...[
-                          // Show input fields for new properties
-                          _buildPropertyInputFields(),
-                        ],
+                          // Always show existing sites list first (if any)
+                          if (widget.createdSites.isNotEmpty) ...[
+                            _buildExistingSitesView(),
+                            const SizedBox(height: 24),
+                          ],
 
-                        const SizedBox(height: 24),
-                        // Combined button: Confirm properties first, then Go to home
-                        PrimaryOutlineButton(
-                          label: _isConfirmed
-                              ? 'add_properties.go_to_home'.tr()
-                              : 'add_properties.confirm_properties'.tr(),
-                          width: 260,
-                          enabled:
-                              _isConfirmed ||
-                              _properties.any(
-                                (p) => p.controller.text.trim().isNotEmpty,
+                          // Show "Add property" button (always show when fromDashboard or not single property)
+
+                          // Show new text fields below (added by clicking "Add property")
+                          if (_properties.isNotEmpty) ...[
+                            _buildPropertyInputFields(),
+                          ],
+                          if (!widget.isSingleProperty ||
+                              widget.fromDashboard == 'true') ...[
+                            Center(
+                              child: InkWell(
+                                onTap: _addNewProperty,
+                                child: Text(
+                                  'add_properties.add_new_property'.tr(),
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    decoration: TextDecoration.underline,
+                                    color: Colors.black87,
+                                  ),
+                                ),
                               ),
-                          onPressed: _isConfirmed
-                              ? widget.onGoToHome
-                              : () {
-                                  // Check if at least one property has text
-                                  final hasAnyText = _properties.any(
-                                    (p) => p.controller.text.trim().isNotEmpty,
-                                  );
-                                  if (!hasAnyText) {
-                                    return; // Don't allow confirmation without text
-                                  }
-                                  // Collect all property names
-                                  final propertyNames = _properties
-                                      .map((p) => p.controller.text.trim())
-                                      .where((name) => name.isNotEmpty)
-                                      .toList();
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ],
+                        const SizedBox(height: 24),
 
-                                  // Mark all non-empty properties as confirmed
-                                  for (int i = 0; i < _properties.length; i++) {
-                                    if (_properties[i].controller.text
-                                            .trim()
-                                            .isNotEmpty &&
-                                        !_properties[i].isConfirmed) {
-                                      _confirmProperty(i);
-                                    }
-                                  }
+                        // Button logic:
+                        // - If there are text fields with values, show "Confirm" button first
+                        // - If there is less than one site (0 or 1) AND all text fields are empty, show "Go to home"
+                        Builder(
+                          builder: (context) {
+                            // Check if at least one field has a value
+                            final hasAnyValue = _properties.any(
+                              (p) => p.controller.text.trim().isNotEmpty,
+                            );
 
-                                  // Call the callback to create sites
-                                  widget.onConfirmProperties?.call(
-                                    propertyNames,
-                                  );
+                            // Check if there is less than one site (0 or 1 site)
+                            final hasLessThanOneSite =
+                                widget.createdSites.length <= 1;
 
-                                  // Change button to "Go to home"
-                                  setState(() {
-                                    _isConfirmed = true;
-                                  });
-                                },
+                            // Show "Go to home" when:
+                            // - There is less than one site (0 or 1)
+                            // - All text fields are empty (no values)
+                            final shouldShowGoToHome =
+                                hasLessThanOneSite && !hasAnyValue;
+
+                            // Show "Confirm" when there are text fields with values
+                            final shouldShowConfirm = hasAnyValue;
+
+                            return PrimaryOutlineButton(
+                              label: shouldShowGoToHome
+                                  ? 'add_properties.go_to_home'.tr()
+                                  : 'add_properties.confirm_properties'.tr(),
+                              width: 260,
+                              enabled: shouldShowGoToHome || shouldShowConfirm,
+                              onPressed: shouldShowGoToHome
+                                  ? widget.onGoToHome
+                                  : (shouldShowConfirm
+                                        ? () {
+                                            // Collect only non-empty property names (omit empty fields)
+                                            final propertyNames = _properties
+                                                .map(
+                                                  (p) =>
+                                                      p.controller.text.trim(),
+                                                )
+                                                .where(
+                                                  (name) => name.isNotEmpty,
+                                                )
+                                                .toList();
+
+                                            if (propertyNames.isEmpty) {
+                                              return; // Don't allow confirmation without any text
+                                            }
+
+                                            // Mark all non-empty properties as confirmed
+                                            for (
+                                              int i = 0;
+                                              i < _properties.length;
+                                              i++
+                                            ) {
+                                              if (_properties[i].controller.text
+                                                      .trim()
+                                                      .isNotEmpty &&
+                                                  !_properties[i].isConfirmed) {
+                                                _confirmProperty(i);
+                                              }
+                                            }
+
+                                            // Call the callback to create sites
+                                            // This will trigger backend save and fetch
+                                            // Empty fields are already omitted in propertyNames
+                                            widget.onConfirmProperties?.call(
+                                              propertyNames,
+                                            );
+
+                                            // Clear all text fields after saving
+                                            setState(() {
+                                              // Dispose controllers and clear the list
+                                              for (var property
+                                                  in _properties) {
+                                                property.controller.dispose();
+                                              }
+                                              _properties.clear();
+                                            });
+
+                                            // Don't set _isConfirmed here - wait for sites to be fetched
+                                            // The _isConfirmed will be set in didUpdateWidget when sites are loaded
+                                          }
+                                        : null),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -238,7 +322,6 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
   Widget _buildPropertyField(int index) {
     final property = _properties[index];
     final isConfirmed = property.isConfirmed;
-    final hasValue = property.controller.text.trim().isNotEmpty;
 
     return Container(
       width: double.infinity,
@@ -416,22 +499,6 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
             child: _buildPropertyField(index),
           ),
         ),
-        // Add new property button (only for multiple properties)
-        if (!widget.isSingleProperty) ...[
-          const SizedBox(height: 8),
-          Center(
-            child: InkWell(
-              onTap: _addNewProperty,
-              child: Text(
-                'add_properties.add_new_property'.tr(),
-                style: AppTextStyles.bodyMedium.copyWith(
-                  decoration: TextDecoration.underline,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }
