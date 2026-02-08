@@ -27,6 +27,9 @@ class BuildingContactPersonStep extends StatefulWidget {
   final String? totalArea;
   final String? numberOfRooms;
   final String? constructionYear;
+  final String?
+  fromDashboard; // Flag to indicate if navigation is from dashboard
+  final String? floorName; // Floor name from add floor name page
 
   const BuildingContactPersonStep({
     super.key,
@@ -42,6 +45,8 @@ class BuildingContactPersonStep extends StatefulWidget {
     this.totalArea,
     this.numberOfRooms,
     this.constructionYear,
+    this.fromDashboard,
+    this.floorName,
   });
 
   @override
@@ -546,6 +551,13 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
       });
     }
 
+    // Extract fromDashboard from widget or current route
+    final fromDashboard =
+        widget.fromDashboard ??
+        Uri.parse(
+          GoRouterState.of(context).uri.toString(),
+        ).queryParameters['fromDashboard'];
+
     context.pushNamed(
       Routelists.buildingRecipient,
       queryParameters: {
@@ -557,12 +569,15 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
         if (widget.siteId != null && widget.siteId!.isNotEmpty)
           'siteId': widget.siteId!,
         if (widget.userName != null) 'userName': widget.userName!,
+        if (widget.floorName != null && widget.floorName!.isNotEmpty)
+          'floorName': widget.floorName!,
         if (contactPersonJson != null) 'contactPerson': contactPersonJson,
         if (widget.totalArea != null) 'totalArea': widget.totalArea!,
         if (widget.numberOfRooms != null)
           'numberOfRooms': widget.numberOfRooms!,
         if (widget.constructionYear != null)
           'constructionYear': widget.constructionYear!,
+        if (fromDashboard != null) 'fromDashboard': fromDashboard,
       },
     );
   }
@@ -690,8 +705,8 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
                                   children: [
                                     // Header with back button and title
                                     PageHeaderRow(
-                                      title:
-                                          "Contact Person Contact Person Contact Person Contact Person Contact Person Contact Person",
+                                      title: "building_contact_person.title"
+                                          .tr(),
                                       onBack:
                                           (widget.onBack != null ||
                                               widget.buildingId != null)

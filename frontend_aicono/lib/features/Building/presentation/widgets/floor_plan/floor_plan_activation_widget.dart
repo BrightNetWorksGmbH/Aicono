@@ -83,6 +83,7 @@ class FloorPlanActivationWidget extends StatefulWidget {
   final String? floorName;
   final String buildingId;
   final String siteId;
+  final String? fromDashboard;
   const FloorPlanActivationWidget({
     super.key,
     this.onComplete,
@@ -97,6 +98,7 @@ class FloorPlanActivationWidget extends StatefulWidget {
     this.floorName,
     required this.buildingId,
     required this.siteId,
+    this.fromDashboard,
   });
 
   @override
@@ -1039,6 +1041,8 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
             context.pushNamed(
               Routelists.buildingSummary,
               queryParameters: {
+                if (widget.fromDashboard != null)
+                  'fromDashboard': widget.fromDashboard!,
                 'buildingId': widget.buildingId,
                 'siteId': widget.siteId,
                 if (widget.userName != null) 'userName': widget.userName!,

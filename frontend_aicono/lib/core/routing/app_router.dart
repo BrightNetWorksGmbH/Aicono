@@ -32,6 +32,8 @@ import 'package:frontend_aicono/features/switch_creation/presentation/pages/buil
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_floor_management_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_responsible_persons_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_recipient_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_setup_page.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/sensor_min_max_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/building_summary_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/room_assignment_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/building_detail/data_source_selection_page.dart';
@@ -40,11 +42,16 @@ import 'package:frontend_aicono/features/Building/presentation/pages/building_li
 import 'package:frontend_aicono/features/Building/presentation/pages/building_onboarding_page.dart';
 import 'package:frontend_aicono/features/Building/presentation/pages/floor_plan_activation_page.dart';
 import 'package:frontend_aicono/features/Building/presentation/pages/steps/building_contact_person_step.dart';
+import 'package:frontend_aicono/features/Building/presentation/pages/add_floor_name_page.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/page/dashboard_page.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_token_info_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/pages/statistics_dashboard_page.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/pages/view_report_page.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_site_page.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_building_page.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_floor_page.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_room_page.dart';
 import 'package:frontend_aicono/core/pages/not_found_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/switch_settings_page.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/pages/invite_user_page.dart';
@@ -555,12 +562,14 @@ class AppRouter {
         final switchId = state.uri.queryParameters['switchId'];
         final isSingleProperty =
             state.uri.queryParameters['isSingleProperty'] == 'true';
+        final fromDashboard = state.uri.queryParameters['fromDashboard'];
         return _buildPage(
           context,
           state,
           AddPropertiesPage(
             userName: userName,
             switchId: switchId,
+            fromDashboard: fromDashboard,
             isSingleProperty: isSingleProperty,
           ),
         );
@@ -640,6 +649,7 @@ class AppRouter {
       pageBuilder: (context, state) {
         final userName = state.uri.queryParameters['userName'];
         final siteId = state.uri.queryParameters['siteId'] ?? '';
+        final fromDashboard = state.uri.queryParameters['fromDashboard'];
 
         final validationError = _validateRequiredParams(state, siteId: siteId);
         if (validationError != null) return validationError;
@@ -647,7 +657,11 @@ class AppRouter {
         return _buildPage(
           context,
           state,
-          AddAdditionalBuildingsPage(userName: userName, siteId: siteId),
+          AddAdditionalBuildingsPage(
+            userName: userName,
+            siteId: siteId,
+            fromDashboard: fromDashboard,
+          ),
         );
       },
     ),
@@ -658,6 +672,7 @@ class AppRouter {
         final userName = state.uri.queryParameters['userName'];
         final siteId = state.uri.queryParameters['siteId'] ?? '';
         final switchId = state.uri.queryParameters['switchId'];
+        final fromDashboard = state.uri.queryParameters['fromDashboard'];
 
         final validationError = _validateRequiredParams(state, siteId: siteId);
         if (validationError != null) return validationError;
@@ -669,6 +684,7 @@ class AppRouter {
             userName: userName,
             siteId: siteId,
             switchId: switchId,
+            fromDashboard: fromDashboard,
           ),
         );
       },
@@ -681,6 +697,7 @@ class AppRouter {
         final buildingAddress = state.uri.queryParameters['buildingAddress'];
         final siteId = state.uri.queryParameters['siteId'] ?? '';
         final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+        final fromDashboard = state.uri.queryParameters['fromDashboard'];
 
         final validationError = _validateRequiredParams(
           state,
@@ -695,6 +712,9 @@ class AppRouter {
           SetBuildingDetailsPage(
             userName: userName,
             buildingAddress: buildingAddress,
+            buildingId: buildingId,
+            siteId: siteId,
+            fromDashboard: fromDashboard,
           ),
         );
       },
@@ -753,6 +773,10 @@ class AppRouter {
         final buildingId = state.uri.queryParameters['buildingId'] ?? '';
         final completedFloorName =
             state.uri.queryParameters['completedFloorName'];
+        final fromDashboard = state.uri.queryParameters['fromDashboard'];
+        final floorName = state.uri.queryParameters['floorName'];
+        final userName = state.uri.queryParameters['userName'];
+        final switchId = state.uri.queryParameters['switchId'];
 
         final validationError = _validateRequiredParams(
           state,
@@ -778,6 +802,42 @@ class AppRouter {
             siteId: siteId,
             buildingId: buildingId,
             completedFloorName: completedFloorName,
+            fromDashboard: fromDashboard,
+            floorName: floorName,
+            userName: userName,
+            switchId: switchId,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.addFloorName}',
+      name: Routelists.addFloorName,
+      pageBuilder: (context, state) {
+        final userName = state.uri.queryParameters['userName'];
+        final switchId = state.uri.queryParameters['switchId'];
+        final floorName = state.uri.queryParameters['floorName'];
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+        final fromDashboard = state.uri.queryParameters['fromDashboard'];
+
+        final validationError = _validateRequiredParams(
+          state,
+          siteId: siteId,
+          buildingId: buildingId,
+        );
+        if (validationError != null) return validationError;
+
+        return _buildPage(
+          context,
+          state,
+          AddFloorNamePage(
+            userName: userName,
+            switchId: switchId,
+            floorName: floorName,
+            siteId: siteId,
+            buildingId: buildingId,
+            fromDashboard: fromDashboard,
           ),
         );
       },
@@ -1093,6 +1153,8 @@ class AppRouter {
         final totalArea = state.uri.queryParameters['totalArea'];
         final numberOfRooms = state.uri.queryParameters['numberOfRooms'];
         final constructionYear = state.uri.queryParameters['constructionYear'];
+        final fromDashboard = state.uri.queryParameters['fromDashboard'];
+        final floorName = state.uri.queryParameters['floorName'];
 
         final validationError = _validateRequiredParams(
           state,
@@ -1113,6 +1175,8 @@ class AppRouter {
             totalArea: totalArea,
             numberOfRooms: numberOfRooms,
             constructionYear: constructionYear,
+            fromDashboard: fromDashboard,
+            floorName: floorName,
           ),
         );
       },
@@ -1130,6 +1194,8 @@ class AppRouter {
         final totalArea = state.uri.queryParameters['totalArea'];
         final numberOfRooms = state.uri.queryParameters['numberOfRooms'];
         final constructionYear = state.uri.queryParameters['constructionYear'];
+        final fromDashboard = state.uri.queryParameters['fromDashboard'];
+        final floorName = state.uri.queryParameters['floorName'];
 
         final validationError = _validateRequiredParams(
           state,
@@ -1151,6 +1217,67 @@ class AppRouter {
             totalArea: totalArea,
             numberOfRooms: numberOfRooms,
             constructionYear: constructionYear,
+            fromDashboard: fromDashboard,
+            floorName: floorName,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.buildingSetup}',
+      name: Routelists.buildingSetup,
+      pageBuilder: (context, state) {
+        final buildingId = state.uri.queryParameters['buildingId'];
+        final siteId = state.uri.queryParameters['siteId'];
+        final buildingName = state.uri.queryParameters['buildingName'];
+        final buildingAddress = state.uri.queryParameters['buildingAddress'];
+        final numberOfFloors = state.uri.queryParameters['numberOfFloors'];
+        final numberOfRooms = state.uri.queryParameters['numberOfRooms'];
+        final totalArea = state.uri.queryParameters['totalArea'];
+        final constructionYear = state.uri.queryParameters['constructionYear'];
+        final fromDashboard = state.uri.queryParameters['fromDashboard'];
+        final userName = state.uri.queryParameters['userName'];
+        return _buildPage(
+          context,
+          state,
+          BuildingSetupPage(
+            buildingId: buildingId,
+            siteId: siteId,
+            buildingName: buildingName,
+            buildingAddress: buildingAddress,
+            numberOfFloors: numberOfFloors,
+            numberOfRooms: numberOfRooms,
+            totalArea: totalArea,
+            constructionYear: constructionYear,
+            fromDashboard: fromDashboard,
+            userName: userName,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.sensorMinMax}',
+      name: Routelists.sensorMinMax,
+      pageBuilder: (context, state) {
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+        final siteId = state.uri.queryParameters['siteId'];
+        final fromDashboard = state.uri.queryParameters['fromDashboard'];
+
+        if (buildingId.isEmpty) {
+          return _buildPage(
+            context,
+            state,
+            NotFoundPage(message: 'Required parameter missing: buildingId'),
+          );
+        }
+
+        return _buildPage(
+          context,
+          state,
+          SensorMinMaxPage(
+            buildingId: buildingId,
+            siteId: siteId,
+            fromDashboard: fromDashboard,
           ),
         );
       },
@@ -1173,6 +1300,8 @@ class AppRouter {
         final recipientConfigs = state.uri.queryParameters['recipientConfigs'];
         final createForAll = state.uri.queryParameters['createForAll'];
         final reportConfigs = state.uri.queryParameters['reportConfigs'];
+        final fromDashboard = state.uri.queryParameters['fromDashboard'];
+        final floorName = state.uri.queryParameters['floorName'];
 
         // If buildingIds is provided, we don't need to validate individual buildingId
         // Otherwise, validate buildingId and siteId
@@ -1208,7 +1337,78 @@ class AppRouter {
             recipientConfigs: recipientConfigs,
             createForAll: createForAll,
             reportConfigs: reportConfigs,
+            fromDashboard: fromDashboard,
+            floorName: floorName,
           ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.editSite}',
+      name: Routelists.editSite,
+      pageBuilder: (context, state) {
+        final siteId = state.uri.queryParameters['siteId'] ?? '';
+        if (siteId.isEmpty) {
+          return _buildPage(
+            context,
+            state,
+            NotFoundPage(message: 'Required parameter missing: siteId'),
+          );
+        }
+        return _buildPage(context, state, EditSitePage(siteId: siteId));
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.editBuilding}',
+      name: Routelists.editBuilding,
+      pageBuilder: (context, state) {
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+        if (buildingId.isEmpty) {
+          return _buildPage(
+            context,
+            state,
+            NotFoundPage(message: 'Required parameter missing: buildingId'),
+          );
+        }
+        return _buildPage(
+          context,
+          state,
+          EditBuildingPage(buildingId: buildingId),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.editFloor}',
+      name: Routelists.editFloor,
+      pageBuilder: (context, state) {
+        final floorId = state.uri.queryParameters['floorId'] ?? '';
+        if (floorId.isEmpty) {
+          return _buildPage(
+            context,
+            state,
+            NotFoundPage(message: 'Required parameter missing: floorId'),
+          );
+        }
+        return _buildPage(context, state, EditFloorPage(floorId: floorId));
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.editRoom}',
+      name: Routelists.editRoom,
+      pageBuilder: (context, state) {
+        final roomId = state.uri.queryParameters['roomId'] ?? '';
+        final buildingId = state.uri.queryParameters['buildingId'];
+        if (roomId.isEmpty) {
+          return _buildPage(
+            context,
+            state,
+            NotFoundPage(message: 'Required parameter missing: roomId'),
+          );
+        }
+        return _buildPage(
+          context,
+          state,
+          EditRoomPage(roomId: roomId, buildingId: buildingId),
         );
       },
     ),

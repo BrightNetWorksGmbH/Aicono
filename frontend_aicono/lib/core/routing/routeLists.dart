@@ -54,6 +54,7 @@ class Routelists {
   static const setBuildingDetails = 'set-building-details';
   static const loxoneConnection = 'loxone-connection';
   static const buildingFloorManagement = 'building-floor-management';
+  static const addFloorName = 'add-floor-name';
   static const floorPlanActivation = 'floor-plan-activation';
   static const buildingList = 'building-list';
   static const buildingOnboarding = 'building-onboarding';
@@ -63,6 +64,12 @@ class Routelists {
   static const buildingResponsiblePersons = 'building-responsible-persons';
   static const buildingContactPerson = 'building-contact-person';
   static const buildingRecipient = 'building-recipient';
+  static const buildingSetup = 'building-setup';
+  static const sensorMinMax = 'sensor-min-max';
   static const viewReport = 'view-report';
+  static const editSite = 'edit-site';
+  static const editBuilding = 'edit-building';
+  static const editFloor = 'edit-floor';
+  static const editRoom = 'edit-room';
   static const notFound = 'not-found';
 }

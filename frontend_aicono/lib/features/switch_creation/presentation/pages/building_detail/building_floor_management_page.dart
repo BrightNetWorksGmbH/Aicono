@@ -7,6 +7,7 @@ import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:frontend_aicono/features/Building/presentation/pages/steps/building_floor_list_step.dart';
 import 'package:frontend_aicono/features/Building/presentation/pages/steps/building_floor_plan_step.dart';
+import 'package:frontend_aicono/features/Building/presentation/widgets/add_floor_name_widget.dart';
 import 'package:frontend_aicono/core/routing/app_router.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_floors_entity.dart';
@@ -19,6 +20,11 @@ class BuildingFloorManagementPage extends StatefulWidget {
   final String buildingId;
   final String?
   completedFloorName; // Floor name to mark as completed when coming from room assignment
+  final String?
+  fromDashboard; // Flag to indicate if navigation is from dashboard
+  final String? floorName; // Floor name from add floor name page
+  final String? userName; // User name for the floor name widget
+  final String? switchId; // Switch ID for navigation
 
   const BuildingFloorManagementPage({
     super.key,
@@ -27,6 +33,10 @@ class BuildingFloorManagementPage extends StatefulWidget {
     required this.siteId,
     required this.buildingId,
     this.completedFloorName,
+    this.fromDashboard,
+    this.floorName,
+    this.userName,
+    this.switchId,
   });
 
   @override
@@ -37,17 +47,18 @@ class BuildingFloorManagementPage extends StatefulWidget {
 class _BuildingFloorManagementPageState
     extends State<BuildingFloorManagementPage> {
   final PageController _pageController = PageController();
-  int _currentStep = 0;
   int? _editingFloorNumber;
   String? _editingFloorName;
   Set<int> _completedFloors = {};
   List<FloorDetail> _fetchedFloors = [];
   bool _isLoadingFloors = false;
   final DioClient _dioClient = sl<DioClient>();
+  String? _enteredFloorName; // Floor name entered by user
 
   @override
   void initState() {
     super.initState();
+    _enteredFloorName = widget.floorName;
     // Fetch floors from backend if buildingId is available
     if (widget.buildingId.isNotEmpty) {
       _fetchFloorsFromBackend();
@@ -55,6 +66,21 @@ class _BuildingFloorManagementPageState
       // If no buildingId, still mark floor as completed if coming from room assignment
       _markFloorCompletedByName();
     }
+  }
+
+  void _handleFloorNameEntered(String floorName) {
+    setState(() {
+      _enteredFloorName = floorName;
+      _editingFloorName = floorName;
+    });
+    _pageController.nextPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _handleSkipFloorName() {
+    _pageController.jumpToPage(0);
   }
 
   void _markFloorCompletedByName() {
@@ -241,7 +267,6 @@ class _BuildingFloorManagementPageState
   void _goToFloorList() {
     // Navigate back to floor list step
     setState(() {
-      _currentStep = 0;
       // Mark the floor as completed when returning from floor plan
       // if (_editingFloorNumber != null) {
       //   _completedFloors.add(_editingFloorNumber!);
@@ -256,31 +281,52 @@ class _BuildingFloorManagementPageState
     setState(() {
       _editingFloorNumber = floorNumber;
       _editingFloorName = floorName;
-      _currentStep = 1;
     });
     _pageController.jumpToPage(1);
   }
 
   void _handleComplete() {
-    // All floors completed, navigate to contact person step first
-    context.pushNamed(
-      Routelists.buildingContactPerson,
+    // Extract fromDashboard from widget or current route
+    context.goNamed(
+      Routelists.buildingSetup,
       queryParameters: {
-        'buildingName': widget.building.name,
-
-        if (widget.building.address != null &&
-            widget.building.address!.isNotEmpty)
-          'buildingAddress': widget.building.address!,
-        'buildingId': widget.buildingId,
+        'userName': widget.userName!,
         'siteId': widget.siteId,
-        if (widget.building.totalArea != null)
-          'totalArea': widget.building.totalArea!.toString(),
-        if (widget.building.numberOfRooms != null)
-          'numberOfRooms': widget.building.numberOfRooms!.toString(),
-        if (widget.building.constructionYear != null)
-          'constructionYear': widget.building.constructionYear!,
+        'buildingId': widget.buildingId,
+        'fromDashboard': widget.fromDashboard!,
       },
     );
+
+    // final fromDashboard =
+    //     widget.fromDashboard ??
+    //     Uri.parse(
+    //       GoRouterState.of(context).uri.toString(),
+    //     ).queryParameters['fromDashboard'];
+
+    // // Get floorName from entered floor name or widget
+    // final floorName = _enteredFloorName ?? widget.floorName;
+
+    // // All floors completed, navigate to contact person step first
+    // context.pushNamed(
+    //   Routelists.buildingContactPerson,
+    //   queryParameters: {
+    //     'buildingName': widget.building.name,
+
+    //     if (widget.building.address != null &&
+    //         widget.building.address!.isNotEmpty)
+    //       'buildingAddress': widget.building.address!,
+    //     'buildingId': widget.buildingId,
+    //     'siteId': widget.siteId,
+    //     if (widget.building.totalArea != null)
+    //       'totalArea': widget.building.totalArea!.toString(),
+    //     if (widget.building.numberOfRooms != null)
+    //       'numberOfRooms': widget.building.numberOfRooms!.toString(),
+    //     if (widget.building.constructionYear != null)
+    //       'constructionYear': widget.building.constructionYear!,
+    //     if (fromDashboard != null) 'fromDashboard': fromDashboard,
+    //     if (floorName != null && floorName.isNotEmpty) 'floorName': floorName,
+    //   },
+    // );
   }
 
   void _handleSkip() {
@@ -386,17 +432,38 @@ class _BuildingFloorManagementPageState
                                 controller: _pageController,
                                 physics: const NeverScrollableScrollPhysics(),
                                 children: [
-                                  // Step 0: Floor List
-                                  BuildingFloorListStep(
-                                    building: widget.building,
-                                    onNext: _handleComplete,
-                                    onSkip: _handleSkip,
-                                    onBack: _handleBack,
-                                    onEditFloor: _editFloor,
-                                    completedFloors: _completedFloors,
-                                    fetchedFloors: _fetchedFloors,
-                                    isLoadingFloors: _isLoadingFloors,
-                                  ),
+                                  // Step 0: Floor Name (if fromDashboard and no floorName) or Floor List
+                                  widget.fromDashboard == 'true'
+                                      ? AddFloorNameWidget(
+                                          userName: widget.userName,
+                                          initialFloorName: widget.floorName,
+                                          onLanguageChanged:
+                                              _handleLanguageChanged,
+                                          onFloorNameChanged: (value) {
+                                            setState(() {
+                                              _enteredFloorName = value;
+                                            });
+                                          },
+                                          onBack: _handleBack,
+                                          onSkip: _handleSkipFloorName,
+                                          onContinue:
+                                              _enteredFloorName != null &&
+                                                  _enteredFloorName!.isNotEmpty
+                                              ? () => _handleFloorNameEntered(
+                                                  _enteredFloorName!,
+                                                )
+                                              : null,
+                                        )
+                                      : BuildingFloorListStep(
+                                          building: widget.building,
+                                          onNext: _handleComplete,
+                                          onSkip: _handleSkip,
+                                          onBack: _handleBack,
+                                          onEditFloor: _editFloor,
+                                          completedFloors: _completedFloors,
+                                          fetchedFloors: _fetchedFloors,
+                                          isLoadingFloors: _isLoadingFloors,
+                                        ),
                                   // Step 1: Floor Plan (for editing a specific floor)
                                   BuildingFloorPlanStep(
                                     building: widget.building,
@@ -420,6 +487,7 @@ class _BuildingFloorManagementPageState
                                     floorNumber: _editingFloorNumber,
                                     floorName: _editingFloorName,
                                     fetchedFloors: _fetchedFloors,
+                                    fromDashboard: widget.fromDashboard,
                                     siteId: widget.siteId,
                                     buildingId: widget.buildingId,
                                   ),

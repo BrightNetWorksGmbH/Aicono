@@ -15,8 +15,14 @@ import 'package:frontend_aicono/features/switch_creation/presentation/widget/add
 class AddAdditionalBuildingsPage extends StatefulWidget {
   final String? userName;
   final String? siteId;
+  final String? fromDashboard; // Flag to indicate if navigation is from dashboard
 
-  const AddAdditionalBuildingsPage({super.key, this.userName, this.siteId});
+  const AddAdditionalBuildingsPage({
+    super.key,
+    this.userName,
+    this.siteId,
+    this.fromDashboard,
+  });
 
   @override
   State<AddAdditionalBuildingsPage> createState() =>
@@ -60,8 +66,10 @@ class _AddAdditionalBuildingsPageState
         if (widget.userName != null) 'userName': widget.userName!,
         'buildingId': building.id,
         'buildingAddress': building.name,
+        'siteId': widget.siteId ?? '',
         'redirectTo':
             'setBuildingDetails', // Flag to redirect to setBuildingDetails after connection
+        if (widget.fromDashboard != null) 'fromDashboard': widget.fromDashboard!,
       },
     );
   }

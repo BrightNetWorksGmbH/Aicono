@@ -125,6 +125,7 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
   void _navigateAfterSuccess() {
     final uri = Uri.parse(GoRouterState.of(context).uri.toString());
     final redirectTo = uri.queryParameters['redirectTo'];
+    final fromDashboard = uri.queryParameters['fromDashboard'];
 
     if (redirectTo == 'setBuildingDetails') {
       // Navigate to setBuildingDetails page
@@ -139,6 +140,7 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
           'siteId': widget.siteId,
           if (widget.buildingId != null && widget.buildingId!.isNotEmpty)
             'buildingId': widget.buildingId!,
+          if (fromDashboard != null) 'fromDashboard': fromDashboard,
         },
       );
     } else {
@@ -157,6 +159,10 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
           'numberOfFloors': numberOfFloors,
           if (totalArea != null) 'totalArea': totalArea,
           if (constructionYear != null) 'constructionYear': constructionYear,
+          'siteId': widget.siteId,
+          if (widget.buildingId != null && widget.buildingId!.isNotEmpty)
+            'buildingId': widget.buildingId!,
+          if (fromDashboard != null) 'fromDashboard': fromDashboard,
         },
       );
     }
@@ -217,6 +223,7 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
             // Navigate to building details page with building information
             final uri = Uri.parse(GoRouterState.of(context).uri.toString());
             final buildingAddress = uri.queryParameters['buildingAddress'];
+            final fromDashboard = uri.queryParameters['fromDashboard'];
             context.pushNamed(
               Routelists.setBuildingDetails,
               queryParameters: {
@@ -225,6 +232,7 @@ class _LoxoneConnectionPageState extends State<LoxoneConnectionPage> {
                   'buildingId': widget.buildingId!,
                 'siteId': widget.siteId,
                 if (buildingAddress != null) 'buildingAddress': buildingAddress,
+                if (fromDashboard != null) 'fromDashboard': fromDashboard,
               },
             );
             ScaffoldMessenger.of(context).showSnackBar(

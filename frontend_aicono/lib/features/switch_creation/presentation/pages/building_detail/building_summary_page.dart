@@ -104,6 +104,11 @@ class _BuildingSummaryPageState extends State<BuildingSummaryPage> {
       }
     }
 
+    // Extract fromDashboard from current route
+    final fromDashboard = Uri.parse(
+      GoRouterState.of(context).uri.toString(),
+    ).queryParameters['fromDashboard'];
+    
     // Navigate to room assignment page
     context.pushNamed(
       Routelists.roomAssignment,
@@ -127,6 +132,7 @@ class _BuildingSummaryPageState extends State<BuildingSummaryPage> {
         if (widget.buildingSize != null) 'totalArea': widget.buildingSize!,
         if (widget.constructionYear != null)
           'constructionYear': widget.constructionYear!,
+        if (fromDashboard != null) 'fromDashboard': fromDashboard,
       },
     );
   }
