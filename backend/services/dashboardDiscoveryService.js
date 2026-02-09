@@ -650,6 +650,10 @@ class DashboardDiscoveryService {
      */
     async getRoomDetails(roomId, userId, options = {}) {
         // roomId is now a LocalRoom ID
+        console.log('getRoomDetails', roomId, userId, options);
+        console.log('roomId', roomId);
+        // console.log('userId', userId);
+        // console.log('options', options);
         const localRoom = await LocalRoom.findById(roomId).populate('loxone_room_id').populate({
             path: 'floor_id',
             populate: {
@@ -659,6 +663,7 @@ class DashboardDiscoveryService {
                 }
             }
         });
+        console.log('localRoom', localRoom);
         
         if (!localRoom) {
             throw new NotFoundError('Room');

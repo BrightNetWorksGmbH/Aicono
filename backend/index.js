@@ -26,6 +26,7 @@ const reportingRouter = require('./routes/reporting');
 const reportsRouter = require('./routes/reports');
 const roleRouter = require('./routes/role');
 const googlemapRouter = require('./routes/googlemap');
+const realtimeRouter = require('./routes/realtimeRoutes');
 
 // CORS configuration
 const corsOptions = {
@@ -143,6 +144,7 @@ app.use('/api/v1/reporting', reportingRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/roles', roleRouter);
 app.use('/api/v1/googlemap', googlemapRouter);
+app.use('/api/v1/realtime', realtimeRouter);
 
 // Handle 404 - Not Found routes
 app.use(notFoundHandler);
@@ -218,9 +220,20 @@ connectToDatabase()
         }
       });
     
-    app.listen(port, () => {
+    const server = app.listen(port, () => {
       console.log(`Aicono EMS Server running at http://localhost:${port}`);
     });
+
+    // Setup WebSocket server for real-time sensor data
+    try {
+      const { setupRealtimeWebSocket } = require('./routes/realtime');
+      setupRealtimeWebSocket(server);
+      console.log('[STARTUP] ✓ Real-time WebSocket server started');
+    } catch (error) {
+      console.error('[STARTUP] ❌ Failed to start WebSocket server:', error.message);
+      console.error('[STARTUP] Stack trace:', error.stack);
+      // Don't fail server startup if WebSocket fails
+    }
   })
   .catch((error) => {
     console.error('Failed to start server due to DB connection error:', error.message);
