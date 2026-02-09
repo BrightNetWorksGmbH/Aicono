@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_detail_entity.dart';
@@ -47,7 +48,12 @@ class ReportDetailView extends StatelessWidget {
         }
         if (state is ReportDetailSuccess) {
           if (state.detail.reporting.id == currentReportId) {
-            return _buildDetail(context, state.detail, recipientsList);
+            return _buildDetail(
+              context,
+              state.detail,
+              recipientsList,
+              reportId: currentReportId,
+            );
           }
         }
         return _buildLoading(context);
@@ -123,10 +129,13 @@ class ReportDetailView extends StatelessWidget {
   Widget _buildDetail(
     BuildContext context,
     ReportDetailEntity detail,
-    List<ReportRecipientEntity> recipients,
-  ) {
+    List<ReportRecipientEntity> recipients, {
+    required String reportId,
+  }) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final horizontalPadding = screenWidth < 600 ? 12.0 : 20.0;
+    final isMobile = screenWidth < 600;
+    // On mobile, parent dashboard layout already adds ~16px; we use 16px max total
+    final horizontalPadding = isMobile ? 0.0 : 20.0;
 
     final building = detail.building;
     final reporting = detail.reporting;
@@ -148,7 +157,13 @@ class ReportDetailView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(building, reporting, timeRange),
+          _buildHeader(
+            context,
+            building,
+            reporting,
+            timeRange,
+            reportId: reportId,
+          ),
           if (recipients.isNotEmpty) ...[
             const SizedBox(height: _sectionGap),
             _buildRecipientsSection(recipients),
@@ -158,13 +173,15 @@ class ReportDetailView extends StatelessWidget {
           const SizedBox(height: _sectionGap),
           _buildContents(contents),
           const SizedBox(height: _sectionGap),
-          _buildChartsSection(contents),
+          _buildChartsSection(context, contents),
           const SizedBox(height: _sectionGap),
           _buildTimeBasedAnalysisSection(contents),
           const SizedBox(height: _sectionGap),
           _buildHourlyPatternSection(contents),
-          const SizedBox(height: _sectionGap),
-          _buildPeriodComparison(contents),
+          if (_shouldShowPeriodComparison(reporting, contents)) ...[
+            const SizedBox(height: _sectionGap),
+            _buildPeriodComparison(contents),
+          ],
           const SizedBox(height: _sectionGap),
           _buildBuildingComparison(contents),
           const SizedBox(height: _sectionGap),
@@ -173,6 +190,20 @@ class ReportDetailView extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  bool _shouldShowPeriodComparison(
+    ReportDetailReportingEntity reporting,
+    Map<String, dynamic> contents,
+  ) {
+    if (!reporting.reportContents.contains('PeriodComparison')) return false;
+    final period = contents['PeriodComparison'];
+    if (period is! Map) return false;
+    final current = period['current'] is Map ? period['current'] as Map : null;
+    final previous = period['previous'] is Map
+        ? period['previous'] as Map
+        : null;
+    return current != null || previous != null;
   }
 
   Widget _buildPeriodComparison(Map<String, dynamic> contents) {
@@ -193,100 +224,109 @@ class ReportDetailView extends StatelessWidget {
       children: [
         const SizedBox(height: _sectionSpacing),
         _sectionWrapper(
-          title: 'PeriodComparison',
+          title: 'Period Comparison',
           showBorder: false,
+          zeroHorizontalPadding: true,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[300]!),
-                color: Colors.white,
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Table(
-                border: TableBorder.all(color: Colors.grey[300]!),
-                columnWidths: const {
-                  0: FlexColumnWidth(1.8),
-                  1: FlexColumnWidth(1),
-                  2: FlexColumnWidth(1),
-                  3: FlexColumnWidth(1),
-                },
-                children: [
-                  // Header row
-                  TableRow(
-                    decoration: const BoxDecoration(color: headerBg),
-                    children: [
-                      _tableCell('', cellPadding, isHeader: true),
-                      _tableCell(
-                        'Consumption (kWh)',
-                        cellPadding,
-                        isHeader: true,
+            physics: const BouncingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 560),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                  color: Colors.white,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Table(
+                  border: TableBorder.all(color: Colors.grey[300]!),
+                  columnWidths: const {
+                    0: FixedColumnWidth(160),
+                    1: FixedColumnWidth(130),
+                    2: FixedColumnWidth(130),
+                    3: FixedColumnWidth(100),
+                  },
+                  children: [
+                    // Header row
+                    TableRow(
+                      decoration: const BoxDecoration(color: headerBg),
+                      children: [
+                        _tableCell('', cellPadding, isHeader: true),
+                        _tableCell(
+                          'Consumption (kWh)',
+                          cellPadding,
+                          isHeader: true,
+                        ),
+                        _tableCell(
+                          'Average Energy',
+                          cellPadding,
+                          isHeader: true,
+                        ),
+                        _tableCell('Peak (kW)', cellPadding, isHeader: true),
+                      ],
+                    ),
+                    if (current != null)
+                      TableRow(
+                        children: [
+                          _tableCell(
+                            _formatPeriod(current['period']),
+                            cellPadding,
+                            alignLeft: true,
+                          ),
+                          _tableCell(
+                            _formatNum(current['consumption']),
+                            cellPadding,
+                          ),
+                          _tableCell(
+                            _formatNum(
+                              current['averageEnergy'] ?? current['average'],
+                            ),
+                            cellPadding,
+                          ),
+                          _tableCell(_formatNum(current['peak']), cellPadding),
+                        ],
                       ),
-                      _tableCell('Average Energy', cellPadding, isHeader: true),
-                      _tableCell('Peak (kW)', cellPadding, isHeader: true),
-                    ],
-                  ),
-                  if (current != null)
-                    TableRow(
-                      children: [
-                        _tableCell(
-                          _formatPeriod(current['period']),
-                          cellPadding,
-                          alignLeft: true,
-                        ),
-                        _tableCell(
-                          _formatNum(current['consumption']),
-                          cellPadding,
-                        ),
-                        _tableCell(
-                          _formatNum(
-                            current['averageEnergy'] ?? current['average'],
+                    if (previous != null)
+                      TableRow(
+                        children: [
+                          _tableCell(
+                            _formatPeriod(previous['period']),
+                            cellPadding,
+                            alignLeft: true,
                           ),
-                          cellPadding,
-                        ),
-                        _tableCell(_formatNum(current['peak']), cellPadding),
-                      ],
-                    ),
-                  if (previous != null)
-                    TableRow(
-                      children: [
-                        _tableCell(
-                          _formatPeriod(previous['period']),
-                          cellPadding,
-                          alignLeft: true,
-                        ),
-                        _tableCell(
-                          _formatNum(previous['consumption']),
-                          cellPadding,
-                        ),
-                        _tableCell(
-                          _formatNum(
-                            previous['averageEnergy'] ?? previous['average'],
+                          _tableCell(
+                            _formatNum(previous['consumption']),
+                            cellPadding,
                           ),
-                          cellPadding,
-                        ),
-                        _tableCell(_formatNum(previous['peak']), cellPadding),
-                      ],
-                    ),
-                  if (change != null)
-                    TableRow(
-                      children: [
-                        _tableCell('Change', cellPadding, alignLeft: true),
-                        _tableCell(
-                          _formatNum(change['consumption']),
-                          cellPadding,
-                        ),
-                        _tableCell(
-                          _formatNum(
-                            change['averageEnergy'] ?? change['average'],
+                          _tableCell(
+                            _formatNum(
+                              previous['averageEnergy'] ?? previous['average'],
+                            ),
+                            cellPadding,
                           ),
-                          cellPadding,
-                        ),
-                        _tableCell(_formatNum(change['peak']), cellPadding),
-                      ],
-                    ),
-                ],
+                          _tableCell(_formatNum(previous['peak']), cellPadding),
+                        ],
+                      ),
+                    if (change != null)
+                      TableRow(
+                        children: [
+                          _tableCell('Change', cellPadding, alignLeft: true),
+                          _tableCell(
+                            _formatNum(change['consumption']),
+                            cellPadding,
+                          ),
+                          _tableCell(
+                            _formatNum(
+                              change['averageEnergy'] ?? change['average'],
+                            ),
+                            cellPadding,
+                          ),
+                          _tableCell(_formatNum(change['peak']), cellPadding),
+                        ],
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -364,62 +404,70 @@ class ReportDetailView extends StatelessWidget {
         _sectionWrapper(
           title: 'Building Comparison',
           showBorder: false,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[300]!),
-              color: Colors.white,
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Table(
-              border: TableBorder.all(color: Colors.grey[300]!),
-              columnWidths: const {
-                0: FlexColumnWidth(1.5),
-                1: FlexColumnWidth(1),
-                2: FlexColumnWidth(1.2),
-                3: FlexColumnWidth(1),
-                4: FlexColumnWidth(1),
-              },
-              children: [
-                TableRow(
-                  decoration: const BoxDecoration(color: headerBg),
+          zeroHorizontalPadding: true,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 600),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                  color: Colors.white,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Table(
+                  border: TableBorder.all(color: Colors.grey[300]!),
+                  columnWidths: const {
+                    0: FixedColumnWidth(140),
+                    1: FixedColumnWidth(130),
+                    2: FixedColumnWidth(150),
+                    3: FixedColumnWidth(100),
+                    4: FixedColumnWidth(100),
+                  },
                   children: [
-                    _tableCell('', cellPadding, isHeader: true),
-                    _tableCell(
-                      'Consumption (kWh)',
-                      cellPadding,
-                      isHeader: true,
+                    TableRow(
+                      decoration: const BoxDecoration(color: headerBg),
+                      children: [
+                        _tableCell('', cellPadding, isHeader: true),
+                        _tableCell(
+                          'Consumption (kWh)',
+                          cellPadding,
+                          isHeader: true,
+                        ),
+                        _tableCell(
+                          'Average Energy (kWh)',
+                          cellPadding,
+                          isHeader: true,
+                        ),
+                        _tableCell('Peak (kW)', cellPadding, isHeader: true),
+                        _tableCell('EUI (kWh/m²)', cellPadding, isHeader: true),
+                      ],
                     ),
-                    _tableCell(
-                      'Average Energy (kWh)',
-                      cellPadding,
-                      isHeader: true,
+                    ...list.map(
+                      (b) => TableRow(
+                        children: [
+                          _tableCell(
+                            (b['buildingName'] ?? b['building_name'] ?? '—')
+                                .toString(),
+                            cellPadding,
+                            alignLeft: true,
+                            isBold: true,
+                          ),
+                          _tableCell(_formatNum(b['consumption']), cellPadding),
+                          _tableCell(
+                            _formatNum(b['average'] ?? b['averageEnergy']),
+                            cellPadding,
+                          ),
+                          _tableCell(_formatNum(b['peak']), cellPadding),
+                          _tableCell(_formatNum(b['eui']), cellPadding),
+                        ],
+                      ),
                     ),
-                    _tableCell('Peak (kW)', cellPadding, isHeader: true),
-                    _tableCell('EUI (kWh/m²)', cellPadding, isHeader: true),
                   ],
                 ),
-                ...list.map(
-                  (b) => TableRow(
-                    children: [
-                      _tableCell(
-                        (b['buildingName'] ?? b['building_name'] ?? '—')
-                            .toString(),
-                        cellPadding,
-                        alignLeft: true,
-                        isBold: true,
-                      ),
-                      _tableCell(_formatNum(b['consumption']), cellPadding),
-                      _tableCell(
-                        _formatNum(b['average'] ?? b['averageEnergy']),
-                        cellPadding,
-                      ),
-                      _tableCell(_formatNum(b['peak']), cellPadding),
-                      _tableCell(_formatNum(b['eui']), cellPadding),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -500,7 +548,7 @@ class ReportDetailView extends StatelessWidget {
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          // padding: const EdgeInsets.all(16),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final crossAxisCount = constraints.maxWidth > 500 ? 2 : 1;
@@ -912,6 +960,7 @@ class ReportDetailView extends StatelessWidget {
         _sectionWrapper(
           title: 'Consumption by hour',
           showBorder: false,
+          zeroHorizontalPadding: true,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1054,41 +1103,53 @@ class ReportDetailView extends StatelessWidget {
     bool zeroHorizontalPadding = false,
     double titleToContentSpacing = 10,
   }) {
-    final padding = zeroHorizontalPadding
-        ? const EdgeInsets.only(top: 8, bottom: 16)
-        : EdgeInsets.all(showBorder ? _cardPadding : 16);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title.toUpperCase(),
-          style: AppTextStyles.overline.copyWith(
-            color: Colors.grey[800],
-            letterSpacing: 1.2,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        SizedBox(height: titleToContentSpacing),
-        Container(
-          width: double.infinity,
-          padding: padding,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: showBorder
-                ? Border.all(color: Colors.grey[300]!, width: 1)
-                : null,
-          ),
-          child: child,
-        ),
-      ],
+    return Builder(
+      builder: (context) {
+        final isMobile = MediaQuery.of(context).size.width < 600;
+        final padding = zeroHorizontalPadding
+            ? const EdgeInsets.only(top: 8, bottom: 16)
+            : (isMobile
+                  ? EdgeInsets.only(
+                      top: showBorder ? _cardPadding : 16,
+                      bottom: showBorder ? _cardPadding : 16,
+                    )
+                  : EdgeInsets.all(showBorder ? _cardPadding : 16));
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title.toUpperCase(),
+              style: AppTextStyles.overline.copyWith(
+                color: Colors.grey[800],
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: titleToContentSpacing),
+            Container(
+              width: double.infinity,
+              padding: padding,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: showBorder
+                    ? Border.all(color: Colors.grey[300]!, width: 1)
+                    : null,
+              ),
+              child: child,
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildHeader(
+    BuildContext context,
     ReportDetailBuildingEntity building,
     ReportDetailReportingEntity reporting,
-    Map<String, dynamic>? timeRange,
-  ) {
+    Map<String, dynamic>? timeRange, {
+    required String reportId,
+  }) {
     String periodLabel = reporting.interval.isNotEmpty
         ? reporting.interval[0].toUpperCase() +
               reporting.interval.substring(1).toLowerCase()
@@ -1158,8 +1219,41 @@ class ReportDetailView extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               GestureDetector(
-                onTap: () {
-                  // TODO: Open period change dialog/sheet
+                onTap: () async {
+                  final now = DateTime.now();
+                  DateTimeRange initialRange = DateTimeRange(
+                    start: now.subtract(const Duration(days: 7)),
+                    end: now,
+                  );
+                  if (timeRange != null) {
+                    final start = _parseReportDate(
+                      timeRange['start'] ?? timeRange['startDate'],
+                    );
+                    final end = _parseReportDate(
+                      timeRange['end'] ?? timeRange['endDate'],
+                    );
+                    if (start != null && end != null) {
+                      initialRange = DateTimeRange(start: start, end: end);
+                    }
+                  }
+                  final range = await showDialog<DateTimeRange>(
+                    context: context,
+                    barrierColor: Colors.black26,
+                    builder: (context) => _ReportDateRangePickerDialog(
+                      initialRange: initialRange,
+                      firstDate: now.subtract(const Duration(days: 365)),
+                      lastDate: now,
+                    ),
+                  );
+                  if (range != null && context.mounted) {
+                    context.read<ReportDetailBloc>().add(
+                          ReportDetailRequested(
+                            reportId,
+                            startDate: range.start,
+                            endDate: range.end,
+                          ),
+                        );
+                  }
                 },
                 child: Text(
                   'Change',
@@ -1180,8 +1274,11 @@ class ReportDetailView extends StatelessWidget {
   Widget _buildRecipientsSection(List<ReportRecipientEntity> recipients) {
     return _sectionWrapper(
       title: 'Recipients',
-      child: Column(
-        children: recipients.map((r) {
+      zeroHorizontalPadding: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          children: recipients.map((r) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Row(
@@ -1227,6 +1324,7 @@ class ReportDetailView extends StatelessWidget {
             ),
           );
         }).toList(),
+        ),
       ),
     );
   }
@@ -1403,12 +1501,17 @@ class ReportDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildChartsSection(Map<String, dynamic> contents) {
+  Widget _buildChartsSection(
+    BuildContext context,
+    Map<String, dynamic> contents,
+  ) {
     final lineChart = _buildConsumptionAndAverageEnergyLineChart(contents);
     final peakLoadChart = _buildPeakLoadByRoomBarChart(contents);
     if (lineChart == null && peakLoadChart == null) {
       return const SizedBox.shrink();
     }
+    const chartPadding =
+        EdgeInsets.symmetric(horizontal: 16, vertical: 24);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1428,7 +1531,7 @@ class ReportDetailView extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 600),
               child: Container(
-                padding: const EdgeInsets.all(_cardPadding),
+                padding: chartPadding,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.grey[300]!, width: 1),
@@ -1445,7 +1548,11 @@ class ReportDetailView extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    SizedBox(height: _chartHeight, child: lineChart),
+                    SizedBox(
+                      width: 600,
+                      height: _chartHeight,
+                      child: lineChart,
+                    ),
                     const SizedBox(height: 16),
                     _buildLineChartLegend(),
                   ],
@@ -1461,7 +1568,7 @@ class ReportDetailView extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 600),
               child: Container(
-                padding: const EdgeInsets.all(_cardPadding),
+                padding: chartPadding,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.grey[300]!, width: 1),
@@ -1478,7 +1585,11 @@ class ReportDetailView extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    SizedBox(height: _chartHeight, child: peakLoadChart),
+                    SizedBox(
+                      width: 600,
+                      height: _chartHeight,
+                      child: peakLoadChart,
+                    ),
                   ],
                 ),
               ),
@@ -1977,6 +2088,146 @@ class ReportDetailView extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Compact date range picker dialog using table_calendar. Max 500x500.
+class _ReportDateRangePickerDialog extends StatefulWidget {
+  final DateTimeRange initialRange;
+  final DateTime firstDate;
+  final DateTime lastDate;
+
+  const _ReportDateRangePickerDialog({
+    required this.initialRange,
+    required this.firstDate,
+    required this.lastDate,
+  });
+
+  @override
+  State<_ReportDateRangePickerDialog> createState() =>
+      _ReportDateRangePickerDialogState();
+}
+
+class _ReportDateRangePickerDialogState
+    extends State<_ReportDateRangePickerDialog> {
+  late DateTime _focusedDay;
+  DateTime? _rangeStart;
+  DateTime? _rangeEnd;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusedDay = widget.initialRange.start;
+    _rangeStart = widget.initialRange.start;
+    _rangeEnd = widget.initialRange.end;
+  }
+
+  void _onRangeSelected(DateTime? start, DateTime? end, DateTime focusedDay) {
+    setState(() {
+      _rangeStart = start;
+      _rangeEnd = end;
+      _focusedDay = focusedDay;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 500),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TableCalendar(
+                firstDay: widget.firstDate,
+                lastDay: widget.lastDate,
+                focusedDay: _focusedDay,
+                rangeStartDay: _rangeStart,
+                rangeEndDay: _rangeEnd,
+                rangeSelectionMode: RangeSelectionMode.enforced,
+                onRangeSelected: _onRangeSelected,
+                onPageChanged: (day) => setState(() => _focusedDay = day),
+                calendarStyle: CalendarStyle(
+                  selectedDecoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  rangeHighlightColor: AppTheme.primary.withOpacity(0.2),
+                  rangeStartDecoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  rangeEndDecoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  todayDecoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                headerStyle: HeaderStyle(
+                  formatButtonVisible: false,
+                  titleCentered: true,
+                  leftChevronIcon: const Icon(Icons.chevron_left),
+                  rightChevronIcon: const Icon(Icons.chevron_right),
+                  headerPadding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+                daysOfWeekStyle: const DaysOfWeekStyle(
+                  weekdayStyle: TextStyle(fontWeight: FontWeight.w600),
+                  weekendStyle: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                rowHeight: 40,
+                daysOfWeekHeight: 24,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(color: Colors.grey[700]),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _rangeStart != null
+                        ? () {
+                            final start = _rangeStart!;
+                            final end = _rangeEnd ?? start;
+                            Navigator.of(context).pop(
+                              DateTimeRange(
+                                start: start.isBefore(end)
+                                    ? start
+                                    : end,
+                                end: start.isBefore(end)
+                                    ? end
+                                    : start,
+                              ),
+                            );
+                          }
+                        : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                    ),
+                    child: const Text('Apply'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

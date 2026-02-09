@@ -17,8 +17,10 @@ abstract class ReportsRepository {
     String buildingId,
   );
   Future<Either<Failure, ReportDetailResponse>> getReportDetail(
-    String reportId,
-  );
+    String reportId, {
+    DateTime? startDate,
+    DateTime? endDate,
+  });
 
   /// Fetches report view by token (public link, no auth required).
   Future<Either<Failure, ReportDetailResponse>> getReportViewByToken(

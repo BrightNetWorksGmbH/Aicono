@@ -8,7 +8,15 @@ class GetReportDetailUseCase {
 
   GetReportDetailUseCase({required this.repository});
 
-  Future<Either<Failure, ReportDetailResponse>> call(String reportId) async {
-    return repository.getReportDetail(reportId);
+  Future<Either<Failure, ReportDetailResponse>> call(
+    String reportId, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    return repository.getReportDetail(
+      reportId,
+      startDate: startDate,
+      endDate: endDate,
+    );
   }
 }
