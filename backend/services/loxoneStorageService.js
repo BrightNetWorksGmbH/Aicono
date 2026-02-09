@@ -1162,6 +1162,15 @@ class LoxoneStorageService {
 
         return { stored: storedCount, skipped: skippedCount };
     }
+
+    /**
+     * Get UUID map for a server (for real-time broadcasting)
+     * @param {string} serialNumber - Server serial number
+     * @returns {Map|null} UUID to sensor mapping or null if not loaded
+     */
+    getUuidMap(serialNumber) {
+        return uuidMaps.get(serialNumber) || null;
+    }
 }
 
 module.exports = new LoxoneStorageService();

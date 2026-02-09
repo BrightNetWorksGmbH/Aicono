@@ -770,6 +770,18 @@ class LoxoneConnectionManager {
             } catch (err) {
                 console.error(`[LOXONE] [${serialNumber}] Error enqueueing measurements:`, err.message);
             }
+
+            // Broadcast to real-time subscribers (non-blocking)
+            try {
+                const sensorRealtimeService = require('./sensorRealtimeService');
+                sensorRealtimeService.broadcastMeasurement(serialNumber, measurements)
+                    .catch(err => {
+                        // Silent fail - don't block storage
+                        console.error(`[LOXONE] [${serialNumber}] Error broadcasting:`, err.message);
+                    });
+            } catch (err) {
+                // Silent fail
+            }
         }
     }
 
