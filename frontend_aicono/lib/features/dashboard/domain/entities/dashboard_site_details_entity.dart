@@ -299,16 +299,59 @@ class DashboardKpis {
               .toList()
         : <DashboardKpiBreakdownItem>[];
 
-    return DashboardKpis(
-      totalConsumption: _toDouble(json['total_consumption']),
-      peak: _toDouble(json['peak']),
-      base: _toDouble(json['base']),
-      average: _toDouble(json['average']),
-      averageQuality: (json['average_quality'] is int)
+    // API returns either nested format (energy, power, quality) or flat format
+    final energy = json['energy'] is Map<String, dynamic>
+        ? json['energy'] as Map<String, dynamic>
+        : null;
+    final power = json['power'] is Map<String, dynamic>
+        ? json['power'] as Map<String, dynamic>
+        : null;
+    final quality = json['quality'] is Map<String, dynamic>
+        ? json['quality'] as Map<String, dynamic>
+        : null;
+
+    double totalConsumption;
+    double peak;
+    double base;
+    double average;
+    String unit;
+    int averageQuality;
+    bool dataQualityWarning;
+
+    if (energy != null || power != null || quality != null) {
+      // Nested format: kpis.energy, kpis.power, kpis.quality
+      totalConsumption = _toDouble(energy?['total_consumption']);
+      peak = _toDouble(power?['peak']);
+      base = _toDouble(energy?['base']);
+      average = _toDouble(energy?['average']) != 0
+          ? _toDouble(energy?['average'])
+          : _toDouble(power?['average']);
+      unit = (energy?['unit'] ?? power?['unit'] ?? '').toString();
+      averageQuality = (quality?['average'] is int)
+          ? quality!['average'] as int
+          : int.tryParse('${quality?['average']}') ?? 0;
+      dataQualityWarning = quality?['warning'] == true;
+    } else {
+      // Flat format (legacy / empty state)
+      totalConsumption = _toDouble(json['total_consumption']);
+      peak = _toDouble(json['peak']);
+      base = _toDouble(json['base']);
+      average = _toDouble(json['average']);
+      unit = (json['unit'] ?? '').toString();
+      averageQuality = (json['average_quality'] is int)
           ? json['average_quality'] as int
-          : int.tryParse('${json['average_quality']}') ?? 0,
-      unit: (json['unit'] ?? '').toString(),
-      dataQualityWarning: json['data_quality_warning'] == true,
+          : int.tryParse('${json['average_quality']}') ?? 0;
+      dataQualityWarning = json['data_quality_warning'] == true;
+    }
+
+    return DashboardKpis(
+      totalConsumption: totalConsumption,
+      peak: peak,
+      base: base,
+      average: average,
+      averageQuality: averageQuality,
+      unit: unit,
+      dataQualityWarning: dataQualityWarning,
       breakdown: breakdown,
     );
   }

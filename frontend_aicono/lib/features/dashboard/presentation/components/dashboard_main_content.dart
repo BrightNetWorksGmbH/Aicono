@@ -294,49 +294,6 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     );
   }
 
-  Widget _buildSiteDropdown(DashboardSitesSuccess sitesState) {
-    final detailsState = context.watch<DashboardSiteDetailsBloc>().state;
-    String? selectedSiteId;
-    if (detailsState is DashboardSiteDetailsLoading) {
-      selectedSiteId = detailsState.siteId;
-    } else if (detailsState is DashboardSiteDetailsSuccess) {
-      selectedSiteId = detailsState.siteId;
-    } else if (detailsState is DashboardSiteDetailsFailure) {
-      selectedSiteId = detailsState.siteId;
-    }
-
-    final value = selectedSiteId ?? sitesState.sites.first.id;
-
-    return Row(
-      children: [
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            value: value,
-            decoration: const InputDecoration(
-              labelText: 'Select site',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            items: sitesState.sites
-                .map(
-                  (s) => DropdownMenuItem<String>(
-                    value: s.id,
-                    child: Text(s.name, overflow: TextOverflow.ellipsis),
-                  ),
-                )
-                .toList(),
-            onChanged: (id) {
-              if (id == null) return;
-              context.read<DashboardSiteDetailsBloc>().add(
-                DashboardSiteDetailsRequested(siteId: id),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildSiteDetails() {
     return BlocBuilder<DashboardSiteDetailsBloc, DashboardSiteDetailsState>(
       builder: (context, state) {
@@ -397,89 +354,51 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
           final d = state.details;
           final kpis = d.kpis;
 
-          // Show the display widget
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    d.name,
-                    style: AppTextStyles.titleMedium.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
+              _buildPropertyOverviewSection(
+                title: d.name,
+                address: d.address,
+                onEdit: () {
+                  context.pushNamed(
+                    Routelists.editSite,
+                    queryParameters: {'siteId': state.siteId},
+                  );
+                },
+                metricCards: [
+                  _buildPropertyMetricCard(
+                    label: 'Buildings',
+                    value: '${d.buildingCount}',
+                    icon: Icons.apartment,
                   ),
-                  TextButton(
-                    onPressed: () {
-                      context.pushNamed(
-                        Routelists.editSite,
-                        queryParameters: {'siteId': state.siteId},
-                      );
-                    },
-                    child: Text(
-                      'Edit',
-                      style: AppTextStyles.titleSmall.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
+                  _buildPropertyMetricCard(
+                    label: 'Rooms',
+                    value: '${d.totalRooms}',
+                    icon: Icons.door_front_door,
+                  ),
+                  _buildPropertyMetricCard(
+                    label: 'Sensors',
+                    value: '${d.totalSensors}',
+                    icon: Icons.sensors,
+                  ),
+                  _buildPropertyMetricCard(
+                    label: 'Floors',
+                    value: '${d.totalFloors}',
+                    icon: Icons.layers,
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                d.address,
-                style: AppTextStyles.titleSmall.copyWith(
-                  color: Colors.grey[700],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  _kpiTile(label: 'Buildings', value: '${d.buildingCount}'),
-                  _kpiTile(label: 'Floors', value: '${d.totalFloors}'),
-                  _kpiTile(label: 'Rooms', value: '${d.totalRooms}'),
-                  _kpiTile(label: 'Sensors', value: '${d.totalSensors}'),
-                ],
-              ),
-              const SizedBox(height: 16),
               if (kpis != null) ...[
-                Text(
-                  'KPIs (${kpis.unit})',
-                  style: AppTextStyles.titleMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                const SizedBox(height: 32),
+                _buildPropertyKpiSection(
+                  title: 'Site KPIs',
+                  subtitle:
+                      'Aggregate energy performance and load metrics for the current period. ${kpis.unit}',
+                  kpis: kpis,
                 ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _kpiTile(
-                      label: 'Total',
-                      value: kpis.totalConsumption.toStringAsFixed(3),
-                    ),
-                    _kpiTile(
-                      label: 'Peak',
-                      value: kpis.peak.toStringAsFixed(3),
-                    ),
-                    _kpiTile(
-                      label: 'Base',
-                      value: kpis.base.toStringAsFixed(3),
-                    ),
-                    _kpiTile(
-                      label: 'Average',
-                      value: kpis.average.toStringAsFixed(3),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
               ],
+              const SizedBox(height: 24),
               Text(
                 'Buildings',
                 style: AppTextStyles.titleMedium.copyWith(
@@ -487,7 +406,14 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                   color: Colors.black87,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
+              Text(
+                'Select a building from the sidebar to view details.',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 16),
               if (d.buildings.isEmpty)
                 Text(
                   'No buildings for this site yet.',
@@ -502,52 +428,11 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     final subtitle = bk == null
                         ? 'No KPI data'
                         : 'Total: ${bk.totalConsumption.toStringAsFixed(3)} ${bk.unit}';
-                    return Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey[200]!),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.apartment,
-                            color: AppTheme.primary,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  b.name,
-                                  style: AppTextStyles.titleSmall.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  subtitle,
-                                  style: AppTextStyles.labelSmall.copyWith(
-                                    color: Colors.grey[700],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Text(
-                            '${b.sensorCount} sensors',
-                            style: AppTextStyles.labelSmall.copyWith(
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                        ],
-                      ),
+                    return _buildPropertyListItem(
+                      icon: Icons.apartment,
+                      title: b.name,
+                      subtitle: '${b.floorCount} floors · $subtitle',
+                      trailing: '${b.sensorCount} sensors',
                     );
                   }).toList(),
                 ),
@@ -616,120 +501,34 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Room Details',
-                style: AppTextStyles.titleLarge.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  context.pushNamed(
-                    Routelists.editRoom,
-                    queryParameters: {'roomId': state.roomId},
-                  );
-                },
-                child: Text(
-                  'Edit',
-                  style: AppTextStyles.titleSmall.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
+          _buildPropertyOverviewSection(
+            title: d.name,
+            address: d.loxoneRoomId != null
+                ? 'Loxone: ${d.loxoneRoomId!.name}'
+                : null,
+            onEdit: () {
+              context.pushNamed(
+                Routelists.editRoom,
+                queryParameters: {'roomId': state.roomId},
+              );
+            },
+            metricCards: [
+              _buildPropertyMetricCard(
+                label: 'Sensors',
+                value: '${d.sensorCount}',
+                icon: Icons.sensors,
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          _buildCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Color(
-                          int.parse(d.color.replaceFirst('#', '0xFF')),
-                        ),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            d.name,
-                            style: AppTextStyles.titleMedium.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          if (d.loxoneRoomId != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              'Loxone: ${d.loxoneRoomId!.name}',
-                              style: AppTextStyles.titleSmall.copyWith(
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _kpiTile(label: 'Sensors', value: '${d.sensorCount}'),
-                  ],
-                ),
-                if (kpis != null) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    'KPIs (${kpis.unit})',
-                    style: AppTextStyles.titleMedium.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      _kpiTile(
-                        label: 'Total',
-                        value: kpis.totalConsumption.toStringAsFixed(3),
-                      ),
-                      _kpiTile(
-                        label: 'Peak',
-                        value: kpis.peak.toStringAsFixed(3),
-                      ),
-                      _kpiTile(
-                        label: 'Base',
-                        value: kpis.base.toStringAsFixed(3),
-                      ),
-                      _kpiTile(
-                        label: 'Average',
-                        value: kpis.average.toStringAsFixed(3),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
+          if (kpis != null) ...[
+            const SizedBox(height: 32),
+            _buildPropertyKpiSection(
+              title: 'Room KPIs',
+              subtitle:
+                  'Energy performance and load metrics for the current period. ${kpis.unit}',
+              kpis: kpis,
             ),
-          ),
+          ],
         ],
       );
     }
@@ -790,92 +589,44 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
       final d = state.details;
       final kpis = d.kpis;
 
-      // Show the display widget
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Floor Details',
-                style: AppTextStyles.titleLarge.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+          _buildPropertyOverviewSection(
+            title: d.name,
+            onEdit: () {
+              context.pushNamed(
+                Routelists.editFloor,
+                queryParameters: {'floorId': state.floorId},
+              );
+            },
+            metricCards: [
+              _buildPropertyMetricCard(
+                label: 'Rooms',
+                value: '${d.roomCount}',
+                icon: Icons.door_front_door,
               ),
-              TextButton(
-                onPressed: () {
-                  context.pushNamed(
-                    Routelists.editFloor,
-                    queryParameters: {'floorId': state.floorId},
-                  );
-                },
-                child: Text(
-                  'Edit',
-                  style: AppTextStyles.titleSmall.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
+              _buildPropertyMetricCard(
+                label: 'Sensors',
+                value: '${d.sensorCount}',
+                icon: Icons.sensors,
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          if (kpis != null) ...[
+            const SizedBox(height: 32),
+            _buildPropertyKpiSection(
+              title: 'Floor KPIs',
+              subtitle:
+                  'Aggregate energy performance and load metrics for the current period. ${kpis.unit}',
+              kpis: kpis,
+            ),
+          ],
+          const SizedBox(height: 24),
           _buildCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  d.name,
-                  style: AppTextStyles.titleMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _kpiTile(label: 'Rooms', value: '${d.roomCount}'),
-                    _kpiTile(label: 'Sensors', value: '${d.sensorCount}'),
-                  ],
-                ),
-                if (kpis != null) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    'KPIs (${kpis.unit})',
-                    style: AppTextStyles.titleMedium.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      _kpiTile(
-                        label: 'Total',
-                        value: kpis.totalConsumption.toStringAsFixed(3),
-                      ),
-                      _kpiTile(
-                        label: 'Peak',
-                        value: kpis.peak.toStringAsFixed(3),
-                      ),
-                      _kpiTile(
-                        label: 'Base',
-                        value: kpis.base.toStringAsFixed(3),
-                      ),
-                      _kpiTile(
-                        label: 'Average',
-                        value: kpis.average.toStringAsFixed(3),
-                      ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 16),
                 // Floor Plan Image
                 if (d.floorPlanLink != null && d.floorPlanLink!.isNotEmpty) ...[
                   Text(
@@ -908,7 +659,14 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
+                Text(
+                  'Select a room from the sidebar to view details.',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 if (d.rooms.isEmpty)
                   Text(
                     'No rooms on this floor.',
@@ -919,47 +677,18 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 else
                   Column(
                     children: d.rooms.map((room) {
-                      return Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.grey[200]!),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: Color(
-                                  int.parse(
-                                    room.color.replaceFirst('#', '0xFF'),
-                                  ),
-                                ),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                room.name,
-                                style: AppTextStyles.titleSmall.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '${room.sensorCount} sensors',
-                              style: AppTextStyles.labelSmall.copyWith(
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                          ],
-                        ),
+                      Color? roomColor;
+                      try {
+                        roomColor = Color(
+                          int.parse(room.color.replaceFirst('#', '0xFF')),
+                        );
+                      } catch (_) {}
+                      return _buildPropertyListItem(
+                        icon: Icons.door_front_door,
+                        title: room.name,
+                        subtitle: null,
+                        trailing: '${room.sensorCount} sensors',
+                        iconColor: roomColor,
                       );
                     }).toList(),
                   ),
@@ -1028,106 +757,61 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
       final d = state.details;
       final kpis = d.kpis;
 
-      // Show the display widget
+      final metricCards = <Widget>[
+        _buildPropertyMetricCard(
+          label: 'Floors',
+          value: '${d.floorCount}',
+          icon: Icons.layers,
+        ),
+        _buildPropertyMetricCard(
+          label: 'Rooms',
+          value: '${d.roomCount}',
+          icon: Icons.door_front_door,
+        ),
+        _buildPropertyMetricCard(
+          label: 'Sensors',
+          value: '${d.sensorCount}',
+          icon: Icons.sensors,
+        ),
+      ];
+      if (d.buildingSize != null) {
+        metricCards.add(
+          _buildPropertyMetricCard(
+            label: 'Size (m²)',
+            value: '${d.buildingSize}',
+            icon: Icons.square_foot,
+          ),
+        );
+      }
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Building Details',
-                style: AppTextStyles.titleLarge.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  context.pushNamed(
-                    Routelists.editBuilding,
-                    queryParameters: {'buildingId': state.buildingId},
-                  );
-                },
-                child: Text(
-                  'Edit',
-                  style: AppTextStyles.titleSmall.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-            ],
+          _buildPropertyOverviewSection(
+            title: d.name,
+            address: d.typeOfUse,
+            onEdit: () {
+              context.pushNamed(
+                Routelists.editBuilding,
+                queryParameters: {'buildingId': state.buildingId},
+              );
+            },
+            metricCards: metricCards,
           ),
-          const SizedBox(height: 12),
+          if (kpis != null) ...[
+            const SizedBox(height: 32),
+            _buildPropertyKpiSection(
+              title: 'Building KPIs',
+              subtitle:
+                  'Aggregate energy performance and load metrics for the current period. ${kpis.unit}',
+              kpis: kpis,
+            ),
+          ],
+          const SizedBox(height: 24),
           _buildCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  d.name,
-                  style: AppTextStyles.titleMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                if (d.typeOfUse != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Type: ${d.typeOfUse}',
-                    style: AppTextStyles.titleSmall.copyWith(
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _kpiTile(label: 'Floors', value: '${d.floorCount}'),
-                    _kpiTile(label: 'Rooms', value: '${d.roomCount}'),
-                    _kpiTile(label: 'Sensors', value: '${d.sensorCount}'),
-                    if (d.buildingSize != null)
-                      _kpiTile(label: 'Size', value: '${d.buildingSize} m²'),
-                    if (d.yearOfConstruction != null)
-                      _kpiTile(label: 'Year', value: '${d.yearOfConstruction}'),
-                  ],
-                ),
-                if (kpis != null) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    'KPIs (${kpis.unit})',
-                    style: AppTextStyles.titleMedium.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      _kpiTile(
-                        label: 'Total',
-                        value: kpis.totalConsumption.toStringAsFixed(3),
-                      ),
-                      _kpiTile(
-                        label: 'Peak',
-                        value: kpis.peak.toStringAsFixed(3),
-                      ),
-                      _kpiTile(
-                        label: 'Base',
-                        value: kpis.base.toStringAsFixed(3),
-                      ),
-                      _kpiTile(
-                        label: 'Average',
-                        value: kpis.average.toStringAsFixed(3),
-                      ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 16),
                 Text(
                   'Floors',
                   style: AppTextStyles.titleMedium.copyWith(
@@ -1135,7 +819,14 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
+                Text(
+                  'Select a floor from the sidebar to view details.',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 if (d.floors.isEmpty)
                   Text(
                     'No floors in this building yet.',
@@ -1146,46 +837,15 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 else
                   Column(
                     children: d.floors.map((floor) {
-                      return Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.grey[200]!),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.layers,
-                              color: AppTheme.primary,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    floor.name,
-                                    style: AppTextStyles.titleSmall.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${floor.roomCount} rooms',
-                                    style: AppTextStyles.labelSmall.copyWith(
-                                      color: Colors.grey[700],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                      final sensorCount = floor.rooms.fold<int>(
+                        0,
+                        (sum, r) => sum + r.sensorCount,
+                      );
+                      return _buildPropertyListItem(
+                        icon: Icons.layers,
+                        title: floor.name,
+                        subtitle: '${floor.roomCount} rooms',
+                        trailing: sensorCount > 0 ? '$sensorCount sensors' : null,
                       );
                     }).toList(),
                   ),
@@ -1199,34 +859,6 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     return const SizedBox.shrink();
   }
 
-  Widget _kpiTile({required String label, required String value}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: AppTextStyles.labelSmall.copyWith(color: Colors.grey[700]),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: AppTextStyles.titleSmall.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCard({required Widget child}) {
     return Container(
       width: double.infinity,
@@ -1237,6 +869,386 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
         border: Border.all(color: Colors.grey[200]!),
       ),
       child: child,
+    );
+  }
+
+  static const Color _metricIconTeal = Color(0xFF00897B);
+
+  Widget _buildPropertyListItem({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    String? trailing,
+    Color? iconColor,
+  }) {
+    final effectiveColor = iconColor ?? _metricIconTeal;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: effectiveColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: effectiveColor, size: 22),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                if (subtitle != null && subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailing != null && trailing.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                trailing,
+                style: AppTextStyles.labelSmall.copyWith(
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey[700],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPropertyMetricCard({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                    fontSize: 22,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: _metricIconTeal.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: _metricIconTeal, size: 22),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPropertyOverviewSection({
+    required String title,
+    String? address,
+    required List<Widget> metricCards,
+    VoidCallback? onEdit,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTextStyles.titleLarge.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  if (address != null && address.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 16,
+                          color: Colors.grey[600],
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            address,
+                            style: AppTextStyles.titleSmall.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (onEdit != null)
+              TextButton(
+                onPressed: onEdit,
+                child: Text(
+                  'Edit',
+                  style: AppTextStyles.titleSmall.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isNarrow = constraints.maxWidth < 700;
+            if (isNarrow) {
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: metricCards
+                    .map(
+                      (w) => SizedBox(
+                        width: (constraints.maxWidth - 12) / 2,
+                        child: w,
+                      ),
+                    )
+                    .toList(),
+              );
+            }
+            return Row(
+              children: [
+                for (int i = 0; i < metricCards.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 12),
+                  Expanded(child: metricCards[i]),
+                ],
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKpiMetricCard({
+    required String label,
+    required String value,
+    required Color indicatorColor,
+  }) {
+    return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: AppTextStyles.titleMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                      fontSize: 22,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: indicatorColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
+        ),
+      );
+  }
+
+  Widget _buildPropertyKpiSection({
+    required String title,
+    required String subtitle,
+    required dynamic kpis,
+  }) {
+    if (kpis == null) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: AppTextStyles.titleMedium.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: AppTextStyles.labelSmall.copyWith(
+            color: Colors.grey[600],
+          ),
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isNarrow = constraints.maxWidth < 700;
+            if (isNarrow) {
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: (constraints.maxWidth - 12) / 2,
+                    child: _buildKpiMetricCard(
+                      label: 'Total',
+                      value: kpis.totalConsumption.toStringAsFixed(3),
+                      indicatorColor: const Color(0xFF64B5F6),
+                    ),
+                  ),
+                  SizedBox(
+                    width: (constraints.maxWidth - 12) / 2,
+                    child: _buildKpiMetricCard(
+                      label: 'Peak',
+                      value: kpis.peak.toStringAsFixed(3),
+                      indicatorColor: const Color(0xFFFFB74D),
+                    ),
+                  ),
+                  SizedBox(
+                    width: (constraints.maxWidth - 12) / 2,
+                    child: _buildKpiMetricCard(
+                      label: 'Average',
+                      value: kpis.average.toStringAsFixed(3),
+                      indicatorColor: const Color(0xFFFFEE58),
+                    ),
+                  ),
+                  SizedBox(
+                    width: (constraints.maxWidth - 12) / 2,
+                    child: _buildKpiMetricCard(
+                      label: 'Base',
+                      value: kpis.base.toStringAsFixed(3),
+                      indicatorColor: Colors.grey[400]!,
+                    ),
+                  ),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(
+                  child: _buildKpiMetricCard(
+                    label: 'Total',
+                    value: kpis.totalConsumption.toStringAsFixed(3),
+                    indicatorColor: const Color(0xFF64B5F6),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildKpiMetricCard(
+                    label: 'Peak',
+                    value: kpis.peak.toStringAsFixed(3),
+                    indicatorColor: const Color(0xFFFFB74D),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildKpiMetricCard(
+                    label: 'Average',
+                    value: kpis.average.toStringAsFixed(3),
+                    indicatorColor: const Color(0xFFFFEE58),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildKpiMetricCard(
+                    label: 'Base',
+                    value: kpis.base.toStringAsFixed(3),
+                    indicatorColor: Colors.grey[400]!,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 
