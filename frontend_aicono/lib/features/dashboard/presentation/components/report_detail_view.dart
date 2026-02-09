@@ -125,6 +125,9 @@ class ReportDetailView extends StatelessWidget {
     ReportDetailEntity detail,
     List<ReportRecipientEntity> recipients,
   ) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = screenWidth < 600 ? 12.0 : 20.0;
+
     final building = detail.building;
     final reporting = detail.reporting;
     final reportData = detail.reportData;
@@ -138,7 +141,10 @@ class ReportDetailView extends StatelessWidget {
             : null);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: 24,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -189,96 +195,99 @@ class ReportDetailView extends StatelessWidget {
         _sectionWrapper(
           title: 'PeriodComparison',
           showBorder: false,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[300]!),
-              color: Colors.white,
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Table(
-              border: TableBorder.all(color: Colors.grey[300]!),
-              columnWidths: const {
-                0: FlexColumnWidth(1.8),
-                1: FlexColumnWidth(1),
-                2: FlexColumnWidth(1),
-                3: FlexColumnWidth(1),
-              },
-              children: [
-                // Header row
-                TableRow(
-                  decoration: const BoxDecoration(color: headerBg),
-                  children: [
-                    _tableCell('', cellPadding, isHeader: true),
-                    _tableCell(
-                      'Consumption (kWh)',
-                      cellPadding,
-                      isHeader: true,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[300]!),
+                color: Colors.white,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Table(
+                border: TableBorder.all(color: Colors.grey[300]!),
+                columnWidths: const {
+                  0: FlexColumnWidth(1.8),
+                  1: FlexColumnWidth(1),
+                  2: FlexColumnWidth(1),
+                  3: FlexColumnWidth(1),
+                },
+                children: [
+                  // Header row
+                  TableRow(
+                    decoration: const BoxDecoration(color: headerBg),
+                    children: [
+                      _tableCell('', cellPadding, isHeader: true),
+                      _tableCell(
+                        'Consumption (kWh)',
+                        cellPadding,
+                        isHeader: true,
+                      ),
+                      _tableCell('Average Energy', cellPadding, isHeader: true),
+                      _tableCell('Peak (kW)', cellPadding, isHeader: true),
+                    ],
+                  ),
+                  if (current != null)
+                    TableRow(
+                      children: [
+                        _tableCell(
+                          _formatPeriod(current['period']),
+                          cellPadding,
+                          alignLeft: true,
+                        ),
+                        _tableCell(
+                          _formatNum(current['consumption']),
+                          cellPadding,
+                        ),
+                        _tableCell(
+                          _formatNum(
+                            current['averageEnergy'] ?? current['average'],
+                          ),
+                          cellPadding,
+                        ),
+                        _tableCell(_formatNum(current['peak']), cellPadding),
+                      ],
                     ),
-                    _tableCell('Average Energy', cellPadding, isHeader: true),
-                    _tableCell('Peak (kW)', cellPadding, isHeader: true),
-                  ],
-                ),
-                if (current != null)
-                  TableRow(
-                    children: [
-                      _tableCell(
-                        _formatPeriod(current['period']),
-                        cellPadding,
-                        alignLeft: true,
-                      ),
-                      _tableCell(
-                        _formatNum(current['consumption']),
-                        cellPadding,
-                      ),
-                      _tableCell(
-                        _formatNum(
-                          current['averageEnergy'] ?? current['average'],
+                  if (previous != null)
+                    TableRow(
+                      children: [
+                        _tableCell(
+                          _formatPeriod(previous['period']),
+                          cellPadding,
+                          alignLeft: true,
                         ),
-                        cellPadding,
-                      ),
-                      _tableCell(_formatNum(current['peak']), cellPadding),
-                    ],
-                  ),
-                if (previous != null)
-                  TableRow(
-                    children: [
-                      _tableCell(
-                        _formatPeriod(previous['period']),
-                        cellPadding,
-                        alignLeft: true,
-                      ),
-                      _tableCell(
-                        _formatNum(previous['consumption']),
-                        cellPadding,
-                      ),
-                      _tableCell(
-                        _formatNum(
-                          previous['averageEnergy'] ?? previous['average'],
+                        _tableCell(
+                          _formatNum(previous['consumption']),
+                          cellPadding,
                         ),
-                        cellPadding,
-                      ),
-                      _tableCell(_formatNum(previous['peak']), cellPadding),
-                    ],
-                  ),
-                if (change != null)
-                  TableRow(
-                    children: [
-                      _tableCell('Change', cellPadding, alignLeft: true),
-                      _tableCell(
-                        _formatNum(change['consumption']),
-                        cellPadding,
-                      ),
-                      _tableCell(
-                        _formatNum(
-                          change['averageEnergy'] ?? change['average'],
+                        _tableCell(
+                          _formatNum(
+                            previous['averageEnergy'] ?? previous['average'],
+                          ),
+                          cellPadding,
                         ),
-                        cellPadding,
-                      ),
-                      _tableCell(_formatNum(change['peak']), cellPadding),
-                    ],
-                  ),
-              ],
+                        _tableCell(_formatNum(previous['peak']), cellPadding),
+                      ],
+                    ),
+                  if (change != null)
+                    TableRow(
+                      children: [
+                        _tableCell('Change', cellPadding, alignLeft: true),
+                        _tableCell(
+                          _formatNum(change['consumption']),
+                          cellPadding,
+                        ),
+                        _tableCell(
+                          _formatNum(
+                            change['averageEnergy'] ?? change['average'],
+                          ),
+                          cellPadding,
+                        ),
+                        _tableCell(_formatNum(change['peak']), cellPadding),
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1414,55 +1423,65 @@ class ReportDetailView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         if (lineChart != null) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(_cardPadding),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey[300]!, width: 1),
-              color: Colors.white,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Average Energy and Consumption by room (kWh)',
-                  style: AppTextStyles.titleSmall.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[800],
-                  ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 600),
+              child: Container(
+                padding: const EdgeInsets.all(_cardPadding),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey[300]!, width: 1),
+                  color: Colors.white,
                 ),
-                const SizedBox(height: 20),
-                SizedBox(height: _chartHeight, child: lineChart),
-                const SizedBox(height: 16),
-                _buildLineChartLegend(),
-              ],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Average Energy and Consumption by room (kWh)',
+                      style: AppTextStyles.titleSmall.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(height: _chartHeight, child: lineChart),
+                    const SizedBox(height: 16),
+                    _buildLineChartLegend(),
+                  ],
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 20),
         ],
         if (peakLoadChart != null)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(_cardPadding),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey[300]!, width: 1),
-              color: Colors.white,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Peak load by room (kW)',
-                  style: AppTextStyles.titleSmall.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[800],
-                  ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 600),
+              child: Container(
+                padding: const EdgeInsets.all(_cardPadding),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey[300]!, width: 1),
+                  color: Colors.white,
                 ),
-                const SizedBox(height: 20),
-                SizedBox(height: _chartHeight, child: peakLoadChart),
-              ],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Peak load by room (kW)',
+                      style: AppTextStyles.titleSmall.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(height: _chartHeight, child: peakLoadChart),
+                  ],
+                ),
+              ),
             ),
           ),
       ],
