@@ -21,8 +21,10 @@ abstract class ReportsRemoteDataSource {
     String buildingId,
   );
   Future<Either<Failure, ReportDetailResponse>> getReportDetail(
-    String reportId,
-  );
+    String reportId, {
+    DateTime? startDate,
+    DateTime? endDate,
+  });
 
   /// Fetches report view by token (public link, no auth required).
   Future<Either<Failure, ReportDetailResponse>> getReportViewByToken(
@@ -182,14 +184,23 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
 
   @override
   Future<Either<Failure, ReportDetailResponse>> getReportDetail(
-    String reportId,
-  ) async {
+    String reportId, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
     try {
+      final end = endDate ?? DateTime.now();
+      final start = startDate ?? end.subtract(const Duration(days: 7));
+      final params = <String, String>{
+        'startDate': _toIso8601Param(start),
+        'endDate': _toIso8601Param(end),
+      };
       if (kDebugMode) {
-        print('📤 Reports getReportDetail reportId=$reportId');
+        print('📤 Reports getReportDetail reportId=$reportId $params');
       }
       final response = await dioClient.get(
         '/api/v1/dashboard/reports/view/$reportId',
+        queryParameters: params,
       );
       if (response.statusCode == 200) {
         final data = response.data;
@@ -223,6 +234,11 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       }
       return Left(ServerFailure('Unexpected error: $e'));
     }
+  }
+
+  static String _toIso8601Param(DateTime date) {
+    final d = DateTime.utc(date.year, date.month, date.day);
+    return '${d.toIso8601String().split('.')[0]}Z';
   }
 
   @override

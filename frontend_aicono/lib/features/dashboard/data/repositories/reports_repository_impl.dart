@@ -36,9 +36,15 @@ class ReportsRepositoryImpl implements ReportsRepository {
 
   @override
   Future<Either<Failure, ReportDetailResponse>> getReportDetail(
-    String reportId,
-  ) async {
-    return remoteDataSource.getReportDetail(reportId);
+    String reportId, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    return remoteDataSource.getReportDetail(
+      reportId,
+      startDate: startDate,
+      endDate: endDate,
+    );
   }
 
   @override

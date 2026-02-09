@@ -12,9 +12,15 @@ abstract class ReportDetailEvent extends Equatable {
 
 class ReportDetailRequested extends ReportDetailEvent {
   final String reportId;
-  const ReportDetailRequested(this.reportId);
+  final DateTime? startDate;
+  final DateTime? endDate;
+  const ReportDetailRequested(
+    this.reportId, {
+    this.startDate,
+    this.endDate,
+  });
   @override
-  List<Object?> get props => [reportId];
+  List<Object?> get props => [reportId, startDate, endDate];
 }
 
 class ReportDetailReset extends ReportDetailEvent {}
@@ -62,7 +68,11 @@ class ReportDetailBloc extends Bloc<ReportDetailEvent, ReportDetailState> {
     Emitter<ReportDetailState> emit,
   ) async {
     emit(ReportDetailLoading(event.reportId));
-    final result = await getReportDetailUseCase(event.reportId);
+    final result = await getReportDetailUseCase(
+      event.reportId,
+      startDate: event.startDate,
+      endDate: event.endDate,
+    );
     result.fold(
       (failure) => emit(ReportDetailFailure(message: _mapFailure(failure))),
       (response) {
