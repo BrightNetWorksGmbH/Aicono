@@ -17,10 +17,7 @@ class DashboardRoomDetailsRequested extends DashboardRoomDetailsEvent {
   final String roomId;
   final DashboardDetailsFilter? filter;
 
-  const DashboardRoomDetailsRequested({
-    required this.roomId,
-    this.filter,
-  });
+  const DashboardRoomDetailsRequested({required this.roomId, this.filter});
 
   @override
   List<Object?> get props => [roomId, filter];
@@ -78,9 +75,8 @@ class DashboardRoomDetailsBloc
     extends Bloc<DashboardRoomDetailsEvent, DashboardRoomDetailsState> {
   final GetDashboardRoomDetailsUseCase getDashboardRoomDetailsUseCase;
 
-  DashboardRoomDetailsBloc({
-    required this.getDashboardRoomDetailsUseCase,
-  }) : super(DashboardRoomDetailsInitial()) {
+  DashboardRoomDetailsBloc({required this.getDashboardRoomDetailsUseCase})
+    : super(DashboardRoomDetailsInitial()) {
     on<DashboardRoomDetailsRequested>(_onRequested);
     on<DashboardRoomDetailsReset>(
       (event, emit) => emit(DashboardRoomDetailsInitial()),
@@ -116,10 +112,7 @@ class DashboardRoomDetailsBloc
           return;
         }
         emit(
-          DashboardRoomDetailsSuccess(
-            roomId: event.roomId,
-            details: details,
-          ),
+          DashboardRoomDetailsSuccess(roomId: event.roomId, details: details),
         );
       },
     );

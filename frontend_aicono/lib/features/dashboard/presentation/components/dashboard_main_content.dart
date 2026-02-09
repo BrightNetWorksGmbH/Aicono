@@ -845,7 +845,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                         icon: Icons.layers,
                         title: floor.name,
                         subtitle: '${floor.roomCount} rooms',
-                        trailing: sensorCount > 0 ? '$sensorCount sensors' : null,
+                        trailing: sensorCount > 0
+                            ? '$sensorCount sensors'
+                            : null,
                       );
                     }).toList(),
                   ),
@@ -1101,47 +1103,47 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     required Color indicatorColor,
   }) {
     return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[200]!),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value,
-                    style: AppTextStyles.titleMedium.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                      fontSize: 22,
-                    ),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                    fontSize: 22,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    label,
-                    style: AppTextStyles.labelSmall.copyWith(
-                      color: Colors.grey[700],
-                    ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: Colors.grey[700],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: indicatorColor,
-                shape: BoxShape.circle,
-              ),
+          ),
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: indicatorColor,
+              shape: BoxShape.circle,
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildPropertyKpiSection({
@@ -1163,9 +1165,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
         const SizedBox(height: 4),
         Text(
           subtitle,
-          style: AppTextStyles.labelSmall.copyWith(
-            color: Colors.grey[600],
-          ),
+          style: AppTextStyles.labelSmall.copyWith(color: Colors.grey[600]),
         ),
         const SizedBox(height: 16),
         LayoutBuilder(

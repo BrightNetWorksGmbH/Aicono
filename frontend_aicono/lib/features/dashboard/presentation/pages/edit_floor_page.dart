@@ -56,9 +56,11 @@ class _EditFloorPageState extends State<EditFloorPage> {
       listener: (context, state) {
         if (state is DashboardFloorDetailsSuccess) {
           // Initialize fields with current values
-          _floorNameController.text = state.details.name;
-          _floorPlanUrl = state.details.floorPlanLink;
-          _floorName = state.details.name;
+          setState(() {
+            _floorNameController.text = state.details.name;
+            _floorPlanUrl = state.details.floorPlanLink;
+            _floorName = state.details.name;
+          });
         }
       },
       child: Scaffold(
@@ -76,170 +78,182 @@ class _EditFloorPageState extends State<EditFloorPage> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: SizedBox(
-                    width: screenSize.width < 600
-                        ? screenSize.width * 0.95
-                        : screenSize.width < 1200
-                        ? screenSize.width * 0.5
-                        : screenSize.width * 0.6,
-                    child: Form(
-                      child: Column(
-                        // crossAxisAlignment: CrossAxisAlignment.stretch,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: screenSize.width < 600
-                                ? screenSize.width * 0.95
-                                : screenSize.width < 1200
-                                ? screenSize.width * 0.5
-                                : screenSize.width * 0.6,
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.arrow_back),
-                                  onPressed: () => context.pop(),
-                                ),
-                                const SizedBox(width: 8),
-                                const Expanded(
-                                  child: Center(
-                                    child: Text(
-                                      'Edit Floor',
-                                      style: TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Update floor information',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
-                          ),
-                          const SizedBox(height: 32),
-                          // Floor name field
-                          SizedBox(
-                            width: screenSize.width < 600
-                                ? screenSize.width * 0.95
-                                : screenSize.width < 1200
-                                ? screenSize.width * 0.5
-                                : screenSize.width * 0.6,
-                            child: TextFormField(
-                              controller: _floorNameController,
-                              decoration: InputDecoration(
-                                hintText: 'Enter floor name',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(0),
-                                ),
-                                prefixIcon: Icon(Icons.layers),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Floor name is required';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          // Floor Plan Editor Section
-                          const Text(
-                            'Edit Floor Plan',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Add or edit rooms and floor plan',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
-                          ),
-                          const SizedBox(height: 16),
-                          if (_floorName != null && _floorName!.isNotEmpty)
+                  child: SingleChildScrollView(
+                    child: SizedBox(
+                      width: screenSize.width < 600
+                          ? screenSize.width * 0.95
+                          : screenSize.width < 1200
+                          ? screenSize.width * 0.5
+                          : screenSize.width * 0.6,
+                      child: Form(
+                        child: Column(
+                          // crossAxisAlignment: CrossAxisAlignment.stretch,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
                             SizedBox(
                               width: screenSize.width < 600
                                   ? screenSize.width * 0.95
                                   : screenSize.width < 1200
                                   ? screenSize.width * 0.5
                                   : screenSize.width * 0.6,
-                              child: FloorPlanEditorWrapper(
-                                floorId: widget.floorId,
-                                floorName: _floorName!,
-                                initialFloorPlanUrl: _floorPlanUrl,
-                                onSave: (String? floorPlanUrl) async {
-                                  // Save floor plan URL
-                                  if (floorPlanUrl != null) {
-                                    try {
-                                      final dioClient = sl<DioClient>();
-                                      await dioClient.patch(
-                                        '/api/v1/floors/${widget.floorId}',
-                                        data: {'floor_plan_link': floorPlanUrl},
-                                      );
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Floor plan saved successfully',
-                                            ),
-                                            backgroundColor: Colors.green,
-                                          ),
-                                        );
-                                        // Refresh floor details
-                                        context
-                                            .read<DashboardFloorDetailsBloc>()
-                                            .add(
-                                              DashboardFloorDetailsRequested(
-                                                floorId: widget.floorId,
-                                              ),
-                                            );
-                                        setState(() {
-                                          _floorPlanUrl = floorPlanUrl;
-                                        });
-                                      }
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Error saving floor plan: $e',
-                                            ),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  }
-                                },
-                                onCancel: () {
-                                  // Cancel action - can be empty or navigate back
-                                },
-                              ),
-                            )
-                          else
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(32.0),
-                                child: CircularProgressIndicator(),
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.arrow_back),
+                                    onPressed: () => context.pop(),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Expanded(
+                                    child: Center(
+                                      child: Text(
+                                        'Edit Floor',
+                                        style: TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          const SizedBox(height: 32),
-                          // Save button
-                          _isLoading
-                              ? const Center(child: CircularProgressIndicator())
-                              : PrimaryOutlineButton(
-                                  width: 260,
-                                  onPressed: _handleSave,
-                                  label: 'Save Changes',
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Update floor information',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            // Floor name field
+                            SizedBox(
+                              width: screenSize.width < 600
+                                  ? screenSize.width * 0.95
+                                  : screenSize.width < 1200
+                                  ? screenSize.width * 0.5
+                                  : screenSize.width * 0.6,
+                              child: TextFormField(
+                                controller: _floorNameController,
+                                decoration: InputDecoration(
+                                  hintText: 'Enter floor name',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(0),
+                                  ),
+                                  prefixIcon: Icon(Icons.layers),
                                 ),
-                        ],
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Floor name is required';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            // Floor Plan Editor Section
+                            const Text(
+                              'Edit Floor Plan',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Add or edit rooms and floor plan',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            if (_floorName != null && _floorName!.isNotEmpty)
+                              SizedBox(
+                                width: screenSize.width < 600
+                                    ? screenSize.width * 0.95
+                                    : screenSize.width < 1200
+                                    ? screenSize.width * 0.5
+                                    : screenSize.width * 0.6,
+                                child: FloorPlanEditorWrapper(
+                                  floorId: widget.floorId,
+                                  floorName: _floorName!,
+                                  initialFloorPlanUrl: _floorPlanUrl,
+                                  onSave: (String? floorPlanUrl) async {
+                                    // Save floor plan URL
+                                    if (floorPlanUrl != null) {
+                                      try {
+                                        final dioClient = sl<DioClient>();
+                                        await dioClient.patch(
+                                          '/api/v1/floors/${widget.floorId}',
+                                          data: {
+                                            'floor_plan_link': floorPlanUrl,
+                                          },
+                                        );
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Floor plan saved successfully',
+                                              ),
+                                              backgroundColor: Colors.green,
+                                            ),
+                                          );
+                                          // Refresh floor details
+                                          context
+                                              .read<DashboardFloorDetailsBloc>()
+                                              .add(
+                                                DashboardFloorDetailsRequested(
+                                                  floorId: widget.floorId,
+                                                ),
+                                              );
+                                          setState(() {
+                                            _floorPlanUrl = floorPlanUrl;
+                                          });
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Error saving floor plan: $e',
+                                              ),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    }
+                                  },
+                                  onCancel: () {
+                                    // Cancel action - can be empty or navigate back
+                                  },
+                                ),
+                              )
+                            else
+                              const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(32.0),
+                                  child: CircularProgressIndicator(),
+                                ),
+                              ),
+                            const SizedBox(height: 32),
+                            // Save button
+                            _isLoading
+                                ? const Center(
+                                    child: CircularProgressIndicator(),
+                                  )
+                                : PrimaryOutlineButton(
+                                    width: 260,
+                                    onPressed: _handleSave,
+                                    label: 'Save Changes',
+                                  ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

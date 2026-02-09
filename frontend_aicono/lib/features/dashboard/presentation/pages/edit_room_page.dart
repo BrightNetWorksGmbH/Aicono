@@ -24,11 +24,7 @@ class EditRoomPage extends StatefulWidget {
   final String roomId;
   final String? buildingId; // Optional, can be passed or fetched from floor
 
-  const EditRoomPage({
-    super.key,
-    required this.roomId,
-    this.buildingId,
-  });
+  const EditRoomPage({super.key, required this.roomId, this.buildingId});
 
   @override
   State<EditRoomPage> createState() => _EditRoomPageState();
@@ -41,6 +37,11 @@ class _EditRoomPageState extends State<EditRoomPage> {
   String? _selectedLoxoneRoomName;
   String? _buildingId;
   bool _isLoading = false;
+  List<SensorData> _sensors = [];
+  final Map<String, bool> _editingSensors = {};
+  final Map<String, TextEditingController> _minControllers = {};
+  final Map<String, TextEditingController> _maxControllers = {};
+  final Map<String, bool> _savingSensors = {};
 
   @override
   void initState() {
@@ -51,6 +52,12 @@ class _EditRoomPageState extends State<EditRoomPage> {
   @override
   void dispose() {
     _roomNameController.dispose();
+    for (final controller in _minControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _maxControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -70,7 +77,7 @@ class _EditRoomPageState extends State<EditRoomPage> {
         final data = response.data;
         if (data['success'] == true && data['data'] != null) {
           final floorData = data['data'] as Map<String, dynamic>;
-          final buildingId = floorData['buildingId']?.toString();
+          final buildingId = floorData['building_id']?.toString();
           if (buildingId != null && buildingId.isNotEmpty) {
             setState(() {
               _buildingId = buildingId;
@@ -85,6 +92,157 @@ class _EditRoomPageState extends State<EditRoomPage> {
 
   void _handleLanguageChanged() {
     setState(() {});
+  }
+
+  void _loadSensorsFromRoomDetails(List<dynamic> sensorsList) {
+    setState(() {
+      _sensors = sensorsList.map((sensor) {
+        final sensorId =
+            sensor['_id']?.toString() ??
+            sensor['id']?.toString() ??
+            UniqueKey().toString();
+        final sensorName =
+            sensor['name']?.toString() ??
+            sensor['sensorName']?.toString() ??
+            'Unknown Sensor';
+        final minValue =
+            sensor['min_value']?.toString() ??
+            sensor['minValue']?.toString() ??
+            '';
+        final maxValue =
+            sensor['max_value']?.toString() ??
+            sensor['maxValue']?.toString() ??
+            '';
+
+        // Initialize controllers if not already initialized
+        if (!_minControllers.containsKey(sensorId)) {
+          _minControllers[sensorId] = TextEditingController(text: minValue);
+        }
+        if (!_maxControllers.containsKey(sensorId)) {
+          _maxControllers[sensorId] = TextEditingController(text: maxValue);
+        }
+
+        return SensorData(
+          id: sensorId,
+          name: sensorName,
+          minValue: minValue,
+          maxValue: maxValue,
+        );
+      }).toList();
+    });
+  }
+
+  void _toggleEditSensor(String sensorId) {
+    setState(() {
+      _editingSensors[sensorId] = !(_editingSensors[sensorId] ?? false);
+    });
+  }
+
+  Future<void> _saveSensorValues(String sensorId) async {
+    final minController = _minControllers[sensorId];
+    final maxController = _maxControllers[sensorId];
+
+    if (minController == null || maxController == null) {
+      return;
+    }
+
+    final minValue = minController.text.trim();
+    final maxValue = maxController.text.trim();
+
+    // Validate that values are numbers if provided
+    if (minValue.isNotEmpty && double.tryParse(minValue) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Min value must be a valid number'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (maxValue.isNotEmpty && double.tryParse(maxValue) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Max value must be a valid number'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _savingSensors[sensorId] = true;
+    });
+
+    try {
+      final dioClient = sl<DioClient>();
+
+      // Build sensor update object for bulk update
+      final sensorUpdate = <String, dynamic>{'sensorId': sensorId};
+
+      if (minValue.isNotEmpty) {
+        sensorUpdate['threshold_min'] = double.parse(minValue);
+      }
+      if (maxValue.isNotEmpty) {
+        sensorUpdate['threshold_max'] = double.parse(maxValue);
+      }
+
+      // Use bulk update endpoint
+      final requestBody = <String, dynamic>{
+        'sensors': [sensorUpdate],
+      };
+
+      final response = await dioClient.put(
+        '/api/v1/sensors/bulk-update',
+        data: requestBody,
+      );
+
+      if (mounted) {
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Sensor values updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Update local state
+          setState(() {
+            final sensorIndex = _sensors.indexWhere((s) => s.id == sensorId);
+            if (sensorIndex != -1) {
+              _sensors[sensorIndex] = SensorData(
+                id: sensorId,
+                name: _sensors[sensorIndex].name,
+                minValue: minValue,
+                maxValue: maxValue,
+              );
+            }
+            _editingSensors[sensorId] = false;
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to update sensor: ${response.statusCode}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating sensor: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _savingSensors[sensorId] = false;
+        });
+      }
+    }
   }
 
   Future<void> _showLoxoneRoomSelector() async {
@@ -141,7 +299,8 @@ class _EditRoomPageState extends State<EditRoomPage> {
       final dioClient = sl<DioClient>();
       final requestBody = <String, dynamic>{
         'name': roomName,
-        'color': '#${_selectedColor.value.toRadixString(16).substring(2).padLeft(6, '0').toUpperCase()}',
+        'color':
+            '#${_selectedColor.value.toRadixString(16).substring(2).padLeft(6, '0').toUpperCase()}',
       };
 
       if (_selectedLoxoneRoomId != null && _selectedLoxoneRoomId!.isNotEmpty) {
@@ -170,9 +329,7 @@ class _EditRoomPageState extends State<EditRoomPage> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                'Failed to update room: ${response.statusCode}',
-              ),
+              content: Text('Failed to update room: ${response.statusCode}'),
               backgroundColor: Colors.red,
             ),
           );
@@ -204,14 +361,12 @@ class _EditRoomPageState extends State<EditRoomPage> {
         if (state is DashboardRoomDetailsSuccess) {
           // Initialize fields with current values
           _roomNameController.text = state.details.name;
-          
+
           // Parse color from hex string
           final colorHex = state.details.color.replaceFirst('#', '');
           if (colorHex.isNotEmpty) {
             try {
-              _selectedColor = Color(
-                int.parse('FF$colorHex', radix: 16),
-              );
+              _selectedColor = Color(int.parse('FF$colorHex', radix: 16));
             } catch (e) {
               debugPrint('Error parsing color: $e');
             }
@@ -229,6 +384,9 @@ class _EditRoomPageState extends State<EditRoomPage> {
           } else if (widget.buildingId != null) {
             _buildingId = widget.buildingId;
           }
+
+          // Load sensors from room details
+          _loadSensorsFromRoomDetails(state.details.sensors);
         }
       },
       child: Scaffold(
@@ -257,219 +415,486 @@ class _EditRoomPageState extends State<EditRoomPage> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Container(
-                    width: screenSize.width < 600
-                        ? screenSize.width * 0.95
-                        : screenSize.width < 1200
-                        ? screenSize.width * 0.5
-                        : screenSize.width * 0.6,
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Form(
-                        child: SizedBox(
-                          width: screenSize.width < 600
-                              ? screenSize.width * 0.95
-                              : screenSize.width < 1200
-                              ? screenSize.width * 0.5
-                              : screenSize.width * 0.6,
-                          child: Column(
-                            children: [
-                              SizedBox(
-                                width: screenSize.width < 600
-                                    ? screenSize.width * 0.95
-                                    : screenSize.width < 1200
-                                    ? screenSize.width * 0.5
-                                    : screenSize.width * 0.6,
-                                child: Row(
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.arrow_back),
-                                      onPressed: () => context.pop(),
+                  child: SingleChildScrollView(
+                    child: Container(
+                      width: screenSize.width < 600
+                          ? screenSize.width * 0.95
+                          : screenSize.width < 1200
+                          ? screenSize.width * 0.5
+                          : screenSize.width * 0.6,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Form(
+                          child: SizedBox(
+                            width: screenSize.width < 600
+                                ? screenSize.width * 0.95
+                                : screenSize.width < 1200
+                                ? screenSize.width * 0.5
+                                : screenSize.width * 0.6,
+                            child: Column(
+                              children: [
+                                SizedBox(
+                                  width: screenSize.width < 600
+                                      ? screenSize.width * 0.95
+                                      : screenSize.width < 1200
+                                      ? screenSize.width * 0.5
+                                      : screenSize.width * 0.6,
+                                  child: Row(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.arrow_back),
+                                        onPressed: () => context.pop(),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Expanded(
+                                        child: Center(
+                                          child: Text(
+                                            'Edit Room',
+                                            style: TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Update room information',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                const SizedBox(height: 32),
+                                // Room name field
+                                SizedBox(
+                                  width: screenSize.width < 600
+                                      ? screenSize.width * 0.95
+                                      : screenSize.width < 1200
+                                      ? screenSize.width * 0.5
+                                      : screenSize.width * 0.6,
+                                  child: TextFormField(
+                                    controller: _roomNameController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Enter room name',
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(0),
+                                      ),
+                                      // prefixIcon: Icon(Icons.room),
                                     ),
-                                    const SizedBox(width: 8),
-                                    const Expanded(
-                                      child: Center(
-                                        child: Text(
-                                          'Edit Room',
+                                    validator: (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'Room name is required';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 32),
+                                // Loxone Room Selection
+                                SizedBox(
+                                  width: screenSize.width < 600
+                                      ? screenSize.width * 0.95
+                                      : screenSize.width < 1200
+                                      ? screenSize.width * 0.5
+                                      : screenSize.width * 0.6,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Loxone Room',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      InkWell(
+                                        onTap: _showLoxoneRoomSelector,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 18,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: Colors.black54,
+                                              width: 2,
+                                            ),
+                                            borderRadius: BorderRadius.zero,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              if (_selectedLoxoneRoomName !=
+                                                  null) ...[
+                                                Text(
+                                                  _selectedLoxoneRoomName!,
+                                                  style: AppTextStyles
+                                                      .bodyMedium
+                                                      .copyWith(
+                                                        color: Colors.black87,
+                                                      ),
+                                                ),
+                                              ] else ...[
+                                                Text(
+                                                  'Select Loxone room',
+                                                  style: AppTextStyles
+                                                      .bodyMedium
+                                                      .copyWith(
+                                                        color: Colors.grey,
+                                                      ),
+                                                ),
+                                              ],
+                                              const Spacer(),
+                                              Icon(
+                                                Icons.arrow_forward_ios,
+                                                size: 16,
+                                                color: Colors.black54,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 32),
+                                // Color Selection
+                                SizedBox(
+                                  width: screenSize.width < 600
+                                      ? screenSize.width * 0.95
+                                      : screenSize.width < 1200
+                                      ? screenSize.width * 0.5
+                                      : screenSize.width * 0.6,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Room Color',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: _colorPalette.map((color) {
+                                          final isSelected =
+                                              _selectedColor == color;
+                                          return GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                _selectedColor = color;
+                                              });
+                                            },
+                                            child: Container(
+                                              margin:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                  ),
+                                              width: 40,
+                                              height: 40,
+                                              decoration: BoxDecoration(
+                                                color: color,
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: isSelected
+                                                      ? Colors.black
+                                                      : Colors.grey.shade400,
+                                                  width: isSelected ? 3 : 1,
+                                                ),
+                                              ),
+                                              child: isSelected
+                                                  ? Icon(
+                                                      Icons.check,
+                                                      color: Colors.white,
+                                                      size: 20,
+                                                    )
+                                                  : null,
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 32),
+                                // Sensors Section
+                                if (_sensors.isNotEmpty) ...[
+                                  SizedBox(
+                                    width: screenSize.width < 600
+                                        ? screenSize.width * 0.95
+                                        : screenSize.width < 1200
+                                        ? screenSize.width * 0.5
+                                        : screenSize.width * 0.6,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Sensors',
                                           style: TextStyle(
-                                            fontSize: 24,
+                                            fontSize: 18,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Update room information',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              const SizedBox(height: 32),
-                              // Room name field
-                              SizedBox(
-                                width: screenSize.width < 600
-                                    ? screenSize.width * 0.95
-                                    : screenSize.width < 1200
-                                    ? screenSize.width * 0.5
-                                    : screenSize.width * 0.6,
-                                child: TextFormField(
-                                  controller: _roomNameController,
-                                  decoration: InputDecoration(
-                                    hintText: 'Enter room name',
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(0),
-                                    ),
-                                    prefixIcon: Icon(Icons.room),
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return 'Room name is required';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ),
-                              const SizedBox(height: 32),
-                              // Loxone Room Selection
-                              SizedBox(
-                                width: screenSize.width < 600
-                                    ? screenSize.width * 0.95
-                                    : screenSize.width < 1200
-                                    ? screenSize.width * 0.5
-                                    : screenSize.width * 0.6,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Loxone Room',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    InkWell(
-                                      onTap: _showLoxoneRoomSelector,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 18,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color: Colors.black54,
-                                            width: 2,
-                                          ),
-                                          borderRadius: BorderRadius.zero,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            if (_selectedLoxoneRoomName != null) ...[
-                                              Text(
-                                                _selectedLoxoneRoomName!,
-                                                style: AppTextStyles.bodyMedium
-                                                    .copyWith(
-                                                  color: Colors.black87,
-                                                ),
-                                              ),
-                                            ] else ...[
-                                              Text(
-                                                'Select Loxone room',
-                                                style: AppTextStyles.bodyMedium
-                                                    .copyWith(
-                                                  color: Colors.grey,
-                                                ),
-                                              ),
-                                            ],
-                                            const Spacer(),
-                                            Icon(
-                                              Icons.arrow_forward_ios,
-                                              size: 16,
-                                              color: Colors.black54,
+                                        const SizedBox(height: 16),
+                                        ..._sensors.map((sensor) {
+                                          final isEditing =
+                                              _editingSensors[sensor.id] ??
+                                              false;
+                                          final isSaving =
+                                              _savingSensors[sensor.id] ??
+                                              false;
+
+                                          return Container(
+                                            margin: const EdgeInsets.only(
+                                              bottom: 16,
                                             ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 32),
-                              // Color Selection
-                              SizedBox(
-                                width: screenSize.width < 600
-                                    ? screenSize.width * 0.95
-                                    : screenSize.width < 1200
-                                    ? screenSize.width * 0.5
-                                    : screenSize.width * 0.6,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Room Color',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: _colorPalette.map((color) {
-                                        final isSelected = _selectedColor == color;
-                                        return GestureDetector(
-                                          onTap: () {
-                                            setState(() {
-                                              _selectedColor = color;
-                                            });
-                                          },
-                                          child: Container(
-                                            margin: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                            ),
-                                            width: 40,
-                                            height: 40,
                                             decoration: BoxDecoration(
-                                              color: color,
-                                              shape: BoxShape.circle,
                                               border: Border.all(
-                                                color: isSelected
-                                                    ? Colors.black
-                                                    : Colors.grey.shade400,
-                                                width: isSelected ? 3 : 1,
+                                                color: Colors.black54,
+                                                width: 2,
                                               ),
+                                              borderRadius: BorderRadius.zero,
                                             ),
-                                            child: isSelected
-                                                ? Icon(
-                                                    Icons.check,
-                                                    color: Colors.white,
-                                                    size: 20,
-                                                  )
-                                                : null,
-                                          ),
-                                        );
-                                      }).toList(),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Padding(
+                                                  padding: const EdgeInsets.all(
+                                                    16,
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.sensors,
+                                                        color: Colors.black87,
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      Expanded(
+                                                        child: Text(
+                                                          sensor.name,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                color: Colors
+                                                                    .black87,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                      IconButton(
+                                                        icon: Icon(
+                                                          isEditing
+                                                              ? Icons.close
+                                                              : Icons.edit,
+                                                          color: Colors.black87,
+                                                        ),
+                                                        onPressed: isSaving
+                                                            ? null
+                                                            : () =>
+                                                                  _toggleEditSensor(
+                                                                    sensor.id,
+                                                                  ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                if (isEditing) ...[
+                                                  const Divider(height: 1),
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                          16,
+                                                        ),
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Row(
+                                                          children: [
+                                                            Expanded(
+                                                              child: TextFormField(
+                                                                controller:
+                                                                    _minControllers[sensor
+                                                                        .id],
+                                                                keyboardType:
+                                                                    const TextInputType.numberWithOptions(
+                                                                      decimal:
+                                                                          true,
+                                                                    ),
+                                                                decoration: InputDecoration(
+                                                                  hintText:
+                                                                      'Enter minimum value',
+                                                                  border: OutlineInputBorder(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          0,
+                                                                        ),
+                                                                  ),
+                                                                  prefixIcon: Icon(
+                                                                    Icons
+                                                                        .trending_down,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 16,
+                                                            ),
+                                                            Expanded(
+                                                              child: TextFormField(
+                                                                controller:
+                                                                    _maxControllers[sensor
+                                                                        .id],
+                                                                keyboardType:
+                                                                    const TextInputType.numberWithOptions(
+                                                                      decimal:
+                                                                          true,
+                                                                    ),
+                                                                decoration: InputDecoration(
+                                                                  hintText:
+                                                                      'Enter maximum value',
+                                                                  border: OutlineInputBorder(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          0,
+                                                                        ),
+                                                                  ),
+                                                                  prefixIcon: Icon(
+                                                                    Icons
+                                                                        .trending_up,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 16,
+                                                        ),
+                                                        Center(
+                                                          child: PrimaryOutlineButton(
+                                                            onPressed: isSaving
+                                                                ? null
+                                                                : () =>
+                                                                      _saveSensorValues(
+                                                                        sensor
+                                                                            .id,
+                                                                      ),
+                                                            label: 'Save',
+                                                            width: 260,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ] else ...[
+                                                  if (sensor
+                                                          .minValue
+                                                          .isNotEmpty ||
+                                                      sensor
+                                                          .maxValue
+                                                          .isNotEmpty)
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                            left: 16,
+                                                            right: 16,
+                                                            bottom: 16,
+                                                          ),
+                                                      child: Row(
+                                                        children: [
+                                                          if (sensor
+                                                              .minValue
+                                                              .isNotEmpty) ...[
+                                                            Icon(
+                                                              Icons
+                                                                  .trending_down,
+                                                              size: 16,
+                                                              color: Colors
+                                                                  .grey[600],
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 4,
+                                                            ),
+                                                            Text(
+                                                              'Min: ${sensor.minValue}',
+                                                              style: TextStyle(
+                                                                fontSize: 14,
+                                                                color: Colors
+                                                                    .grey[600],
+                                                              ),
+                                                            ),
+                                                          ],
+                                                          if (sensor
+                                                                  .minValue
+                                                                  .isNotEmpty &&
+                                                              sensor
+                                                                  .maxValue
+                                                                  .isNotEmpty)
+                                                            const SizedBox(
+                                                              width: 16,
+                                                            ),
+                                                          if (sensor
+                                                              .maxValue
+                                                              .isNotEmpty) ...[
+                                                            Icon(
+                                                              Icons.trending_up,
+                                                              size: 16,
+                                                              color: Colors
+                                                                  .grey[600],
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 4,
+                                                            ),
+                                                            Text(
+                                                              'Max: ${sensor.maxValue}',
+                                                              style: TextStyle(
+                                                                fontSize: 14,
+                                                                color: Colors
+                                                                    .grey[600],
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ],
+                                                      ),
+                                                    ),
+                                                ],
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 32),
-                              // Save button
-                              _isLoading
-                                  ? const Center(
-                                      child: CircularProgressIndicator(),
-                                    )
-                                  : PrimaryOutlineButton(
-                                      onPressed: _handleSave,
-                                      label: 'Save Changes',
-                                      width: 260,
-                                    ),
-                            ],
+                                  ),
+                                  const SizedBox(height: 32),
+                                ],
+                                // Save button
+                                _isLoading
+                                    ? const Center(
+                                        child: CircularProgressIndicator(),
+                                      )
+                                    : PrimaryOutlineButton(
+                                        onPressed: _handleSave,
+                                        label: 'Save Changes',
+                                        width: 260,
+                                      ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -487,6 +912,20 @@ class _EditRoomPageState extends State<EditRoomPage> {
       ),
     );
   }
+}
+
+class SensorData {
+  final String id;
+  final String name;
+  final String minValue;
+  final String maxValue;
+
+  SensorData({
+    required this.id,
+    required this.name,
+    required this.minValue,
+    required this.maxValue,
+  });
 }
 
 // Dialog widget for Loxone room selection (similar to room_assignment_page.dart)
@@ -557,10 +996,7 @@ class _LoxoneRoomSelectionDialogState
       listener: (context, state) {
         if (state is GetLoxoneRoomsFailure) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: Colors.red,
-            ),
+            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
           );
         }
       },
@@ -824,4 +1260,3 @@ class _LoxoneRoomSelectionDialogState
     );
   }
 }
-
