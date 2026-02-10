@@ -42,6 +42,7 @@ class _EditRoomPageState extends State<EditRoomPage> {
   final Map<String, TextEditingController> _minControllers = {};
   final Map<String, TextEditingController> _maxControllers = {};
   final Map<String, bool> _savingSensors = {};
+  bool _isLoadingSensors = false;
 
   @override
   void initState() {
@@ -353,6 +354,143 @@ class _EditRoomPageState extends State<EditRoomPage> {
     }
   }
 
+  Future<void> _handleSaveSensors() async {
+    setState(() {
+      _isLoadingSensors = true;
+    });
+
+    try {
+      // Collect all sensors that have at least one value (min or max)
+      final List<Map<String, dynamic>> sensorsToUpdate = [];
+
+      for (final sensor in _sensors) {
+        final sensorId = sensor.id;
+        final minController = _minControllers[sensorId];
+        final maxController = _maxControllers[sensorId];
+
+        if (minController == null || maxController == null) {
+          continue;
+        }
+
+        final minValue = minController.text.trim();
+        final maxValue = maxController.text.trim();
+
+        // Skip if both values are empty
+        if (minValue.isEmpty && maxValue.isEmpty) {
+          continue;
+        }
+
+        // Validate that values are numbers if provided
+        if (minValue.isNotEmpty && double.tryParse(minValue) == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Min value for ${sensor.name} must be a valid number',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+          setState(() {
+            _isLoadingSensors = false;
+          });
+          return;
+        }
+
+        if (maxValue.isNotEmpty && double.tryParse(maxValue) == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Max value for ${sensor.name} must be a valid number',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+          setState(() {
+            _isLoadingSensors = false;
+          });
+          return;
+        }
+
+        // Build sensor update object
+        final sensorUpdate = <String, dynamic>{'sensorId': sensorId};
+
+        // Only include threshold_min if it has a value
+        if (minValue.isNotEmpty) {
+          sensorUpdate['threshold_min'] = double.parse(minValue);
+        }
+
+        // Only include threshold_max if it has a value
+        if (maxValue.isNotEmpty) {
+          sensorUpdate['threshold_max'] = double.parse(maxValue);
+        }
+
+        sensorsToUpdate.add(sensorUpdate);
+      }
+
+      // If no sensors to update, show message and return
+      if (sensorsToUpdate.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No sensor values to update'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          setState(() {
+            _isLoadingSensors = false;
+          });
+        }
+        return;
+      }
+
+      // Send bulk update request
+      final dioClient = sl<DioClient>();
+      final requestBody = <String, dynamic>{'sensors': sensorsToUpdate};
+
+      final response = await dioClient.put(
+        '/api/v1/sensors/bulk-update',
+        data: requestBody,
+      );
+
+      if (mounted) {
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Sensor values updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Refresh room details to get updated sensor values
+          context.read<DashboardRoomDetailsBloc>().add(
+            DashboardRoomDetailsRequested(roomId: widget.roomId),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to update sensors: ${response.statusCode}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating sensors: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingSensors = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -563,7 +701,7 @@ class _EditRoomPageState extends State<EditRoomPage> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 32),
+                                const SizedBox(height: 24),
                                 // Color Selection
                                 SizedBox(
                                   width: screenSize.width < 600
@@ -585,7 +723,7 @@ class _EditRoomPageState extends State<EditRoomPage> {
                                       const SizedBox(height: 16),
                                       Row(
                                         mainAxisAlignment:
-                                            MainAxisAlignment.center,
+                                            MainAxisAlignment.start,
                                         children: _colorPalette.map((color) {
                                           final isSelected =
                                               _selectedColor == color;
@@ -626,6 +764,17 @@ class _EditRoomPageState extends State<EditRoomPage> {
                                     ],
                                   ),
                                 ),
+                                const SizedBox(height: 24),
+                                // Save button
+                                _isLoading
+                                    ? const Center(
+                                        child: CircularProgressIndicator(),
+                                      )
+                                    : PrimaryOutlineButton(
+                                        onPressed: _handleSave,
+                                        label: 'Save Room Changes',
+                                        width: 260,
+                                      ),
                                 const SizedBox(height: 32),
                                 // Sensors Section
                                 if (_sensors.isNotEmpty) ...[
@@ -695,185 +844,157 @@ class _EditRoomPageState extends State<EditRoomPage> {
                                                               ),
                                                         ),
                                                       ),
-                                                      IconButton(
-                                                        icon: Icon(
-                                                          isEditing
-                                                              ? Icons.close
-                                                              : Icons.edit,
-                                                          color: Colors.black87,
-                                                        ),
-                                                        onPressed: isSaving
-                                                            ? null
-                                                            : () =>
-                                                                  _toggleEditSensor(
-                                                                    sensor.id,
+                                                    ],
+                                                  ),
+                                                ),
+                                                // if (isEditing) ...[
+                                                //   const Divider(height: 1),
+                                                Padding(
+                                                  padding: const EdgeInsets.all(
+                                                    16,
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: TextFormField(
+                                                              controller:
+                                                                  _minControllers[sensor
+                                                                      .id],
+                                                              keyboardType:
+                                                                  const TextInputType.numberWithOptions(
+                                                                    decimal:
+                                                                        true,
                                                                   ),
+                                                              decoration: InputDecoration(
+                                                                hintText:
+                                                                    'Enter minimum value',
+                                                                border: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        0,
+                                                                      ),
+                                                                ),
+                                                                prefixIcon: Icon(
+                                                                  Icons
+                                                                      .trending_down,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 16,
+                                                          ),
+                                                          Expanded(
+                                                            child: TextFormField(
+                                                              controller:
+                                                                  _maxControllers[sensor
+                                                                      .id],
+                                                              keyboardType:
+                                                                  const TextInputType.numberWithOptions(
+                                                                    decimal:
+                                                                        true,
+                                                                  ),
+                                                              decoration: InputDecoration(
+                                                                hintText:
+                                                                    'Enter maximum value',
+                                                                border: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        0,
+                                                                      ),
+                                                                ),
+                                                                prefixIcon: Icon(
+                                                                  Icons
+                                                                      .trending_up,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      const SizedBox(
+                                                        height: 16,
                                                       ),
                                                     ],
                                                   ),
                                                 ),
-                                                if (isEditing) ...[
-                                                  const Divider(height: 1),
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(
-                                                          16,
-                                                        ),
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Row(
-                                                          children: [
-                                                            Expanded(
-                                                              child: TextFormField(
-                                                                controller:
-                                                                    _minControllers[sensor
-                                                                        .id],
-                                                                keyboardType:
-                                                                    const TextInputType.numberWithOptions(
-                                                                      decimal:
-                                                                          true,
-                                                                    ),
-                                                                decoration: InputDecoration(
-                                                                  hintText:
-                                                                      'Enter minimum value',
-                                                                  border: OutlineInputBorder(
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          0,
-                                                                        ),
-                                                                  ),
-                                                                  prefixIcon: Icon(
-                                                                    Icons
-                                                                        .trending_down,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 16,
-                                                            ),
-                                                            Expanded(
-                                                              child: TextFormField(
-                                                                controller:
-                                                                    _maxControllers[sensor
-                                                                        .id],
-                                                                keyboardType:
-                                                                    const TextInputType.numberWithOptions(
-                                                                      decimal:
-                                                                          true,
-                                                                    ),
-                                                                decoration: InputDecoration(
-                                                                  hintText:
-                                                                      'Enter maximum value',
-                                                                  border: OutlineInputBorder(
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          0,
-                                                                        ),
-                                                                  ),
-                                                                  prefixIcon: Icon(
-                                                                    Icons
-                                                                        .trending_up,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 16,
-                                                        ),
-                                                        Center(
-                                                          child: PrimaryOutlineButton(
-                                                            onPressed: isSaving
-                                                                ? null
-                                                                : () =>
-                                                                      _saveSensorValues(
-                                                                        sensor
-                                                                            .id,
-                                                                      ),
-                                                            label: 'Save',
-                                                            width: 260,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ] else ...[
-                                                  if (sensor
-                                                          .minValue
-                                                          .isNotEmpty ||
-                                                      sensor
-                                                          .maxValue
-                                                          .isNotEmpty)
-                                                    Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                            left: 16,
-                                                            right: 16,
-                                                            bottom: 16,
-                                                          ),
-                                                      child: Row(
-                                                        children: [
-                                                          if (sensor
-                                                              .minValue
-                                                              .isNotEmpty) ...[
-                                                            Icon(
-                                                              Icons
-                                                                  .trending_down,
-                                                              size: 16,
-                                                              color: Colors
-                                                                  .grey[600],
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 4,
-                                                            ),
-                                                            Text(
-                                                              'Min: ${sensor.minValue}',
-                                                              style: TextStyle(
-                                                                fontSize: 14,
-                                                                color: Colors
-                                                                    .grey[600],
-                                                              ),
-                                                            ),
-                                                          ],
-                                                          if (sensor
-                                                                  .minValue
-                                                                  .isNotEmpty &&
-                                                              sensor
-                                                                  .maxValue
-                                                                  .isNotEmpty)
-                                                            const SizedBox(
-                                                              width: 16,
-                                                            ),
-                                                          if (sensor
-                                                              .maxValue
-                                                              .isNotEmpty) ...[
-                                                            Icon(
-                                                              Icons.trending_up,
-                                                              size: 16,
-                                                              color: Colors
-                                                                  .grey[600],
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 4,
-                                                            ),
-                                                            Text(
-                                                              'Max: ${sensor.maxValue}',
-                                                              style: TextStyle(
-                                                                fontSize: 14,
-                                                                color: Colors
-                                                                    .grey[600],
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ],
-                                                      ),
-                                                    ),
-                                                ],
+                                                // ] else ...[
+                                                //   if (sensor
+                                                //           .minValue
+                                                //           .isNotEmpty ||
+                                                //       sensor
+                                                //           .maxValue
+                                                //           .isNotEmpty)
+                                                //     Padding(
+                                                //       padding:
+                                                //           const EdgeInsets.only(
+                                                //             left: 16,
+                                                //             right: 16,
+                                                //             bottom: 16,
+                                                //           ),
+                                                //       child: Row(
+                                                //         children: [
+                                                //           if (sensor
+                                                //               .minValue
+                                                //               .isNotEmpty) ...[
+                                                //             Icon(
+                                                //               Icons
+                                                //                   .trending_down,
+                                                //               size: 16,
+                                                //               color: Colors
+                                                //                   .grey[600],
+                                                //             ),
+                                                //             const SizedBox(
+                                                //               width: 4,
+                                                //             ),
+                                                //             Text(
+                                                //               'Min: ${sensor.minValue}',
+                                                //               style: TextStyle(
+                                                //                 fontSize: 14,
+                                                //                 color: Colors
+                                                //                     .grey[600],
+                                                //               ),
+                                                //             ),
+                                                //           ],
+                                                //           if (sensor
+                                                //                   .minValue
+                                                //                   .isNotEmpty &&
+                                                //               sensor
+                                                //                   .maxValue
+                                                //                   .isNotEmpty)
+                                                //             const SizedBox(
+                                                //               width: 16,
+                                                //             ),
+                                                //           if (sensor
+                                                //               .maxValue
+                                                //               .isNotEmpty) ...[
+                                                //             Icon(
+                                                //               Icons.trending_up,
+                                                //               size: 16,
+                                                //               color: Colors
+                                                //                   .grey[600],
+                                                //             ),
+                                                //             const SizedBox(
+                                                //               width: 4,
+                                                //             ),
+                                                //             Text(
+                                                //               'Max: ${sensor.maxValue}',
+                                                //               style: TextStyle(
+                                                //                 fontSize: 14,
+                                                //                 color: Colors
+                                                //                     .grey[600],
+                                                //               ),
+                                                //             ),
+                                                //           ],
+                                                //         ],
+                                                //       ),
+                                                //     ),
+                                                // ],
                                               ],
                                             ),
                                           );
@@ -884,13 +1005,13 @@ class _EditRoomPageState extends State<EditRoomPage> {
                                   const SizedBox(height: 32),
                                 ],
                                 // Save button
-                                _isLoading
+                                _isLoadingSensors
                                     ? const Center(
                                         child: CircularProgressIndicator(),
                                       )
                                     : PrimaryOutlineButton(
-                                        onPressed: _handleSave,
-                                        label: 'Save Changes',
+                                        onPressed: _handleSaveSensors,
+                                        label: 'Save Sensors thresholds',
                                         width: 260,
                                       ),
                               ],

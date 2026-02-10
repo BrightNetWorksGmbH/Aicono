@@ -157,7 +157,8 @@
     "option_specify": "Standort angeben",
     "option_gps": "GPS-Koordinaten",
     "skip_link": "Schritt überspringen",
-    "button_text": "Das passt so"
+    "button_text": "Das passt so",
+    "hint": "Standort angeben"
   },
   "select_resources": {
     "progress_text": "Fast geschafft, {name}!",
@@ -315,6 +316,7 @@
       "add_building": "+ Gebäude hinzufügen",
       "add_floor": "+ Etage hinzufügen",
       "add_room": "+ Raum hinzufügen",
+
       "add_reporting": "+ Reporting hinzufügen",
       "profile": "Profil",
       "language": "Sprache",
@@ -341,6 +343,7 @@
       "enter_measurement_data": "+ Messdaten eingeben",
       "add_building": "+ Gebäude ergänzen",
       "add_room": "+ Raum hinzufügen",
+      "add_site": "+ Standort hinzufügen",
       "add_branding": "+ Branding",
       "coming_soon": "– coming soon"
     },

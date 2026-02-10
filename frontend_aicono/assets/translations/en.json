@@ -165,7 +165,8 @@
     "option_specify": "Specify location",
     "option_gps": "GPS-Coordinates",
     "skip_link": "Skip step",
-    "button_text": "That's fine"
+    "button_text": "That's fine",
+    "hint": "Specify location"
   },
   "select_resources": {
     "progress_text": "Almost done, {name}!",
@@ -349,6 +350,7 @@
       "enter_measurement_data": "+ Enter measurement data",
       "add_building": "+ Add building",
       "add_room": "+ Add room",
+      "add_site": "+ Add site",
       "add_branding": "+ Branding",
       "coming_soon": "– coming soon"
     },

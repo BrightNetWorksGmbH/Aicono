@@ -7,6 +7,7 @@ import 'package:frontend_aicono/core/services/token_service.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
+import 'package:frontend_aicono/features/Authentication/domain/entities/switch_role_entity.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_sites_bloc.dart';
@@ -47,11 +48,14 @@ Widget _buildSvgIcon(String asset, {Color? color, double size = 22}) {
       asset,
       width: size,
       height: size,
-      colorFilter:
-          color != null ? ColorFilter.mode(color, BlendMode.srcIn) : null,
+      colorFilter: color != null
+          ? ColorFilter.mode(color, BlendMode.srcIn)
+          : null,
     ),
   );
 }
+
+enum _PropertyOverviewMenuAction { edit, delete }
 
 class DashboardMainContent extends StatefulWidget {
   final String? verseId;
@@ -66,6 +70,7 @@ class DashboardMainContent extends StatefulWidget {
 class _DashboardMainContentState extends State<DashboardMainContent> {
   String? _userFirstName;
   String? _userName; // Full name for navigation
+  List<SwitchRoleEntity> _switches = [];
 
   @override
   void initState() {
@@ -90,6 +95,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             setState(() {
               _userFirstName = 'User';
               _userName = 'User';
+              _switches = [];
             });
           }
         },
@@ -106,6 +112,8 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               if (_userName!.isEmpty) {
                 _userName = 'User';
               }
+              // Load switches from user roles
+              _switches = user.roles;
             });
           }
         },
@@ -146,11 +154,20 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
 
     return BlocBuilder<DashboardSiteDetailsBloc, DashboardSiteDetailsState>(
       builder: (context, siteState) {
-        return BlocBuilder<DashboardBuildingDetailsBloc, DashboardBuildingDetailsState>(
+        return BlocBuilder<
+          DashboardBuildingDetailsBloc,
+          DashboardBuildingDetailsState
+        >(
           builder: (context, buildingState) {
-            return BlocBuilder<DashboardFloorDetailsBloc, DashboardFloorDetailsState>(
+            return BlocBuilder<
+              DashboardFloorDetailsBloc,
+              DashboardFloorDetailsState
+            >(
               builder: (context, floorState) {
-                return BlocBuilder<DashboardRoomDetailsBloc, DashboardRoomDetailsState>(
+                return BlocBuilder<
+                  DashboardRoomDetailsBloc,
+                  DashboardRoomDetailsState
+                >(
                   builder: (context, roomState) {
                     final hasPropertySelection = _hasPropertySelection(
                       siteState,
@@ -159,7 +176,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                       roomState,
                     );
                     return SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -427,6 +447,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     queryParameters: {'siteId': state.siteId},
                   );
                 },
+                onDelete: () async {
+                  await _handleDeleteSite(state.siteId);
+                },
                 metricCards: [
                   _buildPropertyMetricCard(
                     label: 'Buildings',
@@ -491,10 +514,14 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                         ? 'No KPI data'
                         : 'Total: ${LocaleNumberFormat.formatDecimal(bk.totalConsumption, locale: locale)} ${bk.unit}';
                     return _buildPropertyListItem(
-                      icon: _buildSvgIcon(_assetBuilding, color: _metricIconTeal),
+                      icon: _buildSvgIcon(
+                        _assetBuilding,
+                        color: _metricIconTeal,
+                      ),
                       title: b.name,
                       subtitle: '${b.floorCount} floors · $subtitle',
                       trailing: '${b.sensorCount} sensors',
+                      buildingId: b.id,
                     );
                   }).toList(),
                 ),
@@ -594,10 +621,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             ),
           ],
           const SizedBox(height: 24),
-          _RoomRealtimeSensorsSection(
-            roomId: state.roomId,
-            sensors: d.sensors,
-          ),
+          _RoomRealtimeSensorsSection(roomId: state.roomId, sensors: d.sensors),
         ],
       );
     }
@@ -755,10 +779,15 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                         );
                       } catch (_) {}
                       return _buildPropertyListItem(
-                        icon: _buildSvgIcon(_assetRoom, color: roomColor ?? _metricIconTeal),
+                        icon: _buildSvgIcon(
+                          _assetRoom,
+                          color: roomColor ?? _metricIconTeal,
+                        ),
                         title: room.name,
                         subtitle: null,
                         trailing: '${room.sensorCount} sensors',
+                        iconColor: roomColor,
+                        roomId: room.id,
                       );
                     }).toList(),
                   ),
@@ -868,6 +897,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 queryParameters: {'buildingId': state.buildingId},
               );
             },
+            onDelete: () async {
+              await _handleDeleteBuilding(state.buildingId);
+            },
             metricCards: metricCards,
           ),
           if (kpis != null) ...[
@@ -920,12 +952,16 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                         (sum, r) => sum + r.sensorCount,
                       );
                       return _buildPropertyListItem(
-                        icon: _buildSvgIcon(_assetFloor, color: _metricIconTeal),
+                        icon: _buildSvgIcon(
+                          _assetFloor,
+                          color: _metricIconTeal,
+                        ),
                         title: floor.name,
                         subtitle: '${floor.roomCount} rooms',
                         trailing: sensorCount > 0
                             ? '$sensorCount sensors'
                             : null,
+                        floorId: floor.id,
                       );
                     }).toList(),
                   ),
@@ -959,6 +995,11 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     required String title,
     String? subtitle,
     String? trailing,
+    Color? iconColor,
+    String? buildingId,
+    String? floorId,
+    String? siteId,
+    String? roomId,
   }) {
     return Container(
       width: double.infinity,
@@ -1012,23 +1053,247 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             ),
           ),
           if (trailing != null && trailing.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                trailing,
-                style: AppTextStyles.labelSmall.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[700],
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    trailing,
+                    style: AppTextStyles.labelSmall.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[700],
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                if (buildingId != null && buildingId.isNotEmpty) ...[
+                  IconButton(
+                    onPressed: () {
+                      context.pushNamed(
+                        Routelists.editBuilding,
+                        queryParameters: {'buildingId': buildingId},
+                      );
+                    },
+                    icon: Icon(Icons.edit),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () async {
+                      await _handleDeleteBuilding(buildingId);
+                    },
+                    icon: const Icon(Icons.delete),
+                  ),
+                ] else if (floorId != null && floorId.isNotEmpty)
+                  IconButton(
+                    onPressed: () {
+                      context.pushNamed(
+                        Routelists.editFloor,
+                        queryParameters: {'floorId': floorId},
+                      );
+                    },
+                    icon: Icon(Icons.edit),
+                  )
+                else if (siteId != null && siteId.isNotEmpty)
+                  IconButton(
+                    onPressed: () {
+                      context.pushNamed(
+                        Routelists.editSite,
+                        queryParameters: {'siteId': siteId},
+                      );
+                    },
+                    icon: Icon(Icons.edit),
+                  )
+                else if (roomId != null && roomId.isNotEmpty)
+                  IconButton(
+                    onPressed: () {
+                      // Get buildingId from floor details if available
+                      final floorDetailsState = context
+                          .read<DashboardFloorDetailsBloc>()
+                          .state;
+                      String? buildingId;
+                      if (floorDetailsState is DashboardFloorDetailsSuccess) {
+                        buildingId = floorDetailsState.details.buildingId;
+                      }
+                      context.pushNamed(
+                        Routelists.editRoom,
+                        queryParameters: {
+                          'roomId': roomId,
+                          if (buildingId != null && buildingId.isNotEmpty)
+                            'buildingId': buildingId,
+                        },
+                      );
+                    },
+                    icon: Icon(Icons.edit),
+                  ),
+              ],
             ),
         ],
       ),
     );
+  }
+
+  Future<void> _handleDeleteBuilding(String buildingId) async {
+    final shouldDelete = await _showDeleteBuildingConfirmationDialog();
+    if (shouldDelete != true || !mounted) return;
+
+    try {
+      final dioClient = sl<DioClient>();
+      final response = await dioClient.delete('/api/v1/buildings/$buildingId');
+
+      if (!mounted) return;
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        final siteId = _getCurrentSiteIdFromState();
+        if (siteId != null && siteId.isNotEmpty) {
+          context.read<DashboardSiteDetailsBloc>().add(
+            DashboardSiteDetailsRequested(siteId: siteId),
+          );
+        }
+        context.read<DashboardSitesBloc>().add(
+          DashboardSitesRequested(bryteswitchId: widget.verseId),
+        );
+        context.read<DashboardBuildingDetailsBloc>().add(
+          DashboardBuildingDetailsReset(),
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Building deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete building: ${response.statusCode}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting building: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<bool?> _showDeleteSiteConfirmationDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+          backgroundColor: Colors.white,
+          title: const Text('Delete Site'),
+          content: const Text(
+            'Are you sure you want to delete this site? This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool?> _handleDeleteSite(String siteId) async {
+    final shouldDelete = await _showDeleteSiteConfirmationDialog();
+    if (shouldDelete != true || !mounted) return false;
+
+    try {
+      final dioClient = sl<DioClient>();
+      final response = await dioClient.delete('/api/v1/sites/$siteId');
+
+      if (!mounted) return false;
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        context.read<DashboardSitesBloc>().add(
+          DashboardSitesRequested(bryteswitchId: widget.verseId),
+        );
+        context.read<DashboardSiteDetailsBloc>().add(
+          DashboardSiteDetailsReset(),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Site deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        return true;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete site: ${response.statusCode}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return false;
+      }
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting site: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<bool?> _showDeleteBuildingConfirmationDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+          backgroundColor: Colors.white,
+          title: const Text('Delete Building'),
+          content: const Text(
+            'Are you sure you want to delete this building? This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String? _getCurrentSiteIdFromState() {
+    final siteDetailsState = context.read<DashboardSiteDetailsBloc>().state;
+    if (siteDetailsState is DashboardSiteDetailsLoading) {
+      return siteDetailsState.siteId;
+    } else if (siteDetailsState is DashboardSiteDetailsSuccess) {
+      return siteDetailsState.siteId;
+    } else if (siteDetailsState is DashboardSiteDetailsFailure) {
+      return siteDetailsState.siteId;
+    }
+    return null;
   }
 
   Widget _buildPropertyMetricCard({
@@ -1086,6 +1351,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     String? address,
     required List<Widget> metricCards,
     VoidCallback? onEdit,
+    VoidCallback? onDelete,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1128,16 +1394,41 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 ],
               ),
             ),
-            if (onEdit != null)
-              TextButton(
-                onPressed: onEdit,
-                child: Text(
-                  'Edit',
-                  style: AppTextStyles.titleSmall.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
+            if (onEdit != null || onDelete != null)
+              PopupMenuButton<_PropertyOverviewMenuAction>(
+                icon: const Icon(Icons.more_vert),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(0),
                 ),
+                color: Colors.white,
+                onSelected: (action) {
+                  switch (action) {
+                    case _PropertyOverviewMenuAction.edit:
+                      if (onEdit != null) onEdit();
+                      break;
+                    case _PropertyOverviewMenuAction.delete:
+                      if (onDelete != null) onDelete();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (onEdit != null)
+                    const PopupMenuItem<_PropertyOverviewMenuAction>(
+                      value: _PropertyOverviewMenuAction.edit,
+                      child: Text('Edit'),
+                    ),
+                  if (onDelete != null)
+                    const PopupMenuItem<_PropertyOverviewMenuAction>(
+                      value: _PropertyOverviewMenuAction.delete,
+                      child: Text(
+                        'Delete',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
               ),
           ],
         ),
@@ -1181,14 +1472,15 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     final bool warning = kpis.dataQualityWarning == true;
 
     final String statusLabel = warning ? 'Needs attention' : 'Excellent';
-    final String message =
-        warning ? 'Data quality needs review' : 'Data quality is good';
+    final String message = warning
+        ? 'Data quality needs review'
+        : 'Data quality is good';
 
     final Color bgColor = warning ? Colors.orange[50]! : Colors.green[50]!;
-    final Color borderColor =
-        warning ? Colors.orange[200]! : Colors.green[200]!;
-    final Color iconColor =
-        warning ? Colors.orange[700]! : Colors.green[700]!;
+    final Color borderColor = warning
+        ? Colors.orange[200]!
+        : Colors.green[200]!;
+    final Color iconColor = warning ? Colors.orange[700]! : Colors.green[700]!;
 
     return Container(
       width: double.infinity,
@@ -1462,12 +1754,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
         ),
       ];
       if (perCapita.numPeople != null && perCapita.numPeople! > 0) {
-        rows.add(
-          (
-            label: 'People',
-            value: '${perCapita.numPeople}',
-          ),
-        );
+        rows.add((label: 'People', value: '${perCapita.numPeople}'));
       }
       cards.add(
         _buildAnalyticsMetricCard(
@@ -1493,8 +1780,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
           const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
-              final isNarrow =
-                  constraints.maxWidth < 700 || cards.length == 1;
+              final isNarrow = constraints.maxWidth < 700 || cards.length == 1;
               if (isNarrow) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1726,69 +2012,14 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
         _buildActionLink(
           text: 'dashboard.main_content.add_building'.tr(),
           onTap: () {
-            // Get siteId from DashboardSiteDetailsBloc
-            final siteDetailsState = context
-                .read<DashboardSiteDetailsBloc>()
-                .state;
-            String? siteId;
-            if (siteDetailsState is DashboardSiteDetailsLoading) {
-              siteId = siteDetailsState.siteId;
-            } else if (siteDetailsState is DashboardSiteDetailsSuccess) {
-              siteId = siteDetailsState.siteId;
-            } else if (siteDetailsState is DashboardSiteDetailsFailure) {
-              siteId = siteDetailsState.siteId;
-            }
-
-            // If no siteId from details, try to get from sites list
-            if (siteId == null) {
-              final sitesState = context.read<DashboardSitesBloc>().state;
-              if (sitesState is DashboardSitesSuccess &&
-                  sitesState.sites.isNotEmpty) {
-                siteId = sitesState.sites.first.id;
-              }
-            }
-
-            // Navigate to add additional buildings page
-            if (siteId != null && siteId.isNotEmpty) {
-              context.pushNamed(
-                Routelists.addAdditionalBuildings,
-                queryParameters: {
-                  if (_userName != null && _userName!.isNotEmpty)
-                    'userName': _userName!,
-                  if (widget.verseId != null && widget.verseId!.isNotEmpty)
-                    'switchId': widget.verseId!,
-                  'siteId': siteId,
-                  'fromDashboard':
-                      'true', // Flag to indicate navigation from dashboard
-                },
-              );
-            } else {
-              // Show error if no site is selected
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Please select a site first to add a building.',
-                  ),
-                  backgroundColor: Colors.orange,
-                ),
-              );
-            }
+            _showSiteSelectionDialog();
           },
         ),
         const SizedBox(height: 8),
         _buildActionLink(
-          text: 'dashboard.main_content.add_room'.tr(),
+          text: 'dashboard.main_content.add_site'.tr(),
           onTap: () {
-            // TODO: Navigate to add room page
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'dashboard.main_content.add_room'.tr() +
-                      ' ' +
-                      'dashboard.main_content.coming_soon'.tr(),
-                ),
-              ),
-            );
+            _showSwitchSelectionDialog();
           },
         ),
         const SizedBox(height: 8),
@@ -1809,6 +2040,275 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
         ),
       ],
     );
+  }
+
+  Future<void> _showSiteSelectionDialog() async {
+    final sitesState = context.read<DashboardSitesBloc>().state;
+
+    if (sitesState is! DashboardSitesSuccess || sitesState.sites.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No sites available. Please create a site first.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final selectedSite = await showDialog<dynamic>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Select a Site',
+                        style: AppTextStyles.titleLarge.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: sitesState.sites.length,
+                    itemBuilder: (context, index) {
+                      final site = sitesState.sites[index];
+                      return InkWell(
+                        onTap: () => Navigator.of(dialogContext).pop(site),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black54, width: 2),
+                            borderRadius: BorderRadius.zero,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.business,
+                                color: Colors.black87,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      site.name,
+                                      style: AppTextStyles.bodyMedium.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    if (site.address.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        site.address,
+                                        style: AppTextStyles.bodySmall.copyWith(
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_forward_ios,
+                                size: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selectedSite != null && selectedSite.id != null) {
+      // Navigate to add additional buildings page with selected siteId
+      if (mounted) {
+        context.pushNamed(
+          Routelists.addAdditionalBuildings,
+          queryParameters: {
+            if (_userName != null && _userName!.isNotEmpty)
+              'userName': _userName!,
+            if (widget.verseId != null && widget.verseId!.isNotEmpty)
+              'switchId': widget.verseId!,
+            'siteId': selectedSite.id,
+            'fromDashboard': 'true',
+          },
+        );
+      }
+    }
+  }
+
+  Future<void> _showSwitchSelectionDialog() async {
+    if (_switches.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No switches available. Please contact support.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final selectedSwitch = await showDialog<SwitchRoleEntity>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Select a Switch',
+                        style: AppTextStyles.titleLarge.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _switches.length,
+                    itemBuilder: (context, index) {
+                      final switchRole = _switches[index];
+                      final switchName = switchRole.organizationName.isNotEmpty
+                          ? switchRole.organizationName
+                          : (switchRole.subDomain.isNotEmpty
+                                ? switchRole.subDomain
+                                : switchRole.bryteswitchId);
+
+                      return InkWell(
+                        onTap: () =>
+                            Navigator.of(dialogContext).pop(switchRole),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black54, width: 2),
+                            borderRadius: BorderRadius.zero,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.business,
+                                color: Colors.black87,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      switchName,
+                                      style: AppTextStyles.bodyMedium.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    if (switchRole.subDomain.isNotEmpty &&
+                                        switchRole
+                                            .organizationName
+                                            .isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        switchRole.subDomain,
+                                        style: AppTextStyles.bodySmall.copyWith(
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_forward_ios,
+                                size: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selectedSwitch != null) {
+      // Navigate to add properties page with selected switchId
+      if (mounted) {
+        context.pushNamed(
+          Routelists.addProperties,
+          queryParameters: {
+            if (_userName != null && _userName!.isNotEmpty)
+              'userName': _userName!,
+            'switchId': selectedSwitch.bryteswitchId,
+            'isSingleProperty': 'false',
+            'fromDashboard': 'true',
+          },
+        );
+      }
+    }
   }
 
   Widget _buildActionLink({required String text, required VoidCallback onTap}) {
@@ -3533,7 +4033,8 @@ class _RoomRealtimeSensorsSection extends StatefulWidget {
       _RoomRealtimeSensorsSectionState();
 }
 
-class _RoomRealtimeSensorsSectionState extends State<_RoomRealtimeSensorsSection> {
+class _RoomRealtimeSensorsSectionState
+    extends State<_RoomRealtimeSensorsSection> {
   @override
   void initState() {
     super.initState();
@@ -3543,8 +4044,8 @@ class _RoomRealtimeSensorsSectionState extends State<_RoomRealtimeSensorsSection
   @override
   void dispose() {
     context.read<RealtimeSensorBloc>().add(
-          const RealtimeSensorDisconnectRequested(),
-        );
+      const RealtimeSensorDisconnectRequested(),
+    );
     super.dispose();
   }
 
@@ -3552,11 +4053,11 @@ class _RoomRealtimeSensorsSectionState extends State<_RoomRealtimeSensorsSection
     final token = await sl<TokenService>().getAccessToken();
     if (token == null || token.isEmpty) return;
     context.read<RealtimeSensorBloc>().add(
-          RealtimeSensorConnectRequested(token),
-        );
+      RealtimeSensorConnectRequested(token),
+    );
     context.read<RealtimeSensorBloc>().add(
-          RealtimeSensorSubscribeToRoom(widget.roomId),
-        );
+      RealtimeSensorSubscribeToRoom(widget.roomId),
+    );
   }
 
   @override
@@ -3606,8 +4107,10 @@ class _RoomRealtimeSensorsSectionState extends State<_RoomRealtimeSensorsSection
                 const SizedBox(height: 8),
                 Container(
                   width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.red[50],
                     borderRadius: BorderRadius.circular(8),
@@ -3635,8 +4138,8 @@ class _RoomRealtimeSensorsSectionState extends State<_RoomRealtimeSensorsSection
                       TextButton(
                         onPressed: () {
                           context.read<RealtimeSensorBloc>().add(
-                                const RealtimeSensorReconnectRequested(),
-                              );
+                            const RealtimeSensorReconnectRequested(),
+                          );
                         },
                         child: const Text('Retry'),
                       ),
@@ -3655,8 +4158,9 @@ class _RoomRealtimeSensorsSectionState extends State<_RoomRealtimeSensorsSection
               else
                 ...widget.sensors.map((s) {
                   final sensorId = (s is Map) ? s['_id']?.toString() : null;
-                  final name =
-                      (s is Map) ? s['name']?.toString() ?? 'Sensor' : 'Sensor';
+                  final name = (s is Map)
+                      ? s['name']?.toString() ?? 'Sensor'
+                      : 'Sensor';
                   final realtimeValue = sensorId != null
                       ? state.getSensorValue(sensorId)
                       : null;
@@ -3670,7 +4174,11 @@ class _RoomRealtimeSensorsSectionState extends State<_RoomRealtimeSensorsSection
                     ),
                     child: Row(
                       children: [
-                        _buildSvgIcon(_assetSensor, color: Colors.grey[700], size: 18),
+                        _buildSvgIcon(
+                          _assetSensor,
+                          color: Colors.grey[700],
+                          size: 18,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -3708,7 +4216,6 @@ class _RoomRealtimeSensorsSectionState extends State<_RoomRealtimeSensorsSection
     );
   }
 }
-
 
 class _ConnectionStatusIndicator extends StatelessWidget {
   final RealtimeConnectionStatus status;
@@ -3750,10 +4257,7 @@ class _ConnectionStatusIndicator extends StatelessWidget {
             boxShadow: [
               if (status == RealtimeConnectionStatus.connected ||
                   status == RealtimeConnectionStatus.subscribed)
-                BoxShadow(
-                  color: color.withOpacity(0.5),
-                  blurRadius: 4,
-                ),
+                BoxShadow(color: color.withOpacity(0.5), blurRadius: 4),
             ],
           ),
         ),

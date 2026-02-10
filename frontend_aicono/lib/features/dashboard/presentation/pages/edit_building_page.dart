@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:dio/dio.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
@@ -7,6 +8,8 @@ import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/network/dio_client.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
+
+import '../../../../core/routing/routeLists.dart';
 
 class EditBuildingPage extends StatefulWidget {
   final String buildingId;
@@ -25,6 +28,10 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
   final TextEditingController _totalAreaController = TextEditingController();
   final TextEditingController _constructionYearController =
       TextEditingController();
+  final TextEditingController _heatedBuildingAreaController =
+      TextEditingController();
+  final TextEditingController _numStudentsEmployeesController =
+      TextEditingController();
   final TextEditingController _loxoneUserController = TextEditingController();
   final TextEditingController _loxonePassController = TextEditingController();
   final TextEditingController _loxoneExternalAddressController =
@@ -33,18 +40,8 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
   final TextEditingController _loxoneSerialNumberController =
       TextEditingController();
 
-  final List<String> _buildingTypes = [
-    'Residential',
-    'Commercial',
-    'Industrial',
-    'Mixed Use',
-    'Educational',
-    'Healthcare',
-    'Other',
-  ];
-
   bool _isLoading = false;
-
+  bool _isLoadingLoxoneChanges = false;
   @override
   void initState() {
     super.initState();
@@ -58,6 +55,8 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
     _numberOfFloorsController.dispose();
     _totalAreaController.dispose();
     _constructionYearController.dispose();
+    _heatedBuildingAreaController.dispose();
+    _numStudentsEmployeesController.dispose();
     _loxoneUserController.dispose();
     _loxonePassController.dispose();
     _loxoneExternalAddressController.dispose();
@@ -104,6 +103,18 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
               buildingData['miniserver_port']?.toString() ?? '443';
           _loxoneSerialNumberController.text =
               buildingData['miniserver_serial']?.toString() ?? '504F94D107EE';
+
+          // Set heated_building_area if available
+          if (buildingData['heated_building_area'] != null) {
+            _heatedBuildingAreaController.text =
+                buildingData['heated_building_area'].toString();
+          }
+
+          // Set num_students_employees if available
+          if (buildingData['num_students_employees'] != null) {
+            _numStudentsEmployeesController.text =
+                buildingData['num_students_employees'].toString();
+          }
         }
       }
     } catch (e) {
@@ -114,6 +125,139 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
       _loxoneExternalAddressController.text = 'dns.loxonecloud.com';
       _loxonePortController.text = '443';
       _loxoneSerialNumberController.text = '504F94D107EE';
+    }
+  }
+
+  Future<void> _handleSaveLoxoneChanges() async {
+    setState(() {
+      _isLoadingLoxoneChanges = true;
+    });
+    try {
+      final dioClient = sl<DioClient>();
+      final requestBody = <String, dynamic>{
+        'ip': _loxoneExternalAddressController.text.trim(),
+        'port': _loxonePortController.text.trim(),
+        'user': _loxoneUserController.text.trim(),
+        'pass': _loxonePassController.text.trim(),
+        'serialNumber': _loxoneSerialNumberController.text.trim(),
+      };
+      final response = await dioClient.patch(
+        '/api/v1/buildings/${widget.buildingId}/loxone-config',
+        data: requestBody,
+      );
+      if (mounted) {
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Loxone changes updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Refresh building details
+          context.read<DashboardBuildingDetailsBloc>().add(
+            DashboardBuildingDetailsRequested(buildingId: widget.buildingId),
+          );
+          // Navigate back
+          // context.pop();
+          context.pushReplacementNamed(Routelists.dashboard);
+        } else if (response.statusCode == 404) {
+          // If 404, try POST to connect endpoint
+          await _connectLoxone(dioClient);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to update Loxone changes: ${response.statusCode}',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        // Check if it's a 404 error
+        if (e is DioException && e.response?.statusCode == 404) {
+          try {
+            final dioClient = sl<DioClient>();
+            await _connectLoxone(dioClient);
+          } catch (connectError) {
+            debugPrint('Error connecting Loxone: $connectError');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error connecting Loxone: $connectError'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        } else {
+          debugPrint('Error saving Loxone changes: $e');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error updating Loxone changes: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingLoxoneChanges = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _connectLoxone(DioClient dioClient) async {
+    try {
+      // Parse port as integer, default to 443 if invalid
+      final port = int.tryParse(_loxonePortController.text.trim()) ?? 443;
+
+      final connectRequestBody = <String, dynamic>{
+        'user': _loxoneUserController.text.trim(),
+        'pass': _loxonePassController.text.trim(),
+        'externalAddress': _loxoneExternalAddressController.text.trim(),
+        'port': port,
+        'serialNumber': _loxoneSerialNumberController.text.trim(),
+      };
+
+      final connectResponse = await dioClient.post(
+        '/api/v1/loxone/connect/${widget.buildingId}',
+        data: connectRequestBody,
+      );
+
+      if (mounted) {
+        if (connectResponse.statusCode == 200 ||
+            connectResponse.statusCode == 201) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Loxone connected successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Refresh building details
+          context.read<DashboardBuildingDetailsBloc>().add(
+            DashboardBuildingDetailsRequested(buildingId: widget.buildingId),
+          );
+          // Navigate back
+          context.pushReplacementNamed(Routelists.dashboard);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to connect Loxone: ${connectResponse.statusCode}',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        debugPrint('Error connecting Loxone: $e');
+        rethrow; // Re-throw to be handled by caller
+      }
     }
   }
 
@@ -261,25 +405,17 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                     ),
                                   ),
                                   const SizedBox(height: 24),
-                                  // Building type dropdown
+                                  // Building type field
                                   SizedBox(
                                     width: screenSize.width < 600
                                         ? screenSize.width * 0.95
                                         : screenSize.width < 1200
                                         ? screenSize.width * 0.5
                                         : screenSize.width * 0.6,
-                                    child: DropdownButtonFormField<String>(
-                                      value:
-                                          _buildingTypeController
-                                                  .text
-                                                  .isEmpty ||
-                                              !_buildingTypes.contains(
-                                                _buildingTypeController.text,
-                                              )
-                                          ? null
-                                          : _buildingTypeController.text,
+                                    child: TextFormField(
+                                      controller: _buildingTypeController,
                                       decoration: InputDecoration(
-                                        hintText: 'Select building type',
+                                        hintText: 'Enter type of use',
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             0,
@@ -287,41 +423,8 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                         ),
                                         //  prefixIcon: Icon(Icons.category),
                                       ),
-                                      items: _buildingTypes.map((type) {
-                                        return DropdownMenuItem(
-                                          value: type,
-                                          child: Text(type),
-                                        );
-                                      }).toList(),
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _buildingTypeController.text =
-                                              value ?? '';
-                                        });
-                                      },
                                     ),
                                   ),
-                                  // Show current value if it's not in the list
-                                  if (_buildingTypeController.text.isNotEmpty &&
-                                      !_buildingTypes.contains(
-                                        _buildingTypeController.text,
-                                      )) ...[
-                                    const SizedBox(height: 8),
-                                    SizedBox(
-                                      width: screenSize.width < 600
-                                          ? screenSize.width * 0.95
-                                          : screenSize.width < 1200
-                                          ? screenSize.width * 0.5
-                                          : screenSize.width * 0.6,
-                                      child: Text(
-                                        'Current value: ${_buildingTypeController.text}',
-                                        style: const TextStyle(
-                                          color: Colors.grey,
-                                          fontStyle: FontStyle.italic,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
                                   const SizedBox(height: 24),
                                   // Number of floors field
                                   SizedBox(
@@ -409,6 +512,88 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                       ),
                                     ),
                                   ),
+                                  const SizedBox(height: 24),
+                                  // Heated building area field
+                                  SizedBox(
+                                    width: screenSize.width < 600
+                                        ? screenSize.width * 0.95
+                                        : screenSize.width < 1200
+                                        ? screenSize.width * 0.5
+                                        : screenSize.width * 0.6,
+                                    child: TextFormField(
+                                      controller: _heatedBuildingAreaController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: InputDecoration(
+                                        hintText: 'Enter heated building area',
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                        ),
+                                        //  prefixIcon: Icon(Icons.thermostat),
+                                      ),
+                                      validator: (value) {
+                                        if (value != null &&
+                                            value.trim().isNotEmpty &&
+                                            int.tryParse(value.trim()) ==
+                                                null) {
+                                          return 'Please enter a valid number';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  // Number of students/employees field
+                                  SizedBox(
+                                    width: screenSize.width < 600
+                                        ? screenSize.width * 0.95
+                                        : screenSize.width < 1200
+                                        ? screenSize.width * 0.5
+                                        : screenSize.width * 0.6,
+                                    child: TextFormField(
+                                      controller:
+                                          _numStudentsEmployeesController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: InputDecoration(
+                                        hintText:
+                                            'Enter number of students/employees',
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                        ),
+                                        //  prefixIcon: Icon(Icons.people),
+                                      ),
+                                      validator: (value) {
+                                        if (value != null &&
+                                            value.trim().isNotEmpty &&
+                                            int.tryParse(value.trim()) ==
+                                                null) {
+                                          return 'Please enter a valid number';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+
+                                  // Save button
+                                  _isLoading
+                                      ? const Center(
+                                          child: CircularProgressIndicator(),
+                                        )
+                                      : Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            PrimaryOutlineButton(
+                                              onPressed: _handleSave,
+                                              label: 'Update Building Changes',
+                                              width: 260,
+                                            ),
+                                          ],
+                                        ),
                                   const SizedBox(height: 32),
                                   // Loxone Connection Section
                                   SizedBox(
@@ -537,7 +722,7 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                   ),
                                   const SizedBox(height: 32),
                                   // Save button
-                                  _isLoading
+                                  _isLoadingLoxoneChanges
                                       ? const Center(
                                           child: CircularProgressIndicator(),
                                         )
@@ -546,8 +731,9 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                               MainAxisAlignment.center,
                                           children: [
                                             PrimaryOutlineButton(
-                                              onPressed: _handleSave,
-                                              label: 'Save Changes',
+                                              onPressed:
+                                                  _handleSaveLoxoneChanges,
+                                              label: 'Update Loxone Changes',
                                               width: 260,
                                             ),
                                           ],
@@ -594,9 +780,12 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
       final dioClient = sl<DioClient>();
       final requestBody = <String, dynamic>{'name': buildingName};
 
-      // Add building type if provided
-      if (_buildingTypeController.text.trim().isNotEmpty) {
-        requestBody['type_of_use'] = _buildingTypeController.text.trim();
+      // Add building size if provided
+      if (_totalAreaController.text.trim().isNotEmpty) {
+        final totalArea = double.tryParse(_totalAreaController.text.trim());
+        if (totalArea != null) {
+          requestBody['building_size'] = totalArea.toInt();
+        }
       }
 
       // Add number of floors if provided
@@ -604,14 +793,6 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
         final numFloors = int.tryParse(_numberOfFloorsController.text.trim());
         if (numFloors != null) {
           requestBody['num_floors'] = numFloors;
-        }
-      }
-
-      // Add total area if provided
-      if (_totalAreaController.text.trim().isNotEmpty) {
-        final totalArea = double.tryParse(_totalAreaController.text.trim());
-        if (totalArea != null) {
-          requestBody['building_size'] = totalArea.toInt();
         }
       }
 
@@ -623,15 +804,30 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
         }
       }
 
-      // Add Loxone connection data
-      requestBody['miniserver_user'] = _loxoneUserController.text.trim();
-      requestBody['miniserver_pass'] = _loxonePassController.text.trim();
-      requestBody['miniserver_external_address'] =
-          _loxoneExternalAddressController.text.trim();
-      final port = int.tryParse(_loxonePortController.text.trim()) ?? 443;
-      requestBody['miniserver_port'] = port;
-      requestBody['miniserver_serial'] = _loxoneSerialNumberController.text
-          .trim();
+      // Add building type if provided
+      if (_buildingTypeController.text.trim().isNotEmpty) {
+        requestBody['type_of_use'] = _buildingTypeController.text.trim();
+      }
+
+      // Add heated building area if provided
+      if (_heatedBuildingAreaController.text.trim().isNotEmpty) {
+        final heatedArea = int.tryParse(
+          _heatedBuildingAreaController.text.trim(),
+        );
+        if (heatedArea != null) {
+          requestBody['heated_building_area'] = heatedArea;
+        }
+      }
+
+      // Add number of students/employees if provided
+      if (_numStudentsEmployeesController.text.trim().isNotEmpty) {
+        final numStudents = int.tryParse(
+          _numStudentsEmployeesController.text.trim(),
+        );
+        if (numStudents != null) {
+          requestBody['num_students_employees'] = numStudents;
+        }
+      }
 
       final response = await dioClient.patch(
         '/api/v1/buildings/${widget.buildingId}',
@@ -651,7 +847,8 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
             DashboardBuildingDetailsRequested(buildingId: widget.buildingId),
           );
           // Navigate back
-          context.pop();
+          // context.pop();
+          context.pushReplacementNamed(Routelists.dashboard);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

@@ -287,15 +287,20 @@ class _BuildingFloorManagementPageState
 
   void _handleComplete() {
     // Extract fromDashboard from widget or current route
-    context.goNamed(
-      Routelists.buildingSetup,
-      queryParameters: {
-        'userName': widget.userName!,
-        'siteId': widget.siteId,
-        'buildingId': widget.buildingId,
-        'fromDashboard': widget.fromDashboard!,
-      },
-    );
+    final queryParams = <String, String>{
+      'siteId': widget.siteId,
+      'buildingId': widget.buildingId,
+    };
+
+    // Add optional parameters only if they are not null
+    if (widget.userName != null && widget.userName!.isNotEmpty) {
+      queryParams['userName'] = widget.userName!;
+    }
+    if (widget.fromDashboard != null && widget.fromDashboard!.isNotEmpty) {
+      queryParams['fromDashboard'] = widget.fromDashboard!;
+    }
+
+    context.pushNamed(Routelists.buildingSetup, queryParameters: queryParams);
 
     // final fromDashboard =
     //     widget.fromDashboard ??

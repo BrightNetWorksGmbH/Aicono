@@ -1,7 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
+import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_building_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_site_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_summary_entity.dart';
@@ -247,14 +249,25 @@ class _ReportSidebarSectionState extends State<ReportSidebarSection> {
                   autoExpandItemId: _selectedSiteId,
                   onItemTap: _handleItemTap,
                   onAddItem: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'dashboard.sidebar.add_reporting'.tr() +
-                              ' ' +
-                              'dashboard.main_content.coming_soon'.tr(),
+                    if (_selectedSiteId == null ||
+                        _selectedBuildingId == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'dashboard.sidebar.select_building_first'.tr(),
+                          ),
                         ),
-                      ),
+                      );
+                      return;
+                    }
+
+                    context.pushNamed(
+                      Routelists.buildingRecipient,
+                      queryParameters: {
+                        'siteId': _selectedSiteId!,
+                        'buildingId': _selectedBuildingId!,
+                        'fromDashboard': 'true',
+                      },
                     );
                   },
                   addItemLabel: 'dashboard.sidebar.add_reporting'.tr(),

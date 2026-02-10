@@ -222,8 +222,8 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
                         const SizedBox(height: 24),
 
                         // Button logic:
-                        // - If there are text fields with values, show "Confirm" button first
-                        // - If there is less than one site (0 or 1) AND all text fields are empty, show "Go to home"
+                        // - If there is at least one property AND all text fields are empty, show "Go to home"
+                        // - If there is at least one property AND any text field has a value, show "Confirm"
                         Builder(
                           builder: (context) {
                             // Check if at least one field has a value
@@ -231,22 +231,27 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
                               (p) => p.controller.text.trim().isNotEmpty,
                             );
 
-                            // Check if there is less than one site (0 or 1 site)
-                            final hasLessThanOneSite =
-                                widget.createdSites.length <= 1;
+                            // Check if there is at least one property (site)
+                            final hasAtLeastOneProperty =
+                                widget.createdSites.length >= 1;
 
                             // Show "Go to home" when:
-                            // - There is less than one site (0 or 1)
+                            // - There is at least one property (site)
                             // - All text fields are empty (no values)
                             final shouldShowGoToHome =
-                                hasLessThanOneSite && !hasAnyValue;
+                                hasAtLeastOneProperty && !hasAnyValue;
 
-                            // Show "Confirm" when there are text fields with values
-                            final shouldShowConfirm = hasAnyValue;
+                            // Show "Confirm" when:
+                            // - There is at least one property (site)
+                            // - Any text field has a value
+                            final shouldShowConfirm =
+                                hasAtLeastOneProperty && hasAnyValue;
 
                             return PrimaryOutlineButton(
                               label: shouldShowGoToHome
                                   ? 'add_properties.go_to_home'.tr()
+                                  : shouldShowConfirm
+                                  ? 'add_properties.confirm_properties'.tr()
                                   : 'add_properties.confirm_properties'.tr(),
                               width: 260,
                               enabled: shouldShowGoToHome || shouldShowConfirm,
