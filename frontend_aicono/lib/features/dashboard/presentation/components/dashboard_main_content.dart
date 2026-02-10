@@ -737,11 +737,11 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     constraints: const BoxConstraints(maxHeight: 400),
                     decoration: BoxDecoration(
                       color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: Colors.grey[300]!),
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                       child: _buildFloorPlanImage(d.floorPlanLink!),
                     ),
                   ),
@@ -981,7 +981,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: Colors.grey[200]!),
       ),
       child: child,
@@ -1007,7 +1007,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: Colors.grey[200]!),
         boxShadow: [
           BoxShadow(
@@ -1024,7 +1024,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             height: 44,
             decoration: BoxDecoration(
               color: _metricIconTeal.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.zero,
             ),
             child: icon,
           ),
@@ -1062,7 +1062,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                   ),
                   decoration: BoxDecoration(
                     color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.zero,
                   ),
                   child: Text(
                     trailing,
@@ -1305,7 +1305,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: Colors.grey[200]!),
       ),
       child: Row(
@@ -1487,7 +1487,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: borderColor),
       ),
       child: Row(
@@ -1535,7 +1535,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: Colors.grey[200]!),
       ),
       child: Row(
@@ -1815,7 +1815,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: Colors.grey[300]!),
       ),
       child: Column(
@@ -4064,14 +4064,14 @@ class _RoomRealtimeSensorsSectionState
   Widget build(BuildContext context) {
     return BlocBuilder<RealtimeSensorBloc, RealtimeSensorState>(
       builder: (context, state) {
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[200]!),
-          ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.zero,
+        border: Border.all(color: Colors.grey[200]!),
+      ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -4113,7 +4113,7 @@ class _RoomRealtimeSensorsSectionState
                   ),
                   decoration: BoxDecoration(
                     color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(color: Colors.red[100]!),
                   ),
                   child: Row(
@@ -4164,12 +4164,20 @@ class _RoomRealtimeSensorsSectionState
                   final realtimeValue = sensorId != null
                       ? state.getSensorValue(sensorId)
                       : null;
+                  final formattedValue = realtimeValue != null
+                      ? '${LocaleNumberFormat.formatNum(
+                          realtimeValue.value,
+                          locale: context.locale,
+                          decimalDigits: 6,
+                          fallback: '–',
+                        )}${realtimeValue.unit.isNotEmpty ? ' ${realtimeValue.unit}' : ''}'
+                      : '—';
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: Colors.grey[200]!),
                     ),
                     child: Row(
@@ -4195,9 +4203,7 @@ class _RoomRealtimeSensorsSectionState
                           ),
                         ),
                         Text(
-                          realtimeValue != null
-                              ? realtimeValue.formattedValue
-                              : '—',
+                          formattedValue,
                           style: AppTextStyles.titleSmall.copyWith(
                             fontWeight: FontWeight.bold,
                             color: realtimeValue != null
