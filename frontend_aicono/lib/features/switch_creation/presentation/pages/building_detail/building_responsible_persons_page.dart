@@ -156,15 +156,21 @@ class _BuildingResponsiblePersonsPageState
   }
 
   void _navigateAfterCompletion() {
-    // Get switchId from PropertySetupCubit (saved at login stage)
+    // If user came from dashboard (e.g. via reports sidebar), go back to dashboard.
+    final isFromDashboard = widget.fromDashboard == 'true';
+    if (isFromDashboard) {
+      context.goNamed(Routelists.dashboard);
+      return;
+    }
+
+    // Default behaviour for the building setup wizard: continue to building setup.
     context.goNamed(
       Routelists.buildingSetup,
       queryParameters: {
-        'userName': widget.userName!,
-        'siteId': widget.siteId!,
-
-        'buildingId': widget.buildingId!,
-        'fromDashboard': widget.fromDashboard!,
+        if (widget.userName != null) 'userName': widget.userName!,
+        if (widget.siteId != null) 'siteId': widget.siteId!,
+        if (widget.buildingId != null) 'buildingId': widget.buildingId!,
+        if (widget.fromDashboard != null) 'fromDashboard': widget.fromDashboard!,
       },
     );
     // final propertyCubit = sl<PropertySetupCubit>();

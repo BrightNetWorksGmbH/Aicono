@@ -55,6 +55,8 @@ Widget _buildSvgIcon(String asset, {Color? color, double size = 22}) {
   );
 }
 
+enum _PropertyOverviewMenuAction { edit, delete }
+
 class DashboardMainContent extends StatefulWidget {
   final String? verseId;
   final String? selectedReportId;
@@ -444,6 +446,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     Routelists.editSite,
                     queryParameters: {'siteId': state.siteId},
                   );
+                },
+                onDelete: () async {
+                  await _handleDeleteSite(state.siteId);
                 },
                 metricCards: [
                   _buildPropertyMetricCard(
@@ -892,6 +897,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 queryParameters: {'buildingId': state.buildingId},
               );
             },
+            onDelete: () async {
+              await _handleDeleteBuilding(state.buildingId);
+            },
             metricCards: metricCards,
           ),
           if (kpis != null) ...[
@@ -1179,6 +1187,76 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     }
   }
 
+  Future<bool?> _showDeleteSiteConfirmationDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+          backgroundColor: Colors.white,
+          title: const Text('Delete Site'),
+          content: const Text(
+            'Are you sure you want to delete this site? This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool?> _handleDeleteSite(String siteId) async {
+    final shouldDelete = await _showDeleteSiteConfirmationDialog();
+    if (shouldDelete != true || !mounted) return false;
+
+    try {
+      final dioClient = sl<DioClient>();
+      final response = await dioClient.delete('/api/v1/sites/$siteId');
+
+      if (!mounted) return false;
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        context.read<DashboardSitesBloc>().add(
+          DashboardSitesRequested(bryteswitchId: widget.verseId),
+        );
+        context.read<DashboardSiteDetailsBloc>().add(
+          DashboardSiteDetailsReset(),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Site deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        return true;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete site: ${response.statusCode}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return false;
+      }
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting site: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<bool?> _showDeleteBuildingConfirmationDialog() {
     return showDialog<bool>(
       context: context,
@@ -1273,6 +1351,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     String? address,
     required List<Widget> metricCards,
     VoidCallback? onEdit,
+    VoidCallback? onDelete,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1315,16 +1394,41 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 ],
               ),
             ),
-            if (onEdit != null)
-              TextButton(
-                onPressed: onEdit,
-                child: Text(
-                  'Edit',
-                  style: AppTextStyles.titleSmall.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
+            if (onEdit != null || onDelete != null)
+              PopupMenuButton<_PropertyOverviewMenuAction>(
+                icon: const Icon(Icons.more_vert),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(0),
                 ),
+                color: Colors.white,
+                onSelected: (action) {
+                  switch (action) {
+                    case _PropertyOverviewMenuAction.edit:
+                      if (onEdit != null) onEdit();
+                      break;
+                    case _PropertyOverviewMenuAction.delete:
+                      if (onDelete != null) onDelete();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (onEdit != null)
+                    const PopupMenuItem<_PropertyOverviewMenuAction>(
+                      value: _PropertyOverviewMenuAction.edit,
+                      child: Text('Edit'),
+                    ),
+                  if (onDelete != null)
+                    const PopupMenuItem<_PropertyOverviewMenuAction>(
+                      value: _PropertyOverviewMenuAction.delete,
+                      child: Text(
+                        'Delete',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
               ),
           ],
         ),
