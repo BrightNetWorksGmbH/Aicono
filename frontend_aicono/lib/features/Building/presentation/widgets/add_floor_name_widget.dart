@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
-import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
+import 'package:frontend_aicono/core/routing/routeLists.dart';
 
 import '../../../../core/widgets/page_header_row.dart';
 
@@ -53,17 +54,35 @@ class _AddFloorNameWidgetState extends State<AddFloorNameWidget> {
     super.dispose();
   }
 
-  String _buildProgressText() {
-    final name = widget.userName?.trim();
-    if (name != null && name.isNotEmpty) {
-      return 'add_floor_name.progress_text'.tr(namedArgs: {'name': name});
+  bool _shouldShowGoToHome() {
+    try {
+      final router = GoRouterState.of(context);
+      final uri = Uri.parse(router.uri.toString());
+      final completedFloorName = uri.queryParameters['completedFloorName'];
+      final fromDashboard = uri.queryParameters['fromDashboard'];
+
+      // Check if both completedFloorName and fromDashboard=true are present
+      final hasCompletedFloorName =
+          completedFloorName != null && completedFloorName.isNotEmpty;
+      final isFromDashboard = fromDashboard == 'true';
+
+      // Show "Go to home" if URI has completedFloorName and fromDashboard=true, and text field is empty
+      return hasCompletedFloorName &&
+          isFromDashboard &&
+          _controller.text.trim().isEmpty;
+    } catch (e) {
+      return false;
     }
-    return 'add_floor_name.progress_text_fallback'.tr();
+  }
+
+  void _handleGoToHome() {
+    context.pushReplacementNamed(Routelists.dashboard);
   }
 
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
+    final shouldShowGoToHome = _shouldShowGoToHome();
 
     return Padding(
       padding: const EdgeInsets.all(12.0),
@@ -140,12 +159,18 @@ class _AddFloorNameWidgetState extends State<AddFloorNameWidget> {
                     // ),
                     const SizedBox(height: 32),
                     PrimaryOutlineButton(
-                      label: 'add_floor_name.button_text'.tr(),
+                      label: shouldShowGoToHome
+                          ? 'Go to home'
+                          : 'add_floor_name.button_text'.tr(),
                       width: 260,
-                      enabled: _controller.text.trim().isNotEmpty,
-                      onPressed: _controller.text.trim().isNotEmpty
-                          ? widget.onContinue
-                          : null,
+                      enabled:
+                          shouldShowGoToHome ||
+                          _controller.text.trim().isNotEmpty,
+                      onPressed: shouldShowGoToHome
+                          ? _handleGoToHome
+                          : (_controller.text.trim().isNotEmpty
+                                ? widget.onContinue
+                                : null),
                     ),
                   ],
                 ),

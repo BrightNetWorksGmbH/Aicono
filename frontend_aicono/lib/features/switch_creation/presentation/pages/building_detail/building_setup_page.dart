@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/storage/local_storage.dart';
+import 'package:frontend_aicono/core/widgets/page_header_row.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
+
+import '../../../../../core/widgets/top_part_widget.dart';
 
 class BuildingSetupPage extends StatefulWidget {
   final String? buildingId;
@@ -186,6 +189,20 @@ class _BuildingSetupPageState extends State<BuildingSetupPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
+                          const SizedBox(height: 20),
+                          Material(
+                            color: Colors.transparent,
+                            child: TopHeader(
+                              onLanguageChanged: _handleLanguageChanged,
+                              containerWidth: screenSize.width > 500
+                                  ? 500
+                                  : screenSize.width * 0.98,
+                              userInitial: widget.userName?[0].toUpperCase(),
+                              verseInitial: null,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
                           SizedBox(
                             width: screenSize.width < 600
                                 ? screenSize.width * 0.95
@@ -204,7 +221,7 @@ class _BuildingSetupPageState extends State<BuildingSetupPage> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 20),
                           SizedBox(
                             width: screenSize.width < 600
                                 ? screenSize.width * 0.95
