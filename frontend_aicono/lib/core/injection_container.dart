@@ -96,6 +96,10 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_deta
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_view_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_token_info_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/trigger_report_bloc.dart';
+import 'package:frontend_aicono/features/realtime/data/datasources/realtime_remote_datasource.dart';
+import 'package:frontend_aicono/features/realtime/data/repositories/realtime_repository_impl.dart';
+import 'package:frontend_aicono/features/realtime/domain/repositories/realtime_repository.dart';
+import 'package:frontend_aicono/features/realtime/presentation/bloc/realtime_sensor_bloc.dart';
 import 'package:frontend_aicono/features/superadmin/data/datasources/verse_remote_datasource.dart';
 import 'package:frontend_aicono/features/superadmin/data/repositories/verse_repository_impl.dart';
 import 'package:frontend_aicono/features/superadmin/domain/repositories/verse_repository.dart';
@@ -180,6 +184,13 @@ Future<void> init() async {
     () => ReportingRemoteDataSourceImpl(dioClient: sl()),
   );
 
+  // Realtime WebSocket data source
+  sl.registerLazySingleton<RealtimeRemoteDataSource>(
+    () => RealtimeRemoteDataSourceImpl(
+      baseUrl: sl<DioClient>().dio.options.baseUrl,
+    ),
+  );
+
   // Join invite data source
   sl.registerLazySingleton<JoinInviteRemoteDataSource>(
     () => JoinInviteRemoteDataSourceImpl(dioClient: sl()),
@@ -236,6 +247,11 @@ Future<void> init() async {
   // Reporting repository
   sl.registerLazySingleton<ReportingRepository>(
     () => ReportingRepositoryImpl(remoteDataSource: sl()),
+  );
+
+  // Realtime repository
+  sl.registerLazySingleton<RealtimeRepository>(
+    () => RealtimeRepositoryImpl(dataSource: sl()),
   );
 
   // Join invite repository
@@ -383,6 +399,11 @@ Future<void> init() async {
     () => ReportTokenInfoBloc(getReportTokenInfoUseCase: sl()),
   );
   sl.registerFactory(() => TriggerReportBloc(triggerReportUseCase: sl()));
+
+  // Realtime sensor bloc (factory - new instance per screen that needs it)
+  sl.registerFactory(
+    () => RealtimeSensorBloc(repository: sl<RealtimeRepository>()),
+  );
 
   // User invite blocs
   sl.registerFactory(() => RolesBloc(getRolesUseCase: sl()));

@@ -961,7 +961,17 @@ class AppRouter {
         final token = state.uri.queryParameters['token'];
         final verseId = state.uri.queryParameters['verseId'];
         final userName = state.uri.queryParameters['userName'];
+        final recipientName = state.uri.queryParameters['recipientName'];
         final tokenInfo = state.extra as ReportTokenInfoEntity?;
+        String? displayName = recipientName;
+        if (displayName == null || displayName.isEmpty) {
+          final n = tokenInfo?.recipient.name.trim();
+          displayName = n != null && n.isNotEmpty ? n : tokenInfo?.recipient.email.trim();
+        }
+        if (displayName == null || displayName.isEmpty) {
+          displayName = userName;
+        }
+        displayName ??= 'Stephan';
         return _buildPage(
           context,
           state,
@@ -970,6 +980,7 @@ class AppRouter {
             tokenInfo: tokenInfo,
             verseId: verseId,
             userName: userName,
+            recipientName: displayName,
           ),
         );
       },

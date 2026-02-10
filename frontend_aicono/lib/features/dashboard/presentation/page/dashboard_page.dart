@@ -21,6 +21,7 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_buil
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/building_reports_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_detail_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/trigger_report_bloc.dart';
+import 'package:frontend_aicono/features/realtime/presentation/bloc/realtime_sensor_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/user.dart';
@@ -226,6 +227,7 @@ class _DashboardPageState extends State<DashboardPage> {
         BlocProvider(create: (context) => sl<BuildingReportsBloc>()),
         BlocProvider(create: (context) => sl<ReportDetailBloc>()),
         BlocProvider(create: (context) => sl<TriggerReportBloc>()),
+        BlocProvider(create: (context) => sl<RealtimeSensorBloc>()),
       ],
       child: Builder(
         builder: (blocContext) {
@@ -244,28 +246,7 @@ class _DashboardPageState extends State<DashboardPage> {
             listeners: [
               BlocListener<DashboardSitesBloc, DashboardSitesState>(
                 listener: (context, state) {
-                  if (state is DashboardSitesSuccess &&
-                      state.sites.isNotEmpty) {
-                    final detailsState = context
-                        .read<DashboardSiteDetailsBloc>()
-                        .state;
-                    String? selectedSiteId;
-                    if (detailsState is DashboardSiteDetailsLoading) {
-                      selectedSiteId = detailsState.siteId;
-                    } else if (detailsState is DashboardSiteDetailsSuccess) {
-                      selectedSiteId = detailsState.siteId;
-                    } else if (detailsState is DashboardSiteDetailsFailure) {
-                      selectedSiteId = detailsState.siteId;
-                    }
-
-                    if (selectedSiteId == null) {
-                      context.read<DashboardSiteDetailsBloc>().add(
-                        DashboardSiteDetailsRequested(
-                          siteId: state.sites.first.id,
-                        ),
-                      );
-                    }
-                  }
+                  // Do not auto-select a site when page opens; leave no site selected by default.
                 },
               ),
             ],

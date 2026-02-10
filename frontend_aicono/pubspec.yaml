@@ -46,12 +46,14 @@ dependencies:
   # Networking
   dio: ^5.4.0
   connectivity_plus: ^7.0.0
+  web_socket_channel: ^3.0.1
 
   # Routing
   go_router: ^17.0.1
 
   # Localization
   easy_localization: ^3.0.4
+  intl: ^0.20.0
 
   # Storage
   flutter_secure_storage: ^10.0.0

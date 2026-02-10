@@ -201,8 +201,7 @@ class _ViewReportContentState extends State<_ViewReportContent> {
       crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildLogo(),
-        const SizedBox(height: 32),
+        SizedBox(height: 60),
         _buildGreeting(recipientName),
         const SizedBox(height: 36),
         GestureDetector(
@@ -220,36 +219,7 @@ class _ViewReportContentState extends State<_ViewReportContent> {
         _buildCtaButton(context, info),
         const SizedBox(height: 28),
         _buildFooterLegal(),
-      ],
-    );
-  }
-
-  Widget _buildLogo() {
-    return Column(
-      children: [
-        Icon(Icons.trending_up, size: 40, color: Colors.black87),
-        const SizedBox(height: 8),
-        RichText(
-          textAlign: TextAlign.center,
-          text: TextSpan(
-            text: 'BRIGHT ',
-            style: AppTextStyles.titleLarge.copyWith(
-              color: Colors.black87,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
-            children: [
-              TextSpan(
-                text: 'NETWORKS',
-                style: AppTextStyles.titleLarge.copyWith(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-        ),
+        SizedBox(height: 60),
       ],
     );
   }
@@ -348,9 +318,17 @@ class _ViewReportContentState extends State<_ViewReportContent> {
 
   void _onProceed(BuildContext context, ReportTokenInfoEntity tokenInfo) {
     if (context.mounted) {
+      final recipientName = tokenInfo.recipient.name.trim().isNotEmpty
+          ? tokenInfo.recipient.name
+          : tokenInfo.recipient.email.trim().isNotEmpty
+          ? tokenInfo.recipient.email
+          : '';
       context.pushNamed(
         Routelists.statistics,
-        queryParameters: {'token': widget.token},
+        queryParameters: {
+          'token': widget.token,
+          'recipientName': recipientName,
+        },
         extra: tokenInfo,
       );
     }

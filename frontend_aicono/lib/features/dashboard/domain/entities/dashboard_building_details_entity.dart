@@ -32,6 +32,7 @@ class DashboardBuildingDetails {
   final int sensorCount;
   final List<DashboardFloor> floors;
   final DashboardKpis? kpis;
+  final DashboardBuildingAnalytics? analytics;
   final DashboardTimeRange? timeRange;
 
   DashboardBuildingDetails({
@@ -47,6 +48,7 @@ class DashboardBuildingDetails {
     required this.sensorCount,
     required this.floors,
     required this.kpis,
+    this.analytics,
     required this.timeRange,
   });
 
@@ -98,9 +100,99 @@ class DashboardBuildingDetails {
       kpis: (json['kpis'] is Map<String, dynamic>)
           ? DashboardKpis.fromJson(json['kpis'] as Map<String, dynamic>)
           : null,
+      analytics: (json['analytics'] is Map<String, dynamic>)
+          ? DashboardBuildingAnalytics.fromJson(
+              json['analytics'] as Map<String, dynamic>,
+            )
+          : null,
       timeRange: (json['time_range'] is Map<String, dynamic>)
           ? DashboardTimeRange.fromJson(json['time_range'] as Map<String, dynamic>)
           : null,
+    );
+  }
+}
+
+class DashboardBuildingAnalytics {
+  final DashboardEuiAnalytics? eui;
+  final DashboardPerCapitaAnalytics? perCapita;
+
+  DashboardBuildingAnalytics({
+    this.eui,
+    this.perCapita,
+  });
+
+  factory DashboardBuildingAnalytics.fromJson(Map<String, dynamic> json) {
+    final euiJson = json['eui'];
+    final perCapitaJson = json['perCapita'];
+    return DashboardBuildingAnalytics(
+      eui: euiJson is Map<String, dynamic>
+          ? DashboardEuiAnalytics.fromJson(
+              euiJson.map((k, v) => MapEntry(k.toString(), v)),
+            )
+          : null,
+      perCapita: perCapitaJson is Map<String, dynamic>
+          ? DashboardPerCapitaAnalytics.fromJson(
+              perCapitaJson.map((k, v) => MapEntry(k.toString(), v)),
+            )
+          : null,
+    );
+  }
+}
+
+class DashboardEuiAnalytics {
+  final double eui;
+  final double annualizedEui;
+  final String unit;
+  final bool available;
+
+  DashboardEuiAnalytics({
+    required this.eui,
+    required this.annualizedEui,
+    required this.unit,
+    required this.available,
+  });
+
+  factory DashboardEuiAnalytics.fromJson(Map<String, dynamic> json) {
+    double _toDouble(dynamic v) {
+      if (v is num) return v.toDouble();
+      return double.tryParse('$v') ?? 0.0;
+    }
+
+    return DashboardEuiAnalytics(
+      eui: _toDouble(json['eui']),
+      annualizedEui: _toDouble(json['annualizedEUI']),
+      unit: (json['unit'] ?? '').toString(),
+      available: json['available'] == true,
+    );
+  }
+}
+
+class DashboardPerCapitaAnalytics {
+  final double perCapita;
+  final String unit;
+  final int? numPeople;
+  final bool available;
+
+  DashboardPerCapitaAnalytics({
+    required this.perCapita,
+    required this.unit,
+    required this.numPeople,
+    required this.available,
+  });
+
+  factory DashboardPerCapitaAnalytics.fromJson(Map<String, dynamic> json) {
+    double _toDouble(dynamic v) {
+      if (v is num) return v.toDouble();
+      return double.tryParse('$v') ?? 0.0;
+    }
+
+    return DashboardPerCapitaAnalytics(
+      perCapita: _toDouble(json['perCapita']),
+      unit: (json['unit'] ?? '').toString(),
+      numPeople: (json['numPeople'] is int)
+          ? json['numPeople'] as int
+          : int.tryParse('${json['numPeople']}'),
+      available: json['available'] == true,
     );
   }
 }
