@@ -15,6 +15,9 @@ router.get('/:floorId', requireAuth, floorController.getFloorById);
 // Update a floor
 router.patch('/:floorId', requireAuth, floorController.updateFloor);
 
+// Delete a floor (must be before /:floorId/rooms to avoid route conflicts)
+router.delete('/:floorId', requireAuth, floorController.deleteFloor);
+
 // Add a room to a floor
 router.post('/:floorId/rooms', requireAuth, floorController.addRoomToFloor);
 

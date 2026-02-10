@@ -11,6 +11,9 @@
  */
 
 const mongoose = require('mongoose');
+const LocalRoom = require('../models/LocalRoom');
+const Sensor = require('../models/Sensor');
+const Floor = require('../models/Floor');
 
 // Cache for sensor lookups to reduce database queries
 const sensorIdCache = new Map(); // key -> { sensorIds: Set, timestamp: number }
@@ -37,9 +40,7 @@ async function getSensorIdsForBuilding(buildingId, options = {}) {
         }
     }
 
-    const Floor = require('../models/Floor');
-    const LocalRoom = require('../models/LocalRoom');
-    const Sensor = require('../models/Sensor');
+
 
     const buildingObjectId = typeof buildingId === 'string' 
         ? new mongoose.Types.ObjectId(buildingId) 
@@ -108,8 +109,7 @@ async function getSensorIdsForFloor(floorId, options = {}) {
         }
     }
 
-    const LocalRoom = require('../models/LocalRoom');
-    const Sensor = require('../models/Sensor');
+  
 
     const floorObjectId = typeof floorId === 'string' 
         ? new mongoose.Types.ObjectId(floorId) 
@@ -208,8 +208,7 @@ async function getSensorIdsForSite(siteId, options = {}) {
  * @returns {Promise<string[]>} Array of sensor ID strings
  */
 async function getSensorIdsForLocalRoom(localRoomId) {
-    const LocalRoom = require('../models/LocalRoom');
-    const Sensor = require('../models/Sensor');
+   
 
     const localRoom = await LocalRoom.findById(localRoomId).select('loxone_room_id');
     if (!localRoom || !localRoom.loxone_room_id) {
@@ -227,7 +226,6 @@ async function getSensorIdsForLocalRoom(localRoomId) {
  * @returns {Promise<string[]>} Array of sensor ID strings
  */
 async function getSensorIdsForLoxoneRoom(loxoneRoomId) {
-    const Sensor = require('../models/Sensor');
 
     const roomObjectId = typeof loxoneRoomId === 'string' 
         ? new mongoose.Types.ObjectId(loxoneRoomId) 
@@ -299,9 +297,7 @@ function invalidateAllCaches() {
  * @returns {Promise<string|null>} Building ID or null if not found
  */
 async function getBuildingIdFromSensor(sensorId) {
-    const Sensor = require('../models/Sensor');
-    const LocalRoom = require('../models/LocalRoom');
-    const Floor = require('../models/Floor');
+   
 
     const sensorObjectId = typeof sensorId === 'string' 
         ? new mongoose.Types.ObjectId(sensorId) 
@@ -336,8 +332,7 @@ async function getBuildingIdFromSensor(sensorId) {
  * @returns {Promise<string[]>} Array of building IDs
  */
 async function getBuildingIdsForLoxoneRoom(loxoneRoomId) {
-    const LocalRoom = require('../models/LocalRoom');
-    const Floor = require('../models/Floor');
+   
 
     const roomObjectId = typeof loxoneRoomId === 'string' 
         ? new mongoose.Types.ObjectId(loxoneRoomId) 

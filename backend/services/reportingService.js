@@ -210,6 +210,19 @@ class ReportingService {
   }
 
   /**
+   * Delete all reporting assignments for a building
+   * @param {String} buildingId - Building ID
+   * @returns {Promise<Object>} Deletion result
+   */
+  async deleteBuildingAssignments(buildingId) {
+    const result = await BuildingReportingAssignment.deleteMany({ building_id: buildingId });
+    return {
+      deletedCount: result.deletedCount,
+      buildingId: buildingId
+    };
+  }
+
+  /**
    * Get all reporting recipients with optional filtering
    * @param {Object} filters - Filter options
    * @param {String} filters.site_id - Optional site ID to filter by

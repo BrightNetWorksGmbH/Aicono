@@ -1,19 +1,36 @@
 const Building = require('../models/Building');
+const Site = require('../models/Site');
 const buildingContactService = require('./buildingContactService');
 const reportingService = require('./reportingService');
 const { NotFoundError, ValidationError, ConflictError } = require('../utils/errors');
-
+const loxoneConnectionManager = require('./loxoneConnectionManager');
+const Floor = require('../models/Floor');
+const LocalRoom = require('../models/LocalRoom');
+const Sensor = require('../models/Sensor');
+const Room = require('../models/Room');
+const fs = require('fs');
+const { checkBuildingPermission } = require('../utils/buildingPermissions');
 class BuildingService {
   /**
    * Create multiple buildings for a site
    * @param {String} siteId - Site ID
    * @param {Array<String>} buildingNames - Array of building names
-   * @returns {Promise<Array>} Created buildings
+   * @param {String} userId - User ID (for permission check)
+   * @returns {Promise<Object>} Created buildings and site info
    */
-  async createBuildings(siteId, buildingNames) {
+  async createBuildings(siteId, buildingNames, userId) {
     if (!buildingNames || !Array.isArray(buildingNames) || buildingNames.length === 0) {
       throw new ValidationError('Building names array is required');
     }
+
+    // Get site to check permissions
+    const site = await Site.findById(siteId);
+    if (!site) {
+      throw new NotFoundError('Site');
+    }
+
+    // Check permissions
+    await checkBuildingPermission(userId, site.bryteswitch_id);
 
     // Check for duplicate names within the request
     const uniqueNames = [...new Set(buildingNames)];
@@ -39,7 +56,11 @@ class BuildingService {
     }));
 
     const createdBuildings = await Building.insertMany(buildingsToCreate);
-    return createdBuildings;
+    
+    return {
+      buildings: createdBuildings,
+      site: site
+    };
   }
 
   /**
@@ -68,13 +89,37 @@ class BuildingService {
    * Update building details
    * @param {String} buildingId - Building ID
    * @param {Object} updateData - Data to update
+   * @param {String} userId - User ID (for permission check)
    * @returns {Promise<Object>} Updated building
    */
-  async updateBuilding(buildingId, updateData) {
-    // console.log("updateBuilding's updateData is ", updateData);
-    const building = await Building.findById(buildingId);
+  async updateBuilding(buildingId, updateData, userId) {
+    const building = await Building.findById(buildingId).populate('site_id');
     if (!building) {
       throw new NotFoundError('Building');
+    }
+
+    // Check permissions using utility function
+    await checkBuildingPermission(userId, building.site_id.bryteswitch_id);
+
+    // Prevent updating Loxone config through regular update
+    const loxoneFields = [
+      'miniserver_ip',
+      'miniserver_port',
+      'miniserver_protocol',
+      'miniserver_user',
+      'miniserver_pass',
+      'miniserver_external_address',
+      'miniserver_serial'
+    ];
+    const hasLoxoneUpdate = loxoneFields.some(field => updateData[field] !== undefined);
+
+    if (hasLoxoneUpdate) {
+      throw new ValidationError('Loxone configuration cannot be updated through this endpoint. Use /api/v1/buildings/:buildingId/loxone-config instead.');
+    }
+
+    // Prevent updating site_id
+    if (updateData.site_id !== undefined) {
+      throw new ValidationError('Cannot update site_id');
     }
 
     // If name is being updated, check for duplicates
@@ -197,23 +242,183 @@ class BuildingService {
   }
 
   /**
-   * Update Loxone connection info
+   * Update Loxone connection info (separate method for complex Loxone updates)
+   * This method handles disconnect/reconnect and structure file management
    * @param {String} buildingId - Building ID
    * @param {Object} loxoneConfig - Loxone configuration
-   * @returns {Promise<Object>} Updated building
+   * @param {String} userId - User ID (for permission check)
+   * @returns {Promise<Object>} Updated building and connection result
    */
-  async updateLoxoneConfig(buildingId, loxoneConfig) {
+  async updateLoxoneConfig(buildingId, loxoneConfig, userId) {
+    const building = await Building.findById(buildingId).populate('site_id');
+    if (!building) {
+      throw new NotFoundError('Building');
+    }
+
+    // Check permissions using utility function
+    await checkBuildingPermission(userId, building.site_id.bryteswitch_id);
+
+    // Check if serial number is changing
+    const oldSerial = building.miniserver_serial;
+    const newSerial = loxoneConfig.serialNumber || loxoneConfig.miniserver_serial;
+    const serialChanged = oldSerial && newSerial && oldSerial !== newSerial;
+
+    // If serial changed, disconnect old connection first
+
+    if (serialChanged && oldSerial) {
+      try {
+        await loxoneConnectionManager.disconnect(buildingId);
+      } catch (error) {
+        console.error('Error disconnecting old Loxone connection:', error);
+        // Continue with update even if disconnect fails
+      }
+    }
+
+    // Update building config
     const updateData = {
-      miniserver_ip: loxoneConfig.ip,
-      miniserver_port: loxoneConfig.port,
-      miniserver_protocol: loxoneConfig.protocol || 'wss',
-      miniserver_user: loxoneConfig.user,
-      miniserver_pass: loxoneConfig.pass,
-      miniserver_external_address: loxoneConfig.externalAddress,
-      miniserver_serial: loxoneConfig.serialNumber,
+      miniserver_ip: loxoneConfig.ip || loxoneConfig.miniserver_ip,
+      miniserver_port: loxoneConfig.port || loxoneConfig.miniserver_port,
+      miniserver_protocol: loxoneConfig.protocol || loxoneConfig.miniserver_protocol || 'wss',
+      miniserver_user: loxoneConfig.user || loxoneConfig.miniserver_user,
+      miniserver_pass: loxoneConfig.pass || loxoneConfig.miniserver_pass,
+      miniserver_external_address: loxoneConfig.externalAddress || loxoneConfig.miniserver_external_address,
+      miniserver_serial: newSerial,
     };
 
-    return await this.updateBuilding(buildingId, updateData);
+    // Remove undefined values
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+
+    // Update building document directly (bypass regular updateBuilding to avoid permission check loop)
+    Object.assign(building, updateData);
+    await building.save();
+
+    // Reconnect with new config if credentials are provided
+    let connectionResult = null;
+    if (updateData.miniserver_serial && (updateData.miniserver_user || updateData.miniserver_pass)) {
+      try {
+        connectionResult = await loxoneConnectionManager.connect(buildingId, {
+          ip: updateData.miniserver_ip,
+          port: updateData.miniserver_port,
+          protocol: updateData.miniserver_protocol,
+          user: updateData.miniserver_user,
+          pass: updateData.miniserver_pass,
+          externalAddress: updateData.miniserver_external_address,
+          serialNumber: updateData.miniserver_serial
+        });
+      } catch (error) {
+        console.error('Error reconnecting Loxone after config update:', error);
+        // Return building update even if reconnect fails
+        connectionResult = {
+          success: false,
+          message: `Building config updated but reconnection failed: ${error.message}`
+        };
+      }
+    }
+
+    return {
+      building: building,
+      connectionResult: connectionResult
+    };
+  }
+
+  /**
+   * Delete building and all related data (hard delete with cascade)
+   * @param {String} buildingId - Building ID
+   * @param {String} userId - User ID (for permission check)
+   * @returns {Promise<Object>} Deletion summary
+   */
+  async deleteBuilding(buildingId, userId) {
+    const building = await Building.findById(buildingId).populate('site_id');
+    if (!building) {
+      throw new NotFoundError('Building');
+    }
+
+    // Check permissions using utility function
+    await checkBuildingPermission(userId, building.site_id.bryteswitch_id);
+
+    const deletionSummary = {
+      buildingId: buildingId,
+      buildingName: building.name,
+      deletedItems: {}
+    };
+
+    // 1. Disconnect Loxone connection if active
+    try {
+      await loxoneConnectionManager.disconnect(buildingId);
+      deletionSummary.deletedItems.loxoneConnection = 'disconnected';
+    } catch (error) {
+      console.error('Error disconnecting Loxone:', error);
+      deletionSummary.deletedItems.loxoneConnection = 'disconnect_failed';
+    }
+
+    // 2. Delete floors and related data
+
+
+    // Get all floors for this building
+    const floors = await Floor.find({ building_id: buildingId });
+    const floorIds = floors.map(f => f._id);
+    deletionSummary.deletedItems.floors = floors.length;
+
+    // Get all LocalRooms for these floors
+    const localRooms = await LocalRoom.find({ floor_id: { $in: floorIds } });
+    const localRoomIds = localRooms.map(r => r._id);
+    deletionSummary.deletedItems.localRooms = localRooms.length;
+
+    // Get Loxone room IDs that are mapped to these LocalRooms
+    const loxoneRoomIds = localRooms
+      .filter(r => r.loxone_room_id)
+      .map(r => r.loxone_room_id);
+
+    // Check if other buildings use the same Loxone server
+    const otherBuildings = await Building.find({
+      miniserver_serial: building.miniserver_serial,
+      _id: { $ne: buildingId }
+    });
+
+    // If this is the only building using this server, we can clean up more aggressively
+    // However, since rooms and sensors are scoped to miniserver_serial (not building),
+    // we should be careful. For now, we'll only delete sensors that are exclusively
+    // linked to LocalRooms from this building.
+    if (otherBuildings.length === 0 && building.miniserver_serial && loxoneRoomIds.length > 0) {
+      // Delete sensors for these rooms (only if no other buildings use the server)
+      const sensorResult = await Sensor.deleteMany({ room_id: { $in: loxoneRoomIds } });
+      deletionSummary.deletedItems.sensors = sensorResult.deletedCount;
+
+      // Delete structure file if this is the only building using the server
+      try {
+        const structureFilePath = loxoneConnectionManager.getStructureFilePath(building.miniserver_serial);
+        
+        if (fs.existsSync(structureFilePath)) {
+          fs.unlinkSync(structureFilePath);
+          deletionSummary.deletedItems.structureFile = 'deleted';
+        }
+      } catch (error) {
+        console.error('Error deleting structure file:', error);
+        deletionSummary.deletedItems.structureFile = 'delete_failed';
+      }
+    } else {
+      deletionSummary.deletedItems.sensors = 0;
+      deletionSummary.deletedItems.note = 'Sensors not deleted - other buildings may use the same Loxone server';
+    }
+
+    // Delete LocalRooms
+    await LocalRoom.deleteMany({ floor_id: { $in: floorIds } });
+
+    // Delete Floors
+    await Floor.deleteMany({ building_id: buildingId });
+
+    // 3. Delete reporting assignments
+    const assignmentResult = await reportingService.deleteBuildingAssignments(buildingId);
+    deletionSummary.deletedItems.reportingAssignments = assignmentResult.deletedCount;
+
+    // 4. Finally, delete the building
+    await Building.findByIdAndDelete(buildingId);
+
+    return deletionSummary;
   }
 }
 

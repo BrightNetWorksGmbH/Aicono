@@ -32,6 +32,21 @@ exports.getSensorsBySite = asyncHandler(async (req, res) => {
 });
 
 /**
+ * GET /api/v1/sensors/local-room/:localRoomId
+ * Get all sensors for a local room
+ */
+exports.getSensorsByLocalRoom = asyncHandler(async (req, res) => {
+  const { localRoomId } = req.params;
+  const sensors = await sensorService.getSensorsByLocalRoom(localRoomId);
+
+  res.json({
+    success: true,
+    data: sensors,
+    count: sensors.length
+  });
+});
+
+/**
  * GET /api/v1/sensors/:sensorId
  * Get a single sensor by ID
  */

@@ -169,6 +169,52 @@ class SensorService {
     }
 
     /**
+     * Get all sensors for a local room
+     * Uses LocalRoom -> Loxone Room -> Sensor path
+     * @param {String} localRoomId - Local Room ID
+     * @returns {Promise<Array>} Array of sensors with room information
+     */
+    async getSensorsByLocalRoom(localRoomId) {
+        // Verify local room exists
+        const localRoom = await LocalRoom.findById(localRoomId);
+        if (!localRoom) {
+            throw new NotFoundError('Local room');
+        }
+
+        // If local room has no Loxone mapping, return empty array
+        if (!localRoom.loxone_room_id) {
+            return [];
+        }
+
+        // Get sensor IDs for this local room via sensorLookup
+        const sensorIds = await sensorLookup.getSensorIdsForLocalRoom(localRoomId);
+
+        if (sensorIds.length === 0) {
+            return [];
+        }
+
+        // Get all sensors with room information
+        const sensors = await Sensor.find({ _id: { $in: sensorIds } })
+            .populate('room_id', 'name loxone_room_uuid miniserver_serial')
+            .sort({ name: 1 });
+
+        return sensors.map(sensor => ({
+            _id: sensor._id,
+            name: sensor.name,
+            unit: sensor.unit,
+            room_id: sensor.room_id,
+            loxone_control_uuid: sensor.loxone_control_uuid,
+            loxone_category_uuid: sensor.loxone_category_uuid,
+            loxone_category_name: sensor.loxone_category_name,
+            loxone_category_type: sensor.loxone_category_type,
+            threshold_min: sensor.threshold_min,
+            threshold_max: sensor.threshold_max,
+            created_at: sensor.created_at,
+            updated_at: sensor.updated_at
+        }));
+    }
+
+    /**
      * Get a single sensor by ID
      * @param {String} sensorId - Sensor ID
      * @returns {Promise<Object>} Sensor with room information
