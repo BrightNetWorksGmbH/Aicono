@@ -3,6 +3,7 @@ const LocalRoom = require('../models/LocalRoom');
 const Building = require('../models/Building');
 const loxoneStorageService = require('./loxoneStorageService');
 const { NotFoundError } = require('../utils/errors');
+const { checkBuildingPermission } = require('../utils/buildingPermissions');
 
 class FloorService {
     /**
@@ -10,14 +11,18 @@ class FloorService {
      * @param {String} buildingId - Building ID
      * @param {Object} floorData - Floor data (name, floor_plan_link)
      * @param {Array<Object>} rooms - Array of local rooms [{ name, color, loxone_room_id }]
-     * @returns {Promise<Object>} Created floor with rooms
+     * @param {String} userId - User ID (for permission check)
+     * @returns {Promise<Object>} Created floor with rooms and building info
      */
-    async createFloorWithRooms(buildingId, floorData, rooms = []) {
-        // Verify building exists
-        const building = await Building.findById(buildingId);
+    async createFloorWithRooms(buildingId, floorData, rooms = [], userId) {
+        // Verify building exists and get site for permission check
+        const building = await Building.findById(buildingId).populate('site_id');
         if (!building) {
             throw new NotFoundError('Building');
         }
+
+        // Check permissions using utility function
+        await checkBuildingPermission(userId, building.site_id.bryteswitch_id);
 
         // Create floor
         const floor = new Floor({
@@ -51,7 +56,8 @@ class FloorService {
 
         return {
             floor: floor,
-            rooms: createdRooms
+            rooms: createdRooms,
+            building: building
         };
     }
 
@@ -99,30 +105,47 @@ class FloorService {
      * Update a floor
      * @param {String} floorId - Floor ID
      * @param {Object} updateData - Data to update
-     * @returns {Promise<Object>} Updated floor
+     * @param {String} userId - User ID (for permission check)
+     * @returns {Promise<Object>} Updated floor with building info
      */
-    async updateFloor(floorId, updateData) {
-        const floor = await Floor.findById(floorId);
+    async updateFloor(floorId, updateData, userId) {
+        const floor = await Floor.findById(floorId).populate({
+            path: 'building_id',
+            populate: { path: 'site_id' }
+        });
         if (!floor) {
             throw new NotFoundError('Floor');
         }
 
+        // Check permissions using utility function
+        await checkBuildingPermission(userId, floor.building_id.site_id.bryteswitch_id);
+
         Object.assign(floor, updateData);
         await floor.save();
-        return floor;
+        return {
+            floor: floor,
+            building: floor.building_id
+        };
     }
 
     /**
      * Add a local room to a floor
      * @param {String} floorId - Floor ID
      * @param {Object} roomData - Room data
-     * @returns {Promise<Object>} Created room
+     * @param {String} userId - User ID (for permission check)
+     * @returns {Promise<Object>} Created room with floor and building info
      */
-    async addRoomToFloor(floorId, roomData) {
-        const floor = await Floor.findById(floorId);
+    async addRoomToFloor(floorId, roomData, userId) {
+        const floor = await Floor.findById(floorId).populate({
+            path: 'building_id',
+            populate: { path: 'site_id' }
+        });
         if (!floor) {
             throw new NotFoundError('Floor');
         }
+
+        // Check permissions using utility function
+        await checkBuildingPermission(userId, floor.building_id.site_id.bryteswitch_id);
 
         const localRoom = new LocalRoom({
             floor_id: floorId,
@@ -137,20 +160,34 @@ class FloorService {
             loxoneStorageService.invalidateAllowedSensorIdsCache();
         }
 
-        return localRoom;
+        return {
+            room: localRoom,
+            floor: floor,
+            building: floor.building_id
+        };
     }
 
     /**
      * Update a local room
      * @param {String} roomId - Local room ID
      * @param {Object} updateData - Data to update
-     * @returns {Promise<Object>} Updated room
+     * @param {String} userId - User ID (for permission check)
+     * @returns {Promise<Object>} Updated room with floor and building info
      */
-    async updateLocalRoom(roomId, updateData) {
-        const room = await LocalRoom.findById(roomId);
+    async updateLocalRoom(roomId, updateData, userId) {
+        const room = await LocalRoom.findById(roomId).populate({
+            path: 'floor_id',
+            populate: {
+                path: 'building_id',
+                populate: { path: 'site_id' }
+            }
+        });
         if (!room) {
             throw new NotFoundError('Local room');
         }
+
+        // Check permissions using utility function
+        await checkBuildingPermission(userId, room.floor_id.building_id.site_id.bryteswitch_id);
 
         // Check if loxone_room_id is being changed
         const loxoneMappingChanged = 'loxone_room_id' in updateData && 
@@ -164,27 +201,102 @@ class FloorService {
             loxoneStorageService.invalidateAllowedSensorIdsCache();
         }
 
-        return room;
+        return {
+            room: room,
+            floor: room.floor_id,
+            building: room.floor_id.building_id
+        };
     }
 
     /**
      * Delete a local room
      * @param {String} roomId - Local room ID
-     * @returns {Promise<void>}
+     * @param {String} userId - User ID (for permission check)
+     * @returns {Promise<Object>} Deletion summary with room, floor, and building info
      */
-    async deleteLocalRoom(roomId) {
-        const room = await LocalRoom.findById(roomId);
+    async deleteLocalRoom(roomId, userId) {
+        const room = await LocalRoom.findById(roomId).populate({
+            path: 'floor_id',
+            populate: {
+                path: 'building_id',
+                populate: { path: 'site_id' }
+            }
+        });
         if (!room) {
             throw new NotFoundError('Local room');
         }
 
+        // Check permissions using utility function
+        await checkBuildingPermission(userId, room.floor_id.building_id.site_id.bryteswitch_id);
+
         const hadLoxoneMapping = !!room.loxone_room_id;
+        const roomName = room.name;
+        const floorId = room.floor_id._id;
+        const buildingId = room.floor_id.building_id._id;
+        const buildingName = room.floor_id.building_id.name;
+
         await LocalRoom.findByIdAndDelete(roomId);
 
         // Invalidate allowed sensor IDs cache if room had Loxone mapping
         if (hadLoxoneMapping) {
             loxoneStorageService.invalidateAllowedSensorIdsCache();
         }
+
+        return {
+            roomId: roomId,
+            roomName: roomName,
+            floorId: floorId,
+            buildingId: buildingId,
+            buildingName: buildingName,
+            hadLoxoneMapping: hadLoxoneMapping
+        };
+    }
+
+    /**
+     * Delete a floor and all its local rooms
+     * @param {String} floorId - Floor ID
+     * @param {String} userId - User ID (for permission check)
+     * @returns {Promise<Object>} Deletion summary
+     */
+    async deleteFloor(floorId, userId) {
+        const floor = await Floor.findById(floorId).populate({
+            path: 'building_id',
+            populate: { path: 'site_id' }
+        });
+        if (!floor) {
+            throw new NotFoundError('Floor');
+        }
+
+        // Check permissions using utility function
+        await checkBuildingPermission(userId, floor.building_id.site_id.bryteswitch_id);
+
+        const deletionSummary = {
+            floorId: floorId,
+            floorName: floor.name,
+            buildingId: floor.building_id._id,
+            buildingName: floor.building_id.name,
+            deletedItems: {}
+        };
+
+        // Get all local rooms for this floor
+        const localRooms = await LocalRoom.find({ floor_id: floorId });
+        deletionSummary.deletedItems.localRooms = localRooms.length;
+
+        // Check if any rooms have Loxone mappings (for cache invalidation)
+        const hadLoxoneMappings = localRooms.some(r => r.loxone_room_id);
+
+        // Delete all local rooms
+        await LocalRoom.deleteMany({ floor_id: floorId });
+
+        // Invalidate allowed sensor IDs cache if any room had Loxone mapping
+        if (hadLoxoneMappings) {
+            loxoneStorageService.invalidateAllowedSensorIdsCache();
+        }
+
+        // Delete the floor
+        await Floor.findByIdAndDelete(floorId);
+
+        return deletionSummary;
     }
 }
 

@@ -1,5 +1,8 @@
 const buildingService = require('../services/buildingService');
 const buildingContactService = require('../services/buildingContactService');
+const ActivityLog = require('../models/ActivityLog');
+const Building = require('../models/Building');
+const Site = require('../models/Site');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 // Constants for report configuration validation
@@ -103,6 +106,7 @@ function validateReportConfigsArray(reportConfigs, context = 'reportConfigs') {
 exports.createBuildings = asyncHandler(async (req, res) => {
   const { siteId } = req.params;
   const { buildingNames } = req.body;
+  const userId = req.user._id;
 
   if (!buildingNames || !Array.isArray(buildingNames)) {
     return res.status(400).json({
@@ -111,12 +115,36 @@ exports.createBuildings = asyncHandler(async (req, res) => {
     });
   }
 
-  const buildings = await buildingService.createBuildings(siteId, buildingNames);
+  const result = await buildingService.createBuildings(siteId, buildingNames, userId);
+
+  // Log activity for each building created
+  try {
+    for (const building of result.buildings) {
+      await ActivityLog.create({
+        bryteswitch_id: result.site.bryteswitch_id,
+        user_id: userId,
+        action: 'create',
+        resource_type: 'building',
+        resource_id: building._id,
+        timestamp: new Date(),
+        details: {
+          building_name: building.name,
+          site_id: siteId,
+          site_name: result.site.name,
+          action: 'building_created'
+        },
+        severity: 'low',
+      });
+    }
+  } catch (logError) {
+    console.error('Failed to log activity:', logError);
+    // Don't fail the request if logging fails
+  }
 
   res.status(201).json({
     success: true,
-    message: `Created ${buildings.length} building(s)`,
-    data: buildings
+    message: `Created ${result.buildings.length} building(s)`,
+    data: result.buildings
   });
 });
 
@@ -276,12 +304,163 @@ exports.updateBuilding = asyncHandler(async (req, res) => {
     }
   }
 
-  const building = await buildingService.updateBuilding(buildingId, filteredData);
+  const userId = req.user._id;
+  const building = await buildingService.updateBuilding(buildingId, filteredData, userId);
+
+  // Get site for activity log
+  const site = await Site.findById(building.site_id);
+
+  // Log activity
+  try {
+    await ActivityLog.create({
+      bryteswitch_id: site.bryteswitch_id,
+      user_id: userId,
+      action: 'update',
+      resource_type: 'building',
+      resource_id: buildingId,
+      timestamp: new Date(),
+      details: {
+        building_name: building.name,
+        updated_fields: Object.keys(filteredData),
+        action: 'building_updated'
+      },
+      severity: 'low',
+    });
+  } catch (logError) {
+    console.error('Failed to log activity:', logError);
+    // Don't fail the request if logging fails
+  }
 
   res.json({
     success: true,
     message: 'Building updated successfully',
     data: building
+  });
+});
+
+/**
+ * PATCH /api/v1/buildings/:buildingId/loxone-config
+ * Update Loxone configuration for a building
+ * This endpoint handles disconnect/reconnect and structure file management
+ */
+exports.updateLoxoneConfig = asyncHandler(async (req, res) => {
+  const { buildingId } = req.params;
+  const loxoneConfig = req.body;
+  const userId = req.user._id;
+
+  // Validate required fields for Loxone config
+  const loxoneFields = ['ip', 'port', 'user', 'pass', 'serialNumber'];
+  const providedFields = Object.keys(loxoneConfig);
+  const hasRequiredFields = loxoneFields.some(field => 
+    loxoneConfig[field] !== undefined || 
+    loxoneConfig[`miniserver_${field === 'serialNumber' ? 'serial' : field}`] !== undefined
+  );
+
+  if (!hasRequiredFields) {
+    return res.status(400).json({
+      success: false,
+      error: 'At least one Loxone configuration field is required (ip, port, user, pass, or serialNumber)'
+    });
+  }
+
+  const result = await buildingService.updateLoxoneConfig(buildingId, loxoneConfig, userId);
+
+  // Get site for activity log
+  const site = await Site.findById(result.building.site_id);
+
+  // Log activity
+  try {
+    await ActivityLog.create({
+      bryteswitch_id: site.bryteswitch_id,
+      user_id: userId,
+      action: 'update',
+      resource_type: 'building',
+      resource_id: buildingId,
+      timestamp: new Date(),
+      details: {
+        building_name: result.building.name,
+        action: 'loxone_config_updated',
+        loxone_fields_updated: Object.keys(loxoneConfig),
+        connection_success: result.connectionResult ? result.connectionResult.success : false,
+        serial_changed: loxoneConfig.serialNumber !== undefined || loxoneConfig.miniserver_serial !== undefined
+      },
+      severity: 'medium',
+    });
+  } catch (logError) {
+    console.error('Failed to log activity:', logError);
+    // Don't fail the request if logging fails
+  }
+
+  if (result.connectionResult && result.connectionResult.success === false) {
+    // Config updated but reconnection failed
+    return res.status(200).json({
+      success: true,
+      message: 'Loxone configuration updated, but reconnection failed',
+      warning: result.connectionResult.message,
+      data: {
+        building: result.building,
+        connectionResult: result.connectionResult
+      }
+    });
+  }
+
+  res.json({
+    success: true,
+    message: 'Loxone configuration updated and reconnected successfully',
+    data: {
+      building: result.building,
+      connectionResult: result.connectionResult
+    }
+  });
+});
+
+/**
+ * DELETE /api/v1/buildings/:buildingId
+ * Delete a building and all related data (hard delete with cascade)
+ */
+exports.deleteBuilding = asyncHandler(async (req, res) => {
+  const { buildingId } = req.params;
+  const userId = req.user._id;
+
+  // Get building info before deletion for activity log
+  const building = await Building.findById(buildingId).populate('site_id');
+  
+  if (!building) {
+    return res.status(404).json({
+      success: false,
+      error: 'Building not found'
+    });
+  }
+
+  const deletionSummary = await buildingService.deleteBuilding(buildingId, userId);
+
+  // Log activity
+  try {
+    await ActivityLog.create({
+      bryteswitch_id: building.site_id.bryteswitch_id,
+      user_id: userId,
+      action: 'delete',
+      resource_type: 'building',
+      resource_id: buildingId,
+      timestamp: new Date(),
+      details: {
+        building_name: deletionSummary.buildingName,
+        site_id: building.site_id._id,
+        site_name: building.site_id.name,
+        action: 'building_deleted',
+        deleted_items: deletionSummary.deletedItems
+      },
+      severity: 'medium',
+    });
+  } catch (logError) {
+    console.error('Failed to log activity:', logError);
+    // Don't fail the request if logging fails
+  }
+
+  res.json({
+    success: true,
+    message: 'Building deleted successfully',
+    data: deletionSummary
   });
 });
 

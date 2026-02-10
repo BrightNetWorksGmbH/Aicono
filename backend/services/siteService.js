@@ -2,7 +2,7 @@ const Site = require('../models/Site');
 const BryteSwitchSettings = require('../models/BryteSwitchSettings');
 const UserRole = require('../models/UserRole');
 const { NotFoundError, AuthorizationError, ConflictError, ValidationError } = require('../utils/errors');
-
+const Building = require('../models/Building');
 class SiteService {
   /**
    * Create a site for a BryteSwitch
@@ -148,8 +148,28 @@ class SiteService {
     }
 
     const role = userRole.role_id;
+    
+    // Check if user has Read-Only role - they cannot edit sites
+    if (role.name === 'Read-Only') {
+      throw new AuthorizationError('Read-Only users cannot edit sites');
+    }
+
     if (!role.permissions.manage_sites) {
       throw new AuthorizationError('You do not have permission to update sites');
+    }
+
+    // Prevent updating bryteswitch_id
+    if (updateData.bryteswitch_id !== undefined) {
+      throw new ValidationError('Cannot update bryteswitch_id');
+    }
+
+    // Only allow updating name, address, and resource_type
+    const allowedFields = ['name', 'address', 'resource_type'];
+    const updateFields = Object.keys(updateData);
+    const invalidFields = updateFields.filter(field => !allowedFields.includes(field));
+    
+    if (invalidFields.length > 0) {
+      throw new ValidationError(`Cannot update fields: ${invalidFields.join(', ')}. Only name, address, and resource_type can be updated.`);
     }
 
     // Update allowed fields
@@ -199,15 +219,21 @@ class SiteService {
     }
 
     const role = userRole.role_id;
+    
+    // Check if user has Read-Only role - they cannot delete sites
+    if (role.name === 'Read-Only') {
+      throw new AuthorizationError('Read-Only users cannot delete sites');
+    }
+
     if (!role.permissions.manage_sites) {
       throw new AuthorizationError('You do not have permission to delete sites');
     }
 
-    // Check if site has buildings
-    const Building = require('../models/Building');
+    // Check if site has buildings - must delete all buildings first
+  
     const buildingCount = await Building.countDocuments({ site_id: siteId });
     if (buildingCount > 0) {
-      throw new ConflictError(`Cannot delete site with ${buildingCount} building(s). Please delete or move buildings first.`);
+      throw new ConflictError(`Cannot delete site with ${buildingCount} building(s). Please delete all buildings first.`);
     }
 
     await Site.findByIdAndDelete(siteId);
