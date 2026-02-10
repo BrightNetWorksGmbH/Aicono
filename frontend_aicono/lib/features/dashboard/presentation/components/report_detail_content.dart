@@ -144,11 +144,7 @@ class ReportDetailContent extends StatelessWidget {
                   constraints: BoxConstraints(minWidth: tableWidth),
                   child: Container(
                     width: tableWidth,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!),
-                      color: Colors.white,
-                    ),
+                    decoration: const BoxDecoration(color: Colors.white),
                     clipBehavior: Clip.antiAlias,
                     child: Table(
                       border: TableBorder.all(color: Colors.grey[300]!),
@@ -346,11 +342,7 @@ class ReportDetailContent extends StatelessWidget {
                   constraints: BoxConstraints(minWidth: tableWidth),
                   child: Container(
                     width: tableWidth,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!),
-                      color: Colors.white,
-                    ),
+                    decoration: const BoxDecoration(color: Colors.white),
                     clipBehavior: Clip.antiAlias,
                     child: Table(
                       border: TableBorder.all(color: Colors.grey[300]!),
@@ -542,7 +534,7 @@ class ReportDetailContent extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: Colors.grey[300]!),
         color: Colors.white,
       ),
@@ -571,7 +563,7 @@ class ReportDetailContent extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: Colors.grey[300]!),
         color: Colors.white,
       ),
@@ -732,7 +724,7 @@ class ReportDetailContent extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: Colors.grey[300]!),
         color: Colors.white,
       ),
@@ -879,7 +871,7 @@ class ReportDetailContent extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: Colors.grey[300]!),
         color: Colors.white,
       ),
@@ -1114,7 +1106,7 @@ class ReportDetailContent extends StatelessWidget {
               width: double.infinity,
               padding: padding,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.zero,
                 border: showBorder
                     ? Border.all(color: Colors.grey[300]!, width: 1)
                     : null,
@@ -1302,17 +1294,18 @@ class ReportDetailContent extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2DD4BF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '${recipients.length}',
-              style: AppTextStyles.labelMedium.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: CircleAvatar(
+              backgroundColor: const Color(0xFF2DD4BF),
+              child: Text(
+                '${recipients.length}',
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  height: 1,
+                ),
               ),
             ),
           ),
@@ -1517,7 +1510,7 @@ class ReportDetailContent extends StatelessWidget {
     const tealBgWarning = Color(0xFFFFF3E0);
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: Colors.grey[300]!),
         color: isWarning ? tealBgWarning : tealBg,
       ),
@@ -1576,7 +1569,7 @@ class ReportDetailContent extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.zero,
         border: Border.all(
           color: isWarning ? Colors.orange[200]! : Colors.green[200]!,
           width: 1,
@@ -1640,7 +1633,7 @@ class ReportDetailContent extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: Colors.grey[300]!),
         color: Colors.white,
       ),
@@ -1701,7 +1694,7 @@ class ReportDetailContent extends StatelessWidget {
                 ? Container(
                     padding: chartPadding,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: Colors.grey[300]!, width: 1),
                       color: Colors.white,
                     ),
@@ -1731,7 +1724,7 @@ class ReportDetailContent extends StatelessWidget {
                 ? Container(
                     padding: chartPadding,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: Colors.grey[300]!, width: 1),
                       color: Colors.white,
                     ),
@@ -1796,7 +1789,7 @@ class ReportDetailContent extends StatelessWidget {
               height: 3,
               decoration: BoxDecoration(
                 color: const Color(0xFF4CAF50),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.zero,
               ),
             ),
             const SizedBox(width: 8),
@@ -1815,7 +1808,7 @@ class ReportDetailContent extends StatelessWidget {
               height: 3,
               decoration: BoxDecoration(
                 color: const Color(0xFF9C27B0),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.zero,
               ),
             ),
             const SizedBox(width: 8),
@@ -2109,9 +2102,7 @@ class ReportDetailContent extends StatelessWidget {
                 toY: top[i].$2,
                 color: barColor,
                 width: 20,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(6),
-                ),
+                borderRadius: BorderRadius.zero,
               ),
             ],
             showingTooltipIndicators: [],
@@ -2249,7 +2240,7 @@ class ReportDetailContent extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: Colors.grey[300]!),
         color: Colors.white,
       ),
@@ -2339,7 +2330,7 @@ class _ReportDateRangePickerDialogState
     return Dialog(
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 500),
         child: Padding(
