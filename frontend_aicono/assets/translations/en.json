@@ -359,6 +359,10 @@
   "statistics_dashboard": {
     "dear_name": "Dear {name},",
     "daily_reporting": "Your daily reporting:",
+    "reporting_label": "Your {interval} reporting:",
+    "reporting_interval_daily": "daily",
+    "reporting_interval_weekly": "weekly",
+    "reporting_interval_monthly": "monthly",
     "executive_summary": "Executive Summary",
     "summary_resource_status": "Resource status: stable, below previous year's consumption",
     "summary_cost_targets": "All current cost targets met or exceeded",

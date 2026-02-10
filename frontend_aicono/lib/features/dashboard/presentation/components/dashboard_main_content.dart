@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/constant.dart';
+import 'package:frontend_aicono/core/utils/locale_number_format.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:frontend_aicono/core/services/token_service.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
@@ -13,8 +15,11 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_f
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/building_reports_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/trigger_report_bloc.dart';
+import 'package:frontend_aicono/features/realtime/domain/entities/realtime_connection_state.dart';
+import 'package:frontend_aicono/features/realtime/presentation/bloc/realtime_sensor_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/report_detail_view.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_summary_entity.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_building_details_entity.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/network/dio_client.dart';
 import 'package:frontend_aicono/features/FloorPlan/presentation/pages/floor_plan_backup.dart';
@@ -29,6 +34,24 @@ import 'package:xml/xml.dart' as xml;
 import 'package:vector_math/vector_math_64.dart' show Matrix4;
 
 import '../../../../core/routing/routeLists.dart';
+
+// Asset paths for property/sensor icons
+const String _assetBuilding = 'assets/images/Building.svg';
+const String _assetFloor = 'assets/images/Floor.svg';
+const String _assetRoom = 'assets/images/Room.svg';
+const String _assetSensor = 'assets/images/Sensor.svg';
+
+Widget _buildSvgIcon(String asset, {Color? color, double size = 22}) {
+  return Center(
+    child: SvgPicture.asset(
+      asset,
+      width: size,
+      height: size,
+      colorFilter:
+          color != null ? ColorFilter.mode(color, BlendMode.srcIn) : null,
+    ),
+  );
+}
 
 class DashboardMainContent extends StatefulWidget {
   final String? verseId;
@@ -121,31 +144,68 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Welcome Section
-          _buildWelcomeSection(),
-
-          const SizedBox(height: 24),
-
-          // Selected Item Details (Site/Building/Floor/Room)
-          _buildSelectedItemDetails(),
-
-          const SizedBox(height: 32),
-
-          // Trigger Manual Report Button
-          _buildTriggerManualReportButton(),
-
-          const SizedBox(height: 32),
-
-          // "Was brauchst Du gerade?" Section
-          _buildActionLinksSection(),
-        ],
-      ),
+    return BlocBuilder<DashboardSiteDetailsBloc, DashboardSiteDetailsState>(
+      builder: (context, siteState) {
+        return BlocBuilder<DashboardBuildingDetailsBloc, DashboardBuildingDetailsState>(
+          builder: (context, buildingState) {
+            return BlocBuilder<DashboardFloorDetailsBloc, DashboardFloorDetailsState>(
+              builder: (context, floorState) {
+                return BlocBuilder<DashboardRoomDetailsBloc, DashboardRoomDetailsState>(
+                  builder: (context, roomState) {
+                    final hasPropertySelection = _hasPropertySelection(
+                      siteState,
+                      buildingState,
+                      floorState,
+                      roomState,
+                    );
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (!hasPropertySelection) ...[
+                            _buildWelcomeSection(),
+                            const SizedBox(height: 24),
+                          ],
+                          // Selected Item Details (Site/Building/Floor/Room)
+                          _buildSelectedItemDetails(),
+                          const SizedBox(height: 32),
+                          // Trigger Manual Report Button
+                          _buildTriggerManualReportButton(),
+                          const SizedBox(height: 32),
+                          // "Was brauchst Du gerade?" Section
+                          _buildActionLinksSection(),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
     );
+  }
+
+  bool _hasPropertySelection(
+    DashboardSiteDetailsState siteState,
+    DashboardBuildingDetailsState buildingState,
+    DashboardFloorDetailsState floorState,
+    DashboardRoomDetailsState roomState,
+  ) {
+    return siteState is DashboardSiteDetailsLoading ||
+        siteState is DashboardSiteDetailsSuccess ||
+        siteState is DashboardSiteDetailsFailure ||
+        buildingState is DashboardBuildingDetailsLoading ||
+        buildingState is DashboardBuildingDetailsSuccess ||
+        buildingState is DashboardBuildingDetailsFailure ||
+        floorState is DashboardFloorDetailsLoading ||
+        floorState is DashboardFloorDetailsSuccess ||
+        floorState is DashboardFloorDetailsFailure ||
+        roomState is DashboardRoomDetailsLoading ||
+        roomState is DashboardRoomDetailsSuccess ||
+        roomState is DashboardRoomDetailsFailure;
   }
 
   Widget _buildSelectedItemDetails() {
@@ -353,6 +413,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
         if (state is DashboardSiteDetailsSuccess) {
           final d = state.details;
           final kpis = d.kpis;
+          final locale = context.locale;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -370,22 +431,22 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                   _buildPropertyMetricCard(
                     label: 'Buildings',
                     value: '${d.buildingCount}',
-                    icon: Icons.apartment,
+                    icon: _buildSvgIcon(_assetBuilding, color: _metricIconTeal),
                   ),
                   _buildPropertyMetricCard(
                     label: 'Rooms',
                     value: '${d.totalRooms}',
-                    icon: Icons.door_front_door,
+                    icon: _buildSvgIcon(_assetRoom, color: _metricIconTeal),
                   ),
                   _buildPropertyMetricCard(
                     label: 'Sensors',
                     value: '${d.totalSensors}',
-                    icon: Icons.sensors,
+                    icon: _buildSvgIcon(_assetSensor, color: _metricIconTeal),
                   ),
                   _buildPropertyMetricCard(
                     label: 'Floors',
                     value: '${d.totalFloors}',
-                    icon: Icons.layers,
+                    icon: _buildSvgIcon(_assetFloor, color: _metricIconTeal),
                   ),
                 ],
               ),
@@ -396,6 +457,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                   subtitle:
                       'Aggregate energy performance and load metrics for the current period. ${kpis.unit}',
                   kpis: kpis,
+                  locale: locale,
                 ),
               ],
               const SizedBox(height: 24),
@@ -427,9 +489,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     final bk = b.kpis;
                     final subtitle = bk == null
                         ? 'No KPI data'
-                        : 'Total: ${bk.totalConsumption.toStringAsFixed(3)} ${bk.unit}';
+                        : 'Total: ${LocaleNumberFormat.formatDecimal(bk.totalConsumption, locale: locale)} ${bk.unit}';
                     return _buildPropertyListItem(
-                      icon: Icons.apartment,
+                      icon: _buildSvgIcon(_assetBuilding, color: _metricIconTeal),
                       title: b.name,
                       subtitle: '${b.floorCount} floors · $subtitle',
                       trailing: '${b.sensorCount} sensors',
@@ -497,6 +559,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     if (state is DashboardRoomDetailsSuccess) {
       final d = state.details;
       final kpis = d.kpis;
+      final locale = context.locale;
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -516,7 +579,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               _buildPropertyMetricCard(
                 label: 'Sensors',
                 value: '${d.sensorCount}',
-                icon: Icons.sensors,
+                icon: _buildSvgIcon(_assetSensor, color: _metricIconTeal),
               ),
             ],
           ),
@@ -527,8 +590,14 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               subtitle:
                   'Energy performance and load metrics for the current period. ${kpis.unit}',
               kpis: kpis,
+              locale: locale,
             ),
           ],
+          const SizedBox(height: 24),
+          _RoomRealtimeSensorsSection(
+            roomId: state.roomId,
+            sensors: d.sensors,
+          ),
         ],
       );
     }
@@ -588,6 +657,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     if (state is DashboardFloorDetailsSuccess) {
       final d = state.details;
       final kpis = d.kpis;
+      final locale = context.locale;
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -604,12 +674,12 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               _buildPropertyMetricCard(
                 label: 'Rooms',
                 value: '${d.roomCount}',
-                icon: Icons.door_front_door,
+                icon: _buildSvgIcon(_assetRoom, color: _metricIconTeal),
               ),
               _buildPropertyMetricCard(
                 label: 'Sensors',
                 value: '${d.sensorCount}',
-                icon: Icons.sensors,
+                icon: _buildSvgIcon(_assetSensor, color: _metricIconTeal),
               ),
             ],
           ),
@@ -620,6 +690,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               subtitle:
                   'Aggregate energy performance and load metrics for the current period. ${kpis.unit}',
               kpis: kpis,
+              locale: locale,
             ),
           ],
           const SizedBox(height: 24),
@@ -684,11 +755,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                         );
                       } catch (_) {}
                       return _buildPropertyListItem(
-                        icon: Icons.door_front_door,
+                        icon: _buildSvgIcon(_assetRoom, color: roomColor ?? _metricIconTeal),
                         title: room.name,
                         subtitle: null,
                         trailing: '${room.sensorCount} sensors',
-                        iconColor: roomColor,
                       );
                     }).toList(),
                   ),
@@ -756,22 +826,24 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     if (state is DashboardBuildingDetailsSuccess) {
       final d = state.details;
       final kpis = d.kpis;
+      final locale = context.locale;
+      final analytics = d.analytics;
 
       final metricCards = <Widget>[
         _buildPropertyMetricCard(
           label: 'Floors',
           value: '${d.floorCount}',
-          icon: Icons.layers,
+          icon: _buildSvgIcon(_assetFloor, color: _metricIconTeal),
         ),
         _buildPropertyMetricCard(
           label: 'Rooms',
           value: '${d.roomCount}',
-          icon: Icons.door_front_door,
+          icon: _buildSvgIcon(_assetRoom, color: _metricIconTeal),
         ),
         _buildPropertyMetricCard(
           label: 'Sensors',
           value: '${d.sensorCount}',
-          icon: Icons.sensors,
+          icon: _buildSvgIcon(_assetSensor, color: _metricIconTeal),
         ),
       ];
       if (d.buildingSize != null) {
@@ -779,7 +851,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
           _buildPropertyMetricCard(
             label: 'Size (m²)',
             value: '${d.buildingSize}',
-            icon: Icons.square_foot,
+            icon: _buildSvgIcon(_assetBuilding, color: _metricIconTeal),
           ),
         );
       }
@@ -805,7 +877,13 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               subtitle:
                   'Aggregate energy performance and load metrics for the current period. ${kpis.unit}',
               kpis: kpis,
+              locale: locale,
             ),
+          ],
+          if (analytics != null &&
+              (analytics.eui != null || analytics.perCapita != null)) ...[
+            const SizedBox(height: 24),
+            _buildBuildingAnalyticsSection(analytics, locale),
           ],
           const SizedBox(height: 24),
           _buildCard(
@@ -842,7 +920,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                         (sum, r) => sum + r.sensorCount,
                       );
                       return _buildPropertyListItem(
-                        icon: Icons.layers,
+                        icon: _buildSvgIcon(_assetFloor, color: _metricIconTeal),
                         title: floor.name,
                         subtitle: '${floor.roomCount} rooms',
                         trailing: sensorCount > 0
@@ -877,13 +955,11 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
   static const Color _metricIconTeal = Color(0xFF00897B);
 
   Widget _buildPropertyListItem({
-    required IconData icon,
+    required Widget icon,
     required String title,
     String? subtitle,
     String? trailing,
-    Color? iconColor,
   }) {
-    final effectiveColor = iconColor ?? _metricIconTeal;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
@@ -906,10 +982,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: effectiveColor.withOpacity(0.12),
+              color: _metricIconTeal.withOpacity(0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: effectiveColor, size: 22),
+            child: icon,
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -958,7 +1034,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
   Widget _buildPropertyMetricCard({
     required String label,
     required String value,
-    required IconData icon,
+    required Widget icon,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -998,7 +1074,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               color: _metricIconTeal.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: _metricIconTeal, size: 22),
+            child: icon,
           ),
         ],
       ),
@@ -1097,6 +1173,67 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     );
   }
 
+  Widget _buildPropertyDataQualitySummary(dynamic kpis) {
+    // kpis is expected to be DashboardKpis, but keep dynamic for flexibility.
+    final int quality = (kpis.averageQuality is int)
+        ? kpis.averageQuality as int
+        : int.tryParse('${kpis.averageQuality}') ?? 0;
+    final bool warning = kpis.dataQualityWarning == true;
+
+    final String statusLabel = warning ? 'Needs attention' : 'Excellent';
+    final String message =
+        warning ? 'Data quality needs review' : 'Data quality is good';
+
+    final Color bgColor = warning ? Colors.orange[50]! : Colors.green[50]!;
+    final Color borderColor =
+        warning ? Colors.orange[200]! : Colors.green[200]!;
+    final Color iconColor =
+        warning ? Colors.orange[700]! : Colors.green[700]!;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            warning ? Icons.warning_amber_rounded : Icons.check_circle,
+            size: 18,
+            color: iconColor,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$quality% data quality · $statusLabel',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: iconColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  message,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildKpiMetricCard({
     required String label,
     required String value,
@@ -1150,6 +1287,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     required String title,
     required String subtitle,
     required dynamic kpis,
+    required Locale locale,
   }) {
     if (kpis == null) return const SizedBox.shrink();
     return Column(
@@ -1180,7 +1318,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     width: (constraints.maxWidth - 12) / 2,
                     child: _buildKpiMetricCard(
                       label: 'Total',
-                      value: kpis.totalConsumption.toStringAsFixed(3),
+                      value: LocaleNumberFormat.formatDecimal(
+                        kpis.totalConsumption,
+                        locale: locale,
+                      ),
                       indicatorColor: const Color(0xFF64B5F6),
                     ),
                   ),
@@ -1188,7 +1329,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     width: (constraints.maxWidth - 12) / 2,
                     child: _buildKpiMetricCard(
                       label: 'Peak',
-                      value: kpis.peak.toStringAsFixed(3),
+                      value: LocaleNumberFormat.formatDecimal(
+                        kpis.peak,
+                        locale: locale,
+                      ),
                       indicatorColor: const Color(0xFFFFB74D),
                     ),
                   ),
@@ -1196,7 +1340,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     width: (constraints.maxWidth - 12) / 2,
                     child: _buildKpiMetricCard(
                       label: 'Average',
-                      value: kpis.average.toStringAsFixed(3),
+                      value: LocaleNumberFormat.formatDecimal(
+                        kpis.average,
+                        locale: locale,
+                      ),
                       indicatorColor: const Color(0xFFFFEE58),
                     ),
                   ),
@@ -1204,7 +1351,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     width: (constraints.maxWidth - 12) / 2,
                     child: _buildKpiMetricCard(
                       label: 'Base',
-                      value: kpis.base.toStringAsFixed(3),
+                      value: LocaleNumberFormat.formatDecimal(
+                        kpis.base,
+                        locale: locale,
+                      ),
                       indicatorColor: Colors.grey[400]!,
                     ),
                   ),
@@ -1216,7 +1366,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 Expanded(
                   child: _buildKpiMetricCard(
                     label: 'Total',
-                    value: kpis.totalConsumption.toStringAsFixed(3),
+                    value: LocaleNumberFormat.formatDecimal(
+                      kpis.totalConsumption,
+                      locale: locale,
+                    ),
                     indicatorColor: const Color(0xFF64B5F6),
                   ),
                 ),
@@ -1224,7 +1377,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 Expanded(
                   child: _buildKpiMetricCard(
                     label: 'Peak',
-                    value: kpis.peak.toStringAsFixed(3),
+                    value: LocaleNumberFormat.formatDecimal(
+                      kpis.peak,
+                      locale: locale,
+                    ),
                     indicatorColor: const Color(0xFFFFB74D),
                   ),
                 ),
@@ -1232,7 +1388,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 Expanded(
                   child: _buildKpiMetricCard(
                     label: 'Average',
-                    value: kpis.average.toStringAsFixed(3),
+                    value: LocaleNumberFormat.formatDecimal(
+                      kpis.average,
+                      locale: locale,
+                    ),
                     indicatorColor: const Color(0xFFFFEE58),
                   ),
                 ),
@@ -1240,7 +1399,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 Expanded(
                   child: _buildKpiMetricCard(
                     label: 'Base',
-                    value: kpis.base.toStringAsFixed(3),
+                    value: LocaleNumberFormat.formatDecimal(
+                      kpis.base,
+                      locale: locale,
+                    ),
                     indicatorColor: Colors.grey[400]!,
                   ),
                 ),
@@ -1248,7 +1410,162 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             );
           },
         ),
+        const SizedBox(height: 16),
+        _buildPropertyDataQualitySummary(kpis),
       ],
+    );
+  }
+
+  Widget _buildBuildingAnalyticsSection(
+    DashboardBuildingAnalytics analytics,
+    Locale locale,
+  ) {
+    final cards = <Widget>[];
+
+    final eui = analytics.eui;
+    if (eui != null && eui.available) {
+      cards.add(
+        _buildAnalyticsMetricCard(
+          title: 'EUI (${eui.unit})',
+          rows: [
+            (
+              label: 'EUI',
+              value: LocaleNumberFormat.formatDecimal(
+                eui.eui,
+                locale: locale,
+                decimalDigits: 2,
+              ),
+            ),
+            (
+              label: 'Annualized',
+              value: LocaleNumberFormat.formatDecimal(
+                eui.annualizedEui,
+                locale: locale,
+                decimalDigits: 2,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final perCapita = analytics.perCapita;
+    if (perCapita != null && perCapita.available) {
+      final rows = <({String label, String value})>[
+        (
+          label: 'Per Capita',
+          value: LocaleNumberFormat.formatDecimal(
+            perCapita.perCapita,
+            locale: locale,
+            decimalDigits: 2,
+          ),
+        ),
+      ];
+      if (perCapita.numPeople != null && perCapita.numPeople! > 0) {
+        rows.add(
+          (
+            label: 'People',
+            value: '${perCapita.numPeople}',
+          ),
+        );
+      }
+      cards.add(
+        _buildAnalyticsMetricCard(
+          title: 'Per Capita (${perCapita.unit})',
+          rows: rows,
+        ),
+      );
+    }
+
+    if (cards.isEmpty) return const SizedBox.shrink();
+
+    return _buildCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Detail Metrics',
+            style: AppTextStyles.titleMedium.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow =
+                  constraints.maxWidth < 700 || cards.length == 1;
+              if (isNarrow) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (int i = 0; i < cards.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 12),
+                      cards[i],
+                    ],
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  for (int i = 0; i < cards.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 12),
+                    Expanded(child: cards[i]),
+                  ],
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsMetricCard({
+    required String title,
+    required List<({String label, String value})> rows,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: AppTextStyles.titleSmall.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[800],
+            ),
+          ),
+          const SizedBox(height: 8),
+          for (int i = 0; i < rows.length; i++) ...[
+            if (i > 0) const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  rows[i].label,
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+                Text(
+                  rows[i].value,
+                  style: AppTextStyles.titleSmall.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[800],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -3197,6 +3514,258 @@ class _SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Widget that connects to WebSocket and displays live sensor values for a room.
+class _RoomRealtimeSensorsSection extends StatefulWidget {
+  final String roomId;
+  final List<dynamic> sensors;
+
+  const _RoomRealtimeSensorsSection({
+    required this.roomId,
+    required this.sensors,
+  });
+
+  @override
+  State<_RoomRealtimeSensorsSection> createState() =>
+      _RoomRealtimeSensorsSectionState();
+}
+
+class _RoomRealtimeSensorsSectionState extends State<_RoomRealtimeSensorsSection> {
+  @override
+  void initState() {
+    super.initState();
+    _connectAndSubscribe();
+  }
+
+  @override
+  void dispose() {
+    context.read<RealtimeSensorBloc>().add(
+          const RealtimeSensorDisconnectRequested(),
+        );
+    super.dispose();
+  }
+
+  Future<void> _connectAndSubscribe() async {
+    final token = await sl<TokenService>().getAccessToken();
+    if (token == null || token.isEmpty) return;
+    context.read<RealtimeSensorBloc>().add(
+          RealtimeSensorConnectRequested(token),
+        );
+    context.read<RealtimeSensorBloc>().add(
+          RealtimeSensorSubscribeToRoom(widget.roomId),
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<RealtimeSensorBloc, RealtimeSensorState>(
+      builder: (context, state) {
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'REALTIME SENSORS',
+                          style: AppTextStyles.overline.copyWith(
+                            color: Colors.grey[800],
+                            letterSpacing: 1.2,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Live sensor data for this room. Values update in real time.',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _ConnectionStatusIndicator(status: state.status),
+                ],
+              ),
+              if (state.errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red[100]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 16,
+                        color: Colors.red[600],
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          state.errorMessage!,
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: Colors.red[700],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () {
+                          context.read<RealtimeSensorBloc>().add(
+                                const RealtimeSensorReconnectRequested(),
+                              );
+                        },
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              if (widget.sensors.isEmpty)
+                Text(
+                  'No sensors in this room.',
+                  style: AppTextStyles.titleSmall.copyWith(
+                    color: Colors.grey[700],
+                  ),
+                )
+              else
+                ...widget.sensors.map((s) {
+                  final sensorId = (s is Map) ? s['_id']?.toString() : null;
+                  final name =
+                      (s is Map) ? s['name']?.toString() ?? 'Sensor' : 'Sensor';
+                  final realtimeValue = sensorId != null
+                      ? state.getSensorValue(sensorId)
+                      : null;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildSvgIcon(_assetSensor, color: Colors.grey[700], size: 18),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: AppTextStyles.titleSmall.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          realtimeValue != null
+                              ? realtimeValue.formattedValue
+                              : '—',
+                          style: AppTextStyles.titleSmall.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: realtimeValue != null
+                                ? AppTheme.primary
+                                : Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+
+class _ConnectionStatusIndicator extends StatelessWidget {
+  final RealtimeConnectionStatus status;
+
+  const _ConnectionStatusIndicator({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    Color color;
+    String label;
+    switch (status) {
+      case RealtimeConnectionStatus.connected:
+      case RealtimeConnectionStatus.subscribed:
+        color = Colors.green;
+        label = 'Live';
+        break;
+      case RealtimeConnectionStatus.connecting:
+      case RealtimeConnectionStatus.reconnecting:
+        color = Colors.orange;
+        label = 'Connecting...';
+        break;
+      case RealtimeConnectionStatus.error:
+        color = Colors.red;
+        label = 'Disconnected';
+        break;
+      default:
+        color = Colors.grey;
+        label = 'Offline';
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            boxShadow: [
+              if (status == RealtimeConnectionStatus.connected ||
+                  status == RealtimeConnectionStatus.subscribed)
+                BoxShadow(
+                  color: color.withOpacity(0.5),
+                  blurRadius: 4,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: AppTextStyles.labelSmall.copyWith(
+            color: color,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }
