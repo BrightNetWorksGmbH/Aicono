@@ -153,13 +153,13 @@ class DashboardDiscoveryService {
      * @returns {Promise<Array>} Sites array
      */
     async getSites(userId, bryteswitchId = null) {
-        console.log("get sites is called",userId)
+        // console.log("get sites is called",userId)
         // Get user's accessible bryteswitch IDs
         const userRoles = await UserRole.find({ 
             user_id: userId
         }).select('bryteswitch_id');
         
-        console.log('userRoles in getsites', userRoles);
+        // console.log('userRoles in getsites', userRoles);
         const accessibleBryteswitchIds = userRoles.map(ur => ur.bryteswitch_id);
         
         // Check if user is superadmin
@@ -189,8 +189,8 @@ class DashboardDiscoveryService {
             { $match: { site_id: { $in: siteIds } } },
             { $group: { _id: '$site_id', count: { $sum: 1 } } }
         ]);
-        console.log('siteIds', siteIds);
-        console.log('buildingCounts', buildingCounts);
+        // console.log('siteIds', siteIds);
+        // console.log('buildingCounts', buildingCounts);
         
         const buildingCountMap = new Map(buildingCounts.map(bc => [bc._id.toString(), bc.count]));
         
@@ -392,7 +392,7 @@ class DashboardDiscoveryService {
      * @returns {Promise<Object>} Building with nested data and KPIs
      */
     async getBuildingDetails(buildingId, userId, options = {}) {
-        console.log('getBuildingDetails', buildingId, userId, options);
+        // console.log('getBuildingDetails', buildingId, userId, options);
         // Verify access
         const building = await Building.findById(buildingId).populate('site_id');
         if (!building) {
@@ -534,7 +534,7 @@ class DashboardDiscoveryService {
      * @returns {Promise<Object>} Floor with nested data and KPIs
      */
     async getFloorDetails(floorId, userId, options = {}) {
-        console.log('getFloorDetails', floorId, userId, options);
+        // console.log('getFloorDetails', floorId, userId, options);
         const floor = await Floor.findById(floorId).populate('building_id');
         if (!floor) {
             throw new NotFoundError('Floor');
@@ -650,8 +650,8 @@ class DashboardDiscoveryService {
      */
     async getRoomDetails(roomId, userId, options = {}) {
         // roomId is now a LocalRoom ID
-        console.log('getRoomDetails', roomId, userId, options);
-        console.log('roomId', roomId);
+        // console.log('getRoomDetails', roomId, userId, options);
+        // console.log('roomId', roomId);
         // console.log('userId', userId);
         // console.log('options', options);
         const localRoom = await LocalRoom.findById(roomId).populate('loxone_room_id').populate({
@@ -663,7 +663,7 @@ class DashboardDiscoveryService {
                 }
             }
         });
-        console.log('localRoom', localRoom);
+        // console.log('localRoom', localRoom);
         
         if (!localRoom) {
             throw new NotFoundError('Room');
@@ -711,16 +711,29 @@ class DashboardDiscoveryService {
             ? await this.getRoomKPIs(loxoneRoom._id, startDate, endDate, options)
             : this.getEmptyKPIs();
         
-        // Get measurement data for room sensors if requested
-        let measurements = null;
-        if (options.includeMeasurements !== false && loxoneRoom && loxoneRoom._id) {
-            // Pass buildingId for optimization if available
-            const roomOptions = {
-                ...options,
-                buildingId: loxoneRoom.building_id || building._id
-            };
-            measurements = await this.getRoomMeasurements(loxoneRoom._id, startDate, endDate, roomOptions);
-        }
+        // Get KPIs for each sensor in the room
+        const sensorsWithKPIs = await Promise.all(
+            sensors.map(async (sensor) => {
+                const sensorKPIs = await this.getSensorKPIs(
+                    sensor._id,
+                    startDate,
+                    endDate,
+                    options
+                );
+                
+                return {
+                    _id: sensor._id,
+                    name: sensor.name,
+                    unit: sensor.unit,
+                    roomId: sensor.room_id,
+                    loxone_control_uuid: sensor.loxone_control_uuid,
+                    loxone_category_type: sensor.loxone_category_type,
+                    kpis: sensorKPIs,
+                    created_at: sensor.created_at,
+                    updated_at: sensor.updated_at
+                };
+            })
+        );
         
         return {
             _id: localRoom._id,
@@ -734,18 +747,8 @@ class DashboardDiscoveryService {
                 buildingId: loxoneRoom.building_id
             } : null,
             sensor_count: sensors.length,
-            sensors: sensors.map(s => ({
-                _id: s._id,
-                name: s.name,
-                unit: s.unit,
-                roomId: s.room_id,
-                loxone_control_uuid: s.loxone_control_uuid,
-                loxone_category_type: s.loxone_category_type,
-                created_at: s.created_at,
-                updated_at: s.updated_at
-            })),
+            sensors: sensorsWithKPIs,
             kpis,
-            measurements,
             time_range: {
                 start: startDate.toISOString(),
                 end: endDate.toISOString()
@@ -866,7 +869,7 @@ class DashboardDiscoveryService {
      */
     calculateKPIsFromResults(rawResults, options = {}) {
         // Process results: normalize units and aggregate by measurementType and stateType
-        console.log("rawResults", rawResults);
+        // console.log("rawResults", rawResults);
         const processedResults = new Map();
         
         // Track stateType for Energy measurements to handle totalDay correctly
@@ -1020,25 +1023,31 @@ class DashboardDiscoveryService {
             }
         } else if (usePowerForEnergy && powerData && powerData.values.length > 0) {
             // For dashboard arbitrary ranges: calculate energy consumption from Power
-            // Energy (kWh) = Average Power (kW) × Time Duration (hours)
-            const avgPower = powerData.values.reduce((sum, v) => sum + v, 0) / powerData.values.length;
-            const timeDurationHours = options.startDate && options.endDate
-                ? (new Date(options.endDate) - new Date(options.startDate)) / (1000 * 60 * 60)
-                : 0;
+            // Each power value represents average power during its time period
+            // Energy (kWh) = Sum of (Power_i (kW) × Time_Period_i (hours))
             
-            if (timeDurationHours > 0) {
-                totalConsumption = avgPower * timeDurationHours;
-                // Base is minimum energy consumption (kWh), calculated from minimum power × hours
-                // Note: This differs from breakdown.min for Power (which is in kW) - base is in kWh (energy)
-                base = Math.min(...powerData.values) * timeDurationHours;
-                // Average energy per measurement period = total consumption / number of measurement periods
-                averageEnergy = totalConsumption / powerData.values.length;
-                averagePower = avgPower; // Average power (kW)
-                
-                // Calculate quality from Power measurements
-                const qualitySum = powerData.avgQuality.reduce((sum, q) => sum + q, 0);
-                avgQuality = qualitySum / powerData.avgQuality.length;
-            }
+            // Get resolution from options (default to 60 minutes/hourly if not provided)
+            const resolutionMinutes = options.resolution || 60;
+            const resolutionHours = resolutionMinutes / 60;
+            
+            // Calculate total energy by summing energy from each measurement period
+            // Each power value represents average power during that period
+            totalConsumption = powerData.values.reduce((sum, power) => sum + (power * resolutionHours), 0);
+            
+            // Base is minimum energy consumption (kWh), calculated from minimum power × resolution
+            // Note: This differs from breakdown.min for Power (which is in kW) - base is in kWh (energy)
+            base = Math.min(...powerData.values) * resolutionHours;
+            
+            // Average energy per measurement period
+            averageEnergy = totalConsumption / powerData.values.length;
+            
+            // Average power (kW)
+            const avgPower = powerData.values.reduce((sum, v) => sum + v, 0) / powerData.values.length;
+            averagePower = avgPower;
+            
+            // Calculate quality from Power measurements
+            const qualitySum = powerData.avgQuality.reduce((sum, q) => sum + q, 0);
+            avgQuality = qualitySum / powerData.avgQuality.length;
         }
         
         // Find Power data for peak power (instantaneous maximum) and average power
@@ -1359,8 +1368,8 @@ class DashboardDiscoveryService {
             }
         }
         
-        // Pass time range for energy calculation from Power
-        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval });
+        // Pass time range and resolution for energy calculation from Power
+        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval, resolution });
     }
 
     /**
@@ -1646,7 +1655,7 @@ class DashboardDiscoveryService {
             }
         }
         // console.log("after calculateKPIsFromResults the time is ", Date.now());
-        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval: options.interval });
+        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval: options.interval, resolution });
     }
 
     /**
@@ -1977,7 +1986,7 @@ class DashboardDiscoveryService {
             }
         }
         
-        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval: options.interval });
+        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval: options.interval, resolution });
     }
 
     /**
@@ -2166,7 +2175,7 @@ class DashboardDiscoveryService {
         // Calculate KPIs for each room
         const roomsKPIsMap = new Map();
         for (const [roomId, roomResults] of roomResultsMap.entries()) {
-            const kpis = this.calculateKPIsFromResults(roomResults, { startDate, endDate, interval });
+            const kpis = this.calculateKPIsFromResults(roomResults, { startDate, endDate, interval, resolution });
             roomsKPIsMap.set(roomId, kpis);
         }
 
@@ -2392,7 +2401,7 @@ class DashboardDiscoveryService {
                 mergedResults.push(merged);
             }
             
-            const kpis = this.calculateKPIsFromResults(mergedResults, { startDate, endDate, interval });
+            const kpis = this.calculateKPIsFromResults(mergedResults, { startDate, endDate, interval, resolution });
             buildingsKPIsMap.set(buildingId, kpis);
         }
 
@@ -2574,8 +2583,8 @@ class DashboardDiscoveryService {
             }
         }
         
-        // Pass time range for energy calculation from Power
-        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval });
+        // Pass time range and resolution for energy calculation from Power
+        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval, resolution });
     }
 
     /**

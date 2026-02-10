@@ -1,0 +1,144 @@
+[{
+  "_id": {
+    "$oid": "6985d13171babd904f3b6cdc"
+  },
+  "room_id": {
+    "$oid": "6985d13171babd904f3b6cd0"
+  },
+  "name": "Energieflussmonitor",
+  "unit": "W",
+  "loxone_control_uuid": "1fcada4b-031b-63cd-ffff4cfafef57a5e",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-06T11:32:01.758Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-09T22:14:25.357Z"
+  },
+  "threshold_max": 400,
+  "threshold_min": 30
+},
+{
+  "_id": {
+    "$oid": "6985d13171babd904f3b6cdd"
+  },
+  "room_id": {
+    "$oid": "6985d13171babd904f3b6cd0"
+  },
+  "name": "Rest",
+  "unit": "W",
+  "loxone_control_uuid": "1fcada4b-031b-63e0-ffff4cfafef57a5e",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-06T11:32:01.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-09T22:14:25.359Z"
+  },
+  "threshold_max": 600,
+  "threshold_min": 23
+},
+{
+  "_id": {
+    "$oid": "6985d13171babd904f3b6cde"
+  },
+  "room_id": {
+    "$oid": "6985d13171babd904f3b6cd0"
+  },
+  "name": "Rest",
+  "unit": "W",
+  "loxone_control_uuid": "1fcada4b-031b-63fb-ffff4cfafef57a5e",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-06T11:32:01.774Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-06T11:32:01.774Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6985d13171babd904f3b6cdf"
+  },
+  "room_id": {
+    "$oid": "6985d13171babd904f3b6cd0"
+  },
+  "name": "Rest",
+  "unit": "W",
+  "loxone_control_uuid": "1fcacce8-0063-645a-ffff7217d09c8456",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-06T11:32:01.785Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-06T11:32:01.785Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6985d13171babd904f3b6ce0"
+  },
+  "room_id": {
+    "$oid": "6985d13171babd904f3b6cd0"
+  },
+  "name": "Rest",
+  "unit": "W",
+  "loxone_control_uuid": "1fcacd10-01b2-7701-ffff3e832a8378c7",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-06T11:32:01.797Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-06T11:32:01.797Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6985d13171babd904f3b6ce1"
+  },
+  "room_id": {
+    "$oid": "6985d13171babd904f3b6cd0"
+  },
+  "name": "Zähler Hauptanschluss",
+  "unit": "kW",
+  "loxone_control_uuid": "1fa373c7-026b-22e0-ffffce026101d865",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-06T11:32:01.813Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-06T11:32:01.813Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6985d13171babd904f3b6ce2"
+  },
+  "room_id": {
+    "$oid": "6985d13171babd904f3b6cd0"
+  },
+  "name": "Zähler PC-Raum",
+  "unit": "kW",
+  "loxone_control_uuid": "1fa37866-0040-7495-fffff087a9bf780d",
+  "loxone_category_uuid": "1fa3729e-0098-07da-ffffce026101d865",
+  "loxone_category_name": "Energie",
+  "loxone_category_type": "undefined",
+  "createdAt": {
+    "$date": "2026-02-06T11:32:01.822Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-06T11:32:01.822Z"
+  }
+}]
