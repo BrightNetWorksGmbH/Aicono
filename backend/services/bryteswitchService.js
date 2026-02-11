@@ -3,6 +3,7 @@ const Role = require('../models/Role');
 const UserRole = require('../models/UserRole');
 const Invitation = require('../models/Invitation');
 const User = require('../models/User');
+const { AuthorizationError } = require('../utils/errors');
 
 class BryteSwitchService {
   /**
@@ -298,18 +299,19 @@ class BryteSwitchService {
     }
 
     // Check permissions (user must have manage_bryteswitch permission)
+    // Note: Permission check is also done in controller, but we keep it here for service-level safety
     const userRole = await UserRole.findOne({
       user_id: userId,
       bryteswitch_id: bryteswitchId
     }).populate('role_id');
 
     if (!userRole || !userRole.role_id) {
-      throw new Error('You do not have access to this BryteSwitch');
+      throw new AuthorizationError('You do not have access to this BryteSwitch');
     }
 
     const role = userRole.role_id;
     if (!role.permissions.manage_bryteswitch) {
-      throw new Error('You do not have permission to update this BryteSwitch');
+      throw new AuthorizationError('You do not have permission to update this BryteSwitch');
     }
 
     // Check if organization name already exists (excluding current switch)

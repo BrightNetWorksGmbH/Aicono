@@ -25,6 +25,7 @@ const sensorRouter = require('./routes/sensors');
 const reportingRouter = require('./routes/reporting');
 const reportsRouter = require('./routes/reports');
 const roleRouter = require('./routes/role');
+const userRouter = require('./routes/user');
 const googlemapRouter = require('./routes/googlemap');
 const realtimeRouter = require('./routes/realtimeRoutes');
 
@@ -143,6 +144,7 @@ app.use('/api/v1/sensors', sensorRouter);
 app.use('/api/v1/reporting', reportingRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/roles', roleRouter);
+app.use('/api/v1/users', userRouter);
 app.use('/api/v1/googlemap', googlemapRouter);
 app.use('/api/v1/realtime', realtimeRouter);
 
