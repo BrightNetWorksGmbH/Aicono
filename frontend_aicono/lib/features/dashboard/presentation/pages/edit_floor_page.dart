@@ -1,13 +1,24 @@
+import 'dart:async';
+import 'dart:convert' show utf8;
+import 'dart:io' show File;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/network/dio_client.dart';
+import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/dashboard_main_content.dart'
-    show FloorPlanEditorWrapper;
+    show FloorPlanEditorWrapper, SimplifiedFloorPlanEditorState;
+import 'package:frontend_aicono/features/upload/presentation/bloc/upload_bloc.dart';
+import 'package:frontend_aicono/features/upload/presentation/bloc/upload_event.dart';
+import 'package:frontend_aicono/features/upload/presentation/bloc/upload_state.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 import '../../../../core/widgets/primary_outline_button.dart';
 
@@ -22,9 +33,12 @@ class EditFloorPage extends StatefulWidget {
 
 class _EditFloorPageState extends State<EditFloorPage> {
   final TextEditingController _floorNameController = TextEditingController();
+  final GlobalKey<SimplifiedFloorPlanEditorState> _floorPlanEditorKey =
+      GlobalKey<SimplifiedFloorPlanEditorState>();
   bool _isLoading = false;
   String? _floorPlanUrl;
   String? _floorName;
+  StreamSubscription? _uploadSubscription;
 
   @override
   void initState() {
@@ -35,6 +49,7 @@ class _EditFloorPageState extends State<EditFloorPage> {
   @override
   void dispose() {
     _floorNameController.dispose();
+    _uploadSubscription?.cancel();
     super.dispose();
   }
 
@@ -179,6 +194,7 @@ class _EditFloorPageState extends State<EditFloorPage> {
                                   floorId: widget.floorId,
                                   floorName: _floorName!,
                                   initialFloorPlanUrl: _floorPlanUrl,
+                                  editorKey: _floorPlanEditorKey,
                                   onSave: (String? floorPlanUrl) async {
                                     // Save floor plan URL
                                     if (floorPlanUrl != null) {
@@ -288,8 +304,91 @@ class _EditFloorPageState extends State<EditFloorPage> {
     });
 
     try {
+      String? floorPlanUrl = _floorPlanUrl;
+
+      // First, upload the SVG if there's a floor plan editor with rooms
+      if (_floorPlanEditorKey.currentState != null) {
+        try {
+          final svgContent = await _floorPlanEditorKey.currentState!
+              .generateSVG();
+
+          // Only upload if there are rooms or background image
+          if (svgContent.isNotEmpty) {
+            final timestamp = DateTime.now().millisecondsSinceEpoch;
+            final fileName = 'floor_plan_$timestamp.svg';
+
+            // Get verseId from LocalStorage
+            final localStorage = sl<LocalStorage>();
+            final verseId =
+                localStorage.getSelectedVerseId() ?? 'default-verse-id';
+
+            // Convert SVG string to XFile
+            XFile svgFile;
+            if (kIsWeb) {
+              final svgBytes = utf8.encode(svgContent);
+              svgFile = XFile.fromData(
+                svgBytes,
+                mimeType: 'image/svg+xml',
+                name: fileName,
+              );
+            } else {
+              final directory = await getTemporaryDirectory();
+              final filePath = path.join(directory.path, fileName);
+              final file = File(filePath);
+              await file.writeAsString(svgContent);
+              svgFile = XFile(filePath, mimeType: 'image/svg+xml');
+            }
+
+            // Cancel any existing subscription
+            await _uploadSubscription?.cancel();
+
+            // Upload using UploadBloc
+            final uploadBloc = sl<UploadBloc>();
+
+            // Dispatch the upload event first
+            uploadBloc.add(
+              UploadImageEvent(
+                svgFile,
+                verseId,
+                'floor_plans', // folder path
+              ),
+            );
+
+            // Wait for upload to complete using stream
+            try {
+              final uploadState = await uploadBloc.stream
+                  .where(
+                    (state) => state is UploadSuccess || state is UploadFailure,
+                  )
+                  .timeout(const Duration(seconds: 30))
+                  .first;
+
+              if (uploadState is UploadSuccess) {
+                floorPlanUrl = uploadState.url;
+              } else if (uploadState is UploadFailure) {
+                throw Exception('Upload failed: ${uploadState.message}');
+              }
+            } on TimeoutException {
+              debugPrint('Upload timed out after 30 seconds');
+              // Continue with existing floorPlanUrl if upload times out
+            } catch (e) {
+              debugPrint('Error during upload: $e');
+              // Continue with existing floorPlanUrl if upload fails
+            }
+          }
+        } catch (e) {
+          debugPrint('Error uploading floor plan: $e');
+          // Continue with existing floorPlanUrl if upload fails
+        }
+      }
+
+      // Now update the floor with name and floor_plan_link
       final dioClient = sl<DioClient>();
-      final requestBody = <String, dynamic>{'name': floorName};
+      final requestBody = <String, dynamic>{
+        'name': floorName,
+        if (floorPlanUrl != null && floorPlanUrl.isNotEmpty)
+          'floor_plan_link': floorPlanUrl,
+      };
 
       final response = await dioClient.patch(
         '/api/v1/floors/${widget.floorId}',

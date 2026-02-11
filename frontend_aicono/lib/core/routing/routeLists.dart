@@ -71,5 +71,6 @@ class Routelists {
   static const editBuilding = 'edit-building';
   static const editFloor = 'edit-floor';
   static const editRoom = 'edit-room';
+  static const dashboardReportSetup = 'dashboard-report-setup';
   static const notFound = 'not-found';
 }

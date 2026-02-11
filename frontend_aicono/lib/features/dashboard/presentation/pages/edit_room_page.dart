@@ -309,7 +309,7 @@ class _EditRoomPageState extends State<EditRoomPage> {
       }
 
       final response = await dioClient.patch(
-        '/api/v1/rooms/${widget.roomId}',
+        '/api/v1/floors/rooms/${widget.roomId}',
         data: requestBody,
       );
 
@@ -703,68 +703,68 @@ class _EditRoomPageState extends State<EditRoomPage> {
                                 ),
                                 const SizedBox(height: 24),
                                 // Color Selection
-                                SizedBox(
-                                  width: screenSize.width < 600
-                                      ? screenSize.width * 0.95
-                                      : screenSize.width < 1200
-                                      ? screenSize.width * 0.5
-                                      : screenSize.width * 0.6,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Room Color',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.start,
-                                        children: _colorPalette.map((color) {
-                                          final isSelected =
-                                              _selectedColor == color;
-                                          return GestureDetector(
-                                            onTap: () {
-                                              setState(() {
-                                                _selectedColor = color;
-                                              });
-                                            },
-                                            child: Container(
-                                              margin:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                  ),
-                                              width: 40,
-                                              height: 40,
-                                              decoration: BoxDecoration(
-                                                color: color,
-                                                shape: BoxShape.circle,
-                                                border: Border.all(
-                                                  color: isSelected
-                                                      ? Colors.black
-                                                      : Colors.grey.shade400,
-                                                  width: isSelected ? 3 : 1,
-                                                ),
-                                              ),
-                                              child: isSelected
-                                                  ? Icon(
-                                                      Icons.check,
-                                                      color: Colors.white,
-                                                      size: 20,
-                                                    )
-                                                  : null,
-                                            ),
-                                          );
-                                        }).toList(),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
+                                // SizedBox(
+                                //   width: screenSize.width < 600
+                                //       ? screenSize.width * 0.95
+                                //       : screenSize.width < 1200
+                                //       ? screenSize.width * 0.5
+                                //       : screenSize.width * 0.6,
+                                //   child: Column(
+                                //     crossAxisAlignment:
+                                //         CrossAxisAlignment.start,
+                                //     children: [
+                                //       const Text(
+                                //         'Room Color',
+                                //         style: TextStyle(
+                                //           fontSize: 18,
+                                //           fontWeight: FontWeight.bold,
+                                //         ),
+                                //       ),
+                                //       const SizedBox(height: 16),
+                                //       Row(
+                                //         mainAxisAlignment:
+                                //             MainAxisAlignment.start,
+                                //         children: _colorPalette.map((color) {
+                                //           final isSelected =
+                                //               _selectedColor == color;
+                                //           return GestureDetector(
+                                //             onTap: () {
+                                //               setState(() {
+                                //                 _selectedColor = color;
+                                //               });
+                                //             },
+                                //             child: Container(
+                                //               margin:
+                                //                   const EdgeInsets.symmetric(
+                                //                     horizontal: 8,
+                                //                   ),
+                                //               width: 40,
+                                //               height: 40,
+                                //               decoration: BoxDecoration(
+                                //                 color: color,
+                                //                 shape: BoxShape.circle,
+                                //                 border: Border.all(
+                                //                   color: isSelected
+                                //                       ? Colors.black
+                                //                       : Colors.grey.shade400,
+                                //                   width: isSelected ? 3 : 1,
+                                //                 ),
+                                //               ),
+                                //               child: isSelected
+                                //                   ? Icon(
+                                //                       Icons.check,
+                                //                       color: Colors.white,
+                                //                       size: 20,
+                                //                     )
+                                //                   : null,
+                                //             ),
+                                //           );
+                                //         }).toList(),
+                                //       ),
+                                //     ],
+                                //   ),
+                                // ),
+                                // const SizedBox(height: 24),
                                 // Save button
                                 _isLoading
                                     ? const Center(
