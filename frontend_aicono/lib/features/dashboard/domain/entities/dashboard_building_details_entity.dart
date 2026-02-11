@@ -33,6 +33,8 @@ class DashboardBuildingDetails {
   final List<DashboardFloor> floors;
   final DashboardKpis? kpis;
   final DashboardBuildingAnalytics? analytics;
+  /// Raw analytics map for report-style sections (buildingComparison, timeBasedAnalysis, anomalies).
+  final Map<String, dynamic>? analyticsRaw;
   final DashboardTimeRange? timeRange;
 
   DashboardBuildingDetails({
@@ -49,6 +51,7 @@ class DashboardBuildingDetails {
     required this.floors,
     required this.kpis,
     this.analytics,
+    this.analyticsRaw,
     required this.timeRange,
   });
 
@@ -103,6 +106,13 @@ class DashboardBuildingDetails {
       analytics: (json['analytics'] is Map<String, dynamic>)
           ? DashboardBuildingAnalytics.fromJson(
               json['analytics'] as Map<String, dynamic>,
+            )
+          : null,
+      analyticsRaw: (json['analytics'] is Map<String, dynamic>)
+          ? Map<String, dynamic>.from(
+              (json['analytics'] as Map<String, dynamic>).map(
+                (k, v) => MapEntry(k.toString(), v),
+              ),
             )
           : null,
       timeRange: (json['time_range'] is Map<String, dynamic>)
