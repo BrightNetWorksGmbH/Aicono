@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/constant.dart';
+import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/network/dio_client.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
@@ -39,6 +41,13 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
   final TextEditingController _loxonePortController = TextEditingController();
   final TextEditingController _loxoneSerialNumberController =
       TextEditingController();
+
+  // Contact person state
+  Map<String, dynamic>? _selectedContact;
+  bool _isEditingContact = false;
+  bool _createContactClicked = false;
+  bool _isLoadingBuildingContact = false;
+  final DioClient _dioClient = sl<DioClient>();
 
   bool _isLoading = false;
   bool _isLoadingLoxoneChanges = false;
@@ -76,6 +85,53 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
 
   void _handleLanguageChanged() {
     setState(() {});
+  }
+
+  Future<void> _loadContactPersonFromBuilding() async {
+    try {
+      final dioClient = sl<DioClient>();
+      final response = await dioClient.get(
+        '/api/v1/buildings/${widget.buildingId}',
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        if (data['success'] == true && data['data'] != null) {
+          final buildingData = data['data'] as Map<String, dynamic>;
+
+          // Check if buildingContact exists
+          if (buildingData['buildingContact'] != null) {
+            final contactData = buildingData['buildingContact'];
+
+            // Handle both object and ID cases
+            if (contactData is Map<String, dynamic>) {
+              setState(() {
+                _selectedContact = {
+                  'name': contactData['name']?.toString() ?? '',
+                  'email': contactData['email']?.toString() ?? '',
+                  'phone': contactData['phone']?.toString() ?? '',
+                  'id':
+                      contactData['_id']?.toString() ??
+                      contactData['id']?.toString() ??
+                      DateTime.now().millisecondsSinceEpoch.toString(),
+                  'method': 'domain',
+                };
+                _isEditingContact = false;
+              });
+            } else if (contactData is String) {
+              // If it's just an ID, we might need to fetch the contact details
+              // For now, just store the ID
+              setState(() {
+                _selectedContact = {'id': contactData, 'method': 'domain'};
+                _isEditingContact = false;
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading contact person: $e');
+    }
   }
 
   Future<void> _fetchBuildingDataForEdit() async {
@@ -125,6 +181,56 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
       _loxoneExternalAddressController.text = 'dns.loxonecloud.com';
       _loxonePortController.text = '443';
       _loxoneSerialNumberController.text = '504F94D107EE';
+    }
+  }
+
+  Future<void> _handleSaveBuildingContact() async {
+    // TODO: Implement save building contact logic
+    setState(() {
+      _isLoadingBuildingContact = true;
+    });
+    try {
+      final dioClient = sl<DioClient>();
+      final requestBody = <String, dynamic>{
+        'buildingContact': _selectedContact,
+      };
+
+      final response = await dioClient.patch(
+        '/api/v1/buildings/${widget.buildingId}',
+        data: requestBody,
+      );
+      if (mounted) {
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Building contact saved successfully'),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to save building contact: ${response.statusCode}',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error saving building contact: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving building contact: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingBuildingContact = false;
+        });
+      }
     }
   }
 
@@ -209,6 +315,308 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
     }
   }
 
+  Future<void> _handleAutomaticFromDomain() async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // Fetch contacts from endpoint
+      final buildingId = widget.buildingId;
+      final response = await _dioClient.dio.get(
+        '/api/v1/buildings/contacts',
+        queryParameters: buildingId.isNotEmpty
+            ? {'buildingId': buildingId}
+            : null,
+      );
+
+      // Close loading dialog
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // Parse response
+      List<Map<String, dynamic>> contactsList = [];
+      if (response.data != null) {
+        // Handle different response structures
+        if (response.data is List) {
+          contactsList = List<Map<String, dynamic>>.from(response.data);
+        } else if (response.data is Map<String, dynamic>) {
+          final responseMap = response.data as Map<String, dynamic>;
+
+          if (responseMap['data'] != null) {
+            if (responseMap['data'] is List) {
+              contactsList = List<Map<String, dynamic>>.from(
+                responseMap['data'],
+              );
+            }
+          } else if (responseMap['contacts'] != null) {
+            if (responseMap['contacts'] is List) {
+              contactsList = List<Map<String, dynamic>>.from(
+                responseMap['contacts'],
+              );
+            }
+          } else if (responseMap['results'] != null) {
+            if (responseMap['results'] is List) {
+              contactsList = List<Map<String, dynamic>>.from(
+                responseMap['results'],
+              );
+            }
+          }
+        }
+      }
+
+      // Show contacts dialog
+      if (mounted) {
+        _showContactsDialog(contactsList);
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // Show error or empty dialog
+      if (mounted) {
+        _showContactsDialog([]);
+      }
+    }
+  }
+
+  void _showContactsDialog(List<Map<String, dynamic>> contactsList) {
+    final Size screenSize = MediaQuery.of(context).size;
+    String? selectedContactId;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+          backgroundColor: Colors.white,
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'building_contact_person.contacts_from_domain'.tr(),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: () => Navigator.of(context).pop(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: screenSize.width < 600
+                ? screenSize.width * 0.9
+                : screenSize.width < 1200
+                ? screenSize.width * 0.5
+                : screenSize.width * 0.4,
+            child: contactsList.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'building_contact_person.no_contacts_found'.tr(),
+                    ),
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: Text(
+                          'building_contact_person.choose_one_contact'.tr(),
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ),
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: contactsList.length,
+                          itemBuilder: (context, index) {
+                            final contact = contactsList[index];
+                            final name =
+                                contact['name'] ?? contact['fullName'] ?? '';
+                            final email =
+                                contact['email'] ??
+                                contact['emailAddress'] ??
+                                '';
+                            final contactId =
+                                contact['_id'] ?? contact['id'] ?? '';
+
+                            return InkWell(
+                              onTap: () {
+                                setDialogState(() {
+                                  selectedContactId = contactId;
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8.0,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Radio<String>(
+                                      value: contactId,
+                                      activeColor: Colors.black,
+                                      groupValue: selectedContactId,
+                                      onChanged: (value) {
+                                        setDialogState(() {
+                                          selectedContactId = value;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            name.isNotEmpty
+                                                ? name
+                                                : 'Unbekannt',
+                                            style: AppTextStyles.bodyMedium
+                                                .copyWith(
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                          ),
+                                          if (email.isNotEmpty)
+                                            Text(
+                                              email,
+                                              style: AppTextStyles.bodyMedium
+                                                  .copyWith(
+                                                    color: Colors.grey[600],
+                                                    fontSize: 14,
+                                                  ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          actions: [
+            PrimaryOutlineButton(
+              label: 'building_contact_person.choose_contact'.tr(),
+              onPressed: selectedContactId == null
+                  ? null
+                  : () {
+                      final selectedContact = contactsList.firstWhere((
+                        contact,
+                      ) {
+                        final contactId = contact['_id'] ?? contact['id'] ?? '';
+                        return contactId == selectedContactId;
+                      });
+
+                      final name =
+                          selectedContact['name'] ??
+                          selectedContact['fullName'] ??
+                          '';
+                      final email =
+                          selectedContact['email'] ??
+                          selectedContact['emailAddress'] ??
+                          '';
+                      final contactId =
+                          selectedContact['_id'] ?? selectedContact['id'] ?? '';
+
+                      setState(() {
+                        _selectedContact = {
+                          'name': name,
+                          'email': email,
+                          'phone': selectedContact['phone'] ?? '',
+                          'id': contactId.isNotEmpty
+                              ? contactId
+                              : DateTime.now().millisecondsSinceEpoch
+                                    .toString(),
+                          'method': 'domain',
+                        };
+                        _isEditingContact = false;
+                        _createContactClicked = false;
+                      });
+                      Navigator.of(context).pop();
+                    },
+              width: 260,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleUploadContact() {
+    setState(() {
+      _selectedContact = {
+        'name': '',
+        'email': '',
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'method': 'upload',
+      };
+      _isEditingContact = true;
+      _createContactClicked = true;
+    });
+  }
+
+  void _handleContactNameChanged(String name) {
+    setState(() {
+      if (_selectedContact != null) {
+        _selectedContact!['name'] = name;
+      }
+    });
+  }
+
+  void _handleContactEmailChanged(String email) {
+    setState(() {
+      if (_selectedContact != null) {
+        _selectedContact!['email'] = email;
+      }
+    });
+  }
+
+  void _handleConfirmContact() {
+    setState(() {
+      _isEditingContact = false;
+    });
+  }
+
+  bool _isValidEmail(String email) {
+    if (email.isEmpty) return false;
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+    return emailRegex.hasMatch(email);
+  }
+
+  bool _isContactFormValid() {
+    if (_selectedContact == null) return false;
+
+    final name = _selectedContact!['name']?.toString().trim() ?? '';
+    final email = _selectedContact!['email']?.toString().trim() ?? '';
+
+    if (_isEditingContact) {
+      return name.isNotEmpty && email.isNotEmpty && _isValidEmail(email);
+    }
+
+    return name.isNotEmpty;
+  }
+
   Future<void> _connectLoxone(DioClient dioClient) async {
     try {
       // Parse port as integer, default to 443 if invalid
@@ -279,6 +687,9 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
               state.details.buildingSize?.toString() ?? '';
           _constructionYearController.text =
               state.details.yearOfConstruction?.toString() ?? '';
+
+          // Load contact person if available from building data
+          _loadContactPersonFromBuilding();
         }
       },
       child: Scaffold(
@@ -603,6 +1014,422 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                         ? screenSize.width * 0.5
                                         : screenSize.width * 0.6,
                                     child: const Text(
+                                      'Building contact information',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Building contact information section (same as building_contact_person_step.dart)
+                                  if (_selectedContact != null) ...[
+                                    if (_isEditingContact) ...[
+                                      // Show text fields when editing
+                                      SizedBox(
+                                        width: screenSize.width < 600
+                                            ? screenSize.width * 0.95
+                                            : screenSize.width < 1200
+                                            ? screenSize.width * 0.5
+                                            : screenSize.width * 0.6,
+                                        child: Column(
+                                          children: [
+                                            // Name Field
+                                            Container(
+                                              margin: const EdgeInsets.only(
+                                                bottom: 12,
+                                              ),
+                                              height: 50,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                  color: const Color(
+                                                    0xFF8B9A5B,
+                                                  ),
+                                                  width: 1,
+                                                ),
+                                                borderRadius: BorderRadius.zero,
+                                                color: Colors.white,
+                                              ),
+                                              child: TextFormField(
+                                                initialValue:
+                                                    _selectedContact!['name'] ??
+                                                    '',
+                                                decoration: InputDecoration(
+                                                  hintText:
+                                                      'building_contact_person.name_hint'
+                                                          .tr(),
+                                                  border: InputBorder.none,
+                                                  hintStyle: AppTextStyles
+                                                      .bodyMedium
+                                                      .copyWith(
+                                                        color: Colors.grey[600],
+                                                      ),
+                                                  contentPadding:
+                                                      EdgeInsets.zero,
+                                                ),
+                                                style: AppTextStyles.bodyMedium
+                                                    .copyWith(
+                                                      color: Colors.black87,
+                                                    ),
+                                                onChanged: (value) {
+                                                  _handleContactNameChanged(
+                                                    value,
+                                                  );
+                                                  setState(() {});
+                                                },
+                                              ),
+                                            ),
+                                            // Email Field
+                                            Container(
+                                              margin: const EdgeInsets.only(
+                                                bottom: 12,
+                                              ),
+                                              height: 50,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                  color: const Color(
+                                                    0xFF8B9A5B,
+                                                  ),
+                                                  width: 1,
+                                                ),
+                                                borderRadius: BorderRadius.zero,
+                                                color: Colors.white,
+                                              ),
+                                              child: TextFormField(
+                                                initialValue:
+                                                    _selectedContact!['email'] ??
+                                                    '',
+                                                decoration: InputDecoration(
+                                                  hintText:
+                                                      'building_contact_person.email_hint'
+                                                          .tr(),
+                                                  border: InputBorder.none,
+                                                  hintStyle: AppTextStyles
+                                                      .bodyMedium
+                                                      .copyWith(
+                                                        color: Colors.grey[600],
+                                                      ),
+                                                  contentPadding:
+                                                      EdgeInsets.zero,
+                                                ),
+                                                style: AppTextStyles.bodyMedium
+                                                    .copyWith(
+                                                      color: Colors.black87,
+                                                    ),
+                                                keyboardType:
+                                                    TextInputType.emailAddress,
+                                                onChanged: (value) {
+                                                  _handleContactEmailChanged(
+                                                    value,
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ] else
+                                      // Show confirmation box when confirmed
+                                      SizedBox(
+                                        width: screenSize.width < 600
+                                            ? screenSize.width * 0.95
+                                            : screenSize.width < 1200
+                                            ? screenSize.width * 0.5
+                                            : screenSize.width * 0.6,
+                                        child: Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: Colors.grey[300]!,
+                                            ),
+                                            borderRadius: BorderRadius.zero,
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(16),
+                                            child: Row(
+                                              children: [
+                                                Image.asset(
+                                                  'assets/images/check.png',
+                                                  width: 16,
+                                                  height: 16,
+                                                  color: const Color(
+                                                    0xFF238636,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Text(
+                                                    _selectedContact!['name'] !=
+                                                                null &&
+                                                            _selectedContact!['name']
+                                                                .toString()
+                                                                .isNotEmpty
+                                                        ? '${_selectedContact!['name']}      ${_selectedContact!['email'] != null && _selectedContact!['email'].toString().isNotEmpty ? _selectedContact!['email'] : ''}'
+                                                        : _selectedContact!['email'] !=
+                                                                  null &&
+                                                              _selectedContact!['email']
+                                                                  .toString()
+                                                                  .isNotEmpty
+                                                        ? _selectedContact!['email']
+                                                        : '',
+                                                    style: const TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Edit button
+                                                Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    onTap: () {
+                                                      setState(() {
+                                                        _isEditingContact =
+                                                            true;
+                                                      });
+                                                    },
+                                                    borderRadius:
+                                                        BorderRadius.zero,
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 8,
+                                                            vertical: 4,
+                                                          ),
+                                                      child: Text(
+                                                        'building_contact_person.edit'
+                                                            .tr(),
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          decoration:
+                                                              TextDecoration
+                                                                  .underline,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                // Remove button
+                                                Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    onTap: () {
+                                                      setState(() {
+                                                        _selectedContact = null;
+                                                        _isEditingContact =
+                                                            false;
+                                                        _createContactClicked =
+                                                            false;
+                                                      });
+                                                    },
+                                                    borderRadius:
+                                                        BorderRadius.zero,
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            4,
+                                                          ),
+                                                      child: Icon(
+                                                        Icons.close,
+                                                        size: 18,
+                                                        color: Colors.grey[700],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                  // Action links - side by side (only show if no contact selected or when editing)
+                                  if (_selectedContact == null ||
+                                      (_selectedContact != null &&
+                                          _isEditingContact))
+                                    SizedBox(
+                                      width: screenSize.width < 600
+                                          ? screenSize.width * 0.95
+                                          : screenSize.width < 1200
+                                          ? screenSize.width * 0.5
+                                          : screenSize.width * 0.6,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              onTap: _handleAutomaticFromDomain,
+                                              borderRadius: BorderRadius.zero,
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 8,
+                                                      horizontal: 4,
+                                                    ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      '+',
+                                                      style: TextStyle(
+                                                        fontSize:
+                                                            screenSize.width <
+                                                                600
+                                                            ? 14
+                                                            : 18,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Colors.black,
+                                                      ),
+                                                    ),
+                                                    SizedBox(
+                                                      width:
+                                                          screenSize.width < 600
+                                                          ? 4
+                                                          : 8,
+                                                    ),
+                                                    Flexible(
+                                                      child: Text(
+                                                        'building_contact_person.automatic_from_domain'
+                                                            .tr(),
+                                                        style: TextStyle(
+                                                          fontSize:
+                                                              screenSize.width <
+                                                                  600
+                                                              ? 12
+                                                              : 16,
+                                                          color: Colors.black,
+                                                          decoration:
+                                                              TextDecoration
+                                                                  .underline,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            width: screenSize.width < 600
+                                                ? 12
+                                                : 24,
+                                          ),
+                                          Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              onTap: _createContactClicked
+                                                  ? null
+                                                  : _handleUploadContact,
+                                              borderRadius: BorderRadius.zero,
+                                              child: Opacity(
+                                                opacity: _createContactClicked
+                                                    ? 0.5
+                                                    : 1.0,
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 8,
+                                                        horizontal: 4,
+                                                      ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        '+',
+                                                        style: TextStyle(
+                                                          fontSize:
+                                                              screenSize.width <
+                                                                  600
+                                                              ? 14
+                                                              : 18,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color:
+                                                              _createContactClicked
+                                                              ? Colors.grey
+                                                              : Colors.black,
+                                                        ),
+                                                      ),
+                                                      SizedBox(
+                                                        width:
+                                                            screenSize.width <
+                                                                600
+                                                            ? 4
+                                                            : 8,
+                                                      ),
+                                                      Flexible(
+                                                        child: Text(
+                                                          'building_contact_person.upload_contact'
+                                                              .tr(),
+                                                          style: TextStyle(
+                                                            fontSize:
+                                                                screenSize
+                                                                        .width <
+                                                                    600
+                                                                ? 12
+                                                                : 16,
+                                                            color:
+                                                                _createContactClicked
+                                                                ? Colors.grey
+                                                                : Colors.black,
+                                                            decoration:
+                                                                TextDecoration
+                                                                    .underline,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  const SizedBox(height: 32),
+                                  // Building contact information section
+                                  SizedBox(
+                                    width: 260,
+                                    child: _isLoadingBuildingContact
+                                        ? const Center(
+                                            child: CircularProgressIndicator(),
+                                          )
+                                        : PrimaryOutlineButton(
+                                            onPressed: _isLoadingBuildingContact
+                                                ? null
+                                                : _handleSaveBuildingContact,
+                                            label: 'Save Building Contact',
+                                            width: 260,
+                                          ),
+                                  ),
+
+                                  const SizedBox(height: 32),
+                                  // Loxone Connection Section
+                                  SizedBox(
+                                    width: screenSize.width < 600
+                                        ? screenSize.width * 0.95
+                                        : screenSize.width < 1200
+                                        ? screenSize.width * 0.5
+                                        : screenSize.width * 0.6,
+                                    child: const Text(
                                       'Loxone Connection',
                                       style: TextStyle(
                                         fontSize: 18,
@@ -826,6 +1653,37 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
         );
         if (numStudents != null) {
           requestBody['num_students_employees'] = numStudents;
+        }
+      }
+
+      // Add building contact if provided
+      if (_selectedContact != null &&
+          _selectedContact!['name'] != null &&
+          _selectedContact!['name'].toString().isNotEmpty) {
+        final contactId = _selectedContact!['id'];
+        final method = _selectedContact!['method'];
+
+        // Check if it's from dialog: method is 'domain' and ID is a MongoDB ObjectId (24 hex characters)
+        final idString = contactId?.toString() ?? '';
+        final isMongoObjectId =
+            idString.length == 24 &&
+            RegExp(r'^[0-9a-fA-F]{24}$').hasMatch(idString);
+        final isFromDialog =
+            method == 'domain' &&
+            contactId != null &&
+            idString.isNotEmpty &&
+            isMongoObjectId; // MongoDB ObjectId format
+
+        if (isFromDialog) {
+          // If from dialog, send only the ID
+          requestBody['buildingContact'] = contactId.toString();
+        } else {
+          // If manually entered, send the full object
+          requestBody['buildingContact'] = {
+            'name': _selectedContact!['name'] ?? '',
+            'email': _selectedContact!['email'] ?? '',
+            'phone': _selectedContact!['phone'] ?? '',
+          };
         }
       }
 

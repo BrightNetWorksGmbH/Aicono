@@ -52,6 +52,7 @@ import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_site_
 import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_building_page.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_floor_page.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_room_page.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/pages/dashboard_report_setup_page.dart';
 import 'package:frontend_aicono/core/pages/not_found_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/switch_settings_page.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/pages/invite_user_page.dart';
@@ -966,7 +967,9 @@ class AppRouter {
         String? displayName = recipientName;
         if (displayName == null || displayName.isEmpty) {
           final n = tokenInfo?.recipient.name.trim();
-          displayName = n != null && n.isNotEmpty ? n : tokenInfo?.recipient.email.trim();
+          displayName = n != null && n.isNotEmpty
+              ? n
+              : tokenInfo?.recipient.email.trim();
         }
         if (displayName == null || displayName.isEmpty) {
           displayName = userName;
@@ -1420,6 +1423,33 @@ class AppRouter {
           context,
           state,
           EditRoomPage(roomId: roomId, buildingId: buildingId),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.dashboardReportSetup}',
+      name: Routelists.dashboardReportSetup,
+      pageBuilder: (context, state) {
+        final buildingId = state.uri.queryParameters['buildingId'] ?? '';
+        final reportingJson = state.uri.queryParameters['reporting'];
+        final recipientsJson = state.uri.queryParameters['recipients'];
+        final fromDashboard = state.uri.queryParameters['fromDashboard'];
+        if (buildingId.isEmpty) {
+          return _buildPage(
+            context,
+            state,
+            NotFoundPage(message: 'Required parameters missing: buildingId'),
+          );
+        }
+        return _buildPage(
+          context,
+          state,
+          DashboardReportSetupPage(
+            buildingId: buildingId,
+            reportingJson: reportingJson,
+            recipientsJson: recipientsJson,
+            fromDashboard: fromDashboard,
+          ),
         );
       },
     ),

@@ -29,7 +29,7 @@ import 'package:frontend_aicono/features/Building/presentation/pages/steps/build
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'dart:convert' show base64Decode;
+import 'dart:convert' show base64Decode, base64Encode;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:xml/xml.dart' as xml;
 import 'package:vector_math/vector_math_64.dart' show Matrix4;
@@ -602,6 +602,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 queryParameters: {'roomId': state.roomId},
               );
             },
+            onDelete: () async {
+              await _handleDeleteRoom(state.roomId);
+            },
             metricCards: [
               _buildPropertyMetricCard(
                 label: 'Sensors',
@@ -693,6 +696,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 Routelists.editFloor,
                 queryParameters: {'floorId': state.floorId},
               );
+            },
+            onDelete: () async {
+              await _handleDeleteFloor(state.floorId);
             },
             metricCards: [
               _buildPropertyMetricCard(
@@ -1090,7 +1096,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     },
                     icon: const Icon(Icons.delete),
                   ),
-                ] else if (floorId != null && floorId.isNotEmpty)
+                ] else if (floorId != null && floorId.isNotEmpty) ...[
                   IconButton(
                     onPressed: () {
                       context.pushNamed(
@@ -1099,8 +1105,15 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                       );
                     },
                     icon: Icon(Icons.edit),
-                  )
-                else if (siteId != null && siteId.isNotEmpty)
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () async {
+                      await _handleDeleteFloor(floorId);
+                    },
+                    icon: const Icon(Icons.delete),
+                  ),
+                ] else if (siteId != null && siteId.isNotEmpty)
                   IconButton(
                     onPressed: () {
                       context.pushNamed(
@@ -1110,7 +1123,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     },
                     icon: Icon(Icons.edit),
                   )
-                else if (roomId != null && roomId.isNotEmpty)
+                else if (roomId != null && roomId.isNotEmpty) ...[
                   IconButton(
                     onPressed: () {
                       // Get buildingId from floor details if available
@@ -1132,6 +1145,14 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     },
                     icon: Icon(Icons.edit),
                   ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () async {
+                      await _handleDeleteRoom(roomId);
+                    },
+                    icon: const Icon(Icons.delete),
+                  ),
+                ],
               ],
             ),
         ],
@@ -1197,6 +1218,145 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
           title: const Text('Delete Site'),
           content: const Text(
             'Are you sure you want to delete this site? This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool?> _handleDeleteRoom(String roomId) async {
+    final shouldDelete = await _showDeleteRoomConfirmationDialog();
+    if (shouldDelete != true || !mounted) return false;
+
+    try {
+      final dioClient = sl<DioClient>();
+      final response = await dioClient.delete('/api/v1/floors/rooms/$roomId');
+      if (!mounted) return false;
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        context.read<DashboardFloorDetailsBloc>().add(
+          DashboardFloorDetailsReset(),
+        );
+        context.read<DashboardRoomDetailsBloc>().add(
+          DashboardRoomDetailsReset(),
+        );
+        context.read<DashboardBuildingDetailsBloc>().add(
+          DashboardBuildingDetailsReset(),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Room deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        return true;
+      } else {
+        return false;
+      }
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting room: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+  }
+
+  Future<bool?> _showDeleteRoomConfirmationDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+          backgroundColor: Colors.white,
+          title: const Text('Delete Room'),
+          content: const Text(
+            'Are you sure you want to delete this room? This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool?> _handleDeleteFloor(String floorId) async {
+    final shouldDelete = await _showDeleteFloorConfirmationDialog();
+    if (shouldDelete != true || !mounted) return false;
+
+    try {
+      final dioClient = sl<DioClient>();
+      final response = await dioClient.delete('/api/v1/floors/$floorId');
+      if (!mounted) return false;
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        // context.read<DashboardFloorsBloc>().add(
+        //   DashboardFloorsRequested(bryteswitchId: widget.verseId),
+        // );
+        context.read<DashboardFloorDetailsBloc>().add(
+          DashboardFloorDetailsReset(),
+        );
+        context.read<DashboardBuildingDetailsBloc>().add(
+          DashboardBuildingDetailsReset(),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Floor deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        return true;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete floor: ${response.statusCode}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return false;
+      }
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting floor: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<bool?> _showDeleteFloorConfirmationDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+          backgroundColor: Colors.white,
+          title: const Text('Delete Floor'),
+          content: const Text(
+            'Are you sure you want to delete this floor? This action cannot be undone.',
           ),
           actions: [
             TextButton(
@@ -2559,6 +2719,7 @@ class FloorPlanEditorWrapper extends StatefulWidget {
   final String? initialFloorPlanUrl;
   final Function(String?) onSave;
   final VoidCallback onCancel;
+  final GlobalKey<SimplifiedFloorPlanEditorState>? editorKey;
 
   const FloorPlanEditorWrapper({
     required this.floorId,
@@ -2566,6 +2727,7 @@ class FloorPlanEditorWrapper extends StatefulWidget {
     this.initialFloorPlanUrl,
     required this.onSave,
     required this.onCancel,
+    this.editorKey,
   });
 
   @override
@@ -2577,6 +2739,7 @@ class _FloorPlanEditorWrapperState extends State<FloorPlanEditorWrapper> {
   Widget build(BuildContext context) {
     // Use the simplified floor plan editor that shows only canvas and room list
     return SimplifiedFloorPlanEditor(
+      key: widget.editorKey,
       initialFloorPlanUrl: widget.initialFloorPlanUrl,
       onSave: widget.onSave,
       onCancel: widget.onCancel,
@@ -2592,6 +2755,7 @@ class SimplifiedFloorPlanEditor extends StatefulWidget {
   final VoidCallback onCancel;
 
   const SimplifiedFloorPlanEditor({
+    super.key,
     this.initialFloorPlanUrl,
     required this.onSave,
     required this.onCancel,
@@ -2599,7 +2763,7 @@ class SimplifiedFloorPlanEditor extends StatefulWidget {
 
   @override
   State<SimplifiedFloorPlanEditor> createState() =>
-      _SimplifiedFloorPlanEditorState();
+      SimplifiedFloorPlanEditorState();
 }
 
 // Reuse enums and classes from floor_plan_backup.dart
@@ -2651,7 +2815,7 @@ class _FloorPlanState {
   }
 }
 
-class _SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
+class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
   // Floor plan state - reuse from FloorPlanBackupPage
   final List<Room> rooms = [];
   final List<Door> doors = [];
@@ -2715,6 +2879,156 @@ class _SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
         widget.initialFloorPlanUrl!.isNotEmpty) {
       _loadFloorPlanFromUrl();
     }
+  }
+
+  // Public method to generate SVG - can be called from parent
+  Future<String> generateSVG() async {
+    // Use background image dimensions if available, otherwise calculate from rooms
+    double width;
+    double height;
+
+    if (_backgroundImageBytes != null &&
+        _backgroundImageWidth != null &&
+        _backgroundImageHeight != null) {
+      width = _backgroundImageWidth!;
+      height = _backgroundImageHeight!;
+    } else {
+      // Calculate overall bounds from rooms
+      Rect? overallBounds;
+      for (final room in rooms) {
+        final bounds = room.path.getBounds();
+        overallBounds = overallBounds == null
+            ? bounds
+            : overallBounds.expandToInclude(bounds);
+      }
+
+      if (overallBounds == null) {
+        overallBounds = const Rect.fromLTWH(0, 0, 2000, 2000);
+      }
+
+      final padding = 50.0;
+      width = overallBounds.width + (padding * 2);
+      height = overallBounds.height + (padding * 2);
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln('<?xml version="1.0" encoding="UTF-8"?>');
+    buffer.writeln(
+      '<svg xmlns="http://www.w3.org/2000/svg" '
+      'width="${width.toStringAsFixed(0)}" '
+      'height="${height.toStringAsFixed(0)}" '
+      'viewBox="0 0 $width $height">',
+    );
+
+    // Background - use image if available, otherwise use color
+    if (_backgroundImageBytes != null) {
+      // Convert image to base64
+      final base64Image = base64Encode(_backgroundImageBytes!);
+
+      // Determine image type
+      String imageType = 'png';
+      if (_backgroundImageBytes!.length >= 2) {
+        if (_backgroundImageBytes![0] == 0xFF &&
+            _backgroundImageBytes![1] == 0xD8) {
+          imageType = 'jpeg';
+        } else if (_backgroundImageBytes![0] == 0x89 &&
+            _backgroundImageBytes![1] == 0x50) {
+          imageType = 'png';
+        }
+      }
+
+      // Add background image
+      buffer.writeln(
+        '  <image x="0" y="0" width="$width" height="$height" '
+        'href="data:image/$imageType;base64,$base64Image" '
+        'preserveAspectRatio="none"/>',
+      );
+    } else {
+      // Default background color
+      buffer.writeln(
+        '  <rect x="0" y="0" width="$width" height="$height" fill="#E3F2FD"/>',
+      );
+    }
+
+    // Draw rooms
+    for (final room in rooms) {
+      final pathData = _pathToSvgPathData(room.path);
+      final fillColorHex = _colorToHex(room.fillColor);
+      buffer.writeln(
+        '  <path d="$pathData" fill="$fillColorHex" fill-opacity="0.3" stroke="#424242" stroke-width="3"/>',
+      );
+
+      // Room name and area
+      final bounds = room.path.getBounds();
+      final center = bounds.center;
+      buffer.writeln(
+        '  <text x="${center.dx}" y="${center.dy - 8}" '
+        'text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#000000">${room.name}</text>',
+      );
+      final area = _calculateArea(room.path);
+      buffer.writeln(
+        '  <text x="${center.dx}" y="${center.dy + 12}" '
+        'text-anchor="middle" font-family="Arial" font-size="14" fill="#000000">${area.toStringAsFixed(2)} m²</text>',
+      );
+    }
+
+    buffer.writeln('</svg>');
+    return buffer.toString();
+  }
+
+  // Helper methods for SVG generation
+  String _pathToSvgPathData(Path path) {
+    final metrics = path.computeMetrics();
+    final buffer = StringBuffer();
+    bool isFirst = true;
+
+    for (final metric in metrics) {
+      final length = metric.length;
+      final sampleCount = math.max(10, (length / 10).ceil());
+      final step = length / sampleCount;
+
+      for (int i = 0; i <= sampleCount; i++) {
+        final distance = i * step;
+        final tangent = metric.getTangentForOffset(distance);
+        if (tangent != null) {
+          final point = tangent.position;
+          if (isFirst) {
+            buffer.write(
+              'M ${point.dx.toStringAsFixed(2)} ${point.dy.toStringAsFixed(2)} ',
+            );
+            isFirst = false;
+          } else {
+            buffer.write(
+              'L ${point.dx.toStringAsFixed(2)} ${point.dy.toStringAsFixed(2)} ',
+            );
+          }
+        }
+      }
+
+      // Close the path if it's closed
+      if (path.getBounds().isEmpty == false) {
+        final firstTangent = metric.getTangentForOffset(0);
+        final lastTangent = metric.getTangentForOffset(length);
+        if (firstTangent != null && lastTangent != null) {
+          final firstPoint = firstTangent.position;
+          final lastPoint = lastTangent.position;
+          if ((firstPoint - lastPoint).distance < 1.0) {
+            buffer.write('Z ');
+          }
+        }
+      }
+    }
+
+    return buffer.toString().trim();
+  }
+
+  String _colorToHex(Color color) {
+    return '#${color.value.toRadixString(16).substring(2).padLeft(6, '0').toUpperCase()}';
+  }
+
+  double _calculateArea(Path path) {
+    final bounds = path.getBounds();
+    return (bounds.width * bounds.height) / 10000; // Convert to m²
   }
 
   @override

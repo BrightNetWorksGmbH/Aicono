@@ -34,7 +34,7 @@ class AddPropertyLocationWidget extends StatefulWidget {
 
 class _AddPropertyLocationWidgetState extends State<AddPropertyLocationWidget> {
   late final TextEditingController _locationController;
-  bool _enableAutocomplete = false;
+  bool _enableAutocomplete = true;
   List<Map<String, dynamic>> _searchResults = [];
   bool _isLoadingSearch = false;
   Timer? _debounceTimer;
@@ -330,17 +330,18 @@ class _AddPropertyLocationWidgetState extends State<AddPropertyLocationWidget> {
                                         ),
                                       ),
                                     ),
-                                    TextButton(
-                                      onPressed: _toggleGpsSearch,
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: _enableAutocomplete
-                                            ? const Color(0xFF8B9A5B)
-                                            : Colors.black87,
-                                      ),
-                                      child: Text(
-                                        'add_property_location.option_gps'.tr(),
-                                      ),
+                                    // TextButton(
+                                    //   onPressed: _toggleGpsSearch,
+                                    //   style: TextButton.styleFrom(
+                                    //     foregroundColor: _enableAutocomplete
+                                    //         ? const Color(0xFF8B9A5B)
+                                    //         : Colors.black87,
+                                    //   ),
+                                    //   child:
+                                    Text(
+                                      'add_property_location.option_gps'.tr(),
                                     ),
+                                    // ),
                                   ],
                                 ),
                               ),

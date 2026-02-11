@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:frontend_aicono/core/constant.dart';
@@ -11,6 +13,10 @@ import 'package:frontend_aicono/features/dashboard/presentation/components/anoma
 import 'package:frontend_aicono/features/dashboard/presentation/components/recipients_popup_dialog.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/weekday_weekend_cylinder_chart.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_summary_entity.dart';
+
+import '../../../../core/routing/routeLists.dart';
+
+enum ReportMenuAction { edit, delete }
 
 /// Shared report detail content widget. Displays full report UI from [ReportDetailEntity].
 /// Used by ReportDetailView (dashboard) and StatisticsDashboardPage (token-based view).
@@ -135,8 +141,9 @@ class ReportDetailContent extends StatelessWidget {
           zeroHorizontalPadding: true,
           child: LayoutBuilder(
             builder: (context, layoutConstraints) {
-              final tableWidth =
-                  layoutConstraints.maxWidth > 560 ? layoutConstraints.maxWidth : 560.0;
+              final tableWidth = layoutConstraints.maxWidth > 560
+                  ? layoutConstraints.maxWidth
+                  : 560.0;
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
@@ -158,97 +165,107 @@ class ReportDetailContent extends StatelessWidget {
                         2: const FixedColumnWidth(130),
                         3: FlexColumnWidth(1),
                       },
-                  children: [
-                    TableRow(
-                      decoration: const BoxDecoration(color: headerBg),
                       children: [
-                        _tableCell('', cellPadding, isHeader: true),
-                        _tableCell(
-                          'Consumption (kWh)',
-                          cellPadding,
-                          isHeader: true,
+                        TableRow(
+                          decoration: const BoxDecoration(color: headerBg),
+                          children: [
+                            _tableCell('', cellPadding, isHeader: true),
+                            _tableCell(
+                              'Consumption (kWh)',
+                              cellPadding,
+                              isHeader: true,
+                            ),
+                            _tableCell(
+                              'Average Energy',
+                              cellPadding,
+                              isHeader: true,
+                            ),
+                            _tableCell(
+                              'Peak (kW)',
+                              cellPadding,
+                              isHeader: true,
+                            ),
+                          ],
                         ),
-                        _tableCell(
-                          'Average Energy',
-                          cellPadding,
-                          isHeader: true,
-                        ),
-                        _tableCell('Peak (kW)', cellPadding, isHeader: true),
+                        if (current != null)
+                          TableRow(
+                            children: [
+                              _tableCell(
+                                _formatPeriod(current['period']),
+                                cellPadding,
+                                alignLeft: true,
+                              ),
+                              _tableCell(
+                                _formatNum(locale, current['consumption']),
+                                cellPadding,
+                              ),
+                              _tableCell(
+                                _formatNum(
+                                  locale,
+                                  current['averageEnergy'] ??
+                                      current['average'],
+                                ),
+                                cellPadding,
+                              ),
+                              _tableCell(
+                                _formatNum(locale, current['peak']),
+                                cellPadding,
+                              ),
+                            ],
+                          ),
+                        if (previous != null)
+                          TableRow(
+                            children: [
+                              _tableCell(
+                                _formatPeriod(previous['period']),
+                                cellPadding,
+                                alignLeft: true,
+                              ),
+                              _tableCell(
+                                _formatNum(locale, previous['consumption']),
+                                cellPadding,
+                              ),
+                              _tableCell(
+                                _formatNum(
+                                  locale,
+                                  previous['averageEnergy'] ??
+                                      previous['average'],
+                                ),
+                                cellPadding,
+                              ),
+                              _tableCell(
+                                _formatNum(locale, previous['peak']),
+                                cellPadding,
+                              ),
+                            ],
+                          ),
+                        if (change != null)
+                          TableRow(
+                            children: [
+                              _tableCell(
+                                'Change',
+                                cellPadding,
+                                alignLeft: true,
+                              ),
+                              _tableCell(
+                                _formatNum(locale, change['consumption']),
+                                cellPadding,
+                              ),
+                              _tableCell(
+                                _formatNum(
+                                  locale,
+                                  change['averageEnergy'] ?? change['average'],
+                                ),
+                                cellPadding,
+                              ),
+                              _tableCell(
+                                _formatNum(locale, change['peak']),
+                                cellPadding,
+                              ),
+                            ],
+                          ),
                       ],
                     ),
-                    if (current != null)
-                      TableRow(
-                        children: [
-                          _tableCell(
-                            _formatPeriod(current['period']),
-                            cellPadding,
-                            alignLeft: true,
-                          ),
-                          _tableCell(
-                            _formatNum(locale, current['consumption']),
-                            cellPadding,
-                          ),
-                          _tableCell(
-                            _formatNum(
-                              locale,
-                              current['averageEnergy'] ?? current['average'],
-                            ),
-                            cellPadding,
-                          ),
-                          _tableCell(
-                            _formatNum(locale, current['peak']),
-                            cellPadding,
-                          ),
-                        ],
-                      ),
-                    if (previous != null)
-                      TableRow(
-                        children: [
-                          _tableCell(
-                            _formatPeriod(previous['period']),
-                            cellPadding,
-                            alignLeft: true,
-                          ),
-                          _tableCell(
-                            _formatNum(locale, previous['consumption']),
-                            cellPadding,
-                          ),
-                          _tableCell(
-                            _formatNum(
-                              locale,
-                              previous['averageEnergy'] ?? previous['average'],
-                            ),
-                            cellPadding,
-                          ),
-                          _tableCell(
-                            _formatNum(locale, previous['peak']),
-                            cellPadding,
-                          ),
-                        ],
-                      ),
-                    if (change != null)
-                      TableRow(
-                        children: [
-                          _tableCell('Change', cellPadding, alignLeft: true),
-                          _tableCell(
-                            _formatNum(locale, change['consumption']),
-                            cellPadding,
-                          ),
-                          _tableCell(
-                            _formatNum(
-                              locale,
-                              change['averageEnergy'] ?? change['average'],
-                            ),
-                            cellPadding,
-                          ),
-                          _tableCell(
-                            _formatNum(locale, change['peak']),
-                            cellPadding,
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
                   ),
                 ),
               );
@@ -337,8 +354,9 @@ class ReportDetailContent extends StatelessWidget {
           zeroHorizontalPadding: true,
           child: LayoutBuilder(
             builder: (context, layoutConstraints) {
-              final tableWidth =
-                  layoutConstraints.maxWidth > 600 ? layoutConstraints.maxWidth : 600.0;
+              final tableWidth = layoutConstraints.maxWidth > 600
+                  ? layoutConstraints.maxWidth
+                  : 600.0;
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
@@ -361,56 +379,67 @@ class ReportDetailContent extends StatelessWidget {
                         3: const FixedColumnWidth(100),
                         4: FlexColumnWidth(1),
                       },
-                  children: [
-                    TableRow(
-                      decoration: const BoxDecoration(color: headerBg),
                       children: [
-                        _tableCell('', cellPadding, isHeader: true),
-                        _tableCell(
-                          'Consumption (kWh)',
-                          cellPadding,
-                          isHeader: true,
+                        TableRow(
+                          decoration: const BoxDecoration(color: headerBg),
+                          children: [
+                            _tableCell('', cellPadding, isHeader: true),
+                            _tableCell(
+                              'Consumption (kWh)',
+                              cellPadding,
+                              isHeader: true,
+                            ),
+                            _tableCell(
+                              'Average Energy (kWh)',
+                              cellPadding,
+                              isHeader: true,
+                            ),
+                            _tableCell(
+                              'Peak (kW)',
+                              cellPadding,
+                              isHeader: true,
+                            ),
+                            _tableCell(
+                              'EUI (kWh/m²)',
+                              cellPadding,
+                              isHeader: true,
+                            ),
+                          ],
                         ),
-                        _tableCell(
-                          'Average Energy (kWh)',
-                          cellPadding,
-                          isHeader: true,
+                        ...list.map(
+                          (b) => TableRow(
+                            children: [
+                              _tableCell(
+                                (b['buildingName'] ?? b['building_name'] ?? '—')
+                                    .toString(),
+                                cellPadding,
+                                alignLeft: true,
+                                isBold: true,
+                              ),
+                              _tableCell(
+                                _formatNum(locale, b['consumption']),
+                                cellPadding,
+                              ),
+                              _tableCell(
+                                _formatNum(
+                                  locale,
+                                  b['average'] ?? b['averageEnergy'],
+                                ),
+                                cellPadding,
+                              ),
+                              _tableCell(
+                                _formatNum(locale, b['peak']),
+                                cellPadding,
+                              ),
+                              _tableCell(
+                                _formatNum(locale, b['eui']),
+                                cellPadding,
+                              ),
+                            ],
+                          ),
                         ),
-                        _tableCell('Peak (kW)', cellPadding, isHeader: true),
-                        _tableCell('EUI (kWh/m²)', cellPadding, isHeader: true),
                       ],
                     ),
-                    ...list.map(
-                      (b) => TableRow(
-                        children: [
-                          _tableCell(
-                            (b['buildingName'] ?? b['building_name'] ?? '—')
-                                .toString(),
-                            cellPadding,
-                            alignLeft: true,
-                            isBold: true,
-                          ),
-                          _tableCell(
-                            _formatNum(locale, b['consumption']),
-                            cellPadding,
-                          ),
-                          _tableCell(
-                            _formatNum(
-                              locale,
-                              b['average'] ?? b['averageEnergy'],
-                            ),
-                            cellPadding,
-                          ),
-                          _tableCell(
-                            _formatNum(locale, b['peak']),
-                            cellPadding,
-                          ),
-                          _tableCell(_formatNum(locale, b['eui']), cellPadding),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
                   ),
                 ),
               );
@@ -1167,13 +1196,75 @@ class ReportDetailContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          building.name,
-          style: AppTextStyles.headlineSmall.copyWith(
-            fontWeight: FontWeight.bold,
-            letterSpacing: -0.5,
-            color: Colors.black,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              building.name,
+              style: AppTextStyles.headlineSmall.copyWith(
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
+                color: Colors.black,
+              ),
+            ),
+            PopupMenuButton<ReportMenuAction>(
+              icon: const Icon(Icons.more_vert),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(0),
+              ),
+              color: Colors.white,
+              onSelected: (action) {
+                switch (action) {
+                  case ReportMenuAction.edit:
+                    // Convert reporting and recipients to JSON strings
+                    final reportingJson = jsonEncode({
+                      'id': reporting.id,
+                      'name': reporting.name,
+                      'interval': reporting.interval,
+                      'reportContents': reporting.reportContents,
+                    });
+                    final recipientsJson = jsonEncode(
+                      recipients
+                          .map(
+                            (r) => {
+                              'recipientId': r.recipientId,
+                              'recipientName': r.recipientName,
+                              'recipientEmail': r.recipientEmail,
+                            },
+                          )
+                          .toList(),
+                    );
+                    context.pushNamed(
+                      Routelists.dashboardReportSetup,
+                      queryParameters: {
+                        'buildingId': building.id,
+                        'reporting': reportingJson,
+                        'recipients': recipientsJson,
+                      },
+                    );
+                    break;
+                  case ReportMenuAction.delete:
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem<ReportMenuAction>(
+                  value: ReportMenuAction.edit,
+                  child: Text('Edit'),
+                ),
+                const PopupMenuItem<ReportMenuAction>(
+                  value: ReportMenuAction.delete,
+                  child: Text(
+                    'Delete',
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         if (building.address != null && building.address!.isNotEmpty) ...[
           const SizedBox(height: 8),
@@ -1336,7 +1427,8 @@ class ReportDetailContent extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final hasQuality = quality != null &&
+    final hasQuality =
+        quality != null &&
         quality['average'] != null &&
         quality['warning'] != null;
 
@@ -1347,7 +1439,8 @@ class ReportDetailContent extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
-          final useLargeLayout = width >= _kpiLargeScreenBreakpoint && hasQuality;
+          final useLargeLayout =
+              width >= _kpiLargeScreenBreakpoint && hasQuality;
 
           if (useLargeLayout) {
             final gridHeight =
@@ -1535,9 +1628,7 @@ class ReportDetailContent extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'Average Data Quality',
-            style: AppTextStyles.labelMedium.copyWith(
-              color: Colors.grey[700],
-            ),
+            style: AppTextStyles.labelMedium.copyWith(color: Colors.grey[700]),
           ),
           const SizedBox(height: 24),
           Text(
@@ -1549,12 +1640,8 @@ class ReportDetailContent extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            isWarning
-                ? 'Data quality needs review'
-                : 'Data quality is good',
-            style: AppTextStyles.labelMedium.copyWith(
-              color: Colors.grey[700],
-            ),
+            isWarning ? 'Data quality needs review' : 'Data quality is good',
+            style: AppTextStyles.labelMedium.copyWith(color: Colors.grey[700]),
           ),
         ],
       ),

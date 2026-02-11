@@ -262,7 +262,7 @@ class _ReportSidebarSectionState extends State<ReportSidebarSection> {
                     }
 
                     context.pushNamed(
-                      Routelists.buildingRecipient,
+                      Routelists.dashboardReportSetup,
                       queryParameters: {
                         'siteId': _selectedSiteId!,
                         'buildingId': _selectedBuildingId!,
