@@ -9,6 +9,7 @@ const Invitation = require('../models/Invitation');
 const UserRole = require('../models/UserRole');
 const Role = require('../models/Role');
 const NotificationService = require('../services/notificationService');
+const { checkBryteSwitchPermission } = require('../utils/buildingPermissions');
 
 /**
  * Create initial BryteSwitch (superadmin only)
@@ -181,6 +182,9 @@ exports.updateBryteSwitch = asyncHandler(async (req, res) => {
   const { bryteswitchId } = req.params;
   const updates = req.body;
   const userId = req.user._id;
+
+  // Check if user has permission to manage BryteSwitch (Admin or Owner roles)
+  await checkBryteSwitchPermission(userId, bryteswitchId);
 
   const bryteSwitch = await bryteswitchService.updateBryteSwitch(bryteswitchId, updates, userId);
 

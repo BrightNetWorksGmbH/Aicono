@@ -12,7 +12,7 @@ const buildingSchema = new mongoose.Schema({
   },
   // Building Details (optional, can be updated later)
   heated_building_area: {
-    type: mongoose.Schema.Types.Decimal128,
+    type: Number,
     // Note: M1: Denominator for EUI
   },
   building_size: {

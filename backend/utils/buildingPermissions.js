@@ -48,6 +48,47 @@ async function checkBuildingPermission(userId, bryteswitchId, allowReadOnly = fa
   };
 }
 
+/**
+ * Check if user has permission to manage BryteSwitch settings
+ * @param {String} userId - User ID
+ * @param {String} bryteswitchId - BryteSwitch ID
+ * @returns {Promise<Object>} { hasAccess: Boolean, role: Object|null, isSuperadmin: Boolean }
+ * @throws {AuthorizationError} If user doesn't have access
+ */
+async function checkBryteSwitchPermission(userId, bryteswitchId) {
+  const userRole = await UserRole.findOne({
+    user_id: userId,
+    bryteswitch_id: bryteswitchId
+  }).populate('role_id');
+
+  if (!userRole || !userRole.role_id) {
+    // Check if user is superadmin
+    const user = await User.findById(userId);
+    if (user && user.is_superadmin) {
+      return {
+        hasAccess: true,
+        role: null,
+        isSuperadmin: true
+      };
+    }
+    throw new AuthorizationError('You do not have access to this BryteSwitch');
+  }
+
+  const role = userRole.role_id;
+
+  // Check manage_bryteswitch permission
+  if (!role.permissions.manage_bryteswitch) {
+    throw new AuthorizationError('You do not have permission to manage BryteSwitch settings');
+  }
+
+  return {
+    hasAccess: true,
+    role: role,
+    isSuperadmin: false
+  };
+}
+
 module.exports = {
-  checkBuildingPermission
+  checkBuildingPermission,
+  checkBryteSwitchPermission
 };
