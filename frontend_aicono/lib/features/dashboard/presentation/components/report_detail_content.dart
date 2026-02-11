@@ -1272,6 +1272,12 @@ class ReportDetailContent extends StatelessWidget {
               ],
             ),
           ),
+        const SizedBox(height: 12),
+        Divider(
+          color: Colors.grey[300],
+          thickness: 0.7,
+          height: 0,
+        ),
       ],
     );
   }

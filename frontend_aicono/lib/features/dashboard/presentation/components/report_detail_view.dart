@@ -42,12 +42,12 @@ class ReportDetailView extends StatelessWidget {
                 reportId: currentReportId,
                 onDateRangeSelected: (start, end) {
                   context.read<ReportDetailBloc>().add(
-                        ReportDetailRequested(
-                          currentReportId,
-                          startDate: start,
-                          endDate: end,
-                        ),
-                      );
+                    ReportDetailRequested(
+                      currentReportId,
+                      startDate: start,
+                      endDate: end,
+                    ),
+                  );
                 },
               ),
             );

@@ -9,6 +9,7 @@ import 'package:frontend_aicono/core/services/auth_service.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_details_filter.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/dashboard_sidebar.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/dashboard_main_content.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
@@ -41,6 +42,21 @@ class _DashboardPageState extends State<DashboardPage> {
   late DynamicThemeService _themeService;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _initialSitesRequestDone = false;
+  /// Date range for dashboard property details (sites/buildings/floors/rooms). Same API style as report (startDate/endDate).
+  DateTimeRange? _dashboardDateRange;
+
+  static String _toIso8601Param(DateTime date) {
+    final d = DateTime.utc(date.year, date.month, date.day);
+    return '${d.toIso8601String().split('.')[0]}Z';
+  }
+
+  DashboardDetailsFilter? get _dashboardFilter {
+    if (_dashboardDateRange == null) return null;
+    return DashboardDetailsFilter(
+      startDate: _toIso8601Param(_dashboardDateRange!.start),
+      endDate: _toIso8601Param(_dashboardDateRange!.end),
+    );
+  }
 
   @override
   void initState() {
@@ -263,13 +279,14 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   child: SafeArea(
                     child: SingleChildScrollView(
-                      child: DashboardSidebar(
-                        isInDrawer: true,
-                        verseId: currentVerseId,
-                        onLanguageChanged: _handleLanguageChanged,
-                        onSwitchSelected: (verseId) =>
-                            setCurrentVerse(verseId, blocContext),
-                        onReportSelected: (reportId) {
+                                                    child: DashboardSidebar(
+                                                        isInDrawer: true,
+                                                        verseId: currentVerseId,
+                                                        dashboardFilter: _dashboardFilter,
+                                                        onLanguageChanged: _handleLanguageChanged,
+                                                        onSwitchSelected: (verseId) =>
+                                                            setCurrentVerse(verseId, blocContext),
+                                                        onReportSelected: (reportId) {
                           setState(() => selectedReportId = reportId);
                           if (reportId != null) {
                             blocContext.read<ReportDetailBloc>().add(
@@ -355,6 +372,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                             child: SingleChildScrollView(
                                               child: DashboardSidebar(
                                                 verseId: currentVerseId,
+                                                dashboardFilter: _dashboardFilter,
                                                 onLanguageChanged:
                                                     _handleLanguageChanged,
                                                 onSwitchSelected: (verseId) =>
@@ -424,6 +442,17 @@ class _DashboardPageState extends State<DashboardPage> {
                                                   verseId: currentVerseId,
                                                   selectedReportId:
                                                       selectedReportId,
+                                                  dashboardFilter: _dashboardFilter,
+                                                  onDashboardDateRangeChanged:
+                                                      (start, end) {
+                                                    setState(() {
+                                                      _dashboardDateRange =
+                                                          DateTimeRange(
+                                                        start: start,
+                                                        end: end,
+                                                      );
+                                                    });
+                                                  },
                                                 ),
                                               ),
                                             ),

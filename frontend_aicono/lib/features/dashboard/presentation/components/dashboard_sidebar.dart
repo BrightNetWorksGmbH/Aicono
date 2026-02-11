@@ -18,6 +18,7 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_s
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_details_filter.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/report_sidebar_section.dart';
 
 class DashboardSidebar extends StatefulWidget {
@@ -32,6 +33,7 @@ class DashboardSidebar extends StatefulWidget {
     this.onPropertySelected,
     this.showSwitchSwitcher = true,
     this.verseId,
+    this.dashboardFilter,
   });
 
   /// Show a "back to dashboard" link at the top when used outside the dashboard page
@@ -60,6 +62,9 @@ class DashboardSidebar extends StatefulWidget {
 
   /// Optional current verse/switch ID from parent (e.g. dashboard). When provided, sidebar stays in sync when parent switches.
   final String? verseId;
+
+  /// Optional date filter for dashboard property APIs (sites/buildings/floors/rooms). Same style as report (startDate/endDate).
+  final DashboardDetailsFilter? dashboardFilter;
 
   @override
   State<DashboardSidebar> createState() => _DashboardSidebarState();
@@ -438,7 +443,10 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                   if (isSite) {
                     widget.onPropertySelected?.call();
                     context.read<DashboardSiteDetailsBloc>().add(
-                      DashboardSiteDetailsRequested(siteId: item.id),
+                      DashboardSiteDetailsRequested(
+                        siteId: item.id,
+                        filter: widget.dashboardFilter,
+                      ),
                     );
                     // Reset other selections
                     context.read<DashboardBuildingDetailsBloc>().add(
@@ -461,7 +469,10 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                     if (isBuilding) {
                       widget.onPropertySelected?.call();
                       context.read<DashboardBuildingDetailsBloc>().add(
-                        DashboardBuildingDetailsRequested(buildingId: item.id),
+                        DashboardBuildingDetailsRequested(
+                          buildingId: item.id,
+                          filter: widget.dashboardFilter,
+                        ),
                       );
                       // Reset floor and room selections
                       context.read<DashboardFloorDetailsBloc>().add(
@@ -481,7 +492,10 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                       if (isFloor) {
                         widget.onPropertySelected?.call();
                         context.read<DashboardFloorDetailsBloc>().add(
-                          DashboardFloorDetailsRequested(floorId: item.id),
+                          DashboardFloorDetailsRequested(
+                            floorId: item.id,
+                            filter: widget.dashboardFilter,
+                          ),
                         );
                         // Reset room selection
                         context.read<DashboardRoomDetailsBloc>().add(
@@ -498,7 +512,10 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                         if (isRoom) {
                           widget.onPropertySelected?.call();
                           context.read<DashboardRoomDetailsBloc>().add(
-                            DashboardRoomDetailsRequested(roomId: item.id),
+                            DashboardRoomDetailsRequested(
+                              roomId: item.id,
+                              filter: widget.dashboardFilter,
+                            ),
                           );
                           return;
                         }
@@ -514,7 +531,10 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                     if (isFloor) {
                       widget.onPropertySelected?.call();
                       context.read<DashboardFloorDetailsBloc>().add(
-                        DashboardFloorDetailsRequested(floorId: item.id),
+                        DashboardFloorDetailsRequested(
+                          floorId: item.id,
+                          filter: widget.dashboardFilter,
+                        ),
                       );
                       context.read<DashboardRoomDetailsBloc>().add(
                         DashboardRoomDetailsReset(),
@@ -527,7 +547,10 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                       if (isRoom) {
                         widget.onPropertySelected?.call();
                         context.read<DashboardRoomDetailsBloc>().add(
-                          DashboardRoomDetailsRequested(roomId: item.id),
+                          DashboardRoomDetailsRequested(
+                            roomId: item.id,
+                            filter: widget.dashboardFilter,
+                          ),
                         );
                         return;
                       }
@@ -542,7 +565,10 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                     if (isRoom) {
                       widget.onPropertySelected?.call();
                       context.read<DashboardRoomDetailsBloc>().add(
-                        DashboardRoomDetailsRequested(roomId: item.id),
+                        DashboardRoomDetailsRequested(
+                          roomId: item.id,
+                          filter: widget.dashboardFilter,
+                        ),
                       );
                       return;
                     }
