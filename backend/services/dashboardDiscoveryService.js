@@ -659,13 +659,11 @@ class DashboardDiscoveryService {
      * @returns {Promise<Array>} Sites array
      */
     async getSites(userId, bryteswitchId = null) {
-        // console.log("get sites is called",userId)
         // Get user's accessible bryteswitch IDs
         const userRoles = await UserRole.find({ 
             user_id: userId
         }).select('bryteswitch_id');
         
-        // console.log('userRoles in getsites', userRoles);
         const accessibleBryteswitchIds = userRoles.map(ur => ur.bryteswitch_id);
         
         // Check if user is superadmin
@@ -695,8 +693,6 @@ class DashboardDiscoveryService {
             { $match: { site_id: { $in: siteIds } } },
             { $group: { _id: '$site_id', count: { $sum: 1 } } }
         ]);
-        // console.log('siteIds', siteIds);
-        // console.log('buildingCounts', buildingCounts);
         
         const buildingCountMap = new Map(buildingCounts.map(bc => [bc._id.toString(), bc.count]));
         
@@ -898,7 +894,6 @@ class DashboardDiscoveryService {
      * @returns {Promise<Object>} Building with nested data and KPIs
      */
     async getBuildingDetails(buildingId, userId, options = {}) {
-        // console.log('getBuildingDetails', buildingId, userId, options);
         // Verify access
         const building = await Building.findById(buildingId).populate('site_id');
         if (!building) {
@@ -1040,7 +1035,6 @@ class DashboardDiscoveryService {
      * @returns {Promise<Object>} Floor with nested data and KPIs
      */
     async getFloorDetails(floorId, userId, options = {}) {
-        // console.log('getFloorDetails', floorId, userId, options);
         const floor = await Floor.findById(floorId).populate('building_id');
         if (!floor) {
             throw new NotFoundError('Floor');
@@ -1156,10 +1150,6 @@ class DashboardDiscoveryService {
      */
     async getRoomDetails(roomId, userId, options = {}) {
         // roomId is now a LocalRoom ID
-        // console.log('getRoomDetails', roomId, userId, options);
-        // console.log('roomId', roomId);
-        // console.log('userId', userId);
-        // console.log('options', options);
         const localRoom = await LocalRoom.findById(roomId).populate('loxone_room_id').populate({
             path: 'floor_id',
             populate: {
@@ -1169,7 +1159,6 @@ class DashboardDiscoveryService {
                 }
             }
         });
-        // console.log('localRoom', localRoom);
         
         if (!localRoom) {
             throw new NotFoundError('Room');
@@ -1584,24 +1573,6 @@ class DashboardDiscoveryService {
                         isSinglePeriod = timeRangeDays !== null && timeRangeDays >= 360 && timeRangeDays < 370;
                     }
                     
-                    // Debug: Log which case will be triggered
-                    console.log(`[DEBUG] calculateKPIsFromResults - Period calculation:`, {
-                        periodType,
-                        energyStateType,
-                        isFullPeriod,
-                        isPartialPeriod,
-                        isSinglePeriod,
-                        timeRangeDays,
-                        startDate: startDate?.toISOString(),
-                        endDate: endDate?.toISOString(),
-                        periodStartBoundary: periodStartBoundary?.toISOString(),
-                        periodEndBoundary: periodEndBoundary?.toISOString(),
-                        timestampValuePairsCount: timestampValuePairs.length,
-                        hasSensorId: timestampValuePairs.some(p => p.sensorId !== undefined && p.sensorId !== null),
-                        energyValuesCount: energyValues.length,
-                        energyValuesSample: energyValues.slice(0, 10)
-                    });
-                    
                     // Calculate consumption based on scenario
                     if (isSinglePeriod && isFullPeriod) {
                         // Case 1: Single full period (e.g., full day 00:00-23:59)
@@ -1644,23 +1615,11 @@ class DashboardDiscoveryService {
                             totalConsumption = sensorTotals.reduce((sum, v) => sum + v, 0);
                             base = Math.min(...sensorTotals);
                             averageEnergy = totalConsumption;
-                            
-                            console.log(`[DEBUG] Case 1 (Single Full Period) - Multiple Sensors:`, {
-                                sensorCount: sensorGroups.size,
-                                sensorTotals,
-                                totalConsumption,
-                                timestampValuePairsCount: timestampValuePairs.length
-                            });
                         } else {
                             // Single sensor: Use MAX (latest value) = period total
                             totalConsumption = Math.max(...energyValues);
                             base = Math.min(...energyValues);
                             averageEnergy = totalConsumption;
-                            
-                            console.log(`[DEBUG] Case 1 (Single Full Period) - Single Sensor:`, {
-                                totalConsumption,
-                                energyValuesCount: energyValues.length
-                            });
                         }
                     } else if (isSinglePeriod && isPartialPeriod && timestampValuePairs.length > 0) {
                         // Case 2: Single partial period (e.g., 12:00-23:59 or 00:00-00:00:59)
@@ -1714,13 +1673,6 @@ class DashboardDiscoveryService {
                                 totalConsumption = sensorConsumptions.reduce((sum, v) => sum + v, 0);
                                 base = Math.min(...sensorConsumptions);
                                 averageEnergy = totalConsumption;
-                                
-                                console.log(`[DEBUG] Case 2 (Single Partial Period) - Multiple Sensors:`, {
-                                    sensorCount: sensorGroups.size,
-                                    sensorConsumptions,
-                                    totalConsumption,
-                                    timestampValuePairsCount: timestampValuePairs.length
-                                });
                             } else {
                                 // Fallback: use MAX
                                 totalConsumption = Math.max(...energyValues);
@@ -1736,13 +1688,6 @@ class DashboardDiscoveryService {
                                 totalConsumption = endValue - startValue;
                                 base = Math.min(...energyValues);
                                 averageEnergy = totalConsumption;
-                                
-                                console.log(`[DEBUG] Case 2 (Single Partial Period) - Single Sensor:`, {
-                                    totalConsumption,
-                                    startValue,
-                                    endValue,
-                                    timestampValuePairsCount: timestampValuePairs.length
-                                });
                             } else {
                                 // Fallback: use MAX if subtraction not possible
                                 totalConsumption = Math.max(...energyValues);
@@ -2166,29 +2111,11 @@ class DashboardDiscoveryService {
                     total = sensorTotals.reduce((sum, v) => sum + v, 0);
                     min = Math.min(...sensorTotals);
                     max = Math.max(...sensorTotals);
-                    
-                    console.log(`[DEBUG] Breakdown - ${measurementType} (Period Totals, Multiple Sensors):`, {
-                        measurementType,
-                        sensorCount: sensorGroups.size,
-                        sensorTotals,
-                        total,
-                        min,
-                        max,
-                        timestampValuePairsCount: timestampValuePairs.length
-                    });
                 } else {
                     // Single sensor: use MAX (latest period total)
                     total = Math.max(...values);
                     min = Math.min(...values);
                     max = Math.max(...values);
-                    
-                    console.log(`[DEBUG] Breakdown - ${measurementType} (Period Totals, Single Sensor):`, {
-                        measurementType,
-                        total,
-                        min,
-                        max,
-                        valuesCount: values.length
-                    });
                 }
             } else {
                 // Cumulative counters or other types: sum all values
@@ -2462,7 +2389,6 @@ class DashboardDiscoveryService {
      */
     async getBuildingKPIs(buildingId, startDate, endDate, options = {}) {
         const functionStartTime = Date.now();
-        // console.log(`[PERF] getBuildingKPIs called at ${functionStartTime}`);
         
         const db = mongoose.connection.db;
         if (!db) {
@@ -2674,23 +2600,12 @@ class DashboardDiscoveryService {
                 const rawDataResults = await db.collection('measurements_raw').aggregate(rawPipeline).toArray();
                 if (rawDataResults.length > 0) {
                     rawResults = rawDataResults;
-                    // console.log(`[DEBUG] getBuildingKPIs: Found ${rawResults.length} results in measurements_raw for recent data`);
                 }
             }
         }
         
         const aggregationDuration = Date.now() - aggregationStartTime;
         const totalDuration = Date.now() - functionStartTime;
-        // console.log(`[PERF] getBuildingKPIs: aggregation completed in ${aggregationDuration}ms (total function time: ${totalDuration}ms)`);
-        // console.log(`[DEBUG] getBuildingKPIs query [${aggregationDuration}ms]:`, {
-        //     buildingId,
-        //     resolution,
-        //     startDate: startDate.toISOString(),
-        //     endDate: endDate.toISOString(),
-        //     matchStage,
-        //     resultCount: rawResults.length,
-        //     resultTypes: rawResults.map(r => r._id.measurementType)
-        // });
         
         // Determine resolution for KPI calculation (use the most common resolution from segments)
         const finalResolution = energySegments.length > 0 && energySegments[0].preferred 
@@ -2810,11 +2725,9 @@ class DashboardDiscoveryService {
             try {
                 const result = await generateWithTimeout(key, generator, timeout);
                 const duration = Date.now() - startTime;
-                // console.log(`[DASHBOARD] ${key} generated in ${duration}ms${result.timeout ? ' (timeout)' : ''}`);
                 return { key, result };
             } catch (error) {
                 const duration = Date.now() - startTime;
-                // console.warn(`[DASHBOARD] Error generating ${key} for building ${buildingId} (${duration}ms):`, error.message);
                 return {
                     key,
                     result: {
@@ -3152,32 +3065,6 @@ class DashboardDiscoveryService {
                 }
             }
         }
-        
-        // Debug: Log raw results before KPI calculation
-        console.log(`[DEBUG] getRoomKPIs - Raw results before calculateKPIsFromResults:`, {
-            roomId: roomId.toString(),
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            sensorIdsCount: sensorIds.length,
-            sensorIds: sensorIds.map(id => id.toString()),
-            rawResultsCount: rawResults.length,
-            rawResults: rawResults.map(r => ({
-                measurementType: r._id.measurementType,
-                stateType: r._id.stateType,
-                unit: r._id.unit,
-                valuesCount: r.values?.length || 0,
-                values: r.values?.slice(0, 20), // First 20 values
-                timestampValuePairsCount: r.timestampValuePairs?.length || 0,
-                hasSensorId: r.timestampValuePairs?.some(p => p.sensorId !== undefined) || false,
-                uniqueSensorIds: r.timestampValuePairs ? 
-                    [...new Set(r.timestampValuePairs.map(p => p.sensorId?.toString()).filter(Boolean))] : [],
-                sampleTimestampValuePairs: r.timestampValuePairs?.slice(0, 5).map(p => ({
-                    timestamp: p.timestamp,
-                    value: p.value,
-                    sensorId: p.sensorId?.toString() || 'missing'
-                })) || []
-            }))
-        });
         
         // Also query Power measurements separately for peak power calculations
         const powerMatchStage = {
