@@ -42,20 +42,46 @@ function normalizeUUID(uuid) {
 // Get measurement type from sensor, control type, and category
 /**
  * Determine measurement type from sensor, control type, category, and format
- * Priority: 1. StateType + Format string (for Meter controls - most reliable), 2. Category type, 3. Category name, 4. Control type
+ * Priority: 1. StateType + Format string/Unit (for Meter controls - most reliable), 2. Category type, 3. Category name, 4. Control type
  * Note: For Meter controls, stateType determines Power vs Energy:
- * - actual* states (actual, actual0, actual1, etc.) = Power (instantaneous, W/kW)
+ * - actual* states (actual, actual0, actual1, etc.) = Power (instantaneous, W/kW) ONLY if unit is W/kW
+ * - actual* states with Temperature unit (°C/°F) = Temperature
  * - total* states (total, totalDay, totalWeek, etc.) = Energy (cumulative, Wh/kWh)
  */
-function getMeasurementType(sensor, controlType, categoryInfo = null, controlData = null, stateType = null) {
-    // Priority 1: For Meter controls, stateType + format string combination is most reliable
+function getMeasurementType(sensor, controlType, categoryInfo = null, controlData = null, stateType = null, unit = null) {
+    // Priority 1: For Meter controls, stateType + format string/unit combination is most reliable
     // Meter controls can measure: Energy (kW/kWh), Temperature (°C), Gas/Water (m³/L), etc.
     if (controlType === 'Meter' && controlData && controlData.details) {
-        // CRITICAL: StateType determines Power vs Energy for Meter controls
-        // actual* states = Power (instantaneous), total* states = Energy (cumulative)
+        // CRITICAL: StateType + Unit determines Power vs Energy vs Temperature for Meter controls
+        // actual* states = Power (instantaneous, W/kW) ONLY if unit indicates power
+        // actual* states with Temperature unit = Temperature
+        // total* states = Energy (cumulative, Wh/kWh)
         if (stateType && stateType.startsWith('actual')) {
-            // actual, actual0, actual1, etc. → Power (instantaneous)
-            // Choose format based on stateType: actualFormat for "actual*" states
+            // actual, actual0, actual1, etc. → Check unit to determine type
+            // First, check if we have a unit parameter (most reliable)
+            if (unit) {
+                const unitLower = unit.toLowerCase();
+                // Temperature meter (unit is definitive)
+                if (unitLower.includes('°c') || unitLower.includes('°f') || unitLower.includes('celsius') || unitLower.includes('fahrenheit')) {
+                    return 'Temperature';
+                }
+                // Power meter: W, kW (but NOT kWh/Wh)
+                if ((unitLower.includes('w') || unitLower.includes('kw')) &&
+                    !unitLower.includes('kwh') && !unitLower.includes('wh')) {
+                    return 'Power';
+                }
+                // Water/Gas meter
+                if (unitLower.includes('m³') || unitLower.includes('m^3') || unitLower.includes(' l') || unitLower.includes('liter')) {
+                    // If in heating category, it's heating
+                    if (categoryInfo && categoryInfo.name &&
+                        (categoryInfo.name.toLowerCase().includes('heizung') || categoryInfo.name.toLowerCase().includes('heating'))) {
+                        return 'Heating';
+                    }
+                    return 'Water';
+                }
+            }
+            
+            // Fallback to format string if unit not provided
             let formatStr = (controlData.details.actualFormat || controlData.details.totalFormat || '').toLowerCase();
 
             // Temperature meter (format string is definitive)
@@ -1004,8 +1030,9 @@ class LoxoneStorageService {
                 }
             }
 
-            // Determine measurement type (pass stateType for better detection)
-            const measurementType = getMeasurementType(sensor, mapping.controlType, categoryInfo, controlData, mapping.stateType);
+            // Determine measurement type (pass stateType and unit for better detection)
+            // Unit is determined above, so we can use it to correctly classify actual* states
+            const measurementType = getMeasurementType(sensor, mapping.controlType, categoryInfo, controlData, mapping.stateType, unit);
 
             // Priority 1: Filter invalid "total*" states for Temperature measurement type
             // Temperature meters' "total" states represent cumulative values (degree-hours) that shouldn't be stored as temperature

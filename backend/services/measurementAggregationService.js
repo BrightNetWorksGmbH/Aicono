@@ -1683,6 +1683,10 @@ class MeasurementAggregationService {
                     // Aggregation strategy for hourly from 15-minute aggregates:
                     // - Energy (total state): sum consumption deltas from 15-min aggregates
                     // - Energy (totalDay/Week/Month/Year): use last value (period totals)
+                    //   IMPORTANT: totalDay/Week/Month/Year are period totals from Loxone, not cumulative deltas.
+                    //   Each value represents the total consumption for that period (day/week/month/year).
+                    //   We use lastValue to preserve the period total, which is the correct value for the hour.
+                    //   When querying multiple periods, these values should be summed (not max'd) in calculateKPIsFromResults.
                     // - Power (actual* states): average power from 15-min aggregates
                     // - Others: average
                     value: {
@@ -1960,6 +1964,10 @@ class MeasurementAggregationService {
                     // Aggregation strategy for daily from hourly aggregates:
                     // - Energy (total state): sum consumption deltas from hourly aggregates
                     // - Energy (totalDay/Week/Month/Year): use last value (period totals)
+                    //   IMPORTANT: totalDay/Week/Month/Year are period totals from Loxone, not cumulative deltas.
+                    //   Each value represents the total consumption for that period (day/week/month/year).
+                    //   We use lastValue to preserve the period total, which is the correct value for the day.
+                    //   When querying multiple days, totalDay values should be summed (not max'd) in calculateKPIsFromResults.
                     // - Power (actual* states): average power from hourly aggregates
                     // - Others: average
                     value: {

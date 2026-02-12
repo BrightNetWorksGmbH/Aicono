@@ -1,0 +1,120 @@
+[{
+  "timestamp": {
+    "$date": "2026-02-10T00:00:00.000Z"
+  },
+  "meta": {
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "6985d13171babd904f3b6ce2"
+    },
+    "stateType": "totalDay"
+  },
+  "resolution_minutes": 1440,
+  "_id": {
+    "$oid": "698bd490b3620e9b52689ce8"
+  },
+  "avgValue": 0.1721004669057197,
+  "source": "aggregated",
+  "maxValue": 0.3405816396237365,
+  "count": 123373,
+  "quality": 100,
+  "value": 0.01086366137126208,
+  "minValue": 0.000011629565864139132,
+  "unit": "kWh"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-10T00:00:00.000Z"
+  },
+  "meta": {
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "6985d13171babd904f3b6cd4"
+    },
+    "stateType": "totalDay"
+  },
+  "resolution_minutes": 1440,
+  "_id": {
+    "$oid": "698bd490b3620e9b52689cf2"
+  },
+  "avgValue": 3792.716011852881,
+  "minValue": 0.24523250000000002,
+  "value": 399.24218250000155,
+  "maxValue": 7967.926662499355,
+  "quality": 100,
+  "count": 118269,
+  "source": "aggregated",
+  "unit": "Wh"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-10T00:00:00.000Z"
+  },
+  "meta": {
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "6985d13171babd904f3b6ce1"
+    },
+    "stateType": "totalDay"
+  },
+  "resolution_minutes": 1440,
+  "_id": {
+    "$oid": "698bd490b3620e9b52689ce1"
+  },
+  "avgValue": 9.836458157651373,
+  "source": "aggregated",
+  "maxValue": 22.536394425946543,
+  "count": 123548,
+  "quality": 100,
+  "value": 0.15622159917758108,
+  "minValue": 0.00015152649246215824,
+  "unit": "kWh"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-10T00:00:00.000Z"
+  },
+  "meta": {
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "6985d13171babd904f3b6cd8"
+    },
+    "stateType": "totalDay"
+  },
+  "resolution_minutes": 1440,
+  "_id": {
+    "$oid": "698bd490b3620e9b52689ce5"
+  },
+  "avgValue": 306.1131547659781,
+  "source": "aggregated",
+  "maxValue": 652.9135957030231,
+  "count": 118914,
+  "quality": 100,
+  "value": 14.672593851382498,
+  "minValue": 0.009494733500579609,
+  "unit": "kWh"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-10T00:00:00.000Z"
+  },
+  "meta": {
+    "measurementType": "Energy",
+    "sensorId": {
+      "$oid": "6985d13171babd904f3b6cdf"
+    },
+    "stateType": "totalDay"
+  },
+  "resolution_minutes": 1440,
+  "_id": {
+    "$oid": "698bd490b3620e9b52689cfb"
+  },
+  "avgValue": 3802.121929096398,
+  "source": "aggregated",
+  "maxValue": 7989.512893197128,
+  "count": 152271,
+  "quality": 100,
+  "value": 399.34612779783305,
+  "minValue": 0.169394254351298,
+  "unit": "Wh"
+}]
