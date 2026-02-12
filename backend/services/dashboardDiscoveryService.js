@@ -114,6 +114,512 @@ function getStateTypeForInterval(interval) {
 }
 
 /**
+ * Helper: Round date to start of day (UTC)
+ * @param {Date} date - Date to round
+ * @returns {Date} Start of day
+ */
+function roundToDayStart(date) {
+    const d = new Date(date);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+}
+
+/**
+ * Helper: Round date to start of week (UTC, Monday as first day)
+ * @param {Date} date - Date to round
+ * @returns {Date} Start of week (Monday)
+ */
+function roundToWeekStart(date) {
+    const d = new Date(date);
+    const dayOfWeek = (d.getUTCDay() + 6) % 7; // Monday is 0, Sunday is 6
+    d.setUTCDate(d.getUTCDate() - dayOfWeek);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+}
+
+/**
+ * Helper: Round date to start of month (UTC)
+ * @param {Date} date - Date to round
+ * @returns {Date} Start of month
+ */
+function roundToMonthStart(date) {
+    const d = new Date(date);
+    d.setUTCDate(1);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+}
+
+/**
+ * Helper: Round date to start of year (UTC)
+ * @param {Date} date - Date to round
+ * @returns {Date} Start of year
+ */
+function roundToYearStart(date) {
+    const d = new Date(date);
+    d.setUTCMonth(0, 1);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+}
+
+/**
+ * Helper: Check if date is at start of day (00:00:00)
+ * @param {Date} date - Date to check
+ * @returns {boolean} True if at start of day
+ */
+function isStartOfDay(date) {
+    return date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0;
+}
+
+/**
+ * Helper: Check if date is at end of day (00:00:00 next day)
+ * @param {Date} date - Date to check
+ * @returns {boolean} True if at end of day (start of next day)
+ */
+function isEndOfDay(date) {
+    return isStartOfDay(date);
+}
+
+/**
+ * Helper: Get the value just before a timestamp from sorted timestamp/value pairs
+ * @param {Array} timestampValuePairs - Array of { timestamp, value } objects, sorted by timestamp
+ * @param {Date} targetTimestamp - Target timestamp
+ * @returns {number|null} Value just before target, or null if not found
+ */
+function getValueJustBefore(timestampValuePairs, targetTimestamp) {
+    // Find the last value with timestamp < targetTimestamp
+    let lastValue = null;
+    for (const pair of timestampValuePairs) {
+        if (pair.timestamp < targetTimestamp) {
+            lastValue = pair.value;
+        } else {
+            break;
+        }
+    }
+    return lastValue;
+}
+
+/**
+ * Helper: Get the value at or just before a timestamp from sorted timestamp/value pairs
+ * @param {Array} timestampValuePairs - Array of { timestamp, value } objects, sorted by timestamp
+ * @param {Date} targetTimestamp - Target timestamp
+ * @returns {number|null} Value at or just before target, or null if not found
+ */
+function getValueAtOrBefore(timestampValuePairs, targetTimestamp) {
+    // Find the last value with timestamp <= targetTimestamp
+    let lastValue = null;
+    for (const pair of timestampValuePairs) {
+        if (pair.timestamp <= targetTimestamp) {
+            lastValue = pair.value;
+        } else {
+            break;
+        }
+    }
+    return lastValue;
+}
+
+/**
+ * Helper: Get the latest value from sorted timestamp/value pairs
+ * @param {Array} timestampValuePairs - Array of { timestamp, value } objects, sorted by timestamp
+ * @returns {number|null} Latest value, or null if empty
+ */
+function getLatestValue(timestampValuePairs) {
+    if (timestampValuePairs.length === 0) return null;
+    return timestampValuePairs[timestampValuePairs.length - 1].value;
+}
+
+/**
+ * Helper: Group timestamp/value pairs by period (day/week/month/year)
+ * @param {Array} timestampValuePairs - Array of { timestamp, value } objects
+ * @param {String} periodType - 'day', 'week', 'month', or 'year'
+ * @returns {Map} Map of period key -> array of { timestamp, value } pairs
+ */
+function groupByPeriod(timestampValuePairs, periodType) {
+    const groups = new Map();
+    
+    for (const pair of timestampValuePairs) {
+        let periodKey;
+        const date = new Date(pair.timestamp);
+        
+        if (periodType === 'day') {
+            periodKey = roundToDayStart(date).toISOString();
+        } else if (periodType === 'week') {
+            periodKey = roundToWeekStart(date).toISOString();
+        } else if (periodType === 'month') {
+            periodKey = roundToMonthStart(date).toISOString();
+        } else if (periodType === 'year') {
+            periodKey = roundToYearStart(date).toISOString();
+        } else {
+            continue;
+        }
+        
+        if (!groups.has(periodKey)) {
+            groups.set(periodKey, []);
+        }
+        groups.get(periodKey).push(pair);
+    }
+    
+    return groups;
+}
+
+/**
+ * Helper: Query Energy data with fallback to smaller resolutions if preferred resolution has no data
+ * @param {Object} db - MongoDB database connection
+ * @param {Object} matchStage - Base match stage (without resolution, must include meta.sensorId or meta.sensorId with $in)
+ * @param {Number} preferredResolution - Preferred resolution to try first
+ * @param {String} stateType - StateType to query for
+ * @param {Date} startDate - Start date for diagnostic query
+ * @param {Date} endDate - End date for diagnostic query
+ * @returns {Promise<Array>} Query results (from preferred or fallback resolution)
+ */
+async function queryEnergyWithFallback(db, matchStage, preferredResolution, stateType, startDate, endDate) {
+    const baseMatch = {
+        ...matchStage,
+        'meta.measurementType': 'Energy',
+        'meta.stateType': stateType,
+        resolution_minutes: preferredResolution,
+        timestamp: { $gte: startDate, $lt: endDate }
+    };
+    
+    const pipeline = [
+        { $match: baseMatch },
+        {
+            $group: {
+                _id: {
+                    measurementType: '$meta.measurementType',
+                    stateType: '$meta.stateType',
+                    unit: '$unit'
+                },
+                timestampValuePairs: {
+                    $push: {
+                        timestamp: '$timestamp',
+                        value: '$value',
+                        sensorId: '$meta.sensorId'  // Include sensorId for multi-sensor aggregation
+                    }
+                },
+                values: { $push: '$value' },
+                units: { $first: '$unit' },
+                avgQuality: { $avg: '$quality' },
+                count: { $sum: 1 }
+            }
+        }
+    ];
+    
+    let results = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
+    
+    // If no results, check what resolutions are available and fallback to smaller ones
+    if (results.length === 0) {
+        // Diagnostic query to find available resolutions
+        const diagnosticMatch = {
+            ...matchStage,
+            'meta.measurementType': 'Energy',
+            timestamp: { $gte: startDate, $lt: endDate }
+        };
+        
+        const diagnosticPipeline = [
+            { $match: diagnosticMatch },
+            {
+                $group: {
+                    _id: {
+                        stateType: '$meta.stateType',
+                        resolution: '$resolution_minutes'
+                    },
+                    count: { $sum: 1 }
+                }
+            }
+        ];
+        
+        const diagnosticResults = await db.collection('measurements_aggregated').aggregate(diagnosticPipeline).toArray();
+        
+        // Find available resolutions for the requested stateType
+        const availableResolutions = diagnosticResults
+            .filter(r => r._id.stateType === stateType)
+            .map(r => r._id.resolution);
+        
+        // Try fallback resolutions in descending order (larger aggregates first, then smaller/finer)
+        // Strategy: If preferred resolution not found, try larger aggregates first (in case they exist),
+        // then try smaller/finer aggregates (which will always have the data we need)
+        // Order: 43200 (monthly) → 10080 (weekly) → 1440 (daily) → 60 (hourly) → 15 (15-minute)
+        // Example: If looking for daily (1440) and not found, try weekly (10080) first, then hourly (60)
+        // Example: If looking for weekly (10080) and not found, try daily (1440), then hourly (60)
+        const resolutionPriority = [43200, 10080, 1440, 60, 15]; // All possible resolutions in descending order
+        
+        // Filter available resolutions (excluding preferred) and sort by priority (larger first)
+        const fallbackResolutions = resolutionPriority
+            .filter(r => r !== preferredResolution && availableResolutions.includes(r))
+            .sort((a, b) => b - a); // Descending order (largest first: 43200 → 10080 → 1440 → 60 → 15)
+        
+        for (const fallbackResolution of fallbackResolutions) {
+            const fallbackMatch = {
+                ...baseMatch,
+                resolution_minutes: fallbackResolution
+            };
+            
+            const fallbackPipeline = [
+                { $match: fallbackMatch },
+                {
+                    $group: {
+                        _id: {
+                            measurementType: '$meta.measurementType',
+                            stateType: '$meta.stateType',
+                            unit: '$unit'
+                        },
+                        timestampValuePairs: {
+                            $push: {
+                                timestamp: '$timestamp',
+                                value: '$value',
+                                sensorId: '$meta.sensorId'  // Include sensorId for multi-sensor aggregation
+                            }
+                        },
+                        values: { $push: '$value' },
+                        units: { $first: '$unit' },
+                        avgQuality: { $avg: '$quality' },
+                        count: { $sum: 1 }
+                    }
+                }
+            ];
+            
+            const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
+            
+            if (fallbackResults.length > 0) {
+                results = fallbackResults;
+                break;
+            }
+        }
+    }
+    
+    return results;
+}
+
+/**
+ * Determine optimal query strategy for energy consumption based on time range
+ * Analyzes the time range and returns query segments with appropriate resolution and stateType
+ * @param {Date} startDate - Start date of the query
+ * @param {Date} endDate - End date of the query
+ * @param {Object} options - Query options (interval, etc.)
+ * @returns {Array} Array of query segments, each with { startDate, endDate, resolution, stateType, preferred }
+ */
+function determineOptimalEnergyQueryStrategy(startDate, endDate, options = {}) {
+    const segments = [];
+    const interval = options.interval || null;
+    
+    // Helper to round date to start of day
+    const roundToDay = (date) => {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    };
+    
+    // Helper to round date to start of week (Monday)
+    const roundToWeek = (date) => {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+        d.setDate(diff);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    };
+    
+    // Helper to round date to start of month
+    const roundToMonth = (date) => {
+        const d = new Date(date);
+        d.setDate(1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    };
+    
+    // Helper to round date to start of year
+    const roundToYear = (date) => {
+        const d = new Date(date);
+        d.setMonth(0, 1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    };
+    
+    // If interval is provided, use it to determine stateType
+    if (interval) {
+        const stateType = getStateTypeForInterval(interval);
+        if (stateType) {
+            // For reports with specific intervals, prefer the matching stateType
+            // Resolution depends on data age and availability
+            const now = new Date();
+            const hoursSinceEndDate = (now - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
+            
+            let resolution = 60; // Default to hourly
+            if (interval === 'Yearly' || interval === 'yearly') {
+                // For yearly, prefer monthly aggregates if available, else daily
+                resolution = 43200; // monthly (if available)
+            } else if (interval === 'Monthly' || interval === 'monthly') {
+                // For monthly, prefer daily aggregates
+                resolution = 1440; // daily
+            } else if (interval === 'Weekly' || interval === 'weekly') {
+                // For weekly, prefer weekly aggregates if available, else daily
+                resolution = 10080; // weekly (if available)
+            } else if (interval === 'Daily' || interval === 'daily') {
+                // For daily, prefer daily aggregates
+                resolution = 1440; // daily
+            }
+            
+            // Adjust resolution based on data age
+            if (daysSinceEndDate > 7) {
+                resolution = 1440; // Use daily for older data
+            } else if (hoursSinceEndDate > 1) {
+                resolution = 60; // Use hourly for data older than 1 hour
+            }
+            
+            segments.push({
+                startDate,
+                endDate,
+                resolution,
+                stateType,
+                preferred: true
+            });
+            
+            return segments;
+        }
+    }
+    
+    // For arbitrary ranges, analyze the time range to determine best strategy
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const duration = end - start;
+    const days = duration / (1000 * 60 * 60 * 24);
+    const now = new Date();
+    const hoursSinceEndDate = (now - endDate) / (1000 * 60 * 60);
+    const daysSinceEndDate = hoursSinceEndDate / 24;
+    
+    // Round dates for day boundary checks
+    const startDay = roundToDay(start);
+    const endDay = roundToDay(end);
+    
+    // Check if we're querying complete days
+    const isStartOfDay = start.getHours() === 0 && start.getMinutes() === 0 && start.getSeconds() === 0;
+    const isEndOfDay = end.getHours() === 0 && end.getMinutes() === 0 && end.getSeconds() === 0;
+    
+    // Strategy 1: Single complete day
+    if (days >= 0.9 && days < 1.1 && isStartOfDay && isEndOfDay) {
+        // Use daily aggregate if data is old enough (daily aggregation runs at midnight)
+        if (daysSinceEndDate >= 1) {
+            segments.push({
+                startDate: startDay,
+                endDate: new Date(startDay.getTime() + 24 * 60 * 60 * 1000),
+                resolution: 1440, // daily
+                stateType: 'totalDay',
+                preferred: true
+            });
+        } else {
+            // Recent data: use hourly aggregates with totalDay
+            segments.push({
+                startDate: startDay,
+                endDate: new Date(startDay.getTime() + 24 * 60 * 60 * 1000),
+                resolution: 60, // hourly
+                stateType: 'totalDay',
+                preferred: true
+            });
+        }
+        return segments;
+    }
+    
+    // Strategy 2: Multiple complete days
+    if (days >= 1 && isStartOfDay && isEndOfDay) {
+        // Use daily aggregates for complete days
+        let currentDay = startDay;
+        while (currentDay < endDay) {
+            const nextDay = new Date(currentDay.getTime() + 24 * 60 * 60 * 1000);
+            const dayEnd = nextDay < endDay ? nextDay : endDay;
+            
+            // Check if this day is old enough for daily aggregation
+            const dayAge = (now - dayEnd) / (1000 * 60 * 60 * 24);
+            const resolution = dayAge >= 1 ? 1440 : 60; // daily if old enough, else hourly
+            
+            segments.push({
+                startDate: currentDay,
+                endDate: dayEnd,
+                resolution,
+                stateType: 'totalDay',
+                preferred: true
+            });
+            
+            currentDay = nextDay;
+        }
+        return segments;
+    }
+    
+    // Strategy 3: Mixed range (partial days + complete days)
+    // Split into segments: complete days use daily aggregates, partial days use hourly
+    
+    let currentStart = start;
+    let currentEnd = end;
+    
+    // Handle partial start day
+    if (!isStartOfDay) {
+        const startDayEnd = new Date(startDay.getTime() + 24 * 60 * 60 * 1000);
+        if (startDayEnd <= end) {
+            // Use hourly for partial start day
+            segments.push({
+                startDate: start,
+                endDate: startDayEnd,
+                resolution: 60, // hourly
+                stateType: 'totalDay',
+                preferred: false
+            });
+            currentStart = startDayEnd;
+        }
+    }
+    
+    // Handle complete days in the middle
+    if (currentStart < end) {
+        let currentDay = roundToDay(currentStart);
+        const endDayStart = roundToDay(end);
+        
+        while (currentDay < endDayStart) {
+            const nextDay = new Date(currentDay.getTime() + 24 * 60 * 60 * 1000);
+            const dayEnd = nextDay < endDayStart ? nextDay : endDayStart;
+            
+            // Check if this day is old enough for daily aggregation
+            const dayAge = (now - dayEnd) / (1000 * 60 * 60 * 24);
+            const resolution = dayAge >= 1 ? 1440 : 60; // daily if old enough, else hourly
+            
+            segments.push({
+                startDate: currentDay,
+                endDate: dayEnd,
+                resolution,
+                stateType: 'totalDay',
+                preferred: true
+            });
+            
+            currentDay = nextDay;
+        }
+        
+        currentStart = endDayStart;
+    }
+    
+    // Handle partial end day
+    if (currentStart < end && !isEndOfDay) {
+        segments.push({
+            startDate: currentStart,
+            endDate: end,
+            resolution: 60, // hourly
+            stateType: 'totalDay',
+            preferred: false
+        });
+    }
+    
+    // If no segments created (edge case), create a single segment with hourly
+    if (segments.length === 0) {
+        segments.push({
+            startDate: start,
+            endDate: end,
+            resolution: 60, // hourly
+            stateType: 'totalDay',
+            preferred: true
+        });
+    }
+    
+    return segments;
+}
+
+/**
  * Dashboard Discovery Service
  * 
  * Provides hierarchical data retrieval for the dashboard with nested structures:
@@ -620,8 +1126,8 @@ class DashboardDiscoveryService {
             };
         });
         
-        // Get building KPIs (floor belongs to building)
-        const kpis = await this.getBuildingKPIs(building._id, startDate, endDate, options);
+        // Get floor KPIs (only sensors in rooms on this floor)
+        const kpis = await this.getFloorKPIs(floorId, startDate, endDate, options);
         
         return {
             _id: floor._id,
@@ -869,7 +1375,6 @@ class DashboardDiscoveryService {
      */
     calculateKPIsFromResults(rawResults, options = {}) {
         // Process results: normalize units and aggregate by measurementType and stateType
-        // console.log("rawResults", rawResults);
         const processedResults = new Map();
         
         // Track stateType for Energy measurements to handle totalDay correctly
@@ -897,6 +1402,7 @@ class DashboardDiscoveryService {
                     measurementType: measurementType,
                     stateType: stateType,
                     values: [],
+                    timestampValuePairs: [], // Store timestamp/value pairs for partial period calculations
                     baseUnit: baseUnit,
                     avgQuality: [],
                     count: 0
@@ -908,6 +1414,21 @@ class DashboardDiscoveryService {
             // Normalize all values to base unit
             const normalizedValues = result.values.map(v => normalizeToBaseUnit(v, unit));
             processed.values.push(...normalizedValues);
+            
+            // Process timestamp/value pairs if available
+            if (result.timestampValuePairs && Array.isArray(result.timestampValuePairs)) {
+                for (const pair of result.timestampValuePairs) {
+                    const normalizedValue = normalizeToBaseUnit(pair.value, unit);
+                    processed.timestampValuePairs.push({
+                        timestamp: pair.timestamp instanceof Date ? pair.timestamp : new Date(pair.timestamp),
+                        value: normalizedValue,
+                        sensorId: pair.sensorId  // Preserve sensorId for multi-sensor aggregation
+                    });
+                }
+                // Sort by timestamp
+                processed.timestampValuePairs.sort((a, b) => a.timestamp - b.timestamp);
+            }
+            
             processed.avgQuality.push(result.avgQuality || 100);
             processed.count += result.count;
         }
@@ -926,7 +1447,7 @@ class DashboardDiscoveryService {
         const powerUnit = 'kW';
         
         // Find Energy data for total_consumption, base, averageEnergy
-        // Prioritize totalDay for reports, total for cumulative, or any Energy data
+        // Priority order: totalDay > totalWeek > totalMonth > totalYear > total > any Energy
         let energyData = null;
         let energyStateType = null;
         
@@ -934,7 +1455,7 @@ class DashboardDiscoveryService {
         const energyKeys = Array.from(processedResults.keys()).filter(k => k.startsWith('Energy:'));
         
         if (energyKeys.length > 0) {
-            // For reports with interval: prefer totalDay/totalWeek/totalMonth/totalYear
+            // For reports with interval: prefer the matching stateType
             if (options.interval) {
                 const intervalStateType = getStateTypeForInterval(options.interval);
                 const preferredKey = `Energy:${intervalStateType}`;
@@ -947,12 +1468,23 @@ class DashboardDiscoveryService {
                     energyStateType = energyData?.stateType;
                 }
             } else {
-                // For arbitrary ranges: prefer total (cumulative), then any Energy
-                const totalKey = energyKeys.find(k => k.includes(':total') && !k.includes('totalDay') && !k.includes('totalWeek') && !k.includes('totalMonth') && !k.includes('totalYear'));
-                if (totalKey) {
-                    energyData = processedResults.get(totalKey);
-                    energyStateType = 'total';
-                } else {
+                // For arbitrary ranges: prefer period totals in priority order
+                // Priority: totalDay > totalWeek > totalMonth > totalYear > total
+                const priorityOrder = ['totalDay', 'totalWeek', 'totalMonth', 'totalYear', 'total'];
+                let found = false;
+                
+                for (const stateType of priorityOrder) {
+                    const key = energyKeys.find(k => k.includes(`:${stateType}`));
+                    if (key) {
+                        energyData = processedResults.get(key);
+                        energyStateType = stateType;
+                        found = true;
+                        break;
+                    }
+                }
+                
+                // If no priority stateType found, use any Energy data
+                if (!found) {
                     energyData = processedResults.get(energyKeys[0]);
                     energyStateType = energyData?.stateType;
                 }
@@ -964,14 +1496,6 @@ class DashboardDiscoveryService {
         const powerData = powerKey ? processedResults.get(powerKey) : null;
         const usePowerForEnergy = !energyData && powerData && powerData.values.length > 0 && !options.interval;
         
-        // console.log(`[DEBUG] calculateKPIsFromResults:`, {
-        //     hasEnergyData: !!energyData,
-        //     energyStateType: energyStateType,
-        //     energyValuesCount: energyData?.values?.length || 0,
-        //     allMeasurementTypes: Array.from(processedResults.keys()),
-        //     rawResultsCount: rawResults.length
-        // });
-        
         if (energyData && energyData.values.length > 0) {
             // Filter out negative values (meter resets or data issues)
             const validEnergyValues = energyData.values.filter(v => v >= 0);
@@ -980,8 +1504,11 @@ class DashboardDiscoveryService {
                 const energyValues = validEnergyValues;
                 
                 // Handle different stateTypes correctly:
-                // - totalDay/totalWeek/totalMonth/totalYear: period totals - use latest or average (NOT sum)
-                // - total: cumulative counter - sum all values (they're already deltas)
+                // - totalDay: resets at midnight, cumulative within day
+                // - totalWeek: resets at week start (Monday), cumulative within week
+                // - totalMonth: resets at month start, cumulative within month
+                // - totalYear: resets at year start, cumulative within year
+                // - total: cumulative counter (never resets)
                 const isPeriodTotal = energyStateType && (
                     energyStateType === 'totalDay' || 
                     energyStateType === 'totalWeek' || 
@@ -994,13 +1521,482 @@ class DashboardDiscoveryService {
                 );
                 
                 if (isPeriodTotal) {
-                    // Period totals: use latest value (or average if multiple periods)
-                    // For a single day/week/month/year: use latest
-                    // For multiple periods: sum the latest value per period
-                    // Since we're aggregating, we'll use the maximum (latest) value
-                    totalConsumption = Math.max(...energyValues);
-                    base = Math.min(...energyValues);
-                    averageEnergy = totalConsumption; // For period totals, average = latest
+                    // Period totals: need to handle full periods, partial periods, and multiple periods
+                    const resolution = options.resolution || 60;
+                    const startDate = options.startDate ? new Date(options.startDate) : null;
+                    const endDate = options.endDate ? new Date(options.endDate) : null;
+                    
+                    // Get timestamp/value pairs if available (for partial period calculations)
+                    let timestampValuePairs = energyData.timestampValuePairs || [];
+                    // Filter out negative values from pairs
+                    timestampValuePairs = timestampValuePairs.filter(p => p.value >= 0);
+                    
+                    // Determine period type and boundaries
+                    let periodType = null;
+                    let periodStartBoundary = null;
+                    let periodEndBoundary = null;
+                    
+                    if (energyStateType === 'totalDay' || energyStateType === 'totalNegDay') {
+                        periodType = 'day';
+                        if (startDate) periodStartBoundary = roundToDayStart(startDate);
+                        if (endDate) periodEndBoundary = roundToDayStart(endDate);
+                    } else if (energyStateType === 'totalWeek' || energyStateType === 'totalNegWeek') {
+                        periodType = 'week';
+                        if (startDate) periodStartBoundary = roundToWeekStart(startDate);
+                        if (endDate) periodEndBoundary = roundToWeekStart(endDate);
+                    } else if (energyStateType === 'totalMonth' || energyStateType === 'totalNegMonth') {
+                        periodType = 'month';
+                        if (startDate) periodStartBoundary = roundToMonthStart(startDate);
+                        if (endDate) periodEndBoundary = roundToMonthStart(endDate);
+                    } else if (energyStateType === 'totalYear' || energyStateType === 'totalNegYear') {
+                        periodType = 'year';
+                        if (startDate) periodStartBoundary = roundToYearStart(startDate);
+                        if (endDate) periodEndBoundary = roundToYearStart(endDate);
+                    }
+                    
+                    // Check if query spans full periods or partial periods
+                    const isFullPeriod = startDate && endDate && periodStartBoundary && periodEndBoundary &&
+                        isStartOfDay(startDate) && isStartOfDay(endDate) &&
+                        startDate.getTime() === periodStartBoundary.getTime() &&
+                        endDate.getTime() === periodEndBoundary.getTime();
+                    
+                    const isPartialPeriod = !isFullPeriod && startDate && endDate;
+                    const timeRangeDays = startDate && endDate 
+                        ? (endDate - startDate) / (1000 * 60 * 60 * 24)
+                        : null;
+                    
+                    // Determine if single period or multiple periods
+                    let isSinglePeriod = false;
+                    if (periodType === 'day') {
+                        // For days: check if start and end are within the same day, OR if it's close to a full day
+                        if (startDate && endDate) {
+                            const startDay = roundToDayStart(startDate);
+                            const endDay = roundToDayStart(endDate);
+                            // Same day OR close to full day (0.9-1.1 days)
+                            isSinglePeriod = (startDay.getTime() === endDay.getTime()) || 
+                                           (timeRangeDays !== null && timeRangeDays >= 0.9 && timeRangeDays < 1.1);
+                        }
+                    } else if (periodType === 'week') {
+                        isSinglePeriod = timeRangeDays !== null && timeRangeDays >= 6 && timeRangeDays < 8;
+                    } else if (periodType === 'month') {
+                        isSinglePeriod = timeRangeDays !== null && timeRangeDays >= 28 && timeRangeDays < 32;
+                    } else if (periodType === 'year') {
+                        isSinglePeriod = timeRangeDays !== null && timeRangeDays >= 360 && timeRangeDays < 370;
+                    }
+                    
+                    // Debug: Log which case will be triggered
+                    console.log(`[DEBUG] calculateKPIsFromResults - Period calculation:`, {
+                        periodType,
+                        energyStateType,
+                        isFullPeriod,
+                        isPartialPeriod,
+                        isSinglePeriod,
+                        timeRangeDays,
+                        startDate: startDate?.toISOString(),
+                        endDate: endDate?.toISOString(),
+                        periodStartBoundary: periodStartBoundary?.toISOString(),
+                        periodEndBoundary: periodEndBoundary?.toISOString(),
+                        timestampValuePairsCount: timestampValuePairs.length,
+                        hasSensorId: timestampValuePairs.some(p => p.sensorId !== undefined && p.sensorId !== null),
+                        energyValuesCount: energyValues.length,
+                        energyValuesSample: energyValues.slice(0, 10)
+                    });
+                    
+                    // Calculate consumption based on scenario
+                    if (isSinglePeriod && isFullPeriod) {
+                        // Case 1: Single full period (e.g., full day 00:00-23:59)
+                        // For multiple sensors: Group by sensor, get MAX per sensor, then SUM
+                        // For single sensor: Use MAX (latest value) = period total
+                        const hasSensorId = timestampValuePairs.length > 0 && 
+                            timestampValuePairs.some(p => p.sensorId !== undefined && p.sensorId !== null);
+                        
+                        if (hasSensorId) {
+                            // Multiple sensors: Group by sensorId, get MAX per sensor, then SUM
+                            const sensorGroups = new Map();
+                            for (const pair of timestampValuePairs) {
+                                // Handle ObjectId properly - convert to string
+                                let sensorIdStr = 'unknown';
+                                if (pair.sensorId) {
+                                    if (typeof pair.sensorId === 'object' && pair.sensorId.toString) {
+                                        sensorIdStr = pair.sensorId.toString();
+                                    } else if (typeof pair.sensorId === 'string') {
+                                        sensorIdStr = pair.sensorId;
+                                    } else {
+                                        sensorIdStr = String(pair.sensorId);
+                                    }
+                                }
+                                
+                                if (!sensorGroups.has(sensorIdStr)) {
+                                    sensorGroups.set(sensorIdStr, []);
+                                }
+                                sensorGroups.get(sensorIdStr).push(pair);
+                            }
+                            
+                            // Get MAX per sensor (period total for each sensor)
+                            const sensorTotals = [];
+                            for (const [sensorId, pairs] of sensorGroups.entries()) {
+                                const pairValues = pairs.map(p => p.value);
+                                const sensorMax = Math.max(...pairValues);
+                                sensorTotals.push(sensorMax);
+                            }
+                            
+                            // SUM all sensor totals
+                            totalConsumption = sensorTotals.reduce((sum, v) => sum + v, 0);
+                            base = Math.min(...sensorTotals);
+                            averageEnergy = totalConsumption;
+                            
+                            console.log(`[DEBUG] Case 1 (Single Full Period) - Multiple Sensors:`, {
+                                sensorCount: sensorGroups.size,
+                                sensorTotals,
+                                totalConsumption,
+                                timestampValuePairsCount: timestampValuePairs.length
+                            });
+                        } else {
+                            // Single sensor: Use MAX (latest value) = period total
+                            totalConsumption = Math.max(...energyValues);
+                            base = Math.min(...energyValues);
+                            averageEnergy = totalConsumption;
+                            
+                            console.log(`[DEBUG] Case 1 (Single Full Period) - Single Sensor:`, {
+                                totalConsumption,
+                                energyValuesCount: energyValues.length
+                            });
+                        }
+                    } else if (isSinglePeriod && isPartialPeriod && timestampValuePairs.length > 0) {
+                        // Case 2: Single partial period (e.g., 12:00-23:59 or 00:00-00:00:59)
+                        // For multiple sensors: Calculate consumption per sensor, then SUM
+                        // For single sensor: Subtract start value from end value
+                        const hasSensorId = timestampValuePairs.some(p => p.sensorId !== undefined && p.sensorId !== null);
+                        
+                        if (hasSensorId) {
+                            // Multiple sensors: Group by sensorId, calculate consumption per sensor, then SUM
+                            const sensorGroups = new Map();
+                            for (const pair of timestampValuePairs) {
+                                // Handle ObjectId properly - convert to string
+                                let sensorIdStr = 'unknown';
+                                if (pair.sensorId) {
+                                    if (typeof pair.sensorId === 'object' && pair.sensorId.toString) {
+                                        sensorIdStr = pair.sensorId.toString();
+                                    } else if (typeof pair.sensorId === 'string') {
+                                        sensorIdStr = pair.sensorId;
+                                    } else {
+                                        sensorIdStr = String(pair.sensorId);
+                                    }
+                                }
+                                
+                                if (!sensorGroups.has(sensorIdStr)) {
+                                    sensorGroups.set(sensorIdStr, []);
+                                }
+                                sensorGroups.get(sensorIdStr).push(pair);
+                            }
+                            
+                            // Calculate consumption per sensor
+                            const sensorConsumptions = [];
+                            for (const [sensorId, pairs] of sensorGroups.entries()) {
+                                // Sort pairs by timestamp for this sensor
+                                pairs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                                
+                                const startValue = getValueJustBefore(pairs, startDate);
+                                const endValue = getLatestValue(pairs);
+                                
+                                if (startValue !== null && endValue !== null && endValue >= startValue) {
+                                    const sensorConsumption = endValue - startValue;
+                                    sensorConsumptions.push(sensorConsumption);
+                                } else {
+                                    // Fallback: use MAX for this sensor if subtraction not possible
+                                    const sensorMax = Math.max(...pairs.map(p => p.value));
+                                    sensorConsumptions.push(sensorMax);
+                                }
+                            }
+                            
+                            if (sensorConsumptions.length > 0) {
+                                // SUM all sensor consumptions
+                                totalConsumption = sensorConsumptions.reduce((sum, v) => sum + v, 0);
+                                base = Math.min(...sensorConsumptions);
+                                averageEnergy = totalConsumption;
+                                
+                                console.log(`[DEBUG] Case 2 (Single Partial Period) - Multiple Sensors:`, {
+                                    sensorCount: sensorGroups.size,
+                                    sensorConsumptions,
+                                    totalConsumption,
+                                    timestampValuePairsCount: timestampValuePairs.length
+                                });
+                            } else {
+                                // Fallback: use MAX
+                                totalConsumption = Math.max(...energyValues);
+                                base = Math.min(...energyValues);
+                                averageEnergy = totalConsumption;
+                            }
+                        } else {
+                            // Single sensor: Subtract start value from end value
+                            const startValue = getValueJustBefore(timestampValuePairs, startDate);
+                            const endValue = getLatestValue(timestampValuePairs);
+                            
+                            if (startValue !== null && endValue !== null && endValue >= startValue) {
+                                totalConsumption = endValue - startValue;
+                                base = Math.min(...energyValues);
+                                averageEnergy = totalConsumption;
+                                
+                                console.log(`[DEBUG] Case 2 (Single Partial Period) - Single Sensor:`, {
+                                    totalConsumption,
+                                    startValue,
+                                    endValue,
+                                    timestampValuePairsCount: timestampValuePairs.length
+                                });
+                            } else {
+                                // Fallback: use MAX if subtraction not possible
+                                totalConsumption = Math.max(...energyValues);
+                                base = Math.min(...energyValues);
+                                averageEnergy = totalConsumption;
+                            }
+                        }
+                    } else if (!isSinglePeriod && resolution === 1440 && (energyStateType === 'totalDay' || energyStateType === 'totalNegDay')) {
+                        // Case 3: Multiple days with daily aggregates (resolution 1440)
+                        // Each value is one day's total → SUM them
+                        totalConsumption = energyValues.reduce((sum, v) => sum + v, 0);
+                        base = Math.min(...energyValues);
+                        averageEnergy = totalConsumption / energyValues.length;
+                    } else if (!isSinglePeriod && resolution === 10080 && (energyStateType === 'totalWeek' || energyStateType === 'totalNegWeek')) {
+                        // Case 4: Multiple weeks with weekly aggregates (resolution 10080)
+                        // Each value is one week's total → SUM them
+                        totalConsumption = energyValues.reduce((sum, v) => sum + v, 0);
+                        base = Math.min(...energyValues);
+                        averageEnergy = totalConsumption / energyValues.length;
+                    } else if (!isSinglePeriod && resolution === 43200 && (energyStateType === 'totalMonth' || energyStateType === 'totalNegMonth')) {
+                        // Case 5: Multiple months with monthly aggregates (resolution 43200)
+                        // Each value is one month's total → SUM them
+                        totalConsumption = energyValues.reduce((sum, v) => sum + v, 0);
+                        base = Math.min(...energyValues);
+                        averageEnergy = totalConsumption / energyValues.length;
+                    } else if (!isSinglePeriod && timestampValuePairs.length > 0) {
+                        // Case 6: Multiple periods with finer aggregates (e.g., hourly for multiple days)
+                        // For multiple sensors: Group by sensor AND period, get MAX per sensor per period, then SUM
+                        // For single sensor: Group by period, get MAX per period, then SUM
+                        const hasSensorId = timestampValuePairs.length > 0 && 
+                            timestampValuePairs.some(p => p.sensorId !== undefined && p.sensorId !== null);
+                        
+                        if (hasSensorId) {
+                            // Multiple sensors: Group by sensor AND period
+                            const sensorPeriodGroups = new Map(); // "sensorId:periodKey" -> array of pairs
+                            
+                            for (const pair of timestampValuePairs) {
+                                // Handle ObjectId properly - convert to string
+                                let sensorIdStr = 'unknown';
+                                if (pair.sensorId) {
+                                    if (typeof pair.sensorId === 'object' && pair.sensorId.toString) {
+                                        sensorIdStr = pair.sensorId.toString();
+                                    } else if (typeof pair.sensorId === 'string') {
+                                        sensorIdStr = pair.sensorId;
+                                    } else {
+                                        sensorIdStr = String(pair.sensorId);
+                                    }
+                                }
+                                
+                                const date = new Date(pair.timestamp);
+                                let periodKey;
+                                
+                                if (periodType === 'day') {
+                                    periodKey = roundToDayStart(date).toISOString();
+                                } else if (periodType === 'week') {
+                                    periodKey = roundToWeekStart(date).toISOString();
+                                } else if (periodType === 'month') {
+                                    periodKey = roundToMonthStart(date).toISOString();
+                                } else if (periodType === 'year') {
+                                    periodKey = roundToYearStart(date).toISOString();
+                                } else {
+                                    continue;
+                                }
+                                
+                                const key = `${sensorIdStr}:${periodKey}`;
+                                if (!sensorPeriodGroups.has(key)) {
+                                    sensorPeriodGroups.set(key, []);
+                                }
+                                sensorPeriodGroups.get(key).push(pair);
+                            }
+                            
+                            // Get MAX per sensor per period
+                            const sensorPeriodTotals = [];
+                            for (const [key, pairs] of sensorPeriodGroups.entries()) {
+                                const [sensorId, periodKey] = key.split(':');
+                                const pairValues = pairs.map(p => p.value);
+                                const periodMax = Math.max(...pairValues);
+                                sensorPeriodTotals.push({ sensorId, periodKey, max: periodMax });
+                            }
+                            
+                            // Group by period and sum sensor totals per period
+                            const periodTotalsMap = new Map(); // periodKey -> sum of all sensors' MAX for that period
+                            for (const { periodKey, max } of sensorPeriodTotals) {
+                                if (!periodTotalsMap.has(periodKey)) {
+                                    periodTotalsMap.set(periodKey, 0);
+                                }
+                                periodTotalsMap.set(periodKey, periodTotalsMap.get(periodKey) + max);
+                            }
+                            
+                            const periodTotals = Array.from(periodTotalsMap.values());
+                            
+                            if (periodTotals.length > 0) {
+                                totalConsumption = periodTotals.reduce((sum, v) => sum + v, 0);
+                                base = Math.min(...periodTotals);
+                                averageEnergy = totalConsumption / periodTotals.length;
+                            } else {
+                                // Fallback: use MAX
+                                totalConsumption = Math.max(...energyValues);
+                                base = Math.min(...energyValues);
+                                averageEnergy = totalConsumption;
+                            }
+                        } else {
+                            // Single sensor or sensorId not available: use original logic
+                            const periodGroups = groupByPeriod(timestampValuePairs, periodType);
+                            let periodTotals = [];
+                            
+                            for (const [periodKey, pairs] of periodGroups.entries()) {
+                                if (pairs.length > 0) {
+                                    const pairValues = pairs.map(p => p.value);
+                                    const periodMax = Math.max(...pairValues);
+                                    periodTotals.push(periodMax);
+                                }
+                            }
+                            
+                            if (periodTotals.length > 0) {
+                                totalConsumption = periodTotals.reduce((sum, v) => sum + v, 0);
+                                base = Math.min(...periodTotals);
+                                averageEnergy = totalConsumption / periodTotals.length;
+                            } else {
+                                // Fallback: use MAX
+                                totalConsumption = Math.max(...energyValues);
+                                base = Math.min(...energyValues);
+                                averageEnergy = totalConsumption;
+                            }
+                        }
+                    } else if (!isSinglePeriod && isPartialPeriod && timestampValuePairs.length > 0) {
+                        // Case 7: Partial period spanning multiple periods (e.g., Tuesday-Friday)
+                        const hasSensorId = timestampValuePairs.length > 0 && timestampValuePairs[0].sensorId !== undefined;
+                        
+                        if (hasSensorId) {
+                            // Multiple sensors: Calculate consumption per sensor, then sum
+                            const sensorGroups = new Map();
+                            for (const pair of timestampValuePairs) {
+                                const sensorId = pair.sensorId?.toString() || 'unknown';
+                                if (!sensorGroups.has(sensorId)) {
+                                    sensorGroups.set(sensorId, []);
+                                }
+                                sensorGroups.get(sensorId).push(pair);
+                            }
+                            
+                            let sensorConsumptions = [];
+                            
+                            if (periodType === 'week' && startDate && endDate) {
+                                const weekStart = roundToWeekStart(startDate);
+                                const mondayDate = new Date(weekStart.getTime() + 24 * 60 * 60 * 1000);
+                                
+                                for (const [sensorId, pairs] of sensorGroups.entries()) {
+                                    const mondayValue = getValueAtOrBefore(pairs, mondayDate);
+                                    const endValue = getLatestValue(pairs);
+                                    
+                                    if (mondayValue !== null && endValue !== null && endValue >= mondayValue) {
+                                        const sensorConsumption = endValue - mondayValue;
+                                        sensorConsumptions.push(sensorConsumption);
+                                    }
+                                }
+                            } else {
+                                // For other partial periods, use subtraction per sensor
+                                for (const [sensorId, pairs] of sensorGroups.entries()) {
+                                    const startValue = getValueJustBefore(pairs, startDate);
+                                    const endValue = getLatestValue(pairs);
+                                    
+                                    if (startValue !== null && endValue !== null && endValue >= startValue) {
+                                        const sensorConsumption = endValue - startValue;
+                                        sensorConsumptions.push(sensorConsumption);
+                                    }
+                                }
+                            }
+                            
+                            if (sensorConsumptions.length > 0) {
+                                totalConsumption = sensorConsumptions.reduce((sum, v) => sum + v, 0);
+                                base = Math.min(...sensorConsumptions);
+                                averageEnergy = totalConsumption / sensorConsumptions.length;
+                            } else {
+                                // Fallback: use Case 6 logic (group by period)
+                                const periodGroups = groupByPeriod(timestampValuePairs, 'day');
+                                let dayTotals = [];
+                                for (const [dayKey, pairs] of periodGroups.entries()) {
+                                    if (pairs.length > 0) {
+                                        // For multi-sensor: group by sensor, get MAX per sensor, then sum
+                                        const sensorDayGroups = new Map();
+                                        for (const pair of pairs) {
+                                            const sensorId = pair.sensorId?.toString() || 'unknown';
+                                            if (!sensorDayGroups.has(sensorId)) {
+                                                sensorDayGroups.set(sensorId, []);
+                                            }
+                                            sensorDayGroups.get(sensorId).push(pair);
+                                        }
+                                        let sensorMaxes = [];
+                                        for (const [sensorId, sensorPairs] of sensorDayGroups.entries()) {
+                                            const sensorMax = Math.max(...sensorPairs.map(p => p.value));
+                                            sensorMaxes.push(sensorMax);
+                                        }
+                                        const dayTotal = sensorMaxes.reduce((sum, v) => sum + v, 0);
+                                        dayTotals.push(dayTotal);
+                                    }
+                                }
+                                totalConsumption = dayTotals.reduce((sum, v) => sum + v, 0);
+                                base = Math.min(...dayTotals);
+                                averageEnergy = totalConsumption / dayTotals.length;
+                            }
+                        } else {
+                            // Single sensor: use original logic
+                            if (periodType === 'week' && startDate && endDate) {
+                                const weekStart = roundToWeekStart(startDate);
+                                const mondayValue = getValueAtOrBefore(timestampValuePairs, new Date(weekStart.getTime() + 24 * 60 * 60 * 1000));
+                                const endValue = getLatestValue(timestampValuePairs);
+                                
+                                if (mondayValue !== null && endValue !== null && endValue >= mondayValue) {
+                                    totalConsumption = endValue - mondayValue;
+                                    base = Math.min(...energyValues);
+                                    averageEnergy = totalConsumption;
+                                } else {
+                                    // Fallback: group by day and sum
+                                    const dayGroups = groupByPeriod(timestampValuePairs, 'day');
+                                    let dayTotals = [];
+                                    for (const [dayKey, pairs] of dayGroups.entries()) {
+                                        if (pairs.length > 0) {
+                                            const dayMax = Math.max(...pairs.map(p => p.value));
+                                            dayTotals.push(dayMax);
+                                        }
+                                    }
+                                    totalConsumption = dayTotals.reduce((sum, v) => sum + v, 0);
+                                    base = Math.min(...dayTotals);
+                                    averageEnergy = totalConsumption / dayTotals.length;
+                                }
+                            } else {
+                                // For other partial periods, use subtraction if possible
+                                const startValue = getValueJustBefore(timestampValuePairs, startDate);
+                                const endValue = getLatestValue(timestampValuePairs);
+                                
+                                if (startValue !== null && endValue !== null && endValue >= startValue) {
+                                    totalConsumption = endValue - startValue;
+                                    base = Math.min(...energyValues);
+                                    averageEnergy = totalConsumption;
+                                } else {
+                                    // Fallback: use MAX
+                                    totalConsumption = Math.max(...energyValues);
+                                    base = Math.min(...energyValues);
+                                    averageEnergy = totalConsumption;
+                                }
+                            }
+                        }
+                    } else {
+                        // Fallback: use MAX for single period, SUM for multiple
+                        if (isSinglePeriod) {
+                            totalConsumption = Math.max(...energyValues);
+                            base = Math.min(...energyValues);
+                            averageEnergy = totalConsumption;
+                        } else {
+                            totalConsumption = energyValues.reduce((sum, v) => sum + v, 0);
+                            base = Math.min(...energyValues);
+                            averageEnergy = totalConsumption / energyValues.length;
+                        }
+                    }
                 } else {
                     // Cumulative counter (total) or unknown: sum all values
                     totalConsumption = energyValues.reduce((sum, v) => sum + v, 0);
@@ -1080,6 +2076,7 @@ class DashboardDiscoveryService {
                 breakdownMap.set(measurementType, {
                     measurement_type: measurementType,
                     values: [],
+                    timestampValuePairs: [], // Preserve timestampValuePairs for multi-sensor breakdown calculation
                     stateTypes: new Set(), // Track all stateTypes for this measurementType
                     avgQuality: [],
                     count: 0,
@@ -1089,11 +2086,24 @@ class DashboardDiscoveryService {
             
             const breakdownItem = breakdownMap.get(measurementType);
             breakdownItem.values.push(...values);
+            // Preserve timestampValuePairs for multi-sensor aggregation
+            if (data.timestampValuePairs && Array.isArray(data.timestampValuePairs)) {
+                breakdownItem.timestampValuePairs.push(...data.timestampValuePairs);
+            }
             if (stateType) {
                 breakdownItem.stateTypes.add(stateType);
             }
             breakdownItem.avgQuality.push(...data.avgQuality);
             breakdownItem.count += data.count;
+        }
+        
+        // Sort timestampValuePairs by timestamp for each measurementType in breakdownMap
+        for (const [measurementType, item] of breakdownMap.entries()) {
+            if (item.timestampValuePairs && item.timestampValuePairs.length > 0) {
+                item.timestampValuePairs.sort((a, b) => 
+                    new Date(a.timestamp) - new Date(b.timestamp)
+                );
+            }
         }
         
         // Calculate statistics for each measurement type
@@ -1107,21 +2117,87 @@ class DashboardDiscoveryService {
                 st === 'totalNegDay' || st === 'totalNegWeek' || st === 'totalNegMonth' || st === 'totalNegYear'
             );
             
-            // For Energy/Water/Heating with period totals: use max (latest period total) instead of sum
+            // Get timestampValuePairs for this measurementType (already preserved in breakdownMap)
+            const timestampValuePairs = item.timestampValuePairs || [];
+            
+            // For Energy/Water/Heating with period totals: calculate total same way as main consumption
             // For cumulative counters or other types: sum all values
             let total;
+            let min;
+            let max;
+            
             if ((measurementType === 'Energy' || measurementType === 'Water' || measurementType === 'Heating') && hasPeriodTotals) {
-                // Period totals: use max (latest period total)
-                // If multiple periods exist, this shows the latest period's total
-                total = Math.max(...values);
+                // Period totals with multiple sensors: group by sensor, get MAX per sensor, then SUM
+                // This matches the logic used for totalConsumption calculation
+                const hasSensorId = timestampValuePairs.length > 0 && 
+                    timestampValuePairs.some(p => p.sensorId !== undefined && p.sensorId !== null);
+                
+                if (hasSensorId) {
+                    // Multiple sensors: Group by sensorId, get MAX per sensor, then SUM
+                    const sensorGroups = new Map();
+                    for (const pair of timestampValuePairs) {
+                        // Handle ObjectId properly - convert to string
+                        let sensorIdStr = 'unknown';
+                        if (pair.sensorId) {
+                            if (typeof pair.sensorId === 'object' && pair.sensorId.toString) {
+                                sensorIdStr = pair.sensorId.toString();
+                            } else if (typeof pair.sensorId === 'string') {
+                                sensorIdStr = pair.sensorId;
+                            } else {
+                                sensorIdStr = String(pair.sensorId);
+                            }
+                        }
+                        
+                        if (!sensorGroups.has(sensorIdStr)) {
+                            sensorGroups.set(sensorIdStr, []);
+                        }
+                        sensorGroups.get(sensorIdStr).push(pair);
+                    }
+                    
+                    // Get MAX per sensor (period total for each sensor)
+                    const sensorTotals = [];
+                    for (const [sensorId, pairs] of sensorGroups.entries()) {
+                        const pairValues = pairs.map(p => p.value);
+                        const sensorMax = Math.max(...pairValues);
+                        sensorTotals.push(sensorMax);
+                    }
+                    
+                    // SUM all sensor totals (matches totalConsumption calculation)
+                    total = sensorTotals.reduce((sum, v) => sum + v, 0);
+                    min = Math.min(...sensorTotals);
+                    max = Math.max(...sensorTotals);
+                    
+                    console.log(`[DEBUG] Breakdown - ${measurementType} (Period Totals, Multiple Sensors):`, {
+                        measurementType,
+                        sensorCount: sensorGroups.size,
+                        sensorTotals,
+                        total,
+                        min,
+                        max,
+                        timestampValuePairsCount: timestampValuePairs.length
+                    });
+                } else {
+                    // Single sensor: use MAX (latest period total)
+                    total = Math.max(...values);
+                    min = Math.min(...values);
+                    max = Math.max(...values);
+                    
+                    console.log(`[DEBUG] Breakdown - ${measurementType} (Period Totals, Single Sensor):`, {
+                        measurementType,
+                        total,
+                        min,
+                        max,
+                        valuesCount: values.length
+                    });
+                }
             } else {
                 // Cumulative counters or other types: sum all values
                 total = values.reduce((sum, v) => sum + v, 0);
+                min = Math.min(...values);
+                max = Math.max(...values);
             }
             
-            const avg = total / values.length;
-            const min = Math.min(...values);
-            const max = Math.max(...values);
+            const avg = values.length > 0 ? total / values.length : 0;
             const qualitySum = item.avgQuality.reduce((sum, q) => sum + q, 0);
             const avgQ = qualitySum / item.avgQuality.length;
             
@@ -1244,49 +2320,77 @@ class DashboardDiscoveryService {
             timestamp: { $gte: startDate, $lt: endDate }
         };
         
-        // Determine stateType filtering (same logic as getBuildingKPIs)
+        // Use smart query strategy for Energy measurements
         const interval = options.interval || null;
-        const energyStateType = getStateTypeForInterval(interval);
+        const energySegments = determineOptimalEnergyQueryStrategy(startDate, endDate, options);
         
-        // Build second match stage for measurement types
-        const secondMatchStage = {};
-        if (options.measurementType) {
-            secondMatchStage['meta.measurementType'] = options.measurementType;
-            if (options.measurementType === 'Energy') {
-                if (energyStateType) {
-                    secondMatchStage['meta.stateType'] = energyStateType;
-                } else {
-                    secondMatchStage['meta.measurementType'] = 'Power';
-                    secondMatchStage['meta.stateType'] = { $regex: '^actual' };
-                }
-            } else if (options.measurementType === 'Power') {
-                secondMatchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
-            } else if (options.stateType) {
-                secondMatchStage['meta.stateType'] = options.stateType;
-            }
+        // Collect all results from different segments
+        const rawResults = [];
+        const foundMeasurementTypes = new Set();
+        
+        // Query Energy measurements using total* states from each segment
+        for (const segment of energySegments) {
+            // Use fallback helper to query with automatic resolution fallback
+            const baseMatchStage = {
+                'meta.sensorId': { $in: sensorIds }
+            };
+            
+            const segmentResults = await queryEnergyWithFallback(
+                db,
+                baseMatchStage,
+                segment.resolution,
+                segment.stateType,
+                segment.startDate,
+                segment.endDate
+            );
+            
+            // Merge segment results
+            for (const result of segmentResults) {
+                const key = `${result._id.measurementType}:${result._id.stateType || 'unknown'}:${result._id.unit}`;
+                const existingResult = rawResults.find(r => 
+                    r._id.measurementType === result._id.measurementType &&
+                    r._id.stateType === result._id.stateType &&
+                    r._id.unit === result._id.unit
+                );
+                
+                if (existingResult) {
+                    // Merge values, timestamps, and quality
+                    existingResult.values.push(...result.values);
+                    if (result.timestampValuePairs) {
+                        if (!existingResult.timestampValuePairs) {
+                            existingResult.timestampValuePairs = [];
+                        }
+                        existingResult.timestampValuePairs.push(...result.timestampValuePairs);
+                        // Re-sort after merging
+                        existingResult.timestampValuePairs.sort((a, b) => 
+                            new Date(a.timestamp) - new Date(b.timestamp)
+                        );
+                    }
+                    existingResult.count += result.count;
+                    existingResult.avgQuality = (existingResult.avgQuality * (existingResult.count - result.count) + result.avgQuality * result.count) / existingResult.count;
         } else {
-            const orConditions = [];
-            
-            if (energyStateType) {
-                orConditions.push({ 'meta.measurementType': 'Energy', 'meta.stateType': energyStateType });
-            } else {
-                orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+                    rawResults.push(result);
+                    foundMeasurementTypes.add(result._id.measurementType);
+                }
             }
-            
-            orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
-            orConditions.push({ 'meta.measurementType': { $nin: ['Energy', 'Power'] } });
-            
-            secondMatchStage.$or = orConditions;
         }
         
-        const pipeline = [
-            { $match: firstMatchStage }, // Uses compound index
-            { $match: secondMatchStage }, // Filters reduced dataset
+        // Also query Power measurements separately for peak power calculations
+        const powerMatchStage = {
+            'meta.sensorId': { $in: sensorIds },
+            'meta.measurementType': 'Power',
+            'meta.stateType': { $regex: '^actual' },
+            resolution_minutes: resolution,
+            timestamp: { $gte: startDate, $lt: endDate }
+        };
+        
+        const powerPipeline = [
+            { $match: powerMatchStage },
             {
                 $group: {
                     _id: {
                         measurementType: '$meta.measurementType',
-                        stateType: '$meta.stateType', // Track stateType to distinguish total vs totalDay
+                        stateType: '$meta.stateType',
                         unit: '$unit'
                     },
                     values: { $push: '$value' },
@@ -1297,43 +2401,30 @@ class DashboardDiscoveryService {
             }
         ];
         
-        // Query measurements_aggregated for aggregated data
-        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
+        const powerResults = await db.collection('measurements_aggregated').aggregate(powerPipeline).toArray();
+        rawResults.push(...powerResults);
+        foundMeasurementTypes.add('Power');
         
-        // Track which measurement types we've found
-        const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
-        
-        // Try fallback resolutions if:
-        // 1. No results found at all, OR
-        // 2. We're querying all measurement types (no measurementType filter) and might be missing some types
-        const shouldTryFallback = rawResults.length === 0 || (!options.measurementType && foundMeasurementTypes.size < 5);
-        
-        if (shouldTryFallback) {
-            const fallbackResolutions = [];
+        // Query other measurement types if not filtering by measurementType
+        if (!options.measurementType) {
+            const otherMatchStage = {
+                'meta.sensorId': { $in: sensorIds },
+                'meta.measurementType': { $nin: ['Energy', 'Power'] },
+                resolution_minutes: resolution,
+                timestamp: { $gte: startDate, $lt: endDate }
+            };
             
-            // Determine fallback resolutions based on current resolution
-            if (resolution === 15) {
-                // Try hourly, then daily
-                fallbackResolutions.push(60, 1440);
-            } else if (resolution === 60) {
-                // Try daily
-                fallbackResolutions.push(1440);
+            if (options.stateType) {
+                otherMatchStage['meta.stateType'] = options.stateType;
             }
             
-            // Try each fallback resolution and merge results
-            for (const fallbackResolution of fallbackResolutions) {
-                const fallbackFirstMatch = {
-                    ...firstMatchStage,
-                    resolution_minutes: fallbackResolution
-                };
-                
-                const fallbackPipeline = [
-                    { $match: fallbackFirstMatch },
-                    { $match: secondMatchStage },
+            const otherPipeline = [
+                { $match: otherMatchStage },
                     {
                         $group: {
                             _id: {
                                 measurementType: '$meta.measurementType',
+                            stateType: '$meta.stateType',
                                 unit: '$unit'
                             },
                             values: { $push: '$value' },
@@ -1344,32 +2435,20 @@ class DashboardDiscoveryService {
                     }
                 ];
                 
-                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
-                
-                if (fallbackResults.length > 0) {
-                    // Merge fallback results with existing results
-                    // Only add measurement types we haven't found yet
-                    for (const fallbackResult of fallbackResults) {
-                        const measurementType = fallbackResult._id.measurementType;
-                        if (!foundMeasurementTypes.has(measurementType)) {
-                            rawResults.push(fallbackResult);
-                            foundMeasurementTypes.add(measurementType);
-                            // console.log(`[DEBUG] getSiteKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
-                        }
-                    }
-                    
-                    // If we had no results initially, use fallback results and stop
-                    if (rawResults.length === 0) {
-                        rawResults = fallbackResults;
-                        // console.log(`[DEBUG] getSiteKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
-                        break; // Found data, stop trying fallbacks
-                    }
-                }
+            const otherResults = await db.collection('measurements_aggregated').aggregate(otherPipeline).toArray();
+            rawResults.push(...otherResults);
+            for (const result of otherResults) {
+                foundMeasurementTypes.add(result._id.measurementType);
             }
         }
         
-        // Pass time range and resolution for energy calculation from Power
-        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval, resolution });
+        // Determine resolution for KPI calculation (use the most common resolution from segments)
+        const finalResolution = energySegments.length > 0 && energySegments[0].preferred 
+            ? energySegments[0].resolution 
+            : resolution;
+        
+        // Pass time range and resolution for energy calculation
+        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval, finalResolution });
     }
 
     /**
@@ -1442,72 +2521,77 @@ class DashboardDiscoveryService {
             timestamp: { $gte: startDate, $lt: endDate }
         };
         
-        // Determine stateType filtering based on options
-        // For reports: use appropriate total* stateType based on interval
-        // For dashboard (arbitrary ranges): use Power (actual* states) for energy calculation
+        // Use smart query strategy for Energy measurements
         const interval = options.interval || null;
-        const energyStateType = getStateTypeForInterval(interval);
+        const energySegments = determineOptimalEnergyQueryStrategy(startDate, endDate, options);
         
-        if (options.measurementType) {
-            matchStage['meta.measurementType'] = options.measurementType;
-            // For Energy measurements:
-            // - If interval is specified (report): use appropriate total* stateType
-            // - If no interval (dashboard arbitrary range): use Power (actual* states) for calculation
-            if (options.measurementType === 'Energy') {
-                if (energyStateType) {
-                    // Report with fixed interval: use totalDay/totalWeek/totalMonth/totalYear
-                    matchStage['meta.stateType'] = energyStateType;
-                } else {
-                    // Dashboard arbitrary range: use Power (actual* states) for energy calculation
-                    // We'll calculate energy from Power data: energy = average_power × hours
-                    matchStage['meta.measurementType'] = 'Power';
-                    matchStage['meta.stateType'] = { $regex: '^actual' }; // actual, actual0, actual1, etc.
-                }
-            } else if (options.measurementType === 'Power') {
-                // Power measurements: use actual* states
-                matchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
-            } else if (options.stateType) {
-                // Allow explicit stateType for other measurement types
-                matchStage['meta.stateType'] = options.stateType;
-            }
+        // Collect all results from different segments
+        const rawResults = [];
+        const foundMeasurementTypes = new Set();
+        
+        // Query Energy measurements using total* states from each segment
+        for (const segment of energySegments) {
+            // Use fallback helper to query with automatic resolution fallback
+            const baseMatchStage = {
+                'meta.sensorId': { $in: sensorIds }
+            };
+            
+            const segmentResults = await queryEnergyWithFallback(
+                db,
+                baseMatchStage,
+                segment.resolution,
+                segment.stateType,
+                segment.startDate,
+                segment.endDate
+            );
+            
+            // Merge segment results
+            for (const result of segmentResults) {
+                const key = `${result._id.measurementType}:${result._id.stateType || 'unknown'}:${result._id.unit}`;
+                const existingResult = rawResults.find(r => 
+                    r._id.measurementType === result._id.measurementType &&
+                    r._id.stateType === result._id.stateType &&
+                    r._id.unit === result._id.unit
+                );
+                
+                if (existingResult) {
+                    // Merge values, timestamps, and quality
+                    existingResult.values.push(...result.values);
+                    if (result.timestampValuePairs) {
+                        if (!existingResult.timestampValuePairs) {
+                            existingResult.timestampValuePairs = [];
+                        }
+                        existingResult.timestampValuePairs.push(...result.timestampValuePairs);
+                        // Re-sort after merging
+                        existingResult.timestampValuePairs.sort((a, b) => 
+                            new Date(a.timestamp) - new Date(b.timestamp)
+                        );
+                    }
+                    existingResult.count += result.count;
+                    existingResult.avgQuality = (existingResult.avgQuality * (existingResult.count - result.count) + result.avgQuality * result.count) / existingResult.count;
         } else {
-            // When querying all measurement types (no measurementType filter):
-            // - Energy: use total* states if interval specified, otherwise use Power (actual*)
-            // - Power: use actual* states
-            // - Others (Temperature, Analog, Heating, etc.): no stateType filter - include ALL types
-            const orConditions = [];
-            
-            if (energyStateType) {
-                // Report: Energy with total* stateType
-                orConditions.push({ 'meta.measurementType': 'Energy', 'meta.stateType': energyStateType });
-            } else {
-                // Dashboard: Use Power (actual* states) for energy calculation
-                orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+                    rawResults.push(result);
+                    foundMeasurementTypes.add(result._id.measurementType);
+                }
             }
-            
-            // Power measurements: actual* states
-            orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
-            
-            // Other measurement types (Temperature, Analog, Heating, etc.): no stateType filter
-            // This ensures ALL measurement types are included in the breakdown
-            orConditions.push({ 'meta.measurementType': { $nin: ['Energy', 'Power'] } });
-            
-            matchStage.$or = orConditions;
         }
         
-        const matchStageDuration = Date.now() - matchStageStartTime;
-        // console.log(`[PERF] getBuildingKPIs: matchStage construction took ${matchStageDuration}ms`);
+        // Also query Power measurements separately for peak power calculations
+        const powerMatchStage = {
+            'meta.sensorId': { $in: sensorIds },
+            'meta.measurementType': 'Power',
+            'meta.stateType': { $regex: '^actual' },
+            resolution_minutes: resolution,
+            timestamp: { $gte: startDate, $lt: endDate }
+        };
         
-        // Start timing pipeline construction
-        const pipelineStartTime = Date.now();
-        
-        const pipeline = [
-            { $match: matchStage },
+        const powerPipeline = [
+            { $match: powerMatchStage },
             {
                 $group: {
                     _id: {
                         measurementType: '$meta.measurementType',
-                        stateType: '$meta.stateType', // Track stateType to distinguish total vs totalDay
+                        stateType: '$meta.stateType',
                         unit: '$unit'
                     },
                     values: { $push: '$value' },
@@ -1518,15 +2602,49 @@ class DashboardDiscoveryService {
             }
         ];
         
-        const pipelineDuration = Date.now() - pipelineStartTime;
-        // console.log(`[PERF] getBuildingKPIs: pipeline construction took ${pipelineDuration}ms`);
+        const powerResults = await db.collection('measurements_aggregated').aggregate(powerPipeline).toArray();
+        rawResults.push(...powerResults);
+        foundMeasurementTypes.add('Power');
         
-        // Start timing aggregation execution
+        // Query other measurement types if not filtering by measurementType
+        if (!options.measurementType) {
+            const otherMatchStage = {
+                'meta.sensorId': { $in: sensorIds },
+                'meta.measurementType': { $nin: ['Energy', 'Power'] },
+                resolution_minutes: resolution,
+                timestamp: { $gte: startDate, $lt: endDate }
+            };
+            
+            if (options.stateType) {
+                otherMatchStage['meta.stateType'] = options.stateType;
+            }
+            
+            const otherPipeline = [
+                { $match: otherMatchStage },
+            {
+                $group: {
+                    _id: {
+                        measurementType: '$meta.measurementType',
+                            stateType: '$meta.stateType',
+                        unit: '$unit'
+                    },
+                    values: { $push: '$value' },
+                    units: { $first: '$unit' },
+                    avgQuality: { $avg: '$quality' },
+                    count: { $sum: 1 }
+                }
+            }
+        ];
+        
+            const otherResults = await db.collection('measurements_aggregated').aggregate(otherPipeline).toArray();
+            rawResults.push(...otherResults);
+            for (const result of otherResults) {
+                foundMeasurementTypes.add(result._id.measurementType);
+            }
+        }
+        
+        const matchStageDuration = Date.now() - matchStageStartTime;
         const aggregationStartTime = Date.now();
-        // console.log(`[PERF] getBuildingKPIs: starting aggregation at ${aggregationStartTime}`);
-        
-        // Query measurements_aggregated for aggregated data
-        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
         
         // If no results and querying recent data (resolution 15 or 0), try measurements_raw as fallback
         if (rawResults.length === 0 && (resolution === 15 || resolution === 0)) {
@@ -1574,88 +2692,13 @@ class DashboardDiscoveryService {
         //     resultTypes: rawResults.map(r => r._id.measurementType)
         // });
         
-        // Track which measurement types we've found
-        const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
+        // Determine resolution for KPI calculation (use the most common resolution from segments)
+        const finalResolution = energySegments.length > 0 && energySegments[0].preferred 
+            ? energySegments[0].resolution 
+            : resolution;
         
-        // Try fallback resolutions if:
-        // 1. No results found at all, OR
-        // 2. We're querying all measurement types (no measurementType filter) and might be missing some types
-        // For report summaries, we only need Energy, Power, and Heating - so we can relax the condition
-        // This ensures we find Temperature, Analog, and other types that might be at different resolutions
-        // For report summaries (when options.isReportSummary is true), only try fallback if no results or missing critical types
-        const isReportSummary = options.isReportSummary === true;
-        const shouldTryFallback = rawResults.length === 0 || (!options.measurementType && (
-            isReportSummary 
-                ? (foundMeasurementTypes.size < 2 && (!foundMeasurementTypes.has('Energy') || !foundMeasurementTypes.has('Power')))
-                : foundMeasurementTypes.size < 5
-        ));
-        
-        if (shouldTryFallback) {
-            const fallbackResolutions = [];
-            
-            // Determine fallback resolutions based on current resolution
-            if (resolution === 15) {
-                // Try hourly, then daily
-                fallbackResolutions.push(60, 1440);
-            } else if (resolution === 60) {
-                // Try daily
-                fallbackResolutions.push(1440);
-            }
-            
-            // Try each fallback resolution and merge results
-            for (const fallbackResolution of fallbackResolutions) {
-                const fallbackStartTime = Date.now();
-                const fallbackMatchStage = {
-                    ...matchStage,
-                    resolution_minutes: fallbackResolution
-                };
-                // Preserve $or structure if it exists
-                if (matchStage.$or) {
-                    fallbackMatchStage.$or = matchStage.$or;
-                }
-                
-                const fallbackPipeline = [
-                    { $match: fallbackMatchStage },
-                    {
-                        $group: {
-                            _id: {
-                                measurementType: '$meta.measurementType',
-                                unit: '$unit'
-                            },
-                            values: { $push: '$value' },
-                            units: { $first: '$unit' },
-                            avgQuality: { $avg: '$quality' },
-                            count: { $sum: 1 }
-                        }
-                    }
-                ];
-                
-                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
-                const fallbackDuration = Date.now() - fallbackStartTime;
-                
-                if (fallbackResults.length > 0) {
-                    // Merge fallback results with existing results
-                    // Only add measurement types we haven't found yet
-                    for (const fallbackResult of fallbackResults) {
-                        const measurementType = fallbackResult._id.measurementType;
-                        if (!foundMeasurementTypes.has(measurementType)) {
-                            rawResults.push(fallbackResult);
-                            foundMeasurementTypes.add(measurementType);
-                            // console.log(`[DEBUG] getBuildingKPIs [${fallbackDuration}ms]: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
-                        }
-                    }
-                    
-                    // If we had no results initially, use fallback results and stop
-                    if (rawResults.length === 0) {
-                        rawResults = fallbackResults;
-                        // console.log(`[DEBUG] getBuildingKPIs [${fallbackDuration}ms]: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
-                        break; // Found data, stop trying fallbacks
-                    }
-                }
-            }
-        }
-        // console.log("after calculateKPIsFromResults the time is ", Date.now());
-        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval: options.interval, resolution });
+        // Pass time range and resolution for energy calculation
+        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval, finalResolution });
     }
 
     /**
@@ -1808,6 +2851,199 @@ class DashboardDiscoveryService {
     }
 
     /**
+     * Get floor-level KPIs (aggregate all sensors in all rooms on floor)
+     * @param {String} floorId - Floor ID
+     * @param {Date} startDate - Start date
+     * @param {Date} endDate - End date
+     * @param {Object} options - Query options
+     * @returns {Promise<Object>} KPIs object
+     */
+    async getFloorKPIs(floorId, startDate, endDate, options = {}) {
+        // Get all LocalRooms for this floor
+        const localRooms = await LocalRoom.find({ floor_id: floorId })
+            .populate('loxone_room_id')
+            .lean();
+        
+        // Get all linked Loxone Room IDs for sensors
+        const loxoneRoomIds = localRooms
+            .filter(lr => lr.loxone_room_id && lr.loxone_room_id._id)
+            .map(lr => lr.loxone_room_id._id);
+        
+        if (loxoneRoomIds.length === 0) {
+            return this.getEmptyKPIs();
+        }
+        
+        // Get all sensors for all linked Loxone rooms on this floor
+        const sensors = await Sensor.find({ room_id: { $in: loxoneRoomIds } }).select('_id').lean();
+        const sensorIds = sensors.map(s => s._id);
+        
+        if (sensorIds.length === 0) {
+            return this.getEmptyKPIs();
+        }
+        
+        const db = mongoose.connection.db;
+        if (!db) {
+            throw new ServiceUnavailableError('Database connection not available');
+        }
+        
+        const duration = endDate - startDate;
+        const days = duration / (1000 * 60 * 60 * 24);
+        
+        // Determine resolution based on time range AND data age
+        // 15-minute aggregates are only kept for 1 hour, then deleted
+        let resolution = 15;
+        if (options.resolution !== undefined) {
+            resolution = options.resolution;
+        } else {
+            // Check how old the data is (hours since endDate)
+            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+            const daysSinceEndDate = hoursSinceEndDate / 24;
+            
+            if (days > 90 || daysSinceEndDate > 7) {
+                resolution = 1440; // daily
+            } else if (days > 7 || daysSinceEndDate > 1) {
+                resolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                // Data older than 1 hour: use hourly aggregates
+                // (15-minute aggregates are deleted after 1 hour)
+                resolution = 60; // hourly
+            } else {
+                // Recent data (within last hour): use 15-minute aggregates
+                resolution = 15; // 15-minute
+            }
+        }
+        
+        // Use smart query strategy for Energy measurements
+        const interval = options.interval || null;
+        const energySegments = determineOptimalEnergyQueryStrategy(startDate, endDate, options);
+        
+        // Collect all results from different segments
+        const rawResults = [];
+        const foundMeasurementTypes = new Set();
+        
+        // Query Energy measurements using total* states from each segment
+        for (const segment of energySegments) {
+            // Use fallback helper to query with automatic resolution fallback
+            const baseMatchStage = {
+                'meta.sensorId': { $in: sensorIds.map(id => new mongoose.Types.ObjectId(id)) }
+            };
+            
+            const segmentResults = await queryEnergyWithFallback(
+                db,
+                baseMatchStage,
+                segment.resolution,
+                segment.stateType,
+                segment.startDate,
+                segment.endDate
+            );
+            
+            // Merge segment results
+            for (const result of segmentResults) {
+                const key = `${result._id.measurementType}:${result._id.stateType || 'unknown'}:${result._id.unit}`;
+                const existingResult = rawResults.find(r => 
+                    r._id.measurementType === result._id.measurementType &&
+                    r._id.stateType === result._id.stateType &&
+                    r._id.unit === result._id.unit
+                );
+                
+                if (existingResult) {
+                    // Merge values, timestamps, and quality
+                    existingResult.values.push(...result.values);
+                    if (result.timestampValuePairs) {
+                        if (!existingResult.timestampValuePairs) {
+                            existingResult.timestampValuePairs = [];
+                        }
+                        existingResult.timestampValuePairs.push(...result.timestampValuePairs);
+                        // Re-sort after merging
+                        existingResult.timestampValuePairs.sort((a, b) => 
+                            new Date(a.timestamp) - new Date(b.timestamp)
+                        );
+                    }
+                    existingResult.count += result.count;
+                    existingResult.avgQuality = (existingResult.avgQuality * (existingResult.count - result.count) + result.avgQuality * result.count) / existingResult.count;
+        } else {
+                    rawResults.push(result);
+                    foundMeasurementTypes.add(result._id.measurementType);
+                }
+            }
+        }
+        
+        // Also query Power measurements separately for peak power calculations
+        const powerMatchStage = {
+            'meta.sensorId': { $in: sensorIds.map(id => new mongoose.Types.ObjectId(id)) },
+            'meta.measurementType': 'Power',
+            'meta.stateType': { $regex: '^actual' },
+            resolution_minutes: resolution,
+            timestamp: { $gte: startDate, $lt: endDate }
+        };
+        
+        const powerPipeline = [
+            { $match: powerMatchStage },
+            {
+                $group: {
+                    _id: {
+                        measurementType: '$meta.measurementType',
+                        stateType: '$meta.stateType',
+                        unit: '$unit'
+                    },
+                    values: { $push: '$value' },
+                    units: { $first: '$unit' },
+                    avgQuality: { $avg: '$quality' },
+                    count: { $sum: 1 }
+                }
+            }
+        ];
+        
+        const powerResults = await db.collection('measurements_aggregated').aggregate(powerPipeline).toArray();
+        rawResults.push(...powerResults);
+        foundMeasurementTypes.add('Power');
+        
+        // Query other measurement types if not filtering by measurementType
+        if (!options.measurementType) {
+            const otherMatchStage = {
+                'meta.sensorId': { $in: sensorIds.map(id => new mongoose.Types.ObjectId(id)) },
+                'meta.measurementType': { $nin: ['Energy', 'Power'] },
+                resolution_minutes: resolution,
+                timestamp: { $gte: startDate, $lt: endDate }
+            };
+            
+            if (options.stateType) {
+                otherMatchStage['meta.stateType'] = options.stateType;
+            }
+            
+            const otherPipeline = [
+                { $match: otherMatchStage },
+                    {
+                        $group: {
+                            _id: {
+                                measurementType: '$meta.measurementType',
+                            stateType: '$meta.stateType',
+                                unit: '$unit'
+                            },
+                            values: { $push: '$value' },
+                            units: { $first: '$unit' },
+                            avgQuality: { $avg: '$quality' },
+                            count: { $sum: 1 }
+                        }
+                    }
+                ];
+                
+            const otherResults = await db.collection('measurements_aggregated').aggregate(otherPipeline).toArray();
+            rawResults.push(...otherResults);
+            for (const result of otherResults) {
+                foundMeasurementTypes.add(result._id.measurementType);
+            }
+        }
+        
+        // Determine resolution for KPI calculation (use the most common resolution from segments)
+        const finalResolution = energySegments.length > 0 && energySegments[0].preferred 
+            ? energySegments[0].resolution 
+            : resolution;
+        
+        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval, finalResolution });
+    }
+
+    /**
      * Get room-level KPIs (aggregate all sensors in room)
      * @param {String} roomId - Room ID
      * @param {Date} startDate - Start date
@@ -1862,46 +3098,103 @@ class DashboardDiscoveryService {
             timestamp: { $gte: startDate, $lt: endDate }
         };
         
-        // Determine stateType filtering based on options (same logic as getBuildingKPIs)
+        // Use smart query strategy for Energy measurements
         const interval = options.interval || null;
-        const energyStateType = getStateTypeForInterval(interval);
+        const energySegments = determineOptimalEnergyQueryStrategy(startDate, endDate, options);
         
-        if (options.measurementType) {
-            matchStage['meta.measurementType'] = options.measurementType;
-            if (options.measurementType === 'Energy') {
-                if (energyStateType) {
-                    matchStage['meta.stateType'] = energyStateType;
-                } else {
-                    matchStage['meta.measurementType'] = 'Power';
-                    matchStage['meta.stateType'] = { $regex: '^actual' };
-                }
-            } else if (options.measurementType === 'Power') {
-                matchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
-            } else if (options.stateType) {
-                matchStage['meta.stateType'] = options.stateType;
-            }
+        // Collect all results from different segments
+        const rawResults = [];
+        const foundMeasurementTypes = new Set();
+        
+        // Query Energy measurements using total* states from each segment
+        for (const segment of energySegments) {
+            // Use fallback helper to query with automatic resolution fallback
+            const baseMatchStage = {
+                'meta.sensorId': { $in: sensorIds.map(id => new mongoose.Types.ObjectId(id)) }
+            };
+            
+            const segmentResults = await queryEnergyWithFallback(
+                db,
+                baseMatchStage,
+                segment.resolution,
+                segment.stateType,
+                segment.startDate,
+                segment.endDate
+            );
+            
+            // Merge segment results
+            for (const result of segmentResults) {
+                const key = `${result._id.measurementType}:${result._id.stateType || 'unknown'}:${result._id.unit}`;
+                const existingResult = rawResults.find(r => 
+                    r._id.measurementType === result._id.measurementType &&
+                    r._id.stateType === result._id.stateType &&
+                    r._id.unit === result._id.unit
+                );
+                
+                if (existingResult) {
+                    // Merge values, timestamps, and quality
+                    existingResult.values.push(...result.values);
+                    if (result.timestampValuePairs) {
+                        if (!existingResult.timestampValuePairs) {
+                            existingResult.timestampValuePairs = [];
+                        }
+                        existingResult.timestampValuePairs.push(...result.timestampValuePairs);
+                        // Re-sort after merging
+                        existingResult.timestampValuePairs.sort((a, b) => 
+                            new Date(a.timestamp) - new Date(b.timestamp)
+                        );
+                    }
+                    existingResult.count += result.count;
+                    existingResult.avgQuality = (existingResult.avgQuality * (existingResult.count - result.count) + result.avgQuality * result.count) / existingResult.count;
         } else {
-            const orConditions = [];
-            
-            if (energyStateType) {
-                orConditions.push({ 'meta.measurementType': 'Energy', 'meta.stateType': energyStateType });
-            } else {
-                orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
+                    rawResults.push(result);
+                    foundMeasurementTypes.add(result._id.measurementType);
+                }
             }
-            
-            orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
-            orConditions.push({ 'meta.measurementType': { $nin: ['Energy', 'Power'] } });
-            
-            matchStage.$or = orConditions;
         }
         
-        const pipeline = [
-            { $match: matchStage },
+        // Debug: Log raw results before KPI calculation
+        console.log(`[DEBUG] getRoomKPIs - Raw results before calculateKPIsFromResults:`, {
+            roomId: roomId.toString(),
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            sensorIdsCount: sensorIds.length,
+            sensorIds: sensorIds.map(id => id.toString()),
+            rawResultsCount: rawResults.length,
+            rawResults: rawResults.map(r => ({
+                measurementType: r._id.measurementType,
+                stateType: r._id.stateType,
+                unit: r._id.unit,
+                valuesCount: r.values?.length || 0,
+                values: r.values?.slice(0, 20), // First 20 values
+                timestampValuePairsCount: r.timestampValuePairs?.length || 0,
+                hasSensorId: r.timestampValuePairs?.some(p => p.sensorId !== undefined) || false,
+                uniqueSensorIds: r.timestampValuePairs ? 
+                    [...new Set(r.timestampValuePairs.map(p => p.sensorId?.toString()).filter(Boolean))] : [],
+                sampleTimestampValuePairs: r.timestampValuePairs?.slice(0, 5).map(p => ({
+                    timestamp: p.timestamp,
+                    value: p.value,
+                    sensorId: p.sensorId?.toString() || 'missing'
+                })) || []
+            }))
+        });
+        
+        // Also query Power measurements separately for peak power calculations
+        const powerMatchStage = {
+            'meta.sensorId': { $in: sensorIds.map(id => new mongoose.Types.ObjectId(id)) },
+            'meta.measurementType': 'Power',
+            'meta.stateType': { $regex: '^actual' },
+            resolution_minutes: resolution,
+            timestamp: { $gte: startDate, $lt: endDate }
+        };
+        
+        const powerPipeline = [
+            { $match: powerMatchStage },
             {
                 $group: {
                     _id: {
                         measurementType: '$meta.measurementType',
-                        stateType: '$meta.stateType', // Track stateType to distinguish total vs totalDay
+                        stateType: '$meta.stateType',
                         unit: '$unit'
                     },
                     values: { $push: '$value' },
@@ -1912,46 +3205,30 @@ class DashboardDiscoveryService {
             }
         ];
         
-        // Query measurements_aggregated for aggregated data
-        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
+        const powerResults = await db.collection('measurements_aggregated').aggregate(powerPipeline).toArray();
+        rawResults.push(...powerResults);
+        foundMeasurementTypes.add('Power');
         
-        // Track which measurement types we've found
-        const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
-        
-        // Try fallback resolutions if:
-        // 1. No results found at all, OR
-        // 2. We're querying all measurement types (no measurementType filter) and might be missing some types
-        const shouldTryFallback = rawResults.length === 0 || (!options.measurementType && foundMeasurementTypes.size < 5);
-        
-        if (shouldTryFallback) {
-            const fallbackResolutions = [];
+        // Query other measurement types if not filtering by measurementType
+        if (!options.measurementType) {
+            const otherMatchStage = {
+                'meta.sensorId': { $in: sensorIds.map(id => new mongoose.Types.ObjectId(id)) },
+                'meta.measurementType': { $nin: ['Energy', 'Power'] },
+                resolution_minutes: resolution,
+                timestamp: { $gte: startDate, $lt: endDate }
+            };
             
-            // Determine fallback resolutions based on current resolution
-            if (resolution === 15) {
-                // Try hourly, then daily
-                fallbackResolutions.push(60, 1440);
-            } else if (resolution === 60) {
-                // Try daily
-                fallbackResolutions.push(1440);
+            if (options.stateType) {
+                otherMatchStage['meta.stateType'] = options.stateType;
             }
             
-            // Try each fallback resolution and merge results
-            for (const fallbackResolution of fallbackResolutions) {
-                const fallbackMatchStage = {
-                    ...matchStage,
-                    resolution_minutes: fallbackResolution
-                };
-                // Preserve $or structure if it exists
-                if (matchStage.$or) {
-                    fallbackMatchStage.$or = matchStage.$or;
-                }
-                
-                const fallbackPipeline = [
-                    { $match: fallbackMatchStage },
+            const otherPipeline = [
+                { $match: otherMatchStage },
                     {
                         $group: {
                             _id: {
                                 measurementType: '$meta.measurementType',
+                            stateType: '$meta.stateType',
                                 unit: '$unit'
                             },
                             values: { $push: '$value' },
@@ -1962,31 +3239,19 @@ class DashboardDiscoveryService {
                     }
                 ];
                 
-                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
-                
-                if (fallbackResults.length > 0) {
-                    // Merge fallback results with existing results
-                    // Only add measurement types we haven't found yet
-                    for (const fallbackResult of fallbackResults) {
-                        const measurementType = fallbackResult._id.measurementType;
-                        if (!foundMeasurementTypes.has(measurementType)) {
-                            rawResults.push(fallbackResult);
-                            foundMeasurementTypes.add(measurementType);
-                            // console.log(`[DEBUG] getRoomKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
-                        }
-                    }
-                    
-                    // If we had no results initially, use fallback results and stop
-                    if (rawResults.length === 0) {
-                        rawResults = fallbackResults;
-                        // console.log(`[DEBUG] getRoomKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
-                        break; // Found data, stop trying fallbacks
-                    }
-                }
+            const otherResults = await db.collection('measurements_aggregated').aggregate(otherPipeline).toArray();
+            rawResults.push(...otherResults);
+            for (const result of otherResults) {
+                foundMeasurementTypes.add(result._id.measurementType);
             }
         }
         
-        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval: options.interval, resolution });
+        // Determine resolution for KPI calculation (use the most common resolution from segments)
+        const finalResolution = energySegments.length > 0 && energySegments[0].preferred 
+            ? energySegments[0].resolution 
+            : resolution;
+        
+        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval, finalResolution });
     }
 
     /**
@@ -2245,56 +3510,122 @@ class DashboardDiscoveryService {
             }
         }
 
-        // Query by sensor IDs (measurements no longer have buildingId in meta)
-        const firstMatchStage = {
-            'meta.sensorId': { $in: allSensorIds },
-            resolution_minutes: resolution,
-            timestamp: { $gte: startDate, $lt: endDate },
-        };
-
-        // Determine stateType filtering based on options
+        // Use smart query strategy for Energy measurements (same as getBuildingKPIs)
         const interval = options.interval || null;
-        const energyStateType = getStateTypeForInterval(interval);
-
-        // Build second match stage for measurement types
-        const secondMatchStage = {};
-        if (options.measurementType) {
-            secondMatchStage['meta.measurementType'] = options.measurementType;
-            if (options.measurementType === 'Energy') {
-                if (energyStateType) {
-                    secondMatchStage['meta.stateType'] = energyStateType;
-                } else {
-                    secondMatchStage['meta.measurementType'] = 'Power';
-                    secondMatchStage['meta.stateType'] = { $regex: '^actual' };
+        const energySegments = determineOptimalEnergyQueryStrategy(startDate, endDate, options);
+        
+        // Collect all results from different segments, grouped by building
+        const buildingResultsMap = new Map(); // buildingId -> array of results
+        const foundMeasurementTypes = new Set();
+        
+        // Query Energy measurements using total* states from each segment
+        for (const segment of energySegments) {
+            // Use fallback helper to query with automatic resolution fallback
+            const baseMatchStage = {
+                'meta.sensorId': { $in: allSensorIds }
+            };
+            
+            const segmentResults = await queryEnergyWithFallback(
+                db,
+                baseMatchStage,
+                segment.resolution,
+                segment.stateType,
+                segment.startDate,
+                segment.endDate
+            );
+            
+            // Group segment results by building
+            for (const result of segmentResults) {
+                // Group timestampValuePairs by building
+                const buildingPairsMap = new Map(); // buildingId -> array of pairs
+                
+                if (result.timestampValuePairs && Array.isArray(result.timestampValuePairs)) {
+                    for (const pair of result.timestampValuePairs) {
+                        if (pair.sensorId) {
+                            const sensorIdStr = pair.sensorId.toString();
+                            const buildingId = sensorToBuildingMap.get(sensorIdStr);
+                            if (buildingId) {
+                                if (!buildingPairsMap.has(buildingId)) {
+                                    buildingPairsMap.set(buildingId, []);
+                                }
+                                buildingPairsMap.get(buildingId).push(pair);
+                            }
+                        }
+                    }
                 }
-            } else if (options.measurementType === 'Power') {
-                secondMatchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
-            } else if (options.stateType) {
-                secondMatchStage['meta.stateType'] = options.stateType;
+                
+                // Create building-specific results
+                for (const [buildingId, buildingPairs] of buildingPairsMap.entries()) {
+                    if (buildingPairs.length > 0) {
+                        if (!buildingResultsMap.has(buildingId)) {
+                            buildingResultsMap.set(buildingId, []);
+                        }
+                        
+                        const key = `${result._id.measurementType}:${result._id.stateType || 'unknown'}:${result._id.unit}`;
+                        // Check if we already have a result for this building with the same key
+                        const existingResult = buildingResultsMap.get(buildingId).find(r => 
+                            r._id.measurementType === result._id.measurementType &&
+                            r._id.stateType === result._id.stateType &&
+                            r._id.unit === result._id.unit
+                        );
+                        
+                        if (existingResult) {
+                            // Merge with existing result
+                            existingResult.timestampValuePairs.push(...buildingPairs);
+                            existingResult.values.push(...buildingPairs.map(p => p.value));
+                            existingResult.count += buildingPairs.length;
+                            // Re-sort after merging
+                            existingResult.timestampValuePairs.sort((a, b) => 
+                                new Date(a.timestamp) - new Date(b.timestamp)
+                            );
+                        } else {
+                            // Create new result for this building
+                            const buildingResult = {
+                                _id: {
+                                    measurementType: result._id.measurementType,
+                                    stateType: result._id.stateType,
+                                    unit: result._id.unit
+                                },
+                                timestampValuePairs: buildingPairs,
+                                values: buildingPairs.map(p => p.value),
+                                units: result.units,
+                                avgQuality: result.avgQuality,
+                                count: buildingPairs.length
+                            };
+                            buildingResultsMap.get(buildingId).push(buildingResult);
+                        }
+                    }
+                }
+                
+                foundMeasurementTypes.add(result._id.measurementType);
             }
-        } else {
-            const orConditions = [];
-            if (energyStateType) {
-                orConditions.push({ 'meta.measurementType': 'Energy', 'meta.stateType': energyStateType });
-            } else {
-                orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
-            }
-            orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
-            orConditions.push({ 'meta.measurementType': { $nin: ['Energy', 'Power'] } });
-            secondMatchStage.$or = orConditions;
         }
-
-        // Pipeline: match -> group by sensorId and measurementType
-        const pipeline = [
-            { $match: firstMatchStage },
-            { $match: secondMatchStage },
+        
+        // Also query Power measurements separately for peak power calculations
+        const powerMatchStage = {
+            'meta.sensorId': { $in: allSensorIds },
+            'meta.measurementType': 'Power',
+            'meta.stateType': { $regex: '^actual' },
+            resolution_minutes: resolution,
+            timestamp: { $gte: startDate, $lt: endDate }
+        };
+        
+        const powerPipeline = [
+            { $match: powerMatchStage },
             {
                 $group: {
                     _id: {
                         sensorId: '$meta.sensorId',
                         measurementType: '$meta.measurementType',
-                        stateType: '$meta.stateType', // Track stateType to distinguish total vs totalDay
+                        stateType: '$meta.stateType',
                         unit: '$unit'
+                    },
+                    timestampValuePairs: {
+                        $push: {
+                            timestamp: '$timestamp',
+                            value: '$value',
+                            sensorId: '$meta.sensorId'
+                        }
                     },
                     values: { $push: '$value' },
                     units: { $first: '$unit' },
@@ -2303,74 +3634,83 @@ class DashboardDiscoveryService {
                 }
             }
         ];
-
-        // Query measurements_aggregated for aggregated data
-        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
-
-        // Try fallback resolutions if no results
-        if (rawResults.length === 0) {
-            const fallbackResolutions = [];
-            if (resolution === 15) {
-                fallbackResolutions.push(60, 1440);
-            } else if (resolution === 60) {
-                fallbackResolutions.push(1440);
-            }
-
-            for (const fallbackResolution of fallbackResolutions) {
-                const fallbackFirstMatch = {
-                    ...firstMatchStage,
-                    resolution_minutes: fallbackResolution
-                };
-                const fallbackPipeline = [
-                    { $match: fallbackFirstMatch },
-                    { $match: secondMatchStage },
-                    {
-                        $group: {
-                            _id: {
-                                sensorId: '$meta.sensorId',
-                                measurementType: '$meta.measurementType',
-                                unit: '$unit'
-                            },
-                            values: { $push: '$value' },
-                            units: { $first: '$unit' },
-                            avgQuality: { $avg: '$quality' },
-                            count: { $sum: 1 }
-                        }
-                    }
-                ];
-
-                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
-                if (fallbackResults.length > 0) {
-                    rawResults = fallbackResults;
-                    break;
-                }
-            }
-        }
-
-        // Group results by buildingId using the sensor-to-building map
-        const buildingResultsMap = new Map();
-        for (const result of rawResults) {
+        
+        const powerResults = await db.collection('measurements_aggregated').aggregate(powerPipeline).toArray();
+        
+        // Group Power results by building
+        for (const result of powerResults) {
             const sensorId = result._id.sensorId?.toString();
             if (!sensorId) continue;
             
             const buildingId = sensorToBuildingMap.get(sensorId);
             if (!buildingId) continue;
-
+            
             if (!buildingResultsMap.has(buildingId)) {
                 buildingResultsMap.set(buildingId, []);
             }
+            buildingResultsMap.get(buildingId).push(result);
+        }
+        foundMeasurementTypes.add('Power');
+        
+        // Query other measurement types if not filtering by measurementType
+        if (!options.measurementType) {
+            const otherMatchStage = {
+                'meta.sensorId': { $in: allSensorIds },
+                'meta.measurementType': { $nin: ['Energy', 'Power'] },
+                resolution_minutes: resolution,
+                timestamp: { $gte: startDate, $lt: endDate }
+            };
             
-            // Transform result to expected format (replace sensorId with buildingId in _id for compatibility)
-            buildingResultsMap.get(buildingId).push({
-                ...result,
-                _id: {
-                    measurementType: result._id.measurementType,
-                    unit: result._id.unit
+            if (options.stateType) {
+                otherMatchStage['meta.stateType'] = options.stateType;
+            }
+            
+            const otherPipeline = [
+                { $match: otherMatchStage },
+                {
+                    $group: {
+                        _id: {
+                            sensorId: '$meta.sensorId',
+                            measurementType: '$meta.measurementType',
+                            stateType: '$meta.stateType',
+                            unit: '$unit'
+                        },
+                        timestampValuePairs: {
+                            $push: {
+                                timestamp: '$timestamp',
+                                value: '$value',
+                                sensorId: '$meta.sensorId'
+                            }
+                        },
+                        values: { $push: '$value' },
+                        units: { $first: '$unit' },
+                        avgQuality: { $avg: '$quality' },
+                        count: { $sum: 1 }
+                    }
                 }
-            });
+            ];
+            
+            const otherResults = await db.collection('measurements_aggregated').aggregate(otherPipeline).toArray();
+            
+            // Group other results by building
+            for (const result of otherResults) {
+                const sensorId = result._id.sensorId?.toString();
+                if (!sensorId) continue;
+                
+                const buildingId = sensorToBuildingMap.get(sensorId);
+                if (!buildingId) continue;
+                
+                if (!buildingResultsMap.has(buildingId)) {
+                    buildingResultsMap.set(buildingId, []);
+                }
+                buildingResultsMap.get(buildingId).push(result);
+            }
+            for (const result of otherResults) {
+                foundMeasurementTypes.add(result._id.measurementType);
+            }
         }
 
-        // Calculate KPIs for each building (merge results for same measurementType/unit)
+        // Calculate KPIs for each building (merge results for same measurementType/stateType/unit)
         const buildingsKPIsMap = new Map();
         for (const [buildingId, buildingResults] of buildingResultsMap.entries()) {
             // Merge results by measurementType, stateType, and unit
@@ -2379,8 +3719,13 @@ class DashboardDiscoveryService {
                 const key = `${result._id.measurementType}:${result._id.stateType || 'unknown'}:${result._id.unit}`;
                 if (!mergedResultsMap.has(key)) {
                     mergedResultsMap.set(key, {
-                        _id: result._id,
+                        _id: {
+                            measurementType: result._id.measurementType,
+                            stateType: result._id.stateType,
+                            unit: result._id.unit
+                        },
                         values: [],
+                        timestampValuePairs: [], // Preserve timestampValuePairs with sensorId
                         units: result.units,
                         avgQuality: 0,
                         count: 0,
@@ -2389,19 +3734,34 @@ class DashboardDiscoveryService {
                 }
                 const merged = mergedResultsMap.get(key);
                 merged.values.push(...result.values);
+                // Merge timestampValuePairs while preserving sensorId
+                if (result.timestampValuePairs && Array.isArray(result.timestampValuePairs)) {
+                    merged.timestampValuePairs.push(...result.timestampValuePairs);
+                }
                 merged.count += result.count;
                 merged.qualitySum = (merged.qualitySum || 0) + (result.avgQuality * result.count);
             }
             
-            // Finalize merged results
+            // Finalize merged results - sort timestampValuePairs by timestamp
             const mergedResults = [];
             for (const merged of mergedResultsMap.values()) {
                 merged.avgQuality = merged.count > 0 ? merged.qualitySum / merged.count : 0;
                 delete merged.qualitySum;
+                // Sort timestampValuePairs by timestamp for proper processing
+                if (merged.timestampValuePairs && merged.timestampValuePairs.length > 0) {
+                    merged.timestampValuePairs.sort((a, b) => 
+                        new Date(a.timestamp) - new Date(b.timestamp)
+                    );
+                }
                 mergedResults.push(merged);
             }
             
-            const kpis = this.calculateKPIsFromResults(mergedResults, { startDate, endDate, interval, resolution });
+            // Determine resolution for KPI calculation (use the most common resolution from segments)
+            const finalResolution = energySegments.length > 0 && energySegments[0].preferred 
+                ? energySegments[0].resolution 
+                : resolution;
+            
+            const kpis = this.calculateKPIsFromResults(mergedResults, { startDate, endDate, interval, finalResolution });
             buildingsKPIsMap.set(buildingId, kpis);
         }
 
@@ -2426,79 +3786,100 @@ class DashboardDiscoveryService {
             throw new ValidationError(`Invalid sensorId: ${sensorId}`);
         }
         
-        const duration = endDate - startDate;
-        const days = duration / (1000 * 60 * 60 * 24);
+        const sensorObjectId = new mongoose.Types.ObjectId(sensorId);
+        const interval = options.interval || null;
         
-        // Determine resolution based on time range AND data age
-        // 15-minute aggregates are only kept for 1 hour, then deleted
-        let resolution = 15;
-        if (options.resolution !== undefined) {
-            resolution = options.resolution;
-        } else {
-            // Check how old the data is (hours since endDate)
-            const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
-            const daysSinceEndDate = hoursSinceEndDate / 24;
+        // Use smart query strategy for Energy measurements
+        const energySegments = determineOptimalEnergyQueryStrategy(startDate, endDate, options);
+        
+        // Collect all results from different segments
+        const rawResults = [];
+        const foundMeasurementTypes = new Set();
+        
+        // Query Energy measurements using total* states from each segment
+        for (const segment of energySegments) {
+            // Use fallback helper to query with automatic resolution fallback
+            const baseMatchStage = {
+                'meta.sensorId': sensorObjectId
+            };
             
-            if (days > 90 || daysSinceEndDate > 7) {
-                resolution = 1440; // daily
-            } else if (days > 7 || daysSinceEndDate > 1) {
-                resolution = 60; // hourly
-            } else if (hoursSinceEndDate > 1) {
-                // Data older than 1 hour: use hourly aggregates
-                // (15-minute aggregates are deleted after 1 hour)
-                resolution = 60; // hourly
-            } else {
-                // Recent data (within last hour): use 15-minute aggregates
-                resolution = 15; // 15-minute
+            const segmentResults = await queryEnergyWithFallback(
+                db,
+                baseMatchStage,
+                segment.resolution,
+                segment.stateType,
+                segment.startDate,
+                segment.endDate
+            );
+            
+            // Merge segment results
+            for (const result of segmentResults) {
+                const key = `${result._id.measurementType}:${result._id.stateType || 'unknown'}:${result._id.unit}`;
+                const existingResult = rawResults.find(r => 
+                    r._id.measurementType === result._id.measurementType &&
+                    r._id.stateType === result._id.stateType &&
+                    r._id.unit === result._id.unit
+                );
+                
+                if (existingResult) {
+                    // Merge values, timestamps, and quality
+                    existingResult.values.push(...result.values);
+                    if (result.timestampValuePairs) {
+                        if (!existingResult.timestampValuePairs) {
+                            existingResult.timestampValuePairs = [];
+                        }
+                        existingResult.timestampValuePairs.push(...result.timestampValuePairs);
+                        // Re-sort after merging
+                        existingResult.timestampValuePairs.sort((a, b) => 
+                            new Date(a.timestamp) - new Date(b.timestamp)
+                        );
+                    }
+                    existingResult.count += result.count;
+                    existingResult.avgQuality = (existingResult.avgQuality * (existingResult.count - result.count) + result.avgQuality * result.count) / existingResult.count;
+        } else {
+                    rawResults.push(result);
+                    foundMeasurementTypes.add(result._id.measurementType);
+                }
             }
         }
         
-        const matchStage = {
-            'meta.sensorId': new mongoose.Types.ObjectId(sensorId),
-            resolution_minutes: resolution,
+        // Also query Power measurements separately for peak power calculations
+        // Use the most appropriate resolution for Power (not necessarily the same as Energy)
+        const duration = endDate - startDate;
+        const days = duration / (1000 * 60 * 60 * 24);
+        const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
+        const daysSinceEndDate = hoursSinceEndDate / 24;
+        
+        let powerResolution = 15;
+        if (options.resolution !== undefined) {
+            powerResolution = options.resolution;
+        } else {
+            if (days > 90 || daysSinceEndDate > 7) {
+                powerResolution = 1440; // daily
+            } else if (days > 7 || daysSinceEndDate > 1) {
+                powerResolution = 60; // hourly
+            } else if (hoursSinceEndDate > 1) {
+                powerResolution = 60; // hourly
+            } else {
+                powerResolution = 15; // 15-minute
+            }
+        }
+        
+        const powerMatchStage = {
+            'meta.sensorId': sensorObjectId,
+            'meta.measurementType': 'Power',
+            'meta.stateType': { $regex: '^actual' },
+            resolution_minutes: powerResolution,
             timestamp: { $gte: startDate, $lt: endDate }
         };
         
-        // Determine stateType filtering (same logic as getBuildingKPIs)
-        const interval = options.interval || null;
-        const energyStateType = getStateTypeForInterval(interval);
-        
-        if (options.measurementType) {
-            matchStage['meta.measurementType'] = options.measurementType;
-            if (options.measurementType === 'Energy') {
-                if (energyStateType) {
-                    matchStage['meta.stateType'] = energyStateType;
-                } else {
-                    matchStage['meta.measurementType'] = 'Power';
-                    matchStage['meta.stateType'] = { $regex: '^actual' };
-                }
-            } else if (options.measurementType === 'Power') {
-                matchStage['meta.stateType'] = options.stateType || { $regex: '^actual' };
-            } else if (options.stateType) {
-                matchStage['meta.stateType'] = options.stateType;
-            }
-        } else {
-            const orConditions = [];
-            
-            if (energyStateType) {
-                orConditions.push({ 'meta.measurementType': 'Energy', 'meta.stateType': energyStateType });
-            } else {
-                orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
-            }
-            
-            orConditions.push({ 'meta.measurementType': 'Power', 'meta.stateType': { $regex: '^actual' } });
-            orConditions.push({ 'meta.measurementType': { $nin: ['Energy', 'Power'] } });
-            
-            matchStage.$or = orConditions;
-        }
-        
-        const pipeline = [
-            { $match: matchStage },
+        const powerPipeline = [
+            { $match: powerMatchStage },
             {
                 $group: {
                     _id: {
                         measurementType: '$meta.measurementType',
-                        stateType: '$meta.stateType', // Track stateType to distinguish total vs totalDay
+                        stateType: '$meta.stateType',
                         unit: '$unit'
                     },
                     values: { $push: '$value' },
@@ -2509,46 +3890,30 @@ class DashboardDiscoveryService {
             }
         ];
         
-        // Query measurements_aggregated for aggregated data
-        let rawResults = await db.collection('measurements_aggregated').aggregate(pipeline).toArray();
+        const powerResults = await db.collection('measurements_aggregated').aggregate(powerPipeline).toArray();
+        rawResults.push(...powerResults);
+        foundMeasurementTypes.add('Power');
         
-        // Track which measurement types we've found
-        const foundMeasurementTypes = new Set(rawResults.map(r => r._id.measurementType));
-        
-        // Try fallback resolutions if:
-        // 1. No results found at all, OR
-        // 2. We're querying all measurement types (no measurementType filter) and might be missing some types
-        const shouldTryFallback = rawResults.length === 0 || (!options.measurementType && foundMeasurementTypes.size < 5);
-        
-        if (shouldTryFallback) {
-            const fallbackResolutions = [];
+        // Query other measurement types if not filtering by measurementType
+        if (!options.measurementType) {
+            const otherMatchStage = {
+                'meta.sensorId': sensorObjectId,
+                'meta.measurementType': { $nin: ['Energy', 'Power'] },
+                resolution_minutes: powerResolution,
+                timestamp: { $gte: startDate, $lt: endDate }
+            };
             
-            // Determine fallback resolutions based on current resolution
-            if (resolution === 15) {
-                // Try hourly, then daily
-                fallbackResolutions.push(60, 1440);
-            } else if (resolution === 60) {
-                // Try daily
-                fallbackResolutions.push(1440);
+            if (options.stateType) {
+                otherMatchStage['meta.stateType'] = options.stateType;
             }
             
-            // Try each fallback resolution and merge results
-            for (const fallbackResolution of fallbackResolutions) {
-                const fallbackMatchStage = {
-                    ...matchStage,
-                    resolution_minutes: fallbackResolution
-                };
-                // Preserve $or structure if it exists
-                if (matchStage.$or) {
-                    fallbackMatchStage.$or = matchStage.$or;
-                }
-                
-                const fallbackPipeline = [
-                    { $match: fallbackMatchStage },
+            const otherPipeline = [
+                { $match: otherMatchStage },
                     {
                         $group: {
                             _id: {
                                 measurementType: '$meta.measurementType',
+                            stateType: '$meta.stateType',
                                 unit: '$unit'
                             },
                             values: { $push: '$value' },
@@ -2559,31 +3924,25 @@ class DashboardDiscoveryService {
                     }
                 ];
                 
-                const fallbackResults = await db.collection('measurements_aggregated').aggregate(fallbackPipeline).toArray();
-                
-                if (fallbackResults.length > 0) {
-                    // Merge fallback results with existing results
-                    // Only add measurement types we haven't found yet
-                    for (const fallbackResult of fallbackResults) {
-                        const measurementType = fallbackResult._id.measurementType;
-                        if (!foundMeasurementTypes.has(measurementType)) {
-                            rawResults.push(fallbackResult);
-                            foundMeasurementTypes.add(measurementType);
-                            // console.log(`[DEBUG] getSensorKPIs: Found ${measurementType} at resolution ${fallbackResolution} (preferred was ${resolution})`);
-                        }
-                    }
-                    
-                    // If we had no results initially, use fallback results and stop
-                    if (rawResults.length === 0) {
-                        rawResults = fallbackResults;
-                        // console.log(`[DEBUG] getSensorKPIs: No data at resolution ${resolution}, found ${rawResults.length} results at resolution ${fallbackResolution}`);
-                        break; // Found data, stop trying fallbacks
-                    }
-                }
+            const otherResults = await db.collection('measurements_aggregated').aggregate(otherPipeline).toArray();
+            rawResults.push(...otherResults);
+            for (const result of otherResults) {
+                foundMeasurementTypes.add(result._id.measurementType);
             }
         }
         
-        // Pass time range and resolution for energy calculation from Power
+        // If no Energy results found with total* states, try fallback to Power calculation
+        if (!foundMeasurementTypes.has('Energy') && rawResults.length > 0) {
+            // This will trigger Power-based energy calculation in calculateKPIsFromResults
+            // No additional query needed - Power data is already in rawResults
+        }
+        
+        // Determine resolution for KPI calculation (use the most common resolution from segments)
+        const resolution = energySegments.length > 0 && energySegments[0].preferred 
+            ? energySegments[0].resolution 
+            : powerResolution;
+        
+        // Pass time range and resolution for energy calculation
         return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval, resolution });
     }
 
