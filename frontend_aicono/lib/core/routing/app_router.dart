@@ -54,7 +54,8 @@ import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_floor
 import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_room_page.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/pages/dashboard_report_setup_page.dart';
 import 'package:frontend_aicono/core/pages/not_found_page.dart';
-import 'package:frontend_aicono/features/switch_creation/presentation/pages/switch_settings_page.dart';
+import 'package:frontend_aicono/features/settings/presentation/pages/switch_settings_page.dart';
+import 'package:frontend_aicono/features/settings/presentation/pages/profile_page.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/pages/invite_user_page.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/pages/complete_user_invite_page.dart';
 import 'package:frontend_aicono/features/join_invite/presentation/pages/join_switch_almost_done_page.dart';
@@ -992,7 +993,19 @@ class AppRouter {
       path: '/${Routelists.switchSettings}',
       name: Routelists.switchSettings,
       pageBuilder: (context, state) {
-        return _buildPage(context, state, const SwitchSettingsScreen());
+        final switchId = state.uri.queryParameters['switchId'] ?? '';
+        return _buildPage(
+          context,
+          state,
+          SwitchSettingsScreen(switchId: switchId),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/${Routelists.profile}',
+      name: Routelists.profile,
+      pageBuilder: (context, state) {
+        return _buildPage(context, state, const ProfilePage());
       },
     ),
     GoRoute(

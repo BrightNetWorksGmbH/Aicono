@@ -9,6 +9,7 @@ class User {
   final String firstName;
   final String lastName;
   final String? avatarUrl;
+  final String? phoneNumber;
   final String position;
   final bool isActive;
   final bool isSuperAdmin;
@@ -28,6 +29,7 @@ class User {
     required this.firstName,
     required this.lastName,
     this.avatarUrl,
+    this.phoneNumber,
     required this.position,
     required this.isActive,
     this.isSuperAdmin = false,
@@ -49,7 +51,8 @@ class User {
       firstName: json['first_name'] ?? json['name'] ?? '',
       position: json['position'] ?? '',
       lastName: json['last_name'] ?? '',
-      avatarUrl: json['avatar_url'] ?? '',
+      avatarUrl: json['avatar_url'] ?? json['profile_picture_url'] ?? '',
+      phoneNumber: json['phone_number']?.toString(),
       isActive: json['is_active'] ?? true,
       isSuperAdmin: json['is_superadmin'] ?? false,
       lastLogin: json['last_login'] != null
@@ -115,6 +118,7 @@ class User {
       'first_name': firstName,
       'last_name': lastName,
       'avatar_url': avatarUrl,
+      if (phoneNumber != null) 'phone_number': phoneNumber,
       'is_active': isActive,
       'is_superadmin': isSuperAdmin,
       'last_login': lastLogin.toIso8601String(),

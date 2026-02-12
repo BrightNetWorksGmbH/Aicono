@@ -71,6 +71,16 @@ class AuthService {
     _currentUser = null;
   }
 
+  /// Update current user in memory and persist (e.g. after profile update)
+  void updateCurrentUser(User user) {
+    _currentUser = user;
+    try {
+      final prefs = sl<SharedPreferences>();
+      prefs.setString('user_data', user.toJsonString());
+    } catch (_) {}
+    sl<DynamicThemeService>().refreshTheme();
+  }
+
   /// Update current user's joined verse list in memory and persist if needed
   void addJoinedVerse(String verseId) {
     if (_currentUser == null) return;
