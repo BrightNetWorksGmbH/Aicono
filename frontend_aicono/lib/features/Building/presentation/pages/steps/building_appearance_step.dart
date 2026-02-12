@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 
+import '../../../../../core/widgets/top_part_widget.dart';
+
 class BuildingAppearanceStep extends StatefulWidget {
   final BuildingEntity building;
   final Function(BuildingEntity) onUpdate;
@@ -81,6 +83,13 @@ class _BuildingAppearanceStepState extends State<BuildingAppearanceStep> {
     }
   }
 
+  void _handleLanguageChanged() {
+    // TODO: Implement language change
+    setState(() {
+      // TODO: Implement language change
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final Size screenSize = MediaQuery.of(context).size;
@@ -103,53 +112,20 @@ class _BuildingAppearanceStepState extends State<BuildingAppearanceStep> {
                   horizontal: 16,
                   vertical: 12,
                 ),
-                // width: screenSize.width < 600
-                //     ? screenSize.width * 0.95
-                //     : screenSize.width < 1200
-                //     ? screenSize.width * 0.5
-                //     : screenSize.width * 0.6,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Colors.grey[300],
-                      child: const Icon(Icons.person, color: Colors.grey),
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          'BRYTE',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue[900],
-                          ),
-                        ),
-                        Text(
-                          'SWITCH',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        Text(
-                          'MENU',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Icon(Icons.menu, color: Colors.grey[700]),
-                      ],
-                    ),
-                  ],
+                width: screenSize.width < 600
+                    ? screenSize.width * 0.95
+                    : screenSize.width < 1200
+                    ? screenSize.width * 0.5
+                    : screenSize.width * 0.6,
+                child: Material(
+                  color: Colors.transparent,
+                  child: TopHeader(
+                    onLanguageChanged: _handleLanguageChanged,
+                    containerWidth: screenSize.width > 500
+                        ? 500
+                        : screenSize.width * 0.98,
+                    verseInitial: null,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

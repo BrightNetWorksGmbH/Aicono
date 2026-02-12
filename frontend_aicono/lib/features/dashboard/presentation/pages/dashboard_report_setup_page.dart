@@ -664,7 +664,15 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
       );
       return;
     }
-
+    if (widget.reportingJson != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Edit functionality is not available for reports'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     // Validate all persons have required fields
     for (var i = 0; i < _selectedResponsiblePersons.length; i++) {
       final person = _selectedResponsiblePersons[i];
@@ -785,17 +793,17 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
       }
 
       // Add reportConfig to all recipients if there are configs
-      if (reportConfigs.isNotEmpty) {
-        for (var recipient in reportingRecipients) {
-          recipient['reportConfig'] = reportConfigs;
-        }
-      }
+      // if (reportConfigs.isNotEmpty) {
+      //   for (var recipient in reportingRecipients) {
+      //     recipient['reportConfig'] = reportConfigs;
+      //   }
+      // }
 
       final requestBody = {
         'reportingRecipients': reportingRecipients,
         if (reportConfigs.isNotEmpty) 'reportConfigs': reportConfigs,
       };
-
+      print(requestBody);
       final response = await _dioClient.dio.patch(
         '/api/v1/buildings/${widget.buildingId}',
         data: requestBody,
@@ -899,6 +907,7 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
               Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: Container(
+                  width: double.infinity,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -909,10 +918,17 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const SizedBox(height: 20),
-                        PageHeaderRow(
-                          title: 'dashboard.report_setup.title'.tr(),
-                          showBackButton: true,
-                          onBack: () => context.pop(),
+                        SizedBox(
+                          width: screenSize.width < 600
+                              ? screenSize.width * 0.95
+                              : screenSize.width < 1200
+                              ? screenSize.width * 0.5
+                              : screenSize.width * 0.6,
+                          child: PageHeaderRow(
+                            title: 'dashboard.report_setup.title'.tr(),
+                            showBackButton: true,
+                            onBack: () => context.pop(),
+                          ),
                         ),
                         const SizedBox(height: 32),
                         SizedBox(
@@ -1282,7 +1298,8 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
                               ),
                               const SizedBox(height: 16),
                               // Display saved report configs
-                              if (_savedReportConfigs.isNotEmpty) ...[
+                              if (_savedReportConfigs.isNotEmpty &&
+                                  widget.reportingJson == null) ...[
                                 ..._savedReportConfigs.asMap().entries.map((
                                   entry,
                                 ) {
@@ -1536,7 +1553,8 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
                               ),
                               const SizedBox(height: 32),
                               // Create own routine link
-                              if (_editingConfigIndex == null)
+                              if (_editingConfigIndex == null &&
+                                  widget.reportingJson == null)
                                 Material(
                                   color: Colors.transparent,
                                   child: InkWell(
@@ -1549,22 +1567,22 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
                                       ),
                                     ),
                                   ),
-                                )
-                              else
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: _handleCreateOwnRoutine,
-                                    child: Text(
-                                      'building_responsible_persons.update_routine'
-                                          .tr(),
-                                      style: AppTextStyles.bodyMedium.copyWith(
-                                        decoration: TextDecoration.underline,
-                                        color: Colors.blue[700],
-                                      ),
-                                    ),
-                                  ),
                                 ),
+                              // else
+                              //   Material(
+                              //     color: Colors.transparent,
+                              //     child: InkWell(
+                              //       onTap: _handleCreateOwnRoutine,
+                              //       child: Text(
+                              //         'building_responsible_persons.update_routine'
+                              //             .tr(),
+                              //         style: AppTextStyles.bodyMedium.copyWith(
+                              //           decoration: TextDecoration.underline,
+                              //           color: Colors.blue[700],
+                              //         ),
+                              //       ),
+                              //     ),
+                              //   ),
                               const SizedBox(height: 32),
                               // Save button
                               Center(

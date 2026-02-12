@@ -603,7 +603,15 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               );
             },
             onDelete: () async {
-              await _handleDeleteRoom(state.roomId);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Delete functionality is available when you edit the floor',
+                  ),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              // await _handleDeleteRoom(state.roomId);
             },
             metricCards: [
               _buildPropertyMetricCard(
@@ -2740,6 +2748,7 @@ class _FloorPlanEditorWrapperState extends State<FloorPlanEditorWrapper> {
     // Use the simplified floor plan editor that shows only canvas and room list
     return SimplifiedFloorPlanEditor(
       key: widget.editorKey,
+      floorId: widget.floorId,
       initialFloorPlanUrl: widget.initialFloorPlanUrl,
       onSave: widget.onSave,
       onCancel: widget.onCancel,
@@ -2750,12 +2759,14 @@ class _FloorPlanEditorWrapperState extends State<FloorPlanEditorWrapper> {
 // Simplified Floor Plan Editor - Shows only canvas (with dotted border) and room list
 // This extracts the canvas and room list UI from FloorPlanBackupPage
 class SimplifiedFloorPlanEditor extends StatefulWidget {
+  final String floorId;
   final String? initialFloorPlanUrl;
   final Function(String?) onSave;
   final VoidCallback onCancel;
 
   const SimplifiedFloorPlanEditor({
     super.key,
+    required this.floorId,
     this.initialFloorPlanUrl,
     required this.onSave,
     required this.onCancel,
@@ -2862,6 +2873,13 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
   bool _showShapeOptions = false;
   final Map<String, TextEditingController> _roomControllers = {};
 
+  // Backend room tracking: maps room.id to backend room ID
+  final Map<String, String> _backendRoomIds = {};
+  final Map<String, String?> _loxoneRoomIds =
+      {}; // Maps room.id to loxone_room_id
+  final DioClient _dioClient = sl<DioClient>();
+  bool _isLoadingBackendRooms = false;
+
   // Color palette
   static const List<Color> colorPalette = [
     Color(0xFFFFB74D), // Light orange
@@ -2879,6 +2897,8 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
         widget.initialFloorPlanUrl!.isNotEmpty) {
       _loadFloorPlanFromUrl();
     }
+    // Fetch rooms from backend
+    _fetchRoomsFromBackend();
   }
 
   // Public method to generate SVG - can be called from parent
@@ -3219,9 +3239,87 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
         _roomCounter = roomIndex;
         _updateCanvasSize();
       });
+
+      // After loading SVG, fetch and match backend rooms
+      _fetchRoomsFromBackend();
     } catch (e) {
       debugPrint('Error parsing SVG: $e');
     }
+  }
+
+  Future<void> _fetchRoomsFromBackend() async {
+    if (_isLoadingBackendRooms) return;
+
+    setState(() {
+      _isLoadingBackendRooms = true;
+    });
+
+    try {
+      final response = await _dioClient.get('/api/v1/floors/${widget.floorId}');
+
+      if (response.statusCode == 200 && response.data != null && mounted) {
+        final data = response.data;
+        if (data['success'] == true && data['data'] != null) {
+          final floorData = data['data'] as Map<String, dynamic>;
+
+          // Get rooms from floor data
+          List<dynamic> backendRooms = [];
+          if (floorData['rooms'] != null && floorData['rooms'] is List) {
+            backendRooms = floorData['rooms'] as List;
+          }
+
+          // Match backend rooms with SVG rooms by name
+          if (rooms.isNotEmpty) {
+            _matchBackendRoomsWithSVGRooms(backendRooms);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching rooms from backend: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingBackendRooms = false;
+        });
+      }
+    }
+  }
+
+  void _matchBackendRoomsWithSVGRooms(List<dynamic> backendRooms) {
+    setState(() {
+      for (var backendRoom in backendRooms) {
+        final backendRoomId =
+            backendRoom['_id']?.toString() ??
+            backendRoom['id']?.toString() ??
+            '';
+        final backendRoomName = backendRoom['name']?.toString() ?? '';
+        final loxoneRoomId = backendRoom['loxone_room_id']?.toString();
+
+        if (backendRoomId.isEmpty || backendRoomName.isEmpty) continue;
+
+        // Find matching room by name (case-insensitive)
+        // Match against the room name from SVG, not backend name
+        final matchingRoomIndex = rooms.indexWhere(
+          (room) =>
+              room.name.toLowerCase().trim() ==
+              backendRoomName.toLowerCase().trim(),
+        );
+
+        if (matchingRoomIndex != -1) {
+          final room = rooms[matchingRoomIndex];
+
+          // Don't update the SVG room - keep it as is
+          // Just store backend room ID mapping for edit/delete operations
+          _backendRoomIds[room.id] = backendRoomId;
+          if (loxoneRoomId != null && loxoneRoomId.isNotEmpty) {
+            _loxoneRoomIds[room.id] = loxoneRoomId;
+          }
+
+          // Keep the SVG room name and color as they are
+          // Don't update controller with backend name
+        }
+      }
+    });
   }
 
   Future<void> _decodeImageDimensions(Uint8List imageBytes) async {
@@ -3349,6 +3447,378 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
       return Color(int.parse(hex, radix: 16));
     } catch (e) {
       return null;
+    }
+  }
+
+  void _showEditRoomDialog(Room room) {
+    final backendRoomId = _backendRoomIds[room.id];
+    if (backendRoomId == null) return;
+
+    final nameController = TextEditingController(text: room.name);
+    Color selectedColor = room.fillColor;
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+          title: const Text('Edit Room'),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Room name field
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    hintText: 'Room Name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Color selection
+                const Text(
+                  'Color:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: colorPalette.map((color) {
+                    final isSelected = selectedColor == color;
+                    return GestureDetector(
+                      onTap: () {
+                        setDialogState(() {
+                          selectedColor = color;
+                        });
+                      },
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: color,
+                          border: Border.all(
+                            color: isSelected ? Colors.black : Colors.grey,
+                            width: isSelected ? 3 : 1,
+                          ),
+                        ),
+                        child: isSelected
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.black,
+                                size: 20,
+                              )
+                            : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            StatefulBuilder(
+              builder: (context, setButtonState) => ElevatedButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        setButtonState(() {
+                          isLoading = true;
+                        });
+
+                        try {
+                          await _updateRoomInBackend(
+                            backendRoomId,
+                            nameController.text.trim(),
+                            selectedColor,
+                          );
+
+                          if (mounted) {
+                            Navigator.of(context).pop();
+                            setState(() {
+                              // Update room in local state
+                              final roomIndex = rooms.indexWhere(
+                                (r) => r.id == room.id,
+                              );
+                              if (roomIndex != -1) {
+                                rooms[roomIndex] = Room(
+                                  id: room.id,
+                                  path: room.path,
+                                  doorOpenings: room.doorOpenings,
+                                  fillColor: selectedColor,
+                                  name: nameController.text.trim(),
+                                );
+                                if (_roomControllers.containsKey(room.id)) {
+                                  _roomControllers[room.id]!.text =
+                                      nameController.text.trim();
+                                }
+                              }
+                            });
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error updating room: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) {
+                            setButtonState(() {
+                              isLoading = false;
+                            });
+                          }
+                        }
+                      },
+                child: isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Save'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateRoomInBackend(
+    String backendRoomId,
+    String name,
+    Color color,
+  ) async {
+    try {
+      final requestBody = {'name': name, 'color': _colorToHex(color)};
+
+      final response = await _dioClient.dio.patch(
+        '/api/v1/floors/rooms/$backendRoomId',
+        data: requestBody,
+      );
+
+      if (mounted) {
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Room updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          throw Exception('Failed to update room: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error updating room: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _deleteRoomFromBackend(Room room) async {
+    final backendRoomId = _backendRoomIds[room.id];
+    if (backendRoomId == null) return;
+
+    // Show confirmation dialog
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+        title: const Text('Delete Room'),
+        content: Text('Are you sure you want to delete "${room.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true) return;
+
+    try {
+      final response = await _dioClient.dio.delete(
+        '/api/v1/floors/rooms/$backendRoomId',
+      );
+
+      if (mounted) {
+        if (response.statusCode == 200 || response.statusCode == 204) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Room deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          setState(() {
+            _roomControllers[room.id]?.dispose();
+            _roomControllers.remove(room.id);
+            _backendRoomIds.remove(room.id);
+            _loxoneRoomIds.remove(room.id);
+            doors.removeWhere((door) => door.roomId == room.id);
+            rooms.remove(room);
+            if (selectedRoom == room) {
+              selectedRoom = null;
+            }
+            _updateCanvasSize();
+          });
+        } else {
+          throw Exception('Failed to delete room: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting room: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _createRoomInBackend(
+    Room room, {
+    bool showSuccessMessage = true,
+  }) async {
+    // Check if room already exists in backend
+    if (_backendRoomIds.containsKey(room.id)) {
+      return; // Already exists, skip
+    }
+
+    try {
+      final requestBody = {
+        'name': room.name,
+        'color': _colorToHex(room.fillColor),
+        if (_loxoneRoomIds[room.id] != null)
+          'loxone_room_id': _loxoneRoomIds[room.id],
+      };
+
+      final response = await _dioClient.dio.post(
+        '/api/v1/floors/${widget.floorId}/rooms',
+        data: requestBody,
+      );
+
+      if (mounted) {
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final responseData = response.data;
+          String? newBackendRoomId;
+
+          if (responseData is Map<String, dynamic>) {
+            if (responseData['data'] != null) {
+              final roomData = responseData['data'] as Map<String, dynamic>;
+              newBackendRoomId =
+                  roomData['_id']?.toString() ?? roomData['id']?.toString();
+            } else {
+              newBackendRoomId =
+                  responseData['_id']?.toString() ??
+                  responseData['id']?.toString();
+            }
+          }
+
+          if (newBackendRoomId != null && newBackendRoomId.isNotEmpty) {
+            setState(() {
+              _backendRoomIds[room.id] = newBackendRoomId!;
+            });
+          }
+
+          if (showSuccessMessage) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Room created successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          throw Exception('Failed to create room: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error creating room: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error creating room: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      rethrow;
+    }
+  }
+
+  /// Public method to create all new rooms in the backend
+  /// Called when saving the floor plan
+  Future<void> createNewRoomsInBackend() async {
+    final newRooms = rooms
+        .where((room) => !_backendRoomIds.containsKey(room.id))
+        .toList();
+
+    if (newRooms.isEmpty) {
+      return; // No new rooms to create
+    }
+
+    int successCount = 0;
+    int failureCount = 0;
+
+    for (final room in newRooms) {
+      try {
+        // Don't show individual success messages when creating multiple rooms
+        await _createRoomInBackend(room, showSuccessMessage: false);
+        successCount++;
+      } catch (e) {
+        debugPrint('Failed to create room ${room.name}: $e');
+        failureCount++;
+        // Continue with other rooms even if one fails
+      }
+    }
+
+    // Show summary message
+    if (mounted) {
+      if (failureCount == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              successCount > 1
+                  ? '$successCount rooms created successfully'
+                  : 'Room created successfully',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Created $successCount room(s), failed to create $failureCount room(s)',
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 
@@ -4085,10 +4555,11 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
                   Expanded(
                     child: TextField(
                       key: ValueKey(room.id),
+                      readOnly: _backendRoomIds.containsKey(room.id),
                       controller: _roomControllers[room.id] ??=
                           TextEditingController(text: room.name),
                       decoration: const InputDecoration(
-                        hintText: 'Room name / Label',
+                        hintText: 'Room name',
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(
                           horizontal: 12,
@@ -4111,10 +4582,12 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
                       final isSelected = room.fillColor == color;
                       return GestureDetector(
                         onTap: () {
-                          _saveState();
-                          setState(() {
-                            room.fillColor = color;
-                          });
+                          if (!_backendRoomIds.containsKey(room.id)) {
+                            _saveState();
+                            setState(() {
+                              room.fillColor = color;
+                            });
+                          }
                         },
                         child: Container(
                           margin: const EdgeInsets.only(left: 6),
@@ -4141,6 +4614,22 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
                     }).toList(),
                   ),
                   const SizedBox(width: 8),
+                  // Edit button (only for rooms with backend ID)
+                  if (_backendRoomIds.containsKey(room.id))
+                    IconButton(
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        color: Colors.blue[600],
+                        size: 20,
+                      ),
+                      tooltip: 'Edit',
+                      onPressed: () {
+                        _showEditRoomDialog(room);
+                      },
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  const SizedBox(width: 4),
                   // Delete button
                   IconButton(
                     icon: Icon(
@@ -4150,17 +4639,25 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
                     ),
                     tooltip: 'Delete',
                     onPressed: () {
-                      _saveState();
-                      setState(() {
-                        _roomControllers[room.id]?.dispose();
-                        _roomControllers.remove(room.id);
-                        doors.removeWhere((door) => door.roomId == room.id);
-                        rooms.remove(room);
-                        if (selectedRoom == room) {
-                          selectedRoom = null;
-                        }
-                        _updateCanvasSize();
-                      });
+                      if (_backendRoomIds.containsKey(room.id)) {
+                        // Delete from backend
+                        _deleteRoomFromBackend(room);
+                      } else {
+                        // Just remove from local state
+                        _saveState();
+                        setState(() {
+                          _roomControllers[room.id]?.dispose();
+                          _roomControllers.remove(room.id);
+                          _backendRoomIds.remove(room.id);
+                          _loxoneRoomIds.remove(room.id);
+                          doors.removeWhere((door) => door.roomId == room.id);
+                          rooms.remove(room);
+                          if (selectedRoom == room) {
+                            selectedRoom = null;
+                          }
+                          _updateCanvasSize();
+                        });
+                      }
                     },
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
