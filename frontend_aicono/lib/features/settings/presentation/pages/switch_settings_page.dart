@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -7,21 +6,24 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
+import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/dashboard_sidebar.dart';
-import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_sites_bloc.dart';
-import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
-import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_building_details_bloc.dart';
-import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
-import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
+import 'package:frontend_aicono/features/settings/domain/entities/switch_details_entity.dart';
+import 'package:frontend_aicono/features/settings/domain/entities/update_switch_request.dart';
+import 'package:frontend_aicono/features/settings/presentation/bloc/switch_settings_bloc.dart';
+import 'package:frontend_aicono/features/upload/domain/usecases/upload_usecase.dart';
 import 'package:frontend_aicono/features/verse/presentation/components/broken_border_painter.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class SwitchSettingsScreen extends StatefulWidget {
-  const SwitchSettingsScreen({super.key});
+  final String switchId;
+
+  const SwitchSettingsScreen({super.key, this.switchId = ''});
 
   @override
   State<SwitchSettingsScreen> createState() => _SwitchSettingsScreenState();
@@ -49,6 +51,10 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
   Color _primaryColor = Colors.blue;
   String colorHex = "";
   String? _networkLogoUrl;
+
+  String get _effectiveSwitchId => widget.switchId.isNotEmpty
+      ? widget.switchId
+      : sl<LocalStorage>().getSelectedVerseId() ?? '';
 
   @override
   void initState() {
@@ -91,7 +97,10 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
         }
       });
     // Initialize with 6-digit hex format
-    String hexValue = _primaryColor.value.toRadixString(16).padLeft(8, '0');
+    String hexValue = _primaryColor
+        .toARGB32()
+        .toRadixString(16)
+        .padLeft(8, '0');
     colorHex = '#${hexValue.substring(2)}'; // Remove alpha channel
   }
 
@@ -138,55 +147,53 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
     changeBottomEnabled();
   }
 
-  void _pickColor() {
-    () async {
-      final Color? picked = await showDialog<Color?>(
-        context: context,
-        builder: (dialogCtx) {
-          Color tempColor = _primaryColor;
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+  Future<void> _pickColor() async {
+    final Color? picked = await showDialog<Color?>(
+      context: context,
+      builder: (dialogCtx) {
+        Color tempColor = _primaryColor;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text("switch_settings.pick_brand_color".tr()),
+          content: SingleChildScrollView(
+            child: StatefulBuilder(
+              builder: (context, setStateDialog) {
+                return ColorPicker(
+                  pickerColor: tempColor,
+                  onColorChanged: (color) {
+                    setStateDialog(() => tempColor = color);
+                  },
+                );
+              },
             ),
-            title: const Text("Pick Brand Color"),
-            content: SingleChildScrollView(
-              child: StatefulBuilder(
-                builder: (context, setStateDialog) {
-                  return ColorPicker(
-                    pickerColor: tempColor,
-                    onColorChanged: (color) {
-                      setStateDialog(() => tempColor = color);
-                    },
-                  );
-                },
-              ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: Text('switch_settings.cancel'.tr()),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogCtx).pop(),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(dialogCtx).pop(tempColor),
-                child: const Text('Done'),
-              ),
-            ],
-          );
-        },
-      );
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(tempColor),
+              child: Text('switch_settings.done'.tr()),
+            ),
+          ],
+        );
+      },
+    );
 
-      if (picked != null) {
-        // Convert to 6-digit hex format (remove alpha channel)
-        String hexValue = picked.value.toRadixString(16).padLeft(8, '0');
-        colorHex =
-            '#${hexValue.substring(2)}'; // Remove alpha (first 2 characters)
-        setState(() {
-          _primaryColor = picked;
-          _colorController.text = colorHex;
-        });
-        changeBottomEnabled();
-      }
-    }();
+    if (picked != null && mounted) {
+      // Convert to 6-digit hex format (remove alpha channel)
+      String hexValue = picked.toARGB32().toRadixString(16).padLeft(8, '0');
+      colorHex =
+          '#${hexValue.substring(2)}'; // Remove alpha (first 2 characters)
+      setState(() {
+        _primaryColor = picked;
+        _colorController.text = colorHex;
+      });
+      changeBottomEnabled();
+    }
   }
 
   bool _isValidHexColor(String hex) {
@@ -219,155 +226,240 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
     setState(() {});
   }
 
-  Future<void> _saveSettings() async {
-    // UI only - no integration
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Settings updated successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      context.pushNamed(Routelists.dashboard);
+  void _populateFromSwitchDetails(SwitchDetailsEntity details) {
+    _organizationController.text = details.organizationName;
+    _switchNameController.text = details.organizationName;
+    _subdomainController.text = details.subDomain;
+    _colorNameController.text = details.branding.colorName;
+    _primaryColor = _parseColor(details.branding.primaryColor);
+    colorHex = details.branding.primaryColor;
+    _colorController.text = colorHex;
+    _networkLogoUrl = details.branding.logoUrl;
+    changeBottomEnabled();
+  }
+
+  Color _parseColor(String hex) {
+    hex = hex.replaceFirst('#', '');
+    if (hex.length == 6) {
+      hex = 'FF$hex';
     }
+    return Color(int.parse(hex, radix: 16));
+  }
+
+  Future<void> _saveSettings(BuildContext blocContext) async {
+    final switchId = _effectiveSwitchId;
+    final settingsBloc = blocContext.read<SwitchSettingsBloc>();
+    if (switchId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'switch_settings.no_switch_selected'.tr(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    String? logoUrlToUse = _networkLogoUrl;
+    if (_logoFile != null) {
+      final uploadResult = await sl<UploadImage>().call(
+        _logoFile!,
+        switchId,
+        'switchlogo',
+      );
+      final url = uploadResult.fold((failure) => null, (url) => url);
+      if (url == null) {
+        if (mounted) {
+          final msg = uploadResult.fold(
+            (f) => f.message,
+            (_) => 'switch_settings.upload_failed'.tr(),
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+      logoUrlToUse = url;
+    }
+
+    final request = UpdateSwitchRequest(
+      organizationName: _organizationController.text.trim(),
+      subDomain: _subdomainController.text.trim(),
+      branding: UpdateSwitchBrandingRequest(
+        logoUrl: logoUrlToUse,
+        primaryColor: colorHex,
+        colorName: _colorNameController.text.trim(),
+      ),
+      darkMode: false,
+    );
+
+    settingsBloc.add(
+      SwitchDetailsUpdateSubmitted(switchId: switchId, request: request),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final Size screenSize = MediaQuery.of(context).size;
 
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (context) {
-            final bloc = sl<DashboardSitesBloc>();
-            bloc.add(DashboardSitesRequested());
-            return bloc;
-          },
-        ),
-        BlocProvider(create: (context) => sl<DashboardSiteDetailsBloc>()),
-        BlocProvider(create: (context) => sl<DashboardBuildingDetailsBloc>()),
-        BlocProvider(create: (context) => sl<DashboardFloorDetailsBloc>()),
-        BlocProvider(create: (context) => sl<DashboardRoomDetailsBloc>()),
-      ],
-      child: SafeArea(
-        child: Scaffold(
-          key: _scaffoldKey,
-          drawer: Drawer(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Colors.grey[50]!, Colors.grey[100]!],
-                ),
+    return BlocProvider(
+      create: (context) => sl<SwitchSettingsBloc>(),
+      child: BlocListener<SwitchSettingsBloc, SwitchSettingsState>(
+        listenWhen: (prev, curr) => prev != curr,
+        listener: (context, state) {
+          if (state is SwitchSettingsLoaded) {
+            _populateFromSwitchDetails(state.switchDetails);
+          } else if (state is SwitchSettingsUpdateSuccess) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('switch_settings.settings_updated'.tr()),
+                backgroundColor: Colors.green,
               ),
-              child: SafeArea(
-                child: SingleChildScrollView(
-                  child: DashboardSidebar(
-                    isInDrawer: true,
-                    showBackToDashboard: true,
-                    activeSection: 'settings',
-                    onLanguageChanged: _handleLanguageChanged,
-                  ),
-                ),
+            );
+            context.pushNamed(Routelists.dashboard);
+          } else if (state is SwitchSettingsFailure) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
               ),
-            ),
-          ),
-          backgroundColor: Colors.black,
-          body: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: screenSize.height),
-              child: Center(
+            );
+          }
+        },
+        child: _SwitchSettingsLoader(
+          switchId: _effectiveSwitchId,
+          child: SafeArea(
+            child: Scaffold(
+              key: _scaffoldKey,
+              drawer: Drawer(
                 child: Container(
-                  width: screenSize.width,
                   decoration: BoxDecoration(
-                    color: AppTheme.primary,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.5),
-                        blurRadius: 25,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Colors.grey[50]!, Colors.grey[100]!],
+                    ),
                   ),
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(24.0),
-                                child: TopHeader(
-                                  onLanguageChanged: _handleLanguageChanged,
-                                  containerWidth: screenSize.width > 1200
-                                      ? 1200
-                                      : screenSize.width,
-                                  // Only provide onMenuTap on narrow screens to open drawer
-                                  // On wide screens, leave it null so the menu shows popup
-                                  onMenuTap: screenSize.width < 800
-                                      ? () {
-                                          _scaffoldKey.currentState
-                                              ?.openDrawer();
-                                        }
-                                      : null,
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0,
-                                ),
-                                child: Builder(
-                                  builder: (context) {
-                                    final isNarrow = screenSize.width < 800;
-                                    final mainFlex = isNarrow ? 1 : 7;
-                                    return Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        if (!isNarrow)
-                                          Expanded(
-                                            flex: 3,
-                                            child: DashboardSidebar(
-                                              showBackToDashboard: true,
-                                              activeSection: 'settings',
-                                              onLanguageChanged:
-                                                  _handleLanguageChanged,
-                                            ),
-                                          ),
-                                        Expanded(
-                                          flex: mainFlex,
-                                          child: Container(
-                                            color: Colors.white,
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(24),
-                                              child: _buildSettingsContent(),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                            ],
-                          ),
-                        ),
-                      ),
-                      AppFooter(
+                  child: SafeArea(
+                    child: SingleChildScrollView(
+                      child: DashboardSidebar(
+                        isInDrawer: true,
+                        showBackToDashboard: true,
+                        activeSection: 'settings',
+                        verseId: _effectiveSwitchId,
                         onLanguageChanged: _handleLanguageChanged,
-                        containerWidth: screenSize.width > 1200
-                            ? 1200
-                            : screenSize.width,
                       ),
-                    ],
+                    ),
+                  ),
+                ),
+              ),
+              backgroundColor: Colors.black,
+              body: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: screenSize.height),
+                  child: Center(
+                    child: Container(
+                      width: screenSize.width,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.5),
+                            blurRadius: 25,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(24.0),
+                                    child: TopHeader(
+                                      onLanguageChanged: _handleLanguageChanged,
+                                      containerWidth: screenSize.width > 1200
+                                          ? 1200
+                                          : screenSize.width,
+                                      switchId: _effectiveSwitchId,
+                                      // Only provide onMenuTap on narrow screens to open drawer
+                                      // On wide screens, leave it null so the menu shows popup
+                                      onMenuTap: screenSize.width < 800
+                                          ? () {
+                                              _scaffoldKey.currentState
+                                                  ?.openDrawer();
+                                            }
+                                          : null,
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16.0,
+                                    ),
+                                    child: Builder(
+                                      builder: (context) {
+                                        final isNarrow = screenSize.width < 800;
+                                        final mainFlex = isNarrow ? 1 : 7;
+                                        return Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            if (!isNarrow)
+                                              Expanded(
+                                                flex: 3,
+                                                child: DashboardSidebar(
+                                                  showBackToDashboard: true,
+                                                  activeSection: 'settings',
+                                                  verseId: _effectiveSwitchId,
+                                                  onLanguageChanged:
+                                                      _handleLanguageChanged,
+                                                ),
+                                              ),
+                                            Expanded(
+                                              flex: mainFlex,
+                                              child: Container(
+                                                color: Colors.white,
+                                                child: Padding(
+                                                  padding: const EdgeInsets.all(
+                                                    24,
+                                                  ),
+                                                  child: _buildSettingsContent(
+                                                    context,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                ],
+                              ),
+                            ),
+                          ),
+                          AppFooter(
+                            onLanguageChanged: _handleLanguageChanged,
+                            containerWidth: screenSize.width > 1200
+                                ? 1200
+                                : screenSize.width,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -378,7 +470,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
     );
   }
 
-  Widget _buildSettingsContent() {
+  Widget _buildSettingsContent(BuildContext context) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -392,7 +484,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
-                      'Switch Settings',
+                      'switch_settings.title'.tr(),
                       style: AppTextStyles.appTitle.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Colors.black,
@@ -401,7 +493,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Manage your switch configuration and branding',
+                      'switch_settings.subtitle'.tr(),
                       style: AppTextStyles.bodyMedium.copyWith(
                         color: Colors.black87,
                       ),
@@ -428,7 +520,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
 
           // General Info Section
           _buildSectionCard(
-            title: "General Information",
+            title: "switch_settings.general_info".tr(),
             child: Column(
               children: [
                 // Switch name - display + change pattern
@@ -441,12 +533,12 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                           changeBottomEnabled();
                         },
                         decoration: InputDecoration(
-                          prefixText: 'Switch name: ',
+                          prefixText: 'switch_settings.switch_name'.tr(),
                           prefixStyle: AppTextStyles.bodyMedium.copyWith(
                             color: Colors.black,
                           ),
                           hintText: _switchNameController.text.isEmpty
-                              ? "Enter switch name"
+                              ? "switch_settings.enter_switch_name".tr()
                               : null,
                           filled: true,
                           fillColor: Colors.white,
@@ -510,7 +602,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Switch name: ${_switchNameController.text.isEmpty ? "" : _switchNameController.text}',
+                              '${"switch_settings.switch_name".tr()}${_switchNameController.text.isEmpty ? "" : _switchNameController.text}',
                               style: AppTextStyles.bodyMedium.copyWith(
                                 color: Colors.grey[700],
                               ),
@@ -534,7 +626,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                                 );
                               },
                               child: Text(
-                                'Change Switch Name',
+                                'switch_settings.change_switch_name'.tr(),
                                 style: AppTextStyles.bodyMedium.copyWith(
                                   color: Colors.grey[700],
                                   decoration: TextDecoration.underline,
@@ -556,12 +648,12 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                           changeBottomEnabled();
                         },
                         decoration: InputDecoration(
-                          prefixText: 'Organization: ',
+                          prefixText: 'switch_settings.organization'.tr(),
                           prefixStyle: AppTextStyles.bodyMedium.copyWith(
                             color: Colors.black,
                           ),
                           hintText: _organizationController.text.isEmpty
-                              ? "Enter organization name"
+                              ? "switch_settings.enter_organization_name".tr()
                               : null,
                           filled: true,
                           fillColor: Colors.white,
@@ -625,7 +717,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Organization: ${_organizationController.text.isEmpty ? "" : _organizationController.text}',
+                              '${"switch_settings.organization".tr()}${_organizationController.text.isEmpty ? "" : _organizationController.text}',
                               style: AppTextStyles.bodyMedium.copyWith(
                                 color: Colors.grey[700],
                               ),
@@ -649,7 +741,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                                 );
                               },
                               child: Text(
-                                'Change Organization Name',
+                                'switch_settings.change_organization_name'.tr(),
                                 style: AppTextStyles.bodyMedium.copyWith(
                                   color: Colors.grey[700],
                                   decoration: TextDecoration.underline,
@@ -671,12 +763,12 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                           changeBottomEnabled();
                         },
                         decoration: InputDecoration(
-                          prefixText: 'Subdomain: ',
+                          prefixText: 'switch_settings.subdomain'.tr(),
                           prefixStyle: AppTextStyles.bodyMedium.copyWith(
                             color: Colors.black,
                           ),
                           hintText: _subdomainController.text.isEmpty
-                              ? "your-subdomain"
+                              ? "switch_settings.subdomain_hint".tr()
                               : null,
                           filled: true,
                           fillColor: Colors.white,
@@ -740,7 +832,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Subdomain: ${_subdomainController.text.isEmpty ? "" : _subdomainController.text}',
+                              '${"switch_settings.subdomain".tr()}${_subdomainController.text.isEmpty ? "" : _subdomainController.text}',
                               style: AppTextStyles.bodyMedium.copyWith(
                                 color: Colors.grey[700],
                               ),
@@ -764,7 +856,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                                 );
                               },
                               child: Text(
-                                'Change Subdomain',
+                                'switch_settings.change_subdomain'.tr(),
                                 style: AppTextStyles.bodyMedium.copyWith(
                                   color: Colors.grey[700],
                                   decoration: TextDecoration.underline,
@@ -781,14 +873,14 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
 
           // Logo Section
           _buildSectionCard(
-            title: "Logo",
+            title: "switch_settings.logo".tr(),
             child: _buildLogoUploadArea(_networkLogoUrl),
           ),
           const SizedBox(height: 24),
 
           // Branding Section
           _buildSectionCard(
-            title: "Branding",
+            title: "switch_settings.branding".tr(),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isLargeScreen = constraints.maxWidth > 600;
@@ -823,7 +915,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Text(
-                            '+ Choose Color',
+                            'switch_settings.choose_color'.tr(),
                             style: AppTextStyles.bodyMedium.copyWith(
                               color: Colors.black,
                               decoration: TextDecoration.underline,
@@ -840,11 +932,11 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                                 focusNode: _colorNameFocusNode,
                                 autofocus: true,
                                 decoration: InputDecoration(
-                                  prefixText: 'Color name: ',
+                                  prefixText: 'switch_settings.color_name'.tr(),
                                   prefixStyle: AppTextStyles.bodyMedium
                                       .copyWith(color: Colors.black),
                                   hintText: _colorNameController.text.isEmpty
-                                      ? "Bright-NetWorks-Turquoise"
+                                      ? "switch_settings.color_name_hint".tr()
                                       : null,
                                   filled: true,
                                   fillColor: Colors.white,
@@ -911,7 +1003,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                                   children: [
                                     // Left: Color name display
                                     Text(
-                                      'Color name: ${_colorNameController.text.isEmpty ? "Bright-NetWorks-Turquoise" : _colorNameController.text}',
+                                      '${"switch_settings.color_name".tr()}${_colorNameController.text.isEmpty ? "switch_settings.color_name_hint".tr() : _colorNameController.text}',
                                       style: AppTextStyles.bodyMedium.copyWith(
                                         color: Colors.grey[700],
                                       ),
@@ -939,7 +1031,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                                         );
                                       },
                                       child: Text(
-                                        'Change Color Name',
+                                        'switch_settings.change_color_name'.tr(),
                                         style: AppTextStyles.bodyMedium
                                             .copyWith(
                                               color: Colors.grey[700],
@@ -985,7 +1077,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               child: Text(
-                                '+ Choose Color',
+                                'switch_settings.choose_color'.tr(),
                                 style: AppTextStyles.bodyMedium.copyWith(
                                   color: Colors.black,
                                   decoration: TextDecoration.underline,
@@ -1000,12 +1092,12 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                       TextField(
                         controller: _colorNameController,
                         decoration: InputDecoration(
-                          prefixText: 'Color name: ',
+                          prefixText: 'switch_settings.color_name'.tr(),
                           prefixStyle: AppTextStyles.bodyMedium.copyWith(
                             color: Colors.black,
                           ),
                           hintText: _colorNameController.text.isEmpty
-                              ? "Bright-NetWorks-Turquoise"
+                              ? "switch_settings.color_name_hint".tr()
                               : null,
                           filled: true,
                           fillColor: Colors.white,
@@ -1049,57 +1141,67 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
           const SizedBox(height: 32),
 
           // Save Button - Center aligned with fixed width
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              MouseRegion(
-                child: SizedBox(
-                  width: 200,
-                  child: OutlinedButton(
-                    onPressed:
-                        (isButtonEnabled &&
-                            (_logoFile != null || _networkLogoUrl != null))
-                        ? _saveSettings
-                        : null,
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor:
-                          (isButtonEnabled &&
-                              (_logoFile != null || _networkLogoUrl != null))
-                          ? const Color(0xFF171C23)
-                          : Colors.grey,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 20,
-                      ),
-                      side: BorderSide(
-                        color:
-                            (isButtonEnabled &&
-                                (_logoFile != null || _networkLogoUrl != null))
-                            ? const Color(0xFF171C23)
-                            : Colors.grey,
-                        width: 3,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.zero,
-                      ),
-                    ),
-                    child: Text(
-                      'Update Settings',
-                      style: AppTextStyles.buttonText.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color:
-                            (isButtonEnabled &&
-                                (_logoFile != null || _networkLogoUrl != null))
-                            ? const Color(0xFF171C23)
-                            : Colors.grey,
+          BlocBuilder<SwitchSettingsBloc, SwitchSettingsState>(
+            builder: (context, state) {
+              final isUpdating = state is SwitchSettingsUpdating;
+              final canSave =
+                  isButtonEnabled &&
+                  (_logoFile != null || _networkLogoUrl != null) &&
+                  !isUpdating;
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  MouseRegion(
+                    child: SizedBox(
+                      width: 200,
+                      child: OutlinedButton(
+                        onPressed: canSave
+                            ? () => _saveSettings(context)
+                            : null,
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: canSave
+                              ? const Color(0xFF171C23)
+                              : Colors.grey,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                            horizontal: 20,
+                          ),
+                          side: BorderSide(
+                            color: canSave
+                                ? const Color(0xFF171C23)
+                                : Colors.grey,
+                            width: 3,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.zero,
+                          ),
+                        ),
+                        child: isUpdating
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF171C23),
+                                ),
+                              )
+                            : Text(
+                                'switch_settings.update_settings'.tr(),
+                                style: AppTextStyles.buttonText.copyWith(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: canSave
+                                      ? const Color(0xFF171C23)
+                                      : Colors.grey,
+                                ),
+                              ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -1200,7 +1302,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
               InkWell(
                 onTap: _pickLogo,
                 child: Text(
-                  '+ Choose Image from File',
+                  'switch_settings.choose_image'.tr(),
                   style: AppTextStyles.bodySmall.copyWith(
                     color: const Color(0xFF0095A5),
                     fontSize: 12,
@@ -1208,11 +1310,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Icon(
-                Icons.keyboard_arrow_down,
-                color: Color(0xFF0095A5),
-                size: 24,
-              ),
+
               const SizedBox(height: 16),
               if (_logoFile != null ||
                   (networkLogoUrl != null && networkLogoUrl.isNotEmpty))
@@ -1249,7 +1347,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'SWITCH',
+                      'switch_settings.switch_placeholder'.tr(),
                       style: AppTextStyles.titleMedium.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Colors.black,
@@ -1269,4 +1367,32 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
       ),
     );
   }
+}
+
+/// Triggers loading of switch details when the screen mounts.
+class _SwitchSettingsLoader extends StatefulWidget {
+  final String switchId;
+  final Widget child;
+
+  const _SwitchSettingsLoader({required this.switchId, required this.child});
+
+  @override
+  State<_SwitchSettingsLoader> createState() => _SwitchSettingsLoaderState();
+}
+
+class _SwitchSettingsLoaderState extends State<_SwitchSettingsLoader> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.switchId.isNotEmpty) {
+        context.read<SwitchSettingsBloc>().add(
+          SwitchDetailsRequested(switchId: widget.switchId),
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

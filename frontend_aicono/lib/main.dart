@@ -5,12 +5,17 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_b
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_sites_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_sites_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_buildings_bloc.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/bloc/building_reports_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/routing/app_router.dart';
 import 'package:frontend_aicono/core/services/auth_service.dart';
+import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/bloc/register_user_bloc.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/bloc/invitation_validation_bloc.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/bloc/reset_password_bloc.dart';
@@ -78,6 +83,23 @@ void main() async {
           BlocProvider<DashboardRoomDetailsBloc>(
             create: (context) =>
                 DashboardRoomDetailsBloc(getDashboardRoomDetailsUseCase: sl()),
+          ),
+          BlocProvider<DashboardSitesBloc>(
+            create: (context) {
+              final bloc = sl<DashboardSitesBloc>();
+              final verseId = sl<LocalStorage>().getSelectedVerseId();
+              bloc.add(DashboardSitesRequested(bryteswitchId: verseId));
+              return bloc;
+            },
+          ),
+          BlocProvider<ReportSitesBloc>(
+            create: (context) => sl<ReportSitesBloc>(),
+          ),
+          BlocProvider<ReportBuildingsBloc>(
+            create: (context) => sl<ReportBuildingsBloc>(),
+          ),
+          BlocProvider<BuildingReportsBloc>(
+            create: (context) => sl<BuildingReportsBloc>(),
           ),
         ],
         child: const MyApp(),

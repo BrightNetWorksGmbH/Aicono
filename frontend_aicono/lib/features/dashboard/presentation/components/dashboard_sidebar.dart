@@ -886,13 +886,36 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
       children: [
         InkWell(
           onTap: () {
-            context.pushNamed(Routelists.switchSettings);
+            final switchId = widget.verseId ?? currentVerseId;
+            if (switchId != null && switchId.isNotEmpty) {
+              context.pushNamed(
+                Routelists.switchSettings,
+                queryParameters: {'switchId': switchId},
+              );
+            } else {
+              context.pushNamed(Routelists.switchSettings);
+            }
           },
           child: Text(
             'dashboard.sidebar.settings'.tr(),
             style: AppTextStyles.titleSmall.copyWith(
               color: Colors.black87,
               fontWeight: widget.activeSection == 'settings'
+                  ? FontWeight.w700
+                  : FontWeight.w400,
+            ),
+          ),
+        ),
+        const Divider(height: 20, thickness: 1, color: Color(0x40000000)),
+        InkWell(
+          onTap: () {
+            context.pushNamed(Routelists.profile);
+          },
+          child: Text(
+            'dashboard.sidebar.profile'.tr(),
+            style: AppTextStyles.titleSmall.copyWith(
+              color: Colors.black87,
+              fontWeight: widget.activeSection == 'profile'
                   ? FontWeight.w700
                   : FontWeight.w400,
             ),
@@ -1054,20 +1077,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
   }
 
   void _handleProfileTap() {
-    try {
-      context.pushNamed(Routelists.profile, extra: {'verseId': currentVerseId});
-    } catch (_) {
-      // fallback
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'dashboard.sidebar.profile'.tr() +
-                ' ' +
-                'dashboard.main_content.coming_soon'.tr(),
-          ),
-        ),
-      );
-    }
+    context.pushNamed(Routelists.profile);
   }
 
   Widget _buildLogoutButton() {

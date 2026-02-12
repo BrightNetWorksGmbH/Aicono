@@ -341,6 +341,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                       setState(() {});
                                     },
                                     containerWidth: screenSize.width,
+                                    switchId: currentVerseId,
                                     // Only provide onMenuTap on narrow screens to open drawer
                                     // On wide screens, leave it null so the menu shows popup
                                     onMenuTap: screenSize.width < 800

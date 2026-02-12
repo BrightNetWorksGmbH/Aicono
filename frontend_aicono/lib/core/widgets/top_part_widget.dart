@@ -5,19 +5,24 @@ import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/services/auth_service.dart';
+import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
+import 'package:frontend_aicono/features/settings/domain/usecases/get_switch_by_id_usecase.dart';
 
 /// Top header widget with menu, language switcher, and logout functionality.
 ///
-/// You can pass real data via [userInitial], [verseInitial] and wire
-/// behaviour via [onMenuTap] / [onLanguageChanged].
-class TopHeader extends StatelessWidget {
+/// Displays user and switch avatars. When [switchId] is provided, fetches switch
+/// logo from API. User avatar/initial comes from AuthService when not overridden.
+class TopHeader extends StatefulWidget {
   final VoidCallback? onMenuTap;
   final VoidCallback onLanguageChanged;
   final double height;
   final double containerWidth;
   final String? userInitial;
   final String? verseInitial;
+  final String? userAvatarUrl;
+  final String? switchLogoUrl;
+  final String? switchId;
 
   const TopHeader({
     super.key,
@@ -27,12 +32,93 @@ class TopHeader extends StatelessWidget {
     required this.containerWidth,
     this.userInitial,
     this.verseInitial,
+    this.userAvatarUrl,
+    this.switchLogoUrl,
+    this.switchId,
   });
+
+  @override
+  State<TopHeader> createState() => _TopHeaderState();
+}
+
+class _TopHeaderState extends State<TopHeader> {
+  String? _loadedUserAvatarUrl;
+  String? _loadedUserInitial;
+  String? _loadedSwitchLogoUrl;
+  String? _loadedVerseInitial;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvatarData();
+  }
+
+  @override
+  void didUpdateWidget(TopHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.switchId != widget.switchId ||
+        oldWidget.userAvatarUrl != widget.userAvatarUrl ||
+        oldWidget.switchLogoUrl != widget.switchLogoUrl) {
+      _loadAvatarData();
+    }
+  }
+
+  Future<void> _loadAvatarData() async {
+    final authService = sl<AuthService>();
+    final user = authService.currentUser;
+
+    if (user != null && mounted) {
+      final avatarUrl = user.avatarUrl;
+      setState(() {
+        _loadedUserAvatarUrl = widget.userAvatarUrl ??
+            (avatarUrl != null && avatarUrl.isNotEmpty ? avatarUrl : null);
+        final name = '${user.firstName} ${user.lastName}'.trim();
+        _loadedUserInitial = widget.userInitial ??
+            (name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?');
+      });
+    }
+
+    if (widget.switchLogoUrl != null && mounted) {
+      setState(() {
+        _loadedSwitchLogoUrl = widget.switchLogoUrl;
+        _loadedVerseInitial = widget.verseInitial ?? 'B';
+      });
+      return;
+    }
+
+    final effectiveSwitchId =
+        widget.switchId ?? sl<LocalStorage>().getSelectedVerseId();
+    if (effectiveSwitchId != null &&
+        effectiveSwitchId.isNotEmpty &&
+        mounted) {
+      final result =
+          await sl<GetSwitchByIdUseCase>().call(effectiveSwitchId);
+      if (!mounted) return;
+      result.fold(
+        (_) {},
+        (switchDetails) {
+          if (mounted) {
+            setState(() {
+              final logoUrl = switchDetails.branding.logoUrl;
+              _loadedSwitchLogoUrl = logoUrl != null && logoUrl.isNotEmpty
+                  ? logoUrl
+                  : null;
+              _loadedVerseInitial = switchDetails.organizationName.isNotEmpty
+                  ? switchDetails.organizationName
+                      .substring(0, 1)
+                      .toUpperCase()
+                  : 'B';
+            });
+          }
+        },
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: height,
+      height: widget.height,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -54,7 +140,10 @@ class TopHeader extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Positioned(left: overlap, child: _buildVerseAvatar(avatarSize / 2)),
+          Positioned(
+            left: overlap,
+            child: _buildVerseAvatar(avatarSize / 2),
+          ),
           Positioned(left: 0, child: _buildUserAvatar(avatarSize / 2)),
         ],
       ),
@@ -62,36 +151,50 @@ class TopHeader extends StatelessWidget {
   }
 
   Widget _buildUserAvatar(double radius) {
-    final initial = (userInitial != null && userInitial!.isNotEmpty)
-        ? userInitial!.substring(0, 1).toUpperCase()
-        : '?';
+    final avatarUrl = widget.userAvatarUrl ?? _loadedUserAvatarUrl;
+    final initial = widget.userInitial ??
+        _loadedUserInitial ??
+        (avatarUrl == null || avatarUrl.isEmpty ? '?' : null) ??
+        '?';
+    final hasImage = avatarUrl != null && avatarUrl.isNotEmpty;
     return CircleAvatar(
       radius: radius,
       backgroundColor: Colors.grey.shade700,
-      child: Text(
-        initial,
-        style: AppTextStyles.titleSmall.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+      backgroundImage: hasImage ? NetworkImage(avatarUrl!) : null,
+      onBackgroundImageError: hasImage ? (_, trace) {} : null,
+      child: !hasImage
+          ? Text(
+              initial,
+              style: AppTextStyles.titleSmall.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          : null,
     );
   }
 
   Widget _buildVerseAvatar(double radius) {
-    final initial = (verseInitial != null && verseInitial!.isNotEmpty)
-        ? verseInitial!.substring(0, 1).toUpperCase()
-        : 'B';
+    final logoUrl = widget.switchLogoUrl ?? _loadedSwitchLogoUrl;
+    final initial = widget.verseInitial ??
+        _loadedVerseInitial ??
+        (logoUrl == null || logoUrl.isEmpty ? 'B' : null) ??
+        'B';
+    final hasImage = logoUrl != null && logoUrl.isNotEmpty;
     return CircleAvatar(
       radius: radius,
       backgroundColor: Colors.grey.shade400,
-      child: Text(
-        initial,
-        style: AppTextStyles.labelSmall.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+      backgroundImage: hasImage ? NetworkImage(logoUrl!) : null,
+      onBackgroundImageError: hasImage ? (_, trace) {} : null,
+      child: !hasImage
+          ? Text(
+              initial,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          : null,
     );
   }
 
@@ -122,10 +225,10 @@ class TopHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        if (onMenuTap != null) ...[
+        if (widget.onMenuTap != null) ...[
           const SizedBox(width: 6),
           InkWell(
-            onTap: onMenuTap,
+            onTap: widget.onMenuTap,
             borderRadius: BorderRadius.circular(8),
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -180,8 +283,8 @@ class TopHeader extends StatelessWidget {
     const popupWidth = 220.0;
     const popupHeight = 200.0;
 
-    final containerLeftOffset = (screenWidth - containerWidth) / 2;
-    final menuIconCenter = containerWidth - 25;
+    final containerLeftOffset = (screenWidth - widget.containerWidth) / 2;
+    final menuIconCenter = widget.containerWidth - 25;
     final left = containerLeftOffset + menuIconCenter - (popupWidth / 2);
     final adjustedLeft = left.clamp(10.0, screenWidth - popupWidth - 10);
     final top = kToolbarHeight + 20;
@@ -278,7 +381,7 @@ class TopHeader extends StatelessWidget {
         Navigator.pop(context);
 
         // Notify parent to rebuild
-        onLanguageChanged();
+        widget.onLanguageChanged();
 
         // Small delay to ensure locale is updated, then reopen menu
         await Future.delayed(const Duration(milliseconds: 100));
@@ -300,7 +403,7 @@ class TopHeader extends StatelessWidget {
                 Navigator.pop(context);
 
                 // Notify parent to rebuild
-                onLanguageChanged();
+                widget.onLanguageChanged();
 
                 // Small delay to ensure locale is updated, then reopen menu
                 await Future.delayed(const Duration(milliseconds: 100));

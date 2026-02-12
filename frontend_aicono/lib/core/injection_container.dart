@@ -121,6 +121,22 @@ import 'package:frontend_aicono/features/join_invite/data/repositories/join_invi
 import 'package:frontend_aicono/features/join_invite/domain/repositories/join_invite_repository.dart';
 import 'package:frontend_aicono/features/join_invite/domain/usecases/join_switch_usecase.dart';
 import 'package:frontend_aicono/features/join_invite/presentation/bloc/join_invite_bloc.dart';
+import 'package:frontend_aicono/features/settings/data/datasources/switch_settings_remote_datasource.dart';
+import 'package:frontend_aicono/features/settings/data/datasources/profile_remote_datasource.dart';
+import 'package:frontend_aicono/features/settings/data/datasources/change_password_remote_datasource.dart';
+import 'package:frontend_aicono/features/settings/data/repositories/switch_settings_repository_impl.dart';
+import 'package:frontend_aicono/features/settings/data/repositories/profile_repository_impl.dart';
+import 'package:frontend_aicono/features/settings/data/repositories/change_password_repository_impl.dart';
+import 'package:frontend_aicono/features/settings/domain/repositories/switch_settings_repository.dart';
+import 'package:frontend_aicono/features/settings/domain/repositories/profile_repository.dart';
+import 'package:frontend_aicono/features/settings/domain/repositories/change_password_repository.dart';
+import 'package:frontend_aicono/features/settings/domain/usecases/get_switch_by_id_usecase.dart';
+import 'package:frontend_aicono/features/settings/domain/usecases/update_switch_usecase.dart';
+import 'package:frontend_aicono/features/settings/domain/usecases/get_profile_usecase.dart';
+import 'package:frontend_aicono/features/settings/domain/usecases/update_profile_usecase.dart';
+import 'package:frontend_aicono/features/settings/domain/usecases/change_password_usecase.dart';
+import 'package:frontend_aicono/features/settings/presentation/bloc/switch_settings_bloc.dart';
+import 'package:frontend_aicono/features/settings/presentation/bloc/profile_bloc.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -201,6 +217,21 @@ Future<void> init() async {
     () => UserInviteRemoteDataSourceImpl(dioClient: sl()),
   );
 
+  // Switch settings data source
+  sl.registerLazySingleton<SwitchSettingsRemoteDataSource>(
+    () => SwitchSettingsRemoteDataSourceImpl(dioClient: sl()),
+  );
+
+  // Profile data source
+  sl.registerLazySingleton<ProfileRemoteDataSource>(
+    () => ProfileRemoteDataSourceImpl(dioClient: sl()),
+  );
+
+  // Change password data source
+  sl.registerLazySingleton<ChangePasswordRemoteDataSource>(
+    () => ChangePasswordRemoteDataSourceImpl(dioClient: sl()),
+  );
+
   // Repositories - Auth is online-only, Verse is offline-first
   sl.registerLazySingleton<InvitationRepository>(
     () => InvitationRepositoryImpl(remoteDataSource: sl()),
@@ -264,6 +295,21 @@ Future<void> init() async {
     () => UserInviteRepositoryImpl(remoteDataSource: sl()),
   );
 
+  // Switch settings repository
+  sl.registerLazySingleton<SwitchSettingsRepository>(
+    () => SwitchSettingsRepositoryImpl(remoteDataSource: sl()),
+  );
+
+  // Profile repository
+  sl.registerLazySingleton<ProfileRepository>(
+    () => ProfileRepositoryImpl(remoteDataSource: sl()),
+  );
+
+  // Change password repository
+  sl.registerLazySingleton<ChangePasswordRepository>(
+    () => ChangePasswordRepositoryImpl(remoteDataSource: sl()),
+  );
+
   // Use cases
   sl.registerLazySingleton(() => InvitationUseCase(sl()));
   sl.registerLazySingleton(() => RegisterUserUseCase(repository: sl()));
@@ -308,6 +354,15 @@ Future<void> init() async {
 
   // Join invite use cases
   sl.registerLazySingleton(() => JoinSwitchUseCase(repository: sl()));
+
+  // Switch settings use cases
+  sl.registerLazySingleton(() => GetSwitchByIdUseCase(repository: sl()));
+  sl.registerLazySingleton(() => UpdateSwitchUseCase(repository: sl()));
+
+  // Profile use cases
+  sl.registerLazySingleton(() => GetProfileUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateProfileUseCase(sl()));
+  sl.registerLazySingleton(() => ChangePasswordUseCase(sl()));
 
   // User invite use cases
   sl.registerLazySingleton(() => GetRolesUseCase(repository: sl()));
@@ -411,6 +466,22 @@ Future<void> init() async {
 
   // Join invite bloc
   sl.registerFactory(() => JoinInviteBloc(joinSwitchUseCase: sl()));
+
+  // Switch settings bloc
+  sl.registerFactory(
+    () => SwitchSettingsBloc(
+      getSwitchByIdUseCase: sl(),
+      updateSwitchUseCase: sl(),
+    ),
+  );
+
+  // Profile bloc
+  sl.registerFactory(
+    () => ProfileBloc(
+      getProfileUseCase: sl(),
+      updateProfileUseCase: sl(),
+    ),
+  );
 
   // Upload dependencies
   sl.registerLazySingleton<UploadRemoteDataSource>(
