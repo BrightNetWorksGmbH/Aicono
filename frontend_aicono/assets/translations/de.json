@@ -300,6 +300,15 @@
       "loading_dashboard": "Fehler beim Laden des Dashboards: {error}",
       "no_verses_available": "Keine Verse verfügbar"
     },
+    "report_setup": {
+      "title": "Reporting konfigurieren",
+      "title_fallback": "Reporting konfigurieren",
+      "title_for_all": "Reporting konfigurieren",
+      "reporting_name_hint": "Name des Reportings",
+      "frequency_label": "Monatlich",
+      "change_frequency": "Turnus ändern",
+      "select_frequency": "Turnus auswählen"
+    },
     "sidebar": {
       "change_language": "Sprache ändern",
       "english": "Englisch",

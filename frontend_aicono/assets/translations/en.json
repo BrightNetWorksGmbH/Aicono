@@ -303,6 +303,15 @@
     "email_hint": "Email address"
   },
   "dashboard": {
+    "report_setup": {
+      "title": "Configure Reporting",
+      "title_fallback": "Configure Reporting",
+      "title_for_all": "Configure Reporting",
+      "reporting_name_hint": "Name of the Reporting",
+      "frequency_label": "Monthly",
+      "change_frequency": "Change frequency",
+      "select_frequency": "Select frequency"
+    },
     "error": {
       "failed_to_load_user": "Failed to load user: {error}",
       "loading_dashboard": "Error loading dashboard: {error}",

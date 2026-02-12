@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
+import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:go_router/go_router.dart';
 import 'package:xml/xml.dart' as xml;
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
@@ -1185,6 +1186,13 @@ class _FloorPlanActivationPageState extends State<FloorPlanActivationPage> {
     }
   }
 
+  void _handleLanguageChanged() {
+    // TODO: Implement language change
+    setState(() {
+      // TODO: Implement language change
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -1207,53 +1215,15 @@ class _FloorPlanActivationPageState extends State<FloorPlanActivationPage> {
                   horizontal: 16,
                   vertical: 12,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Colors.grey[300],
-                      child: const Icon(Icons.person, color: Colors.grey),
-                    ),
-                    Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            context.pushNamed(Routelists.floorPlanEditor);
-                          },
-                          child: Text(
-                            'BRYTE',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue[900],
-                            ),
-                          ),
-                        ),
-                        Text(
-                          'SWITCH',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        Text(
-                          'MENU',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Icon(Icons.menu, color: Colors.grey[700]),
-                      ],
-                    ),
-                  ],
+                child: Material(
+                  color: Colors.transparent,
+                  child: TopHeader(
+                    onLanguageChanged: _handleLanguageChanged,
+                    containerWidth: screenSize.width > 500
+                        ? 500
+                        : screenSize.width * 0.98,
+                    verseInitial: null,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

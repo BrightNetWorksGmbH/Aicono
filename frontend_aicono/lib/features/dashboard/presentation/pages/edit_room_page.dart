@@ -48,6 +48,7 @@ class _EditRoomPageState extends State<EditRoomPage> {
   void initState() {
     super.initState();
     _loadRoomData();
+    _fetchSensorsFromAPI();
   }
 
   @override
@@ -95,6 +96,64 @@ class _EditRoomPageState extends State<EditRoomPage> {
     setState(() {});
   }
 
+  Future<void> _fetchSensorsFromAPI() async {
+    setState(() {
+      _isLoadingSensors = true;
+    });
+
+    try {
+      final dioClient = sl<DioClient>();
+      final response = await dioClient.get(
+        '/api/v1/sensors/local-room/${widget.roomId}',
+      );
+
+      if (mounted) {
+        if (response.statusCode == 200 && response.data != null) {
+          final data = response.data;
+          List<dynamic> sensorsList = [];
+
+          // Handle different response structures
+          if (data is List) {
+            sensorsList = data;
+          } else if (data is Map<String, dynamic>) {
+            if (data['success'] == true && data['data'] != null) {
+              if (data['data'] is List) {
+                sensorsList = data['data'] as List;
+              } else if (data['data'] is Map<String, dynamic>) {
+                // If data is a single object, wrap it in a list
+                sensorsList = [data['data']];
+              }
+            } else if (data['sensors'] != null && data['sensors'] is List) {
+              sensorsList = data['sensors'] as List;
+            } else if (data['results'] != null && data['results'] is List) {
+              sensorsList = data['results'] as List;
+            }
+          }
+
+          _loadSensorsFromRoomDetails(sensorsList);
+        } else {
+          debugPrint('Failed to fetch sensors: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching sensors from API: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading sensors: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingSensors = false;
+        });
+      }
+    }
+  }
+
   void _loadSensorsFromRoomDetails(List<dynamic> sensorsList) {
     setState(() {
       _sensors = sensorsList.map((sensor) {
@@ -107,11 +166,11 @@ class _EditRoomPageState extends State<EditRoomPage> {
             sensor['sensorName']?.toString() ??
             'Unknown Sensor';
         final minValue =
-            sensor['min_value']?.toString() ??
+            sensor['threshold_min']?.toString() ??
             sensor['minValue']?.toString() ??
             '';
         final maxValue =
-            sensor['max_value']?.toString() ??
+            sensor['threshold_max']?.toString() ??
             sensor['maxValue']?.toString() ??
             '';
 
@@ -523,8 +582,8 @@ class _EditRoomPageState extends State<EditRoomPage> {
             _buildingId = widget.buildingId;
           }
 
-          // Load sensors from room details
-          _loadSensorsFromRoomDetails(state.details.sensors);
+          // Sensors are now loaded from API endpoint in _fetchSensorsFromAPI()
+          // No need to load from room details anymore
         }
       },
       child: Scaffold(
@@ -607,32 +666,7 @@ class _EditRoomPageState extends State<EditRoomPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 32),
-                                // Room name field
-                                SizedBox(
-                                  width: screenSize.width < 600
-                                      ? screenSize.width * 0.95
-                                      : screenSize.width < 1200
-                                      ? screenSize.width * 0.5
-                                      : screenSize.width * 0.6,
-                                  child: TextFormField(
-                                    controller: _roomNameController,
-                                    decoration: InputDecoration(
-                                      hintText: 'Enter room name',
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(0),
-                                      ),
-                                      // prefixIcon: Icon(Icons.room),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null ||
-                                          value.trim().isEmpty) {
-                                        return 'Room name is required';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(height: 32),
+
                                 // Loxone Room Selection
                                 SizedBox(
                                   width: screenSize.width < 600
@@ -772,7 +806,7 @@ class _EditRoomPageState extends State<EditRoomPage> {
                                       )
                                     : PrimaryOutlineButton(
                                         onPressed: _handleSave,
-                                        label: 'Save Room Changes',
+                                        label: 'Update Loxone Room',
                                         width: 260,
                                       ),
                                 const SizedBox(height: 32),

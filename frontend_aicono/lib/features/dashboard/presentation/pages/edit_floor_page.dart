@@ -196,7 +196,31 @@ class _EditFloorPageState extends State<EditFloorPage> {
                                   initialFloorPlanUrl: _floorPlanUrl,
                                   editorKey: _floorPlanEditorKey,
                                   onSave: (String? floorPlanUrl) async {
-                                    // Save floor plan URL
+                                    // First, create all new rooms from the floor plan editor
+                                    if (_floorPlanEditorKey.currentState !=
+                                        null) {
+                                      try {
+                                        await _floorPlanEditorKey.currentState!
+                                            .createNewRoomsInBackend();
+                                      } catch (e) {
+                                        debugPrint('Error creating rooms: $e');
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Error creating rooms: $e',
+                                              ),
+                                              backgroundColor: Colors.orange,
+                                            ),
+                                          );
+                                        }
+                                        // Continue with floor plan save even if room creation fails
+                                      }
+                                    }
+
+                                    // Then save floor plan URL
                                     if (floorPlanUrl != null) {
                                       try {
                                         final dioClient = sl<DioClient>();
@@ -306,7 +330,17 @@ class _EditFloorPageState extends State<EditFloorPage> {
     try {
       String? floorPlanUrl = _floorPlanUrl;
 
-      // First, upload the SVG if there's a floor plan editor with rooms
+      // First, create new rooms in backend if there are any
+      if (_floorPlanEditorKey.currentState != null) {
+        try {
+          await _floorPlanEditorKey.currentState!.createNewRoomsInBackend();
+        } catch (e) {
+          debugPrint('Error creating new rooms: $e');
+          // Continue with save even if room creation fails
+        }
+      }
+
+      // Then, upload the SVG if there's a floor plan editor with rooms
       if (_floorPlanEditorKey.currentState != null) {
         try {
           final svgContent = await _floorPlanEditorKey.currentState!
