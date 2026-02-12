@@ -7,6 +7,7 @@ const Building = require('../models/Building');
 const Site = require('../models/Site');
 const UserRole = require('../models/UserRole');
 const User = require('../models/User');
+const Reporting = require('../models/Reporting');
 /**
  * GET /api/v1/dashboard/reports/sites
  * Get all sites with reports for the authenticated user
@@ -137,7 +138,7 @@ exports.getReportContent = asyncHandler(async (req, res) => {
   }
 
   // Get reporting configuration to access interval
-  const Reporting = require('../models/Reporting');
+
   const reporting = await Reporting.findById(reportId);
   if (!reporting) {
     return res.status(404).json({
