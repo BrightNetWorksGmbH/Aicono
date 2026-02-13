@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getMyProfile, updateMyProfile } = require('../controllers/userController');
+const { getMyProfile, updateMyProfile, changeMyPassword } = require('../controllers/userController');
 const { body } = require('express-validator');
 const { validationErrorHandler } = require('../middleware/errorHandler');
 const { requireAuth } = require('../middleware/auth');
@@ -40,6 +40,19 @@ const updateProfileValidation = [
     .withMessage('Profile picture URL must be a valid URL'),
 ];
 
+// Validation rules for password change
+const changePasswordValidation = [
+  body('current_password')
+    .notEmpty()
+    .withMessage('Current password is required'),
+  body('new_password')
+    .isLength({ min: 8 })
+    .withMessage('New password must be at least 8 characters long'),
+  body('confirm_password')
+    .notEmpty()
+    .withMessage('Password confirmation is required'),
+];
+
 /**
  * @route   GET /api/v1/users/me
  * @desc    Get current user profile
@@ -53,5 +66,12 @@ router.get('/me', requireAuth, getMyProfile);
  * @access  Private
  */
 router.put('/me', requireAuth, updateProfileValidation, validationErrorHandler, updateMyProfile);
+
+/**
+ * @route   PUT /api/v1/users/me/password
+ * @desc    Change current user password
+ * @access  Private
+ */
+router.put('/me/password', requireAuth, changePasswordValidation, validationErrorHandler, changeMyPassword);
 
 module.exports = router;
