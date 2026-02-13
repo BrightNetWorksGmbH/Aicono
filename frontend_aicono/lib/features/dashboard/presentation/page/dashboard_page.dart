@@ -38,10 +38,12 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   String? currentVerseId;
+  User? _loadedUser;
   String? selectedReportId;
   late DynamicThemeService _themeService;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _initialSitesRequestDone = false;
+
   /// Date range for dashboard property details (sites/buildings/floors/rooms). Same API style as report (startDate/endDate).
   DateTimeRange? _dashboardDateRange;
 
@@ -96,24 +98,33 @@ class _DashboardPageState extends State<DashboardPage> {
           final loginRepository = sl<LoginRepository>();
           final userResult = await loginRepository.getCurrentUser();
 
-          userResult.fold((failure) {
-            // Handle error
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'dashboard.error.failed_to_load_user'.tr(
-                      namedArgs: {'error': failure.message},
+          userResult.fold(
+            (failure) {
+              // Handle error
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'dashboard.error.failed_to_load_user'.tr(
+                        namedArgs: {'error': failure.message},
+                      ),
                     ),
                   ),
-                ),
-              );
-            }
-          }, (user) => _processUserData(user, localStorage));
+                );
+              }
+            },
+            (user) {
+              if (mounted) setState(() => _loadedUser = user);
+              _processUserData(user, localStorage);
+            },
+          );
         },
         (user) async {
           // Profile refreshed successfully
           print('Dashboard: Profile refreshed. Verses: ${user.joinedVerse}');
+          if (mounted) {
+            setState(() => _loadedUser = user);
+          }
           _processUserData(user, localStorage);
         },
       );
@@ -279,14 +290,15 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   child: SafeArea(
                     child: SingleChildScrollView(
-                                                    child: DashboardSidebar(
-                                                        isInDrawer: true,
-                                                        verseId: currentVerseId,
-                                                        dashboardFilter: _dashboardFilter,
-                                                        onLanguageChanged: _handleLanguageChanged,
-                                                        onSwitchSelected: (verseId) =>
-                                                            setCurrentVerse(verseId, blocContext),
-                                                        onReportSelected: (reportId) {
+                      child: DashboardSidebar(
+                        isInDrawer: true,
+                        verseId: currentVerseId,
+                        roles: _loadedUser?.roles,
+                        dashboardFilter: _dashboardFilter,
+                        onLanguageChanged: _handleLanguageChanged,
+                        onSwitchSelected: (verseId) =>
+                            setCurrentVerse(verseId, blocContext),
+                        onReportSelected: (reportId) {
                           setState(() => selectedReportId = reportId);
                           if (reportId != null) {
                             blocContext.read<ReportDetailBloc>().add(
@@ -373,7 +385,9 @@ class _DashboardPageState extends State<DashboardPage> {
                                             child: SingleChildScrollView(
                                               child: DashboardSidebar(
                                                 verseId: currentVerseId,
-                                                dashboardFilter: _dashboardFilter,
+                                                roles: _loadedUser?.roles,
+                                                dashboardFilter:
+                                                    _dashboardFilter,
                                                 onLanguageChanged:
                                                     _handleLanguageChanged,
                                                 onSwitchSelected: (verseId) =>
@@ -441,19 +455,21 @@ class _DashboardPageState extends State<DashboardPage> {
                                                 ),
                                                 child: DashboardMainContent(
                                                   verseId: currentVerseId,
+                                                  user: _loadedUser,
                                                   selectedReportId:
                                                       selectedReportId,
-                                                  dashboardFilter: _dashboardFilter,
+                                                  dashboardFilter:
+                                                      _dashboardFilter,
                                                   onDashboardDateRangeChanged:
                                                       (start, end) {
-                                                    setState(() {
-                                                      _dashboardDateRange =
-                                                          DateTimeRange(
-                                                        start: start,
-                                                        end: end,
-                                                      );
-                                                    });
-                                                  },
+                                                        setState(() {
+                                                          _dashboardDateRange =
+                                                              DateTimeRange(
+                                                                start: start,
+                                                                end: end,
+                                                              );
+                                                        });
+                                                      },
                                                 ),
                                               ),
                                             ),

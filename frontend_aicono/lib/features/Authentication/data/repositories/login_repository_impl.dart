@@ -170,11 +170,56 @@ class LoginRepositoryImpl implements LoginRepository {
   @override
   Future<Either<Failure, User>> fetchProfile() async {
     try {
-      // Make API call to profile endpoint
-      final response = await dioClient.get('/profile');
+      // Use /api/v1/users/me - same as profile settings
+      final response = await dioClient.get('/api/v1/users/me');
 
       if (response.statusCode == 200) {
-        final user = User.fromJson(response.data);
+        final responseData = response.data;
+        if (responseData is! Map<String, dynamic>) {
+          return Left(ServerFailure('Invalid response format'));
+        }
+        if (responseData['success'] != true || responseData['data'] == null) {
+          return Left(
+            ServerFailure(
+              responseData['message']?.toString() ?? 'Fetch profile failed',
+            ),
+          );
+        }
+
+        final data = responseData['data'] as Map;
+        final userData = data['user'] ?? data;
+        final combinedUserData = Map<String, dynamic>.from(
+          userData is Map ? userData as Map<String, dynamic> : {},
+        );
+
+        // Normalize profile_picture_url -> avatar_url
+        if (combinedUserData['profile_picture_url'] != null &&
+            combinedUserData['avatar_url'] == null) {
+          combinedUserData['avatar_url'] =
+              combinedUserData['profile_picture_url'];
+        }
+
+        // Add roles and derive joined_verse from roles (API returns joined_switch or roles)
+        if (data['roles'] != null && data['roles'] is List) {
+          final rolesList = data['roles'] as List;
+          final joinedVerse = rolesList
+              .where((role) =>
+                  role is Map && role['bryteswitch_id'] != null)
+              .map((role) => (role['bryteswitch_id'] ?? '').toString())
+              .where((s) => s.isNotEmpty)
+              .toList();
+          combinedUserData['joined_verse'] =
+              combinedUserData['joined_verse'] ?? joinedVerse;
+          combinedUserData['roles'] = rolesList;
+        }
+
+        // Preserve tokens from current session (API does not return them)
+        final token = await SecureStorage.getAccessToken();
+        final refreshToken = await SecureStorage.getRefreshToken();
+        combinedUserData['token'] = token ?? '';
+        combinedUserData['refresh_token'] = refreshToken ?? token ?? '';
+
+        final user = User.fromJson(combinedUserData);
 
         // Update local storage with fresh user data
         await prefs.setString('user_data', user.toJsonString());

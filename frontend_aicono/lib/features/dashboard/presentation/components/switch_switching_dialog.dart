@@ -8,14 +8,18 @@ class SwitchSwitchingDialog extends StatefulWidget {
   final List<SwitchRoleEntity> roles;
   final String? currentSwitchId;
   final SwitchRoleEntity? currentRole;
-  final Function(String bryteswitchId) onSwitchSelected;
+  /// Called when user selects a switch. Required when [returnSelectionResult] is false.
+  final void Function(String bryteswitchId)? onSwitchSelected;
+  /// When true, the dialog pops with the selected [SwitchRoleEntity] for use with showDialog<T>.
+  final bool returnSelectionResult;
 
   const SwitchSwitchingDialog({
     super.key,
     required this.roles,
     this.currentSwitchId,
     this.currentRole,
-    required this.onSwitchSelected,
+    this.onSwitchSelected,
+    this.returnSelectionResult = false,
   });
 
   @override
@@ -65,10 +69,18 @@ class _SwitchSwitchingDialogState extends State<SwitchSwitchingDialog>
     super.dispose();
   }
 
-  void _closeDialog() {
+  void _closeDialog([SwitchRoleEntity? result]) {
     _animationController.reverse().then((_) {
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) Navigator.of(context).pop(result);
     });
+  }
+
+  SwitchRoleEntity? _getRoleById(String bryteswitchId) {
+    try {
+      return widget.roles.firstWhere((r) => r.bryteswitchId == bryteswitchId);
+    } catch (_) {
+      return null;
+    }
   }
 
   void _selectSwitch(String bryteswitchId) {
@@ -77,8 +89,12 @@ class _SwitchSwitchingDialogState extends State<SwitchSwitchingDialog>
     });
 
     Future.delayed(const Duration(milliseconds: 150), () {
-      widget.onSwitchSelected(bryteswitchId);
-      _closeDialog();
+      widget.onSwitchSelected?.call(bryteswitchId);
+      if (widget.returnSelectionResult) {
+        _closeDialog(_getRoleById(bryteswitchId));
+      } else {
+        _closeDialog();
+      }
     });
   }
 
@@ -385,7 +401,7 @@ class _SwitchSwitchingDialogState extends State<SwitchSwitchingDialog>
         children: [
           Expanded(
             child: TextButton(
-              onPressed: _closeDialog,
+              onPressed: () => _closeDialog(),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),

@@ -14,6 +14,7 @@ import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/switch_role_entity.dart';
+import 'package:frontend_aicono/features/Authentication/domain/entities/user.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_sites_bloc.dart';
@@ -66,6 +67,7 @@ enum _PropertyOverviewMenuAction { edit, delete }
 
 class DashboardMainContent extends StatefulWidget {
   final String? verseId;
+  final User? user;
   final String? selectedReportId;
   final DashboardDetailsFilter? dashboardFilter;
   final void Function(DateTime start, DateTime end)? onDashboardDateRangeChanged;
@@ -73,6 +75,7 @@ class DashboardMainContent extends StatefulWidget {
   const DashboardMainContent({
     super.key,
     this.verseId,
+    this.user,
     this.selectedReportId,
     this.dashboardFilter,
     this.onDashboardDateRangeChanged,
@@ -90,12 +93,42 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _applyUser(widget.user);
+    if (widget.user == null) {
+      _loadUserData();
+    }
+  }
+
+  @override
+  void didUpdateWidget(DashboardMainContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.user != oldWidget.user) {
+      _applyUser(widget.user);
+      if (widget.user == null) {
+        _loadUserData();
+      }
+    }
   }
 
   @override
   void dispose() {
     super.dispose();
+  }
+
+  void _applyUser(User? user) {
+    if (user == null) return;
+    if (mounted) {
+      setState(() {
+        _userFirstName = user.firstName.isNotEmpty ? user.firstName : 'User';
+        final firstName = user.firstName.isNotEmpty ? user.firstName : '';
+        final lastName = user.lastName.isNotEmpty ? user.lastName : '';
+        _userName = '$firstName $lastName'.trim();
+        if (_userName!.isEmpty) {
+          _userName = 'User';
+        }
+        _switches = user.roles;
+      });
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -105,7 +138,6 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
 
       userResult.fold(
         (failure) {
-          // Use default if loading fails
           if (mounted) {
             setState(() {
               _userFirstName = 'User';
@@ -116,25 +148,11 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
         },
         (user) {
           if (mounted && user != null) {
-            setState(() {
-              _userFirstName = user.firstName.isNotEmpty
-                  ? user.firstName
-                  : 'User';
-              // Construct userName from firstName and lastName
-              final firstName = user.firstName.isNotEmpty ? user.firstName : '';
-              final lastName = user.lastName.isNotEmpty ? user.lastName : '';
-              _userName = '$firstName $lastName'.trim();
-              if (_userName!.isEmpty) {
-                _userName = 'User';
-              }
-              // Load switches from user roles
-              _switches = user.roles;
-            });
+            _applyUser(user);
           }
         },
       );
     } catch (e) {
-      // Use default on error
       if (mounted) {
         setState(() {
           _userFirstName = 'User';

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/services/auth_service.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/pages/login_page.dart';
 import 'package:frontend_aicono/features/Authentication/presentation/pages/forgot_password_page.dart';
@@ -943,8 +944,21 @@ class AppRouter {
       path: '/${Routelists.dashboard}',
       name: Routelists.dashboard,
       pageBuilder: (context, state) {
-        final verseId = state.uri.queryParameters['verseId'];
-        return _buildPage(context, state, DashboardPage(verseId: verseId));
+        var verseId = state.uri.queryParameters['verseId'];
+        if (verseId == null || verseId.isEmpty) {
+          verseId = sl<LocalStorage>().getSelectedVerseId();
+        }
+        // Use refresh param in key to force new instance when returning from switch settings
+        // (ensures _loadDashboardData runs and switch name updates immediately)
+        final refresh = state.uri.queryParameters['refresh'] ?? '';
+        return _buildPage(
+          context,
+          state,
+          DashboardPage(
+            key: ValueKey('${verseId ?? 'dashboard'}_$refresh'),
+            verseId: verseId,
+          ),
+        );
       },
     ),
     GoRoute(
@@ -993,7 +1007,10 @@ class AppRouter {
       path: '/${Routelists.switchSettings}',
       name: Routelists.switchSettings,
       pageBuilder: (context, state) {
-        final switchId = state.uri.queryParameters['switchId'] ?? '';
+        var switchId = state.uri.queryParameters['switchId'] ?? '';
+        if (switchId.isEmpty) {
+          switchId = sl<LocalStorage>().getSelectedVerseId() ?? '';
+        }
         return _buildPage(
           context,
           state,

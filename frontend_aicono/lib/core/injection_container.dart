@@ -137,6 +137,7 @@ import 'package:frontend_aicono/features/settings/domain/usecases/update_profile
 import 'package:frontend_aicono/features/settings/domain/usecases/change_password_usecase.dart';
 import 'package:frontend_aicono/features/settings/presentation/bloc/switch_settings_bloc.dart';
 import 'package:frontend_aicono/features/settings/presentation/bloc/profile_bloc.dart';
+import 'package:frontend_aicono/features/settings/presentation/bloc/change_password_bloc.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -481,6 +482,11 @@ Future<void> init() async {
       getProfileUseCase: sl(),
       updateProfileUseCase: sl(),
     ),
+  );
+
+  // Change password bloc
+  sl.registerFactory(
+    () => ChangePasswordBloc(changePasswordUseCase: sl()),
   );
 
   // Upload dependencies

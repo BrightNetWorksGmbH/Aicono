@@ -5,6 +5,7 @@ import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/services/auth_service.dart';
+import 'package:frontend_aicono/core/services/dynamic_theme_service.dart';
 import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/features/settings/domain/usecases/get_switch_by_id_usecase.dart';
@@ -109,6 +110,10 @@ class _TopHeaderState extends State<TopHeader> {
                       .toUpperCase()
                   : 'B';
             });
+            // Update AppTheme.primary to switch's branding color so UI reflects it
+            sl<DynamicThemeService>().setPrimaryFromSwitch(
+              switchDetails.branding.primaryColor,
+            );
           }
         },
       );
