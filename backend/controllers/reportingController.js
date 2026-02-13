@@ -2,6 +2,7 @@ const reportingService = require('../services/reportingService');
 const reportingScheduler = require('../services/reportingScheduler');
 const reportTokenService = require('../services/reportTokenService');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { checkReportingPermissionByReporting, checkReportingPermissionByBuilding } = require('../utils/buildingPermissions');
 const ReportingRecipient = require('../models/ReportingRecipient');
 const Building = require('../models/Building');
 const Reporting = require('../models/Reporting');
@@ -333,4 +334,165 @@ exports.getReportInfoFromToken = asyncHandler(async (req, res) => {
       });
     }
   }
+});
+
+/**
+ * DELETE /api/v1/reporting/:reportingId
+ * Delete a report and all related assignments
+ */
+exports.deleteReport = asyncHandler(async (req, res) => {
+  const { reportingId } = req.params;
+  const userId = req.user._id;
+
+  // Check permission - user must be Owner, Admin, or Expert (not Read-Only)
+  await checkReportingPermissionByReporting(userId, reportingId);
+
+  const result = await reportingService.deleteReporting(reportingId);
+
+  res.json({
+    success: true,
+    message: `Report "${result.reportingName}" deleted successfully`,
+    data: result
+  });
+});
+
+/**
+ * PATCH /api/v1/reporting/:reportingId
+ * Update a report (name, interval, reportContents)
+ */
+exports.updateReport = asyncHandler(async (req, res) => {
+  const { reportingId } = req.params;
+  const userId = req.user._id;
+  const updateData = req.body;
+
+  // Validate that at least one field is provided
+  if (!updateData || Object.keys(updateData).length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'At least one field (name, interval, or reportContents) must be provided for update'
+    });
+  }
+
+  // Check permission - user must be Owner, Admin, or Expert (not Read-Only)
+  await checkReportingPermissionByReporting(userId, reportingId);
+
+  const updatedReporting = await reportingService.updateReporting(reportingId, updateData);
+
+  res.json({
+    success: true,
+    message: 'Report updated successfully',
+    data: updatedReporting
+  });
+});
+
+/**
+ * POST /api/v1/reporting/:reportingId/recipients
+ * Add recipients to a report for a specific building
+ * Body: { recipients: [string|object], buildingId }
+ * Recipients can be:
+ *   - String IDs: "697b3bd9234121f6ca541e2b" (existing recipient)
+ *   - Objects: { name, email, phone? } (new recipient to create)
+ */
+exports.addRecipientToReport = asyncHandler(async (req, res) => {
+  const { reportingId } = req.params;
+  const userId = req.user._id;
+  const { recipients, buildingId } = req.body;
+
+  // Validate required fields
+  if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'recipients array is required and must not be empty'
+    });
+  }
+
+  if (!buildingId) {
+    return res.status(400).json({
+      success: false,
+      error: 'buildingId is required in request body'
+    });
+  }
+
+  // Validate each recipient in array
+  for (const recipient of recipients) {
+    if (typeof recipient === 'string') {
+      // Valid - it's an ID reference
+      if (recipient.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          error: 'Recipient ID cannot be empty'
+        });
+      }
+    } else if (typeof recipient === 'object' && recipient !== null) {
+      // Validate object structure
+      if (!recipient.email) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email is required for new recipient objects'
+        });
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.email)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid email format in recipients'
+        });
+      }
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Each item in recipients must be either a string ID or an object with name, email, and optional phone'
+      });
+    }
+  }
+
+  // Check permission - user must be Owner, Admin, or Expert (not Read-Only)
+  // Check based on building since that's what we're working with
+  await checkReportingPermissionByBuilding(userId, buildingId);
+
+  const result = await reportingService.addRecipientsToReport(
+    reportingId,
+    recipients,
+    buildingId
+  );
+
+  res.status(201).json({
+    success: true,
+    message: `Added ${result.assignments.length} recipient(s) to report successfully`,
+    data: result
+  });
+});
+
+/**
+ * DELETE /api/v1/reporting/:reportingId/recipients/:recipientId
+ * Remove a recipient from a report for a specific building
+ * Body: { buildingId }
+ */
+exports.removeRecipientFromReport = asyncHandler(async (req, res) => {
+  const { reportingId, recipientId } = req.params;
+  const userId = req.user._id;
+  const { buildingId } = req.body;
+
+  // Validate required field
+  if (!buildingId) {
+    return res.status(400).json({
+      success: false,
+      error: 'buildingId is required in request body'
+    });
+  }
+
+  // Check permission - user must be Owner, Admin, or Expert (not Read-Only)
+  // Check based on building since that's what we're working with
+  await checkReportingPermissionByBuilding(userId, buildingId);
+
+  const result = await reportingService.removeRecipientFromReport(
+    reportingId,
+    recipientId,
+    buildingId
+  );
+
+  res.json({
+    success: true,
+    message: 'Recipient removed from report successfully',
+    data: result
+  });
 });
