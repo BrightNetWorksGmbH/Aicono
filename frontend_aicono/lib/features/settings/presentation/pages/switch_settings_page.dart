@@ -226,6 +226,16 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
     setState(() {});
   }
 
+  Future<void> _handleSwitchSelected(String verseId) async {
+    await sl<LocalStorage>().setSelectedVerseId(verseId);
+    if (!mounted) return;
+    // Pass refresh param to force dashboard to reload with fresh roles
+    context.goNamed(
+      Routelists.dashboard,
+      queryParameters: {'verseId': verseId, 'refresh': DateTime.now().millisecondsSinceEpoch.toString()},
+    );
+  }
+
   void _populateFromSwitchDetails(SwitchDetailsEntity details) {
     _organizationController.text = details.organizationName;
     _switchNameController.text = details.organizationName;
@@ -321,7 +331,11 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                 backgroundColor: Colors.green,
               ),
             );
-            context.pushNamed(Routelists.dashboard);
+            // Pass refresh param to force dashboard to reload and show updated switch name
+            context.goNamed(
+              Routelists.dashboard,
+              queryParameters: {'refresh': DateTime.now().millisecondsSinceEpoch.toString()},
+            );
           } else if (state is SwitchSettingsFailure) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -353,6 +367,7 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                         activeSection: 'settings',
                         verseId: _effectiveSwitchId,
                         onLanguageChanged: _handleLanguageChanged,
+                        onSwitchSelected: _handleSwitchSelected,
                       ),
                     ),
                   ),
@@ -425,6 +440,8 @@ class _SwitchSettingsScreenState extends State<SwitchSettingsScreen> {
                                                   verseId: _effectiveSwitchId,
                                                   onLanguageChanged:
                                                       _handleLanguageChanged,
+                                                  onSwitchSelected:
+                                                      _handleSwitchSelected,
                                                 ),
                                               ),
                                             Expanded(
@@ -1385,6 +1402,7 @@ class _SwitchSettingsLoaderState extends State<_SwitchSettingsLoader> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (widget.switchId.isNotEmpty) {
         context.read<SwitchSettingsBloc>().add(
           SwitchDetailsRequested(switchId: widget.switchId),

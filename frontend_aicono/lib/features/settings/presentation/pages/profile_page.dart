@@ -14,8 +14,8 @@ import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/dashboard_sidebar.dart';
 import 'package:frontend_aicono/features/settings/domain/entities/profile_update_request.dart';
-import 'package:frontend_aicono/features/settings/domain/usecases/change_password_usecase.dart';
 import 'package:frontend_aicono/features/settings/presentation/bloc/profile_bloc.dart';
+import 'package:frontend_aicono/features/settings/presentation/bloc/change_password_bloc.dart';
 import 'package:frontend_aicono/features/upload/domain/usecases/upload_usecase.dart';
 import 'package:frontend_aicono/features/verse/presentation/components/broken_border_painter.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -49,7 +49,6 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _obscureCurrentPassword = true;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
-  bool _isChangingPassword = false;
   bool isButtonEnabled = false;
   Uint8List? _selectedImageBytes;
   XFile? _avatarFile;
@@ -131,7 +130,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _updateButtonEnabled() {
     setState(() {
-      isButtonEnabled = _firstNameController.text.trim().isNotEmpty &&
+      isButtonEnabled =
+          _firstNameController.text.trim().isNotEmpty &&
           _lastNameController.text.trim().isNotEmpty &&
           _positionController.text.trim().isNotEmpty;
     });
@@ -158,7 +158,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _changePassword() async {
+  void _changePassword(BuildContext context) {
     final current = _currentPasswordController.text;
     final newPwd = _newPasswordController.text;
     final confirm = _confirmPasswordController.text;
@@ -176,36 +176,13 @@ class _ProfilePageState extends State<ProfilePage> {
       return;
     }
 
-    setState(() => _isChangingPassword = true);
-    try {
-      final result = await sl<ChangePasswordUseCase>().call(current, newPwd);
-      if (!mounted) return;
-      result.fold(
-        (failure) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('profile.password_change_failed'.tr(namedArgs: {'message': failure.message})),
-              backgroundColor: Colors.red,
-            ),
-          );
-        },
-        (_) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('profile.password_changed'.tr()),
-              backgroundColor: Colors.green,
-            ),
-          );
-          _currentPasswordController.clear();
-          _newPasswordController.clear();
-          _confirmPasswordController.clear();
-        },
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isChangingPassword = false);
-      }
-    }
+    context.read<ChangePasswordBloc>().add(
+          ChangePasswordSubmitted(
+            currentPassword: current,
+            newPassword: newPwd,
+            confirmPassword: confirm,
+          ),
+        );
   }
 
   void _handleLanguageChanged() => setState(() {});
@@ -216,7 +193,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
     String? profilePictureUrl = _networkAvatarUrl;
     if (_avatarFile != null) {
-      final verseId = _effectiveSwitchId.isNotEmpty ? _effectiveSwitchId : user.id;
+      final verseId = _effectiveSwitchId.isNotEmpty
+          ? _effectiveSwitchId
+          : user.id;
       final uploadResult = await sl<UploadImage>().call(
         _avatarFile!,
         verseId,
@@ -228,7 +207,10 @@ class _ProfilePageState extends State<ProfilePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                uploadResult.fold((f) => f.message, (_) => 'profile.upload_failed'.tr()),
+                uploadResult.fold(
+                  (f) => f.message,
+                  (_) => 'profile.upload_failed'.tr(),
+                ),
               ),
               backgroundColor: Colors.red,
             ),
@@ -242,7 +224,8 @@ class _ProfilePageState extends State<ProfilePage> {
     final request = ProfileUpdateRequest(
       firstName: _firstNameController.text.trim(),
       lastName: _lastNameController.text.trim(),
-      email: sl<AuthService>().currentUser?.email ?? _emailController.text.trim(),
+      email:
+          sl<AuthService>().currentUser?.email ?? _emailController.text.trim(),
       phoneNumber: _phoneController.text.trim().isNotEmpty
           ? _phoneController.text.trim()
           : null,
@@ -254,11 +237,27 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _populateFromUser(dynamic user) {
-    _firstNameController.text = user.firstName ?? '';
-    _lastNameController.text = user.lastName ?? '';
-    _emailController.text = user.email ?? '';
-    _phoneController.text = user.phoneNumber ?? '';
-    _positionController.text = user.position ?? '';
+    // Only overwrite when API returns non-empty values; preserve prefill otherwise
+    final fn = user.firstName?.toString().trim();
+    if (fn != null && fn.isNotEmpty) {
+      _firstNameController.text = fn;
+    }
+    final ln = user.lastName?.toString().trim();
+    if (ln != null && ln.isNotEmpty) {
+      _lastNameController.text = ln;
+    }
+    final em = user.email?.toString().trim();
+    if (em != null && em.isNotEmpty) {
+      _emailController.text = em;
+    }
+    final phone = user.phoneNumber?.toString().trim();
+    if (phone != null && phone.isNotEmpty) {
+      _phoneController.text = phone;
+    }
+    final pos = user.position?.toString().trim();
+    if (pos != null && pos.isNotEmpty) {
+      _positionController.text = pos;
+    }
     final avatarUrl = user.avatarUrl;
     _networkAvatarUrl = avatarUrl != null && avatarUrl.toString().isNotEmpty
         ? avatarUrl.toString()
@@ -270,9 +269,41 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     final Size screenSize = MediaQuery.of(context).size;
 
-    return BlocProvider(
-      create: (context) => sl<ProfileBloc>(),
-      child: BlocListener<ProfileBloc, ProfileState>(
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (context) => sl<ProfileBloc>()),
+        BlocProvider(create: (context) => sl<ChangePasswordBloc>()),
+      ],
+      child: BlocListener<ChangePasswordBloc, ChangePasswordState>(
+        listenWhen: (prev, curr) =>
+            curr is ChangePasswordSuccess || curr is ChangePasswordFailure,
+        listener: (context, state) {
+          if (state is ChangePasswordSuccess) {
+            _currentPasswordController.clear();
+            _newPasswordController.clear();
+            _confirmPasswordController.clear();
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('profile.password_changed'.tr()),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } else if (state is ChangePasswordFailure) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'profile.password_change_failed'.tr(
+                    namedArgs: {'message': state.message},
+                  ),
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+        child: BlocListener<ProfileBloc, ProfileState>(
         listenWhen: (prev, curr) => prev != curr,
         listener: (context, state) {
           if (state is ProfileLoaded) {
@@ -285,7 +316,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 backgroundColor: Colors.green,
               ),
             );
-            context.pushNamed(Routelists.dashboard);
+            context.goNamed(Routelists.dashboard);
           } else if (state is ProfileFailure) {
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
@@ -296,18 +327,22 @@ class _ProfilePageState extends State<ProfilePage> {
             );
           }
         },
-        child: BlocBuilder<ProfileBloc, ProfileState>(
-          buildWhen: (prev, curr) =>
-              curr is ProfileLoaded || curr is ProfileFailure,
-          builder: (context, state) {
-            return _ProfileLoader(
-              scaffoldKey: _scaffoldKey,
-              screenSize: screenSize,
-              onLanguageChanged: _handleLanguageChanged,
-              effectiveSwitchId: _effectiveSwitchId,
-              child: _buildContent(context, state),
-            );
-          },
+          child: BlocBuilder<ProfileBloc, ProfileState>(
+            buildWhen: (prev, curr) =>
+                curr is ProfileInitial ||
+                curr is ProfileLoading ||
+                curr is ProfileLoaded ||
+                curr is ProfileFailure,
+            builder: (context, state) {
+              return _ProfileLoader(
+                scaffoldKey: _scaffoldKey,
+                screenSize: screenSize,
+                onLanguageChanged: _handleLanguageChanged,
+                effectiveSwitchId: _effectiveSwitchId,
+                child: _buildContent(context, state),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -348,8 +383,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 right: 0,
                 child: IconButton(
                   icon: const Icon(Icons.close, size: 32),
-                  onPressed: () =>
-                      context.pushNamed(Routelists.dashboard),
+                  onPressed: () => context.pushNamed(Routelists.dashboard),
                   color: Colors.black,
                 ),
               ),
@@ -477,7 +511,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   SizedBox(
-                    width: 200,
+                    width: 250,
                     child: OutlinedButton(
                       onPressed: canSave ? () => _saveSettings(context) : null,
                       style: OutlinedButton.styleFrom(
@@ -543,45 +577,84 @@ class _ProfilePageState extends State<ProfilePage> {
                   controller: _currentPasswordController,
                   hint: 'profile.current_password'.tr(),
                   obscure: _obscureCurrentPassword,
-                  onToggle: () =>
-                      setState(() => _obscureCurrentPassword = !_obscureCurrentPassword),
+                  onToggle: () => setState(
+                    () => _obscureCurrentPassword = !_obscureCurrentPassword,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _buildPasswordField(
                   controller: _newPasswordController,
                   hint: 'profile.new_password'.tr(),
                   obscure: _obscureNewPassword,
-                  onToggle: () =>
-                      setState(() => _obscureNewPassword = !_obscureNewPassword),
+                  onToggle: () => setState(
+                    () => _obscureNewPassword = !_obscureNewPassword,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _buildPasswordField(
                   controller: _confirmPasswordController,
                   hint: 'profile.confirm_password'.tr(),
                   obscure: _obscureConfirmPassword,
-                  onToggle: () =>
-                      setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                  onToggle: () => setState(
+                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                  ),
                 ),
                 const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: ElevatedButton(
-                    onPressed: _isChangingPassword ? null : _changePassword,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: _isChangingPassword
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                BlocBuilder<ChangePasswordBloc, ChangePasswordState>(
+                  buildWhen: (prev, curr) =>
+                      prev is ChangePasswordLoading ||
+                      curr is ChangePasswordLoading ||
+                      curr is ChangePasswordSuccess ||
+                      curr is ChangePasswordFailure,
+                  builder: (context, cpState) {
+                    final isChanging =
+                        cpState is ChangePasswordLoading;
+                    return Align(
+                      alignment: Alignment.centerRight,
+                      child: SizedBox(
+                        width: 200,
+                        child: OutlinedButton(
+                          onPressed: isChanging ? null : () => _changePassword(context),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: isChanging
+                                ? Colors.grey
+                                : const Color(0xFF171C23),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                              horizontal: 20,
                             ),
-                          )
-                        : Text('profile.change_password'.tr()),
-                  ),
+                            side: BorderSide(
+                              color: isChanging
+                                  ? Colors.grey
+                                  : const Color(0xFF171C23),
+                              width: 3,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.zero,
+                            ),
+                          ),
+                          child: isChanging
+                              ? const SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF171C23),
+                                  ),
+                                )
+                              : Text(
+                                  'profile.change_password'.tr(),
+                                  style: AppTextStyles.buttonText.copyWith(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF171C23),
+                                  ),
+                                ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -615,7 +688,10 @@ class _ProfilePageState extends State<ProfilePage> {
           hintText: controller.text.isEmpty ? hint : null,
           filled: true,
           fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 12,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.zero,
             borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
@@ -717,26 +793,26 @@ class _ProfilePageState extends State<ProfilePage> {
                   color: Colors.white,
                   child: _avatarFile != null
                       ? kIsWeb
-                          ? Image.memory(
-                              _selectedImageBytes!,
-                              fit: BoxFit.contain,
-                            )
-                          : Image.file(
-                              File(_avatarFile!.path),
-                              fit: BoxFit.contain,
-                            )
+                            ? Image.memory(
+                                _selectedImageBytes!,
+                                fit: BoxFit.contain,
+                              )
+                            : Image.file(
+                                File(_avatarFile!.path),
+                                fit: BoxFit.contain,
+                              )
                       : networkAvatarUrl != null && networkAvatarUrl.isNotEmpty
-                          ? Image.network(
-                              networkAvatarUrl,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(
+                      ? Image.network(
+                          networkAvatarUrl,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(
                                 Icons.person,
                                 size: 48,
                                 color: Colors.grey,
                               ),
-                            )
-                          : null,
+                        )
+                      : null,
                 )
               else
                 Row(
@@ -778,7 +854,10 @@ class _ProfilePageState extends State<ProfilePage> {
         hintStyle: TextStyle(color: Colors.grey[400]),
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.zero,
           borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
@@ -803,10 +882,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildSectionCard({
-    required String title,
-    required Widget child,
-  }) {
+  Widget _buildSectionCard({required String title, required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(24),
       margin: const EdgeInsets.only(bottom: 24),
@@ -863,8 +939,15 @@ class _ProfileLoaderState extends State<_ProfileLoader> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<ProfileBloc>().add(ProfileRequested());
     });
+  }
+
+  Future<void> _handleSwitchSelected(String verseId) async {
+    await sl<LocalStorage>().setSelectedVerseId(verseId);
+    if (!mounted) return;
+    context.goNamed(Routelists.dashboard);
   }
 
   @override
@@ -887,8 +970,11 @@ class _ProfileLoaderState extends State<_ProfileLoader> {
                   isInDrawer: true,
                   showBackToDashboard: true,
                   activeSection: 'profile',
-                  verseId: widget.effectiveSwitchId,
+                  verseId: widget.effectiveSwitchId.isNotEmpty
+                      ? widget.effectiveSwitchId
+                      : null,
                   onLanguageChanged: widget.onLanguageChanged,
+                  onSwitchSelected: _handleSwitchSelected,
                 ),
               ),
             ),
@@ -957,9 +1043,13 @@ class _ProfileLoaderState extends State<_ProfileLoader> {
                                           child: DashboardSidebar(
                                             showBackToDashboard: true,
                                             activeSection: 'profile',
-                                            verseId: widget.effectiveSwitchId,
+                                            verseId: widget.effectiveSwitchId
+                                                    .isNotEmpty
+                                                ? widget.effectiveSwitchId
+                                                : null,
                                             onLanguageChanged:
                                                 widget.onLanguageChanged,
+                                            onSwitchSelected: _handleSwitchSelected,
                                           ),
                                         ),
                                       Expanded(

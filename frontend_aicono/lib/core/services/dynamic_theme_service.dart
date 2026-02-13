@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/services/auth_service.dart';
 import 'package:frontend_aicono/core/storage/local_storage.dart';
@@ -51,6 +52,7 @@ class DynamicThemeService extends ChangeNotifier {
   /// Force refresh theme (useful after login/logout)
   Future<void> refreshTheme() async {
     _isInitialized = false;
+    setPrimaryFromSwitch(null); // Reset to default
     await initialize();
   }
 
@@ -68,6 +70,33 @@ class DynamicThemeService extends ChangeNotifier {
       return _verseSurfaceColor!;
     }
     return const Color(0xFF161B22); // Default black surface
+  }
+
+  /// Update AppTheme.primary and AppTheme.surface to the switch's branding color.
+  /// Call this when switch details are loaded (e.g. from TopHeader).
+  /// Pass null to reset to default.
+  void setPrimaryFromSwitch(String? hexColor) {
+    if (hexColor == null || hexColor.isEmpty) {
+      AppTheme.currentTheme['colors']['primary'] = AppColors.primaryColor;
+      AppTheme.currentTheme['colors']['surface'] = AppColors.surfaceColor;
+    } else {
+      final color = _parseHexColor(hexColor);
+      if (color != null) {
+        AppTheme.currentTheme['colors']['primary'] = color;
+        AppTheme.currentTheme['colors']['surface'] = color;
+      }
+    }
+    notifyListeners();
+  }
+
+  static Color? _parseHexColor(String hex) {
+    String cleaned = hex.replaceFirst('#', '');
+    if (cleaned.length == 6) {
+      cleaned = 'FF$cleaned';
+    }
+    if (cleaned.length != 8) return null;
+    final value = int.tryParse(cleaned, radix: 16);
+    return value != null ? Color(value) : null;
   }
 }
 

@@ -5,5 +5,6 @@ abstract class ChangePasswordRepository {
   Future<Either<Failure, void>> changePassword(
     String currentPassword,
     String newPassword,
+    String confirmPassword,
   );
 }

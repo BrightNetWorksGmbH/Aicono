@@ -10,6 +10,11 @@ class ChangePasswordUseCase {
   Future<Either<Failure, void>> call(
     String currentPassword,
     String newPassword,
+    String confirmPassword,
   ) =>
-      repository.changePassword(currentPassword, newPassword);
+      repository.changePassword(
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      );
 }

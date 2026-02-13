@@ -33,6 +33,7 @@ class DashboardSidebar extends StatefulWidget {
     this.onPropertySelected,
     this.showSwitchSwitcher = true,
     this.verseId,
+    this.roles,
     this.dashboardFilter,
   });
 
@@ -63,6 +64,9 @@ class DashboardSidebar extends StatefulWidget {
   /// Optional current verse/switch ID from parent (e.g. dashboard). When provided, sidebar stays in sync when parent switches.
   final String? verseId;
 
+  /// Optional roles (switches) from parent. When provided, uses these instead of loading from cache - ensures fresh data after profile/switch settings update.
+  final List<SwitchRoleEntity>? roles;
+
   /// Optional date filter for dashboard property APIs (sites/buildings/floors/rooms). Same style as report (startDate/endDate).
   final DashboardDetailsFilter? dashboardFilter;
 
@@ -79,7 +83,10 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
   void initState() {
     super.initState();
     _loadVerseId();
-    _loadUserAndRoles();
+    _applyRoles(widget.roles);
+    if (widget.roles == null) {
+      _loadUserAndRoles();
+    }
   }
 
   @override
@@ -87,6 +94,19 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
     super.didUpdateWidget(oldWidget);
     if (widget.verseId != oldWidget.verseId && widget.verseId != null) {
       setState(() => currentVerseId = widget.verseId);
+    }
+    if (widget.roles != oldWidget.roles) {
+      _applyRoles(widget.roles);
+      if (widget.roles == null) {
+        _loadUserAndRoles();
+      }
+    }
+  }
+
+  void _applyRoles(List<SwitchRoleEntity>? roles) {
+    if (roles == null) return;
+    if (mounted) {
+      setState(() => _roles = roles);
     }
   }
 
@@ -886,7 +906,15 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
       children: [
         InkWell(
           onTap: () {
-            final switchId = widget.verseId ?? currentVerseId;
+            // Resolve switch/verse ID: prefer verseId from parent, then sidebar state, then LocalStorage
+            var switchId = (widget.verseId != null && widget.verseId!.isNotEmpty)
+                ? widget.verseId
+                : (currentVerseId != null && currentVerseId!.isNotEmpty)
+                    ? currentVerseId
+                    : sl<LocalStorage>().getSelectedVerseId();
+            if (switchId == null || switchId.isEmpty) {
+              switchId = sl<LocalStorage>().getSelectedSwitchId();
+            }
             if (switchId != null && switchId.isNotEmpty) {
               context.pushNamed(
                 Routelists.switchSettings,

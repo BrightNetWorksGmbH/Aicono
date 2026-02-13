@@ -5,11 +5,13 @@ import 'package:frontend_aicono/core/error/failure.dart';
 import 'package:frontend_aicono/core/network/dio_client.dart';
 import 'package:frontend_aicono/core/network/error_extractor.dart';
 
-/// Calls POST /api/v1/auth/change-password
+/// Calls PUT /api/v1/users/me/password
+/// Body: { current_password, new_password, confirm_password }
 abstract class ChangePasswordRemoteDataSource {
   Future<Either<Failure, void>> changePassword(
     String currentPassword,
     String newPassword,
+    String confirmPassword,
   );
 }
 
@@ -23,17 +25,19 @@ class ChangePasswordRemoteDataSourceImpl
   Future<Either<Failure, void>> changePassword(
     String currentPassword,
     String newPassword,
+    String confirmPassword,
   ) async {
     try {
       if (kDebugMode) {
-        print('📤 Change Password Request');
+        print('📤 Change Password Request: PUT /api/v1/users/me/password');
       }
 
-      final response = await dioClient.post(
-        '/api/v1/auth/change-password',
+      final response = await dioClient.put(
+        '/api/v1/users/me/password',
         data: {
           'current_password': currentPassword,
           'new_password': newPassword,
+          'confirm_password': confirmPassword,
         },
       );
 

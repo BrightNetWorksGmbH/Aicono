@@ -12,6 +12,11 @@ class ChangePasswordRepositoryImpl implements ChangePasswordRepository {
   Future<Either<Failure, void>> changePassword(
     String currentPassword,
     String newPassword,
+    String confirmPassword,
   ) =>
-      remoteDataSource.changePassword(currentPassword, newPassword);
+      remoteDataSource.changePassword(
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      );
 }

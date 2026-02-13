@@ -74,7 +74,13 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
         Map<String, dynamic> userData;
         if (responseData is Map<String, dynamic>) {
           if (responseData['success'] == true && responseData['data'] != null) {
-            userData = Map<String, dynamic>.from(responseData['data'] as Map);
+            final data = responseData['data'] as Map;
+            // API returns { data: { user: {...}, roles: [...] } }
+            if (data['user'] != null) {
+              userData = Map<String, dynamic>.from(data['user'] as Map);
+            } else {
+              userData = Map<String, dynamic>.from(data);
+            }
           } else {
             userData = responseData;
           }
@@ -129,7 +135,13 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
         Map<String, dynamic> userData;
         if (responseData is Map<String, dynamic>) {
           if (responseData['success'] == true && responseData['data'] != null) {
-            userData = Map<String, dynamic>.from(responseData['data'] as Map);
+            final data = responseData['data'] as Map;
+            // API returns { data: { user: {...}, roles: [...] } }
+            if (data['user'] != null) {
+              userData = Map<String, dynamic>.from(data['user'] as Map);
+            } else {
+              userData = Map<String, dynamic>.from(data);
+            }
           } else {
             userData = responseData;
           }
