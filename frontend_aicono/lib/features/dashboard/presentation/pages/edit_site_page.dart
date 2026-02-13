@@ -14,6 +14,8 @@ import 'package:frontend_aicono/features/switch_creation/presentation/bloc/creat
 import 'package:frontend_aicono/features/switch_creation/domain/entities/create_site_entity.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_site_details_bloc.dart';
 
+import '../../../../core/widgets/top_part_widget.dart';
+
 class EditSitePage extends StatefulWidget {
   final String siteId;
 
@@ -27,7 +29,7 @@ class _EditSitePageState extends State<EditSitePage> {
   final TextEditingController _siteNameController = TextEditingController();
   final TextEditingController _siteAddressController = TextEditingController();
   final Set<String> _selectedResources = {};
-  bool _enableAutocomplete = false;
+  bool _enableAutocomplete = true;
   List<Map<String, dynamic>> _searchResults = [];
   bool _isLoadingSearch = false;
   Timer? _debounceTimer;
@@ -290,6 +292,20 @@ class _EditSitePageState extends State<EditSitePage> {
                                       // crossAxisAlignment:
                                       //     CrossAxisAlignment.stretch,
                                       children: [
+                                        Material(
+                                          color: Colors.transparent,
+                                          child: TopHeader(
+                                            onLanguageChanged:
+                                                _handleLanguageChanged,
+                                            containerWidth:
+                                                screenSize.width > 500
+                                                ? 500
+                                                : screenSize.width * 0.98,
+                                            // userInitial: widget.userName?[0].toUpperCase(),
+                                            verseInitial: null,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
                                         SizedBox(
                                           width: screenSize.width < 600
                                               ? screenSize.width * 0.95
@@ -429,17 +445,11 @@ class _EditSitePageState extends State<EditSitePage> {
                                                         ),
                                                       ),
                                                     ),
-                                                    TextButton(
-                                                      onPressed:
-                                                          _toggleGpsSearch,
-                                                      style: TextButton.styleFrom(
-                                                        foregroundColor:
-                                                            _enableAutocomplete
-                                                            ? const Color(
-                                                                0xFF8B9A5B,
-                                                              )
-                                                            : Colors.black87,
-                                                      ),
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 8.0,
+                                                          ),
                                                       child: const Text('GPS'),
                                                     ),
                                                   ],

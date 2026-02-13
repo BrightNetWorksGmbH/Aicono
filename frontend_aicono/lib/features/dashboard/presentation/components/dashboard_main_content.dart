@@ -6,6 +6,7 @@ import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/services/token_service.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
+import 'package:frontend_aicono/core/widgets/xChackbox.dart';
 import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/switch_role_entity.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,6 +17,7 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_f
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/building_reports_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/trigger_report_bloc.dart';
+import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_loxone_rooms_bloc.dart';
 import 'package:frontend_aicono/features/realtime/domain/entities/realtime_connection_state.dart';
 import 'package:frontend_aicono/features/realtime/presentation/bloc/realtime_sensor_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/report_detail_view.dart';
@@ -596,23 +598,23 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             address: d.loxoneRoomId != null
                 ? 'Loxone: ${d.loxoneRoomId!.name}'
                 : null,
-            onEdit: () {
-              context.pushNamed(
-                Routelists.editRoom,
-                queryParameters: {'roomId': state.roomId},
-              );
-            },
-            onDelete: () async {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Delete functionality is available when you edit the floor',
-                  ),
-                  backgroundColor: Colors.red,
-                ),
-              );
-              // await _handleDeleteRoom(state.roomId);
-            },
+            // onEdit: () {
+            //   context.pushNamed(
+            //     Routelists.editRoom,
+            //     queryParameters: {'roomId': state.roomId},
+            //   );
+            // },
+            // onDelete: () async {
+            //   ScaffoldMessenger.of(context).showSnackBar(
+            //     SnackBar(
+            //       content: Text(
+            //         'Delete functionality is available when you edit the floor',
+            //       ),
+            //       backgroundColor: Colors.red,
+            //     ),
+            //   );
+            //   // await _handleDeleteRoom(state.roomId);
+            // },
             metricCards: [
               _buildPropertyMetricCard(
                 label: 'Sensors',
@@ -1130,37 +1132,46 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                       );
                     },
                     icon: Icon(Icons.edit),
-                  )
-                else if (roomId != null && roomId.isNotEmpty) ...[
-                  IconButton(
-                    onPressed: () {
-                      // Get buildingId from floor details if available
-                      final floorDetailsState = context
-                          .read<DashboardFloorDetailsBloc>()
-                          .state;
-                      String? buildingId;
-                      if (floorDetailsState is DashboardFloorDetailsSuccess) {
-                        buildingId = floorDetailsState.details.buildingId;
-                      }
-                      context.pushNamed(
-                        Routelists.editRoom,
-                        queryParameters: {
-                          'roomId': roomId,
-                          if (buildingId != null && buildingId.isNotEmpty)
-                            'buildingId': buildingId,
-                        },
-                      );
-                    },
-                    icon: Icon(Icons.edit),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: () async {
-                      await _handleDeleteRoom(roomId);
-                    },
-                    icon: const Icon(Icons.delete),
-                  ),
-                ],
+
+                // else if (roomId != null && roomId.isNotEmpty) ...[
+                //   IconButton(
+                //     onPressed: () {
+                //       // Get buildingId from floor details if available
+                //       ScaffoldMessenger.of(context).showSnackBar(
+                //         SnackBar(
+                //           content: Text(
+                //             'Edit functionality is available when you edit the floor',
+                //           ),
+                //           backgroundColor: Colors.red,
+                //         ),
+                //       );
+                //       // final floorDetailsState = context
+                //       //     .read<DashboardFloorDetailsBloc>()
+                //       //     .state;
+                //       // String? buildingId;
+                //       // if (floorDetailsState is DashboardFloorDetailsSuccess) {
+                //       //   buildingId = floorDetailsState.details.buildingId;
+                //       // }
+                //       // context.pushNamed(
+                //       //   Routelists.editRoom,
+                //       //   queryParameters: {
+                //       //     'roomId': roomId,
+                //       //     if (buildingId != null && buildingId.isNotEmpty)
+                //       //       'buildingId': buildingId,
+                //       //   },
+                //       // );
+                //     },
+                //     icon: Icon(Icons.edit),
+                //   ),
+                //   // const SizedBox(width: 8),
+                //   // IconButton(
+                //   //   onPressed: () async {
+                //   //     // await _handleDeleteRoom(roomId);
+                //   //   },
+                //   //   icon: const Icon(Icons.delete),
+                //   // ),
+                // ],
               ],
             ),
         ],
@@ -2879,6 +2890,7 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
       {}; // Maps room.id to loxone_room_id
   final DioClient _dioClient = sl<DioClient>();
   bool _isLoadingBackendRooms = false;
+  String? _buildingId; // Store buildingId from floor data
 
   // Color palette
   static const List<Color> colorPalette = [
@@ -3262,6 +3274,11 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
         if (data['success'] == true && data['data'] != null) {
           final floorData = data['data'] as Map<String, dynamic>;
 
+          // Store buildingId from floor data
+          if (floorData['building_id'] != null) {
+            _buildingId = floorData['building_id'].toString();
+          }
+
           // Get rooms from floor data
           List<dynamic> backendRooms = [];
           if (floorData['rooms'] != null && floorData['rooms'] is List) {
@@ -3457,140 +3474,245 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
     final nameController = TextEditingController(text: room.name);
     Color selectedColor = room.fillColor;
     bool isLoading = false;
+    String? selectedLoxoneRoomId = _loxoneRoomIds[room.id];
+    String? selectedLoxoneRoomName;
 
     showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
-          title: const Text('Edit Room'),
-          content: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Room name field
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    hintText: 'Room Name',
-                    border: OutlineInputBorder(),
+        builder: (context, setDialogState) {
+          // Function to show Loxone room selector
+          Future<void> showLoxoneRoomSelector() async {
+            if (_buildingId == null || _buildingId!.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Building ID is required to select Loxone room',
                   ),
+                  backgroundColor: Colors.red,
                 ),
-                const SizedBox(height: 16),
-                // Color selection
-                const Text(
-                  'Color:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+              );
+              return;
+            }
+
+            final result = await showDialog<Map<String, String>?>(
+              context: context,
+              barrierDismissible: true,
+              builder: (loxoneDialogContext) => BlocProvider(
+                create: (_) => sl<GetLoxoneRoomsBloc>(),
+                child: _LoxoneRoomSelectionDialog(
+                  selectedRoomName: nameController.text,
+                  roomColor: selectedColor,
+                  buildingId: _buildingId!,
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: colorPalette.map((color) {
-                    final isSelected = selectedColor == color;
-                    return GestureDetector(
-                      onTap: () {
-                        setDialogState(() {
-                          selectedColor = color;
-                        });
-                      },
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: color,
-                          border: Border.all(
-                            color: isSelected ? Colors.black : Colors.grey,
-                            width: isSelected ? 3 : 1,
-                          ),
-                        ),
-                        child: isSelected
-                            ? const Icon(
-                                Icons.check,
-                                color: Colors.black,
-                                size: 20,
-                              )
-                            : null,
+              ),
+            );
+
+            if (result != null && mounted) {
+              setDialogState(() {
+                selectedLoxoneRoomId = result['id'];
+                selectedLoxoneRoomName = result['name'];
+              });
+            }
+          }
+
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(0),
+            ),
+            title: const Text('Edit Room'),
+            content: SizedBox(
+              width: 400,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Room name field
+                  const Text(
+                    'Room Name',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      hintText: 'Room Name',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.zero,
                       ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            StatefulBuilder(
-              builder: (context, setButtonState) => ElevatedButton(
-                onPressed: isLoading
-                    ? null
-                    : () async {
-                        setButtonState(() {
-                          isLoading = true;
-                        });
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Color selection
+                  const Text(
+                    'Color:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: colorPalette.map((color) {
+                      final isSelected = selectedColor == color;
+                      return GestureDetector(
+                        onTap: () {
+                          setDialogState(() {
+                            selectedColor = color;
+                          });
+                        },
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: color,
+                            border: Border.all(
+                              color: isSelected ? Colors.black : Colors.grey,
+                              width: isSelected ? 3 : 1,
+                            ),
+                          ),
+                          child: isSelected
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Colors.black,
+                                  size: 20,
+                                )
+                              : null,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
 
-                        try {
-                          await _updateRoomInBackend(
-                            backendRoomId,
-                            nameController.text.trim(),
-                            selectedColor,
-                          );
-
-                          if (mounted) {
-                            Navigator.of(context).pop();
-                            setState(() {
-                              // Update room in local state
-                              final roomIndex = rooms.indexWhere(
-                                (r) => r.id == room.id,
-                              );
-                              if (roomIndex != -1) {
-                                rooms[roomIndex] = Room(
-                                  id: room.id,
-                                  path: room.path,
-                                  doorOpenings: room.doorOpenings,
-                                  fillColor: selectedColor,
-                                  name: nameController.text.trim(),
-                                );
-                                if (_roomControllers.containsKey(room.id)) {
-                                  _roomControllers[room.id]!.text =
-                                      nameController.text.trim();
-                                }
-                              }
-                            });
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error updating room: $e'),
-                                backgroundColor: Colors.red,
+                  // Loxone Room Selection
+                  const Text(
+                    'Loxone Room',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: showLoxoneRoomSelector,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 18,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black54, width: 2),
+                        borderRadius: BorderRadius.zero,
+                      ),
+                      child: Row(
+                        children: [
+                          if (selectedLoxoneRoomName != null) ...[
+                            Text(
+                              selectedLoxoneRoomName!,
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: Colors.black87,
                               ),
-                            );
-                          }
-                        } finally {
-                          if (mounted) {
-                            setButtonState(() {
-                              isLoading = false;
-                            });
-                          }
-                        }
-                      },
-                child: isLoading
+                            ),
+                          ] else ...[
+                            Text(
+                              'Select Loxone room',
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                          const Spacer(),
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                            color: Colors.black54,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              StatefulBuilder(
+                builder: (context, setButtonState) => isLoading
                     ? const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Save'),
+                    : PrimaryOutlineButton(
+                        label: "Save",
+                        width: 100,
+                        onPressed: isLoading
+                            ? null
+                            : () async {
+                                setButtonState(() {
+                                  isLoading = true;
+                                });
+
+                                try {
+                                  await _updateRoomInBackend(
+                                    backendRoomId,
+                                    nameController.text.trim(),
+                                    selectedColor,
+                                    loxoneRoomId: selectedLoxoneRoomId,
+                                  );
+
+                                  if (mounted) {
+                                    Navigator.of(context).pop();
+                                    setState(() {
+                                      // Update room in local state
+                                      final roomIndex = rooms.indexWhere(
+                                        (r) => r.id == room.id,
+                                      );
+                                      if (roomIndex != -1) {
+                                        rooms[roomIndex] = Room(
+                                          id: room.id,
+                                          path: room.path,
+                                          doorOpenings: room.doorOpenings,
+                                          fillColor: selectedColor,
+                                          name: nameController.text.trim(),
+                                        );
+                                        if (_roomControllers.containsKey(
+                                          room.id,
+                                        )) {
+                                          _roomControllers[room.id]!.text =
+                                              nameController.text.trim();
+                                        }
+                                        // Update Loxone room ID mapping
+                                        if (selectedLoxoneRoomId != null) {
+                                          _loxoneRoomIds[room.id] =
+                                              selectedLoxoneRoomId;
+                                        }
+                                      }
+                                    });
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Error updating room: $e',
+                                        ),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setButtonState(() {
+                                      isLoading = false;
+                                    });
+                                  }
+                                }
+                              },
+                      ),
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -3598,10 +3720,15 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
   Future<void> _updateRoomInBackend(
     String backendRoomId,
     String name,
-    Color color,
-  ) async {
+    Color color, {
+    String? loxoneRoomId,
+  }) async {
     try {
-      final requestBody = {'name': name, 'color': _colorToHex(color)};
+      final requestBody = {
+        'name': name,
+        'color': _colorToHex(color),
+        if (loxoneRoomId != null) 'loxone_room_id': loxoneRoomId,
+      };
 
       final response = await _dioClient.dio.patch(
         '/api/v1/floors/rooms/$backendRoomId',
@@ -3623,6 +3750,80 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
     } catch (e) {
       debugPrint('Error updating room: $e');
       rethrow;
+    }
+  }
+
+  Future<void> _showLinkToLoxoneDialog(Room room) async {
+    if (_buildingId == null || _buildingId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Building ID is required to select Loxone room'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final result = await showDialog<String?>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => BlocProvider(
+        create: (_) => sl<GetLoxoneRoomsBloc>(),
+        child: _LoxoneRoomSelectionDialog(
+          selectedRoomName: room.name,
+          roomColor: room.fillColor,
+          buildingId: _buildingId!,
+        ),
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _loxoneRoomIds[room.id] = result;
+      });
+
+      // Update room in backend with loxone_room_id
+      final backendRoomId = _backendRoomIds[room.id];
+      if (backendRoomId != null) {
+        _updateRoomLoxoneIdInBackend(backendRoomId, result);
+      }
+    }
+  }
+
+  Future<void> _updateRoomLoxoneIdInBackend(
+    String backendRoomId,
+    String loxoneRoomId,
+  ) async {
+    try {
+      final requestBody = {'loxone_room_id': loxoneRoomId};
+
+      final response = await _dioClient.dio.patch(
+        '/api/v1/floors/rooms/$backendRoomId',
+        data: requestBody,
+      );
+
+      if (mounted) {
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Room linked to Loxone successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          throw Exception('Failed to link room: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error linking room to Loxone: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error linking room: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -4615,20 +4816,33 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
                   ),
                   const SizedBox(width: 8),
                   // Edit button (only for rooms with backend ID)
-                  if (_backendRoomIds.containsKey(room.id))
-                    IconButton(
-                      icon: Icon(
-                        Icons.edit_outlined,
-                        color: Colors.blue[600],
-                        size: 20,
-                      ),
-                      tooltip: 'Edit',
-                      onPressed: () {
-                        _showEditRoomDialog(room);
-                      },
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
+                  (_backendRoomIds.containsKey(room.id))
+                      ? IconButton(
+                          icon: Icon(
+                            Icons.edit_outlined,
+                            color: Colors.blue[600],
+                            size: 20,
+                          ),
+                          tooltip: 'Edit',
+                          onPressed: () {
+                            _showEditRoomDialog(room);
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        )
+                      : IconButton(
+                          icon: Icon(
+                            Icons.link_outlined,
+                            color: Colors.blue[600],
+                            size: 20,
+                          ),
+                          tooltip: 'Link to Loxone',
+                          onPressed: () {
+                            _showLinkToLoxoneDialog(room);
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
                   const SizedBox(width: 4),
                   // Delete button
                   IconButton(
@@ -4886,6 +5100,31 @@ class _RoomRealtimeSensorsSectionState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.grey,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(0),
+                    ),
+                  ),
+                  onPressed: () {
+                    context.pushNamed(
+                      Routelists.editRoom,
+                      queryParameters: {'roomId': widget.roomId},
+                    );
+                  },
+                  child: Text(
+                    'Configure sensors in the room',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
               Row(
                 children: [
                   Expanded(
@@ -5081,6 +5320,352 @@ class _ConnectionStatusIndicator extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// Dialog widget for Loxone room selection
+class _LoxoneRoomSelectionDialog extends StatefulWidget {
+  final String selectedRoomName;
+  final Color roomColor;
+  final String buildingId;
+
+  const _LoxoneRoomSelectionDialog({
+    required this.selectedRoomName,
+    required this.roomColor,
+    required this.buildingId,
+  });
+
+  @override
+  State<_LoxoneRoomSelectionDialog> createState() =>
+      _LoxoneRoomSelectionDialogState();
+}
+
+class _LoxoneRoomSelectionDialogState
+    extends State<_LoxoneRoomSelectionDialog> {
+  String? _selectedSource;
+  bool _hasFetched = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    setState(() {
+      _searchQuery = query.toLowerCase();
+    });
+  }
+
+  List<dynamic> _filterRooms(List<dynamic> rooms, String query) {
+    if (query.isEmpty) {
+      return rooms;
+    }
+    return rooms.where((room) {
+      final roomName = room.name?.toString().toLowerCase() ?? '';
+      return roomName.contains(query);
+    }).toList();
+  }
+
+  void _handleContinue() {
+    if (_selectedSource != null) {
+      // Find the room name from the rooms list
+      String? roomName;
+      if (context.read<GetLoxoneRoomsBloc>().state is GetLoxoneRoomsSuccess) {
+        final state =
+            context.read<GetLoxoneRoomsBloc>().state as GetLoxoneRoomsSuccess;
+        final selectedRoom = state.rooms.firstWhere(
+          (room) => room.id == _selectedSource,
+          orElse: () => state.rooms.first,
+        );
+        roomName = selectedRoom.name;
+      }
+      Navigator.of(
+        context,
+      ).pop({'id': _selectedSource!, 'name': roomName ?? ''});
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _toggleSource(String source) {
+    setState(() {
+      _selectedSource = _selectedSource == source ? null : source;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+
+    return BlocListener<GetLoxoneRoomsBloc, GetLoxoneRoomsState>(
+      listener: (context, state) {
+        if (state is GetLoxoneRoomsFailure) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
+          );
+        }
+      },
+      child: Builder(
+        builder: (blocContext) {
+          if (!_hasFetched && widget.buildingId.isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                blocContext.read<GetLoxoneRoomsBloc>().add(
+                  GetLoxoneRoomsSubmitted(buildingId: widget.buildingId),
+                );
+                _hasFetched = true;
+              }
+            });
+          }
+
+          return BlocBuilder<GetLoxoneRoomsBloc, GetLoxoneRoomsState>(
+            builder: (context, state) {
+              return Dialog(
+                backgroundColor: Colors.transparent,
+                insetPadding: const EdgeInsets.all(16),
+                child: Container(
+                  width: screenSize.width < 600
+                      ? screenSize.width
+                      : screenSize.width < 1200
+                      ? screenSize.width * 0.5
+                      : screenSize.width * 0.5,
+                  constraints: BoxConstraints(
+                    maxHeight: screenSize.height * 0.9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.zero,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Title Row with Close Button
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Select Loxone Room',
+                                textAlign: TextAlign.center,
+                                style: AppTextStyles.headlineSmall.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              onPressed: () => Navigator.of(context).pop(),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        // Room Input Field
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 18,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black54, width: 2),
+                            borderRadius: BorderRadius.zero,
+                          ),
+                          child: Row(
+                            children: [
+                              Text(
+                                '+ ${widget.selectedRoomName}',
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const Spacer(),
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: widget.roomColor,
+                                  border: Border.all(
+                                    color: Colors.black54,
+                                    width: 1,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        // Scrollable Data Source Options
+                        Flexible(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              children: [
+                                // Search Field
+                                if (state is GetLoxoneRoomsSuccess &&
+                                    state.rooms.isNotEmpty)
+                                  Container(
+                                    margin: const EdgeInsets.only(bottom: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.black54,
+                                        width: 1,
+                                      ),
+                                      borderRadius: BorderRadius.zero,
+                                    ),
+                                    child: TextField(
+                                      controller: _searchController,
+                                      onChanged: _onSearchChanged,
+                                      decoration: InputDecoration(
+                                        hintText: 'Search...',
+                                        hintStyle: AppTextStyles.bodyMedium
+                                            .copyWith(color: Colors.grey),
+                                        border: InputBorder.none,
+                                        prefixIcon: const Icon(
+                                          Icons.search,
+                                          color: Colors.black54,
+                                        ),
+                                        suffixIcon: _searchQuery.isNotEmpty
+                                            ? IconButton(
+                                                icon: const Icon(
+                                                  Icons.clear,
+                                                  color: Colors.black54,
+                                                ),
+                                                onPressed: () {
+                                                  _searchController.clear();
+                                                  _onSearchChanged('');
+                                                },
+                                              )
+                                            : null,
+                                      ),
+                                      style: AppTextStyles.bodyMedium.copyWith(
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ),
+                                if (state is GetLoxoneRoomsLoading)
+                                  const Padding(
+                                    padding: EdgeInsets.all(32.0),
+                                    child: CircularProgressIndicator(),
+                                  )
+                                else if (state is GetLoxoneRoomsSuccess) ...[
+                                  if (_filterRooms(
+                                    state.rooms,
+                                    _searchQuery,
+                                  ).isEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Text(
+                                        'No results found',
+                                        style: AppTextStyles.bodyMedium
+                                            .copyWith(color: Colors.grey),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    )
+                                  else
+                                    ..._filterRooms(
+                                      state.rooms,
+                                      _searchQuery,
+                                    ).map((room) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 16,
+                                        ),
+                                        child: _buildCheckboxOption(
+                                          room.id,
+                                          room.name,
+                                        ),
+                                      );
+                                    }).toList(),
+                                ] else if (state is GetLoxoneRoomsFailure)
+                                  Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Text(
+                                      'Error loading rooms: ${state.message}',
+                                      style: AppTextStyles.bodyMedium.copyWith(
+                                        color: Colors.red,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  )
+                                else
+                                  Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Text(
+                                      'No rooms available',
+                                      style: AppTextStyles.bodyMedium,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Material(
+                          color: Colors.transparent,
+                          child: PrimaryOutlineButton(
+                            label: 'Select',
+                            width: 260,
+                            onPressed: _handleContinue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCheckboxOption(String key, String label) {
+    final isSelected = _selectedSource == key;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _toggleSource(key),
+        borderRadius: BorderRadius.zero,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black54, width: 1),
+            borderRadius: BorderRadius.zero,
+          ),
+          child: Row(
+            children: [
+              XCheckBox(
+                value: isSelected,
+                onChanged: (value) => _toggleSource(key),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

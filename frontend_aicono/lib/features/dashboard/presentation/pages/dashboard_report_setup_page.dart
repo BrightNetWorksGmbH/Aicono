@@ -11,6 +11,8 @@ import 'package:frontend_aicono/core/network/dio_client.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/widgets/page_header_row.dart';
 
+import '../../../../core/widgets/top_part_widget.dart';
+
 class DashboardReportSetupPage extends StatefulWidget {
   final String buildingId;
   final String? fromDashboard;
@@ -35,10 +37,19 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
   String _selectedFrequencyKey = 'monthly';
   Map<String, bool> _reportOptions = {
     'total_consumption': true,
+    'consumption_by_room': true,
     'peak_loads': false,
+    'measurement_type_breakdown': false,
+    'eui': false,
+    'per_capita_consumption': false,
+    'benchmark_comparison': false,
+    'inefficient_usage': true,
     'anomalies': false,
-    'rooms_by_consumption': true,
-    'underutilization': true,
+    'period_comparison': false,
+    'time_based_analysis': false,
+    'building_comparison': false,
+    'temperature_analysis': false,
+    'data_quality_report': false,
   };
   final DioClient _dioClient = sl<DioClient>();
   bool _isLoading = false;
@@ -148,12 +159,29 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
           final reportContents = reportingData['reportContents'] as List? ?? [];
           _reportOptions = {
             'total_consumption': reportContents.contains('TotalConsumption'),
+            'consumption_by_room': reportContents.contains('ConsumptionByRoom'),
             'peak_loads': reportContents.contains('PeakLoads'),
-            'anomalies': reportContents.contains('Anomalies'),
-            'rooms_by_consumption': reportContents.contains(
-              'ConsumptionByRoom',
+            'measurement_type_breakdown': reportContents.contains(
+              'MeasurementTypeBreakdown',
             ),
-            'underutilization': reportContents.contains('InefficientUsage'),
+            'eui': reportContents.contains('EUI'),
+            'per_capita_consumption': reportContents.contains(
+              'PerCapitaConsumption',
+            ),
+            'benchmark_comparison': reportContents.contains(
+              'BenchmarkComparison',
+            ),
+            'inefficient_usage': reportContents.contains('InefficientUsage'),
+            'anomalies': reportContents.contains('Anomalies'),
+            'period_comparison': reportContents.contains('PeriodComparison'),
+            'time_based_analysis': reportContents.contains('TimeBasedAnalysis'),
+            'building_comparison': reportContents.contains(
+              'BuildingComparison',
+            ),
+            'temperature_analysis': reportContents.contains(
+              'TemperatureAnalysis',
+            ),
+            'data_quality_report': reportContents.contains('DataQualityReport'),
           };
 
           // Add to saved configs if it has a name
@@ -489,6 +517,8 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+        backgroundColor: Colors.white,
         title: Text('building_responsible_persons.select_frequency'.tr()),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -534,7 +564,26 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
   }
 
   String _getReportOptionLabel(String key) {
-    return 'building_responsible_persons.$key'.tr();
+    // Map option keys to translation keys from en.json
+    final translationKeyMap = {
+      'total_consumption': 'Total Consumption',
+      'consumption_by_room': 'Consumption by Room',
+      'peak_loads': 'Peak Loads',
+      'measurement_type_breakdown': 'Measurement Type Breakdown',
+      'eui': 'EUI',
+      'per_capita_consumption': 'Per Capita Consumption',
+      'benchmark_comparison': 'Benchmark Comparison',
+      'inefficient_usage': 'Inefficient Usage',
+      'anomalies': 'Anomalies',
+      'period_comparison': 'Period Comparison',
+      'time_based_analysis': 'Time Based Analysis',
+      'building_comparison': 'Building Comparison',
+      'temperature_analysis': 'Temperature Analysis',
+      'data_quality_report': 'Data Quality Report',
+    };
+
+    final translationKey = translationKeyMap[key] ?? key;
+    return translationKey.tr();
   }
 
   bool _validateCurrentForm() {
@@ -578,17 +627,44 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
     if (_reportOptions['total_consumption'] == true) {
       reportContents.add('TotalConsumption');
     }
-    if (_reportOptions['rooms_by_consumption'] == true) {
+    if (_reportOptions['consumption_by_room'] == true) {
       reportContents.add('ConsumptionByRoom');
     }
     if (_reportOptions['peak_loads'] == true) {
       reportContents.add('PeakLoads');
     }
+    if (_reportOptions['measurement_type_breakdown'] == true) {
+      reportContents.add('MeasurementTypeBreakdown');
+    }
+    if (_reportOptions['eui'] == true) {
+      reportContents.add('EUI');
+    }
+    if (_reportOptions['per_capita_consumption'] == true) {
+      reportContents.add('PerCapitaConsumption');
+    }
+    if (_reportOptions['benchmark_comparison'] == true) {
+      reportContents.add('BenchmarkComparison');
+    }
+    if (_reportOptions['inefficient_usage'] == true) {
+      reportContents.add('InefficientUsage');
+    }
     if (_reportOptions['anomalies'] == true) {
       reportContents.add('Anomalies');
     }
-    if (_reportOptions['underutilization'] == true) {
-      reportContents.add('InefficientUsage');
+    if (_reportOptions['period_comparison'] == true) {
+      reportContents.add('PeriodComparison');
+    }
+    if (_reportOptions['time_based_analysis'] == true) {
+      reportContents.add('TimeBasedAnalysis');
+    }
+    if (_reportOptions['building_comparison'] == true) {
+      reportContents.add('BuildingComparison');
+    }
+    if (_reportOptions['temperature_analysis'] == true) {
+      reportContents.add('TemperatureAnalysis');
+    }
+    if (_reportOptions['data_quality_report'] == true) {
+      reportContents.add('DataQualityReport');
     }
 
     String interval = 'Monthly';
@@ -630,10 +706,19 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
       _selectedFrequencyKey = 'monthly';
       _reportOptions = {
         'total_consumption': true,
+        'consumption_by_room': true,
         'peak_loads': false,
+        'measurement_type_breakdown': false,
+        'eui': false,
+        'per_capita_consumption': false,
+        'benchmark_comparison': false,
+        'inefficient_usage': true,
         'anomalies': false,
-        'rooms_by_consumption': true,
-        'underutilization': true,
+        'period_comparison': false,
+        'time_based_analysis': false,
+        'building_comparison': false,
+        'temperature_analysis': false,
+        'data_quality_report': false,
       };
     });
 
@@ -664,14 +749,34 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
       );
       return;
     }
-    if (widget.reportingJson != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Edit functionality is not available for reports'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+    // Check if editing mode
+    final isEditing = widget.reportingJson != null;
+    String? reportId;
+
+    if (isEditing) {
+      try {
+        final reportingData =
+            jsonDecode(widget.reportingJson!) as Map<String, dynamic>;
+        reportId = reportingData['id']?.toString();
+
+        if (reportId == null || reportId.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Report ID is missing'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error parsing report data: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
     }
     // Validate all persons have required fields
     for (var i = 0; i < _selectedResponsiblePersons.length; i++) {
@@ -702,6 +807,109 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
     });
 
     try {
+      // If editing, update the report using the reporting endpoint
+      if (isEditing && reportId != null) {
+        // Build reportContents from selected options
+        List<String> reportContents = [];
+        if (_reportOptions['total_consumption'] == true) {
+          reportContents.add('TotalConsumption');
+        }
+        if (_reportOptions['consumption_by_room'] == true) {
+          reportContents.add('ConsumptionByRoom');
+        }
+        if (_reportOptions['peak_loads'] == true) {
+          reportContents.add('PeakLoads');
+        }
+        if (_reportOptions['measurement_type_breakdown'] == true) {
+          reportContents.add('MeasurementTypeBreakdown');
+        }
+        if (_reportOptions['eui'] == true) {
+          reportContents.add('EUI');
+        }
+        if (_reportOptions['per_capita_consumption'] == true) {
+          reportContents.add('PerCapitaConsumption');
+        }
+        if (_reportOptions['benchmark_comparison'] == true) {
+          reportContents.add('BenchmarkComparison');
+        }
+        if (_reportOptions['inefficient_usage'] == true) {
+          reportContents.add('InefficientUsage');
+        }
+        if (_reportOptions['anomalies'] == true) {
+          reportContents.add('Anomalies');
+        }
+        if (_reportOptions['period_comparison'] == true) {
+          reportContents.add('PeriodComparison');
+        }
+        if (_reportOptions['time_based_analysis'] == true) {
+          reportContents.add('TimeBasedAnalysis');
+        }
+        if (_reportOptions['building_comparison'] == true) {
+          reportContents.add('BuildingComparison');
+        }
+        if (_reportOptions['temperature_analysis'] == true) {
+          reportContents.add('TemperatureAnalysis');
+        }
+        if (_reportOptions['data_quality_report'] == true) {
+          reportContents.add('DataQualityReport');
+        }
+
+        // Determine interval
+        String interval = 'Monthly';
+        switch (_selectedFrequencyKey) {
+          case 'daily':
+            interval = 'Daily';
+            break;
+          case 'weekly':
+            interval = 'Weekly';
+            break;
+          case 'monthly':
+            interval = 'Monthly';
+            break;
+          case 'yearly':
+            interval = 'Yearly';
+            break;
+        }
+
+        // Build request body for report update
+        final reportRequestBody = {
+          'name': _reportingNameController.text.trim().isNotEmpty
+              ? _reportingNameController.text.trim()
+              : 'Updated Custom Monthly Report',
+          'interval': interval,
+          'reportContents': reportContents,
+        };
+
+        // Update the report
+        final response = await _dioClient.patch(
+          '/api/v1/reporting/$reportId',
+          data: reportRequestBody,
+        );
+
+        if (mounted) {
+          if (response.statusCode == 200 || response.statusCode == 201) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Report updated successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            context.goNamed(Routelists.dashboard);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Failed to update report: ${response.statusCode}',
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+        return;
+      }
+
+      // Original logic for creating new report setup
       // Build reportingRecipients from all selected persons
       List<Map<String, dynamic>> reportingRecipients = [];
 
@@ -754,17 +962,44 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
         if (_reportOptions['total_consumption'] == true) {
           reportContents.add('TotalConsumption');
         }
-        if (_reportOptions['rooms_by_consumption'] == true) {
+        if (_reportOptions['consumption_by_room'] == true) {
           reportContents.add('ConsumptionByRoom');
         }
         if (_reportOptions['peak_loads'] == true) {
           reportContents.add('PeakLoads');
         }
+        if (_reportOptions['measurement_type_breakdown'] == true) {
+          reportContents.add('MeasurementTypeBreakdown');
+        }
+        if (_reportOptions['eui'] == true) {
+          reportContents.add('EUI');
+        }
+        if (_reportOptions['per_capita_consumption'] == true) {
+          reportContents.add('PerCapitaConsumption');
+        }
+        if (_reportOptions['benchmark_comparison'] == true) {
+          reportContents.add('BenchmarkComparison');
+        }
+        if (_reportOptions['inefficient_usage'] == true) {
+          reportContents.add('InefficientUsage');
+        }
         if (_reportOptions['anomalies'] == true) {
           reportContents.add('Anomalies');
         }
-        if (_reportOptions['underutilization'] == true) {
-          reportContents.add('InefficientUsage');
+        if (_reportOptions['period_comparison'] == true) {
+          reportContents.add('PeriodComparison');
+        }
+        if (_reportOptions['time_based_analysis'] == true) {
+          reportContents.add('TimeBasedAnalysis');
+        }
+        if (_reportOptions['building_comparison'] == true) {
+          reportContents.add('BuildingComparison');
+        }
+        if (_reportOptions['temperature_analysis'] == true) {
+          reportContents.add('TemperatureAnalysis');
+        }
+        if (_reportOptions['data_quality_report'] == true) {
+          reportContents.add('DataQualityReport');
         }
 
         String interval = 'Monthly';
@@ -855,7 +1090,7 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
         onTap: () => _handleReportOptionToggle(option),
         borderRadius: BorderRadius.zero,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -918,6 +1153,18 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const SizedBox(height: 20),
+                        Material(
+                          color: Colors.transparent,
+                          child: TopHeader(
+                            onLanguageChanged: _handleLanguageChanged,
+                            containerWidth: screenSize.width > 500
+                                ? 500
+                                : screenSize.width * 0.98,
+                            // userInitial: widget.userName?[0].toUpperCase(),
+                            verseInitial: null,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
                         SizedBox(
                           width: screenSize.width < 600
                               ? screenSize.width * 0.95
@@ -941,353 +1188,363 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Responsible Persons Section
-                              const Text(
-                                'Responsible Persons',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                              if (widget.reportingJson == null) ...[
+                                const Text(
+                                  'Responsible Persons',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 16),
-                              // Display all selected responsible persons
-                              if (_selectedResponsiblePersons.isNotEmpty)
-                                ..._selectedResponsiblePersons.asMap().entries.map((
-                                  entry,
-                                ) {
-                                  final index = entry.key;
-                                  final person = entry.value;
-                                  final isEditing =
-                                      _editingPersonIndex == index;
+                                const SizedBox(height: 16),
+                                // Display all selected responsible persons
+                                if (_selectedResponsiblePersons.isNotEmpty)
+                                  ..._selectedResponsiblePersons.asMap().entries.map((
+                                    entry,
+                                  ) {
+                                    final index = entry.key;
+                                    final person = entry.value;
+                                    final isEditing =
+                                        _editingPersonIndex == index;
 
-                                  return Column(
-                                    children: [
-                                      if (isEditing) ...[
-                                        // Show text fields when editing
-                                        Container(
-                                          margin: const EdgeInsets.only(
-                                            bottom: 12,
-                                          ),
-                                          height: 50,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                              color: const Color(0xFF8B9A5B),
-                                              width: 1,
+                                    return Column(
+                                      children: [
+                                        if (isEditing) ...[
+                                          // Show text fields when editing
+                                          Container(
+                                            margin: const EdgeInsets.only(
+                                              bottom: 12,
                                             ),
-                                            borderRadius: BorderRadius.zero,
-                                            color: Colors.white,
-                                          ),
-                                          child: TextFormField(
-                                            initialValue: person['name'] ?? '',
-                                            decoration: InputDecoration(
-                                              hintText: 'Name',
-                                              border: InputBorder.none,
-                                              hintStyle: AppTextStyles
-                                                  .bodyMedium
+                                            height: 50,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              border: Border.all(
+                                                color: const Color(0xFF8B9A5B),
+                                                width: 1,
+                                              ),
+                                              borderRadius: BorderRadius.zero,
+                                              color: Colors.white,
+                                            ),
+                                            child: TextFormField(
+                                              initialValue:
+                                                  person['name'] ?? '',
+                                              decoration: InputDecoration(
+                                                hintText: 'Name',
+                                                border: InputBorder.none,
+                                                hintStyle: AppTextStyles
+                                                    .bodyMedium
+                                                    .copyWith(
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                contentPadding: EdgeInsets.zero,
+                                              ),
+                                              style: AppTextStyles.bodyMedium
                                                   .copyWith(
-                                                    color: Colors.grey[600],
+                                                    color: Colors.black87,
                                                   ),
-                                              contentPadding: EdgeInsets.zero,
+                                              onChanged: (value) {
+                                                _handlePersonNameChanged(
+                                                  index,
+                                                  value,
+                                                );
+                                                setState(() {});
+                                              },
                                             ),
-                                            style: AppTextStyles.bodyMedium
-                                                .copyWith(
-                                                  color: Colors.black87,
-                                                ),
-                                            onChanged: (value) {
-                                              _handlePersonNameChanged(
-                                                index,
-                                                value,
-                                              );
-                                              setState(() {});
-                                            },
                                           ),
-                                        ),
-                                        Container(
-                                          margin: const EdgeInsets.only(
-                                            bottom: 12,
-                                          ),
-                                          height: 50,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                              color: const Color(0xFF8B9A5B),
-                                              width: 1,
+                                          Container(
+                                            margin: const EdgeInsets.only(
+                                              bottom: 12,
                                             ),
-                                            borderRadius: BorderRadius.zero,
-                                            color: Colors.white,
-                                          ),
-                                          child: TextFormField(
-                                            initialValue: person['email'] ?? '',
-                                            decoration: InputDecoration(
-                                              hintText: 'Email',
-                                              border: InputBorder.none,
-                                              hintStyle: AppTextStyles
-                                                  .bodyMedium
+                                            height: 50,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              border: Border.all(
+                                                color: const Color(0xFF8B9A5B),
+                                                width: 1,
+                                              ),
+                                              borderRadius: BorderRadius.zero,
+                                              color: Colors.white,
+                                            ),
+                                            child: TextFormField(
+                                              initialValue:
+                                                  person['email'] ?? '',
+                                              decoration: InputDecoration(
+                                                hintText: 'Email',
+                                                border: InputBorder.none,
+                                                hintStyle: AppTextStyles
+                                                    .bodyMedium
+                                                    .copyWith(
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                contentPadding: EdgeInsets.zero,
+                                              ),
+                                              style: AppTextStyles.bodyMedium
                                                   .copyWith(
-                                                    color: Colors.grey[600],
+                                                    color: Colors.black87,
                                                   ),
-                                              contentPadding: EdgeInsets.zero,
+                                              keyboardType:
+                                                  TextInputType.emailAddress,
+                                              onChanged: (value) {
+                                                _handlePersonEmailChanged(
+                                                  index,
+                                                  value,
+                                                );
+                                              },
                                             ),
-                                            style: AppTextStyles.bodyMedium
-                                                .copyWith(
-                                                  color: Colors.black87,
-                                                ),
-                                            keyboardType:
-                                                TextInputType.emailAddress,
-                                            onChanged: (value) {
-                                              _handlePersonEmailChanged(
-                                                index,
-                                                value,
-                                              );
-                                            },
                                           ),
-                                        ),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
-                                          children: [
-                                            Material(
-                                              color: Colors.transparent,
-                                              child: InkWell(
-                                                onTap: () {
-                                                  _handleConfirmPerson(index);
-                                                },
-                                                borderRadius: BorderRadius.zero,
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 4,
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.end,
+                                            children: [
+                                              Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  onTap: () {
+                                                    _handleConfirmPerson(index);
+                                                  },
+                                                  borderRadius:
+                                                      BorderRadius.zero,
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 4,
+                                                        ),
+                                                    child: Text(
+                                                      'Confirm',
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        decoration:
+                                                            TextDecoration
+                                                                .underline,
+                                                        color: Colors.blue[700],
                                                       ),
-                                                  child: Text(
-                                                    'Confirm',
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      decoration: TextDecoration
-                                                          .underline,
-                                                      color: Colors.blue[700],
                                                     ),
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                      ] else
-                                        // Show confirmation box when confirmed
-                                        Container(
-                                          margin: const EdgeInsets.only(
-                                            bottom: 12,
+                                            ],
                                           ),
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                              color: Colors.grey[300]!,
+                                        ] else
+                                          // Show confirmation box when confirmed
+                                          Container(
+                                            margin: const EdgeInsets.only(
+                                              bottom: 12,
                                             ),
-                                            borderRadius: BorderRadius.zero,
-                                          ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(16),
-                                            child: Row(
-                                              children: [
-                                                Image.asset(
-                                                  'assets/images/check.png',
-                                                  width: 16,
-                                                  height: 16,
-                                                  color: const Color(
-                                                    0xFF238636,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Text(
-                                                    person['name'] != null &&
-                                                            person['name']
-                                                                .toString()
-                                                                .isNotEmpty
-                                                        ? '${person['name']}      ${person['email'] != null && person['email'].toString().isNotEmpty ? person['email'] : ''}'
-                                                        : person['email'] !=
-                                                                  null &&
-                                                              person['email']
-                                                                  .toString()
-                                                                  .isNotEmpty
-                                                        ? person['email']
-                                                        : '',
-                                                    style: const TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.w500,
+                                            decoration: BoxDecoration(
+                                              border: Border.all(
+                                                color: Colors.grey[300]!,
+                                              ),
+                                              borderRadius: BorderRadius.zero,
+                                            ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(16),
+                                              child: Row(
+                                                children: [
+                                                  Image.asset(
+                                                    'assets/images/check.png',
+                                                    width: 16,
+                                                    height: 16,
+                                                    color: const Color(
+                                                      0xFF238636,
                                                     ),
                                                   ),
-                                                ),
-                                                Material(
-                                                  color: Colors.transparent,
-                                                  child: InkWell(
-                                                    onTap: () {
-                                                      setState(() {
-                                                        _editingPersonIndex =
-                                                            index;
-                                                      });
-                                                    },
-                                                    borderRadius:
-                                                        BorderRadius.zero,
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 8,
-                                                            vertical: 4,
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Text(
+                                                      person['name'] != null &&
+                                                              person['name']
+                                                                  .toString()
+                                                                  .isNotEmpty
+                                                          ? '${person['name']}      ${person['email'] != null && person['email'].toString().isNotEmpty ? person['email'] : ''}'
+                                                          : person['email'] !=
+                                                                    null &&
+                                                                person['email']
+                                                                    .toString()
+                                                                    .isNotEmpty
+                                                          ? person['email']
+                                                          : '',
+                                                      style: const TextStyle(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Material(
+                                                    color: Colors.transparent,
+                                                    child: InkWell(
+                                                      onTap: () {
+                                                        setState(() {
+                                                          _editingPersonIndex =
+                                                              index;
+                                                        });
+                                                      },
+                                                      borderRadius:
+                                                          BorderRadius.zero,
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 8,
+                                                              vertical: 4,
+                                                            ),
+                                                        child: Text(
+                                                          'Edit',
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                            decoration:
+                                                                TextDecoration
+                                                                    .underline,
                                                           ),
-                                                      child: Text(
-                                                        'Edit',
-                                                        style: TextStyle(
-                                                          fontSize: 14,
-                                                          decoration:
-                                                              TextDecoration
-                                                                  .underline,
                                                         ),
                                                       ),
                                                     ),
                                                   ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Material(
-                                                  color: Colors.transparent,
-                                                  child: InkWell(
-                                                    onTap: () {
-                                                      _handleRemovePerson(
-                                                        index,
-                                                      );
-                                                    },
-                                                    borderRadius:
-                                                        BorderRadius.zero,
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                            4,
-                                                          ),
-                                                      child: Icon(
-                                                        Icons.close,
-                                                        size: 18,
-                                                        color: Colors.grey[700],
+                                                  const SizedBox(width: 8),
+                                                  Material(
+                                                    color: Colors.transparent,
+                                                    child: InkWell(
+                                                      onTap: () {
+                                                        _handleRemovePerson(
+                                                          index,
+                                                        );
+                                                      },
+                                                      borderRadius:
+                                                          BorderRadius.zero,
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              4,
+                                                            ),
+                                                        child: Icon(
+                                                          Icons.close,
+                                                          size: 18,
+                                                          color:
+                                                              Colors.grey[700],
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
-                                                ),
-                                              ],
+                                                ],
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                    ],
-                                  );
-                                }),
-                              // Action links - always show to add more
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: _handleAutomaticFromDomain,
-                                      borderRadius: BorderRadius.zero,
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 8,
-                                          horizontal: 4,
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              '+',
-                                              style: TextStyle(
-                                                fontSize: screenSize.width < 600
-                                                    ? 14
-                                                    : 18,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.black,
-                                              ),
-                                            ),
-                                            SizedBox(
-                                              width: screenSize.width < 600
-                                                  ? 4
-                                                  : 8,
-                                            ),
-                                            Flexible(
-                                              child: Text(
-                                                'building_contact_person.automatic_from_domain'
-                                                    .tr(),
+                                      ],
+                                    );
+                                  }),
+                                // Action links - always show to add more
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: _handleAutomaticFromDomain,
+                                        borderRadius: BorderRadius.zero,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                            horizontal: 4,
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                '+',
                                                 style: TextStyle(
                                                   fontSize:
                                                       screenSize.width < 600
-                                                      ? 12
-                                                      : 16,
+                                                      ? 14
+                                                      : 18,
+                                                  fontWeight: FontWeight.bold,
                                                   color: Colors.black,
-                                                  decoration:
-                                                      TextDecoration.underline,
                                                 ),
                                               ),
-                                            ),
-                                          ],
+                                              SizedBox(
+                                                width: screenSize.width < 600
+                                                    ? 4
+                                                    : 8,
+                                              ),
+                                              Flexible(
+                                                child: Text(
+                                                  'building_contact_person.automatic_from_domain'
+                                                      .tr(),
+                                                  style: TextStyle(
+                                                    fontSize:
+                                                        screenSize.width < 600
+                                                        ? 12
+                                                        : 16,
+                                                    color: Colors.black,
+                                                    decoration: TextDecoration
+                                                        .underline,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  SizedBox(
-                                    width: screenSize.width < 600 ? 12 : 24,
-                                  ),
-                                  Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: _handleCreatePerson,
-                                      borderRadius: BorderRadius.zero,
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 8,
-                                          horizontal: 4,
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              '+',
-                                              style: TextStyle(
-                                                fontSize: screenSize.width < 600
-                                                    ? 14
-                                                    : 18,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.black,
-                                              ),
-                                            ),
-                                            SizedBox(
-                                              width: screenSize.width < 600
-                                                  ? 4
-                                                  : 8,
-                                            ),
-                                            Flexible(
-                                              child: Text(
-                                                'Create new person',
+                                    SizedBox(
+                                      width: screenSize.width < 600 ? 12 : 24,
+                                    ),
+                                    Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: _handleCreatePerson,
+                                        borderRadius: BorderRadius.zero,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                            horizontal: 4,
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                '+',
                                                 style: TextStyle(
                                                   fontSize:
                                                       screenSize.width < 600
-                                                      ? 12
-                                                      : 16,
+                                                      ? 14
+                                                      : 18,
+                                                  fontWeight: FontWeight.bold,
                                                   color: Colors.black,
-                                                  decoration:
-                                                      TextDecoration.underline,
                                                 ),
                                               ),
-                                            ),
-                                          ],
+                                              SizedBox(
+                                                width: screenSize.width < 600
+                                                    ? 4
+                                                    : 8,
+                                              ),
+                                              Flexible(
+                                                child: Text(
+                                                  'Create new person',
+                                                  style: TextStyle(
+                                                    fontSize:
+                                                        screenSize.width < 600
+                                                        ? 12
+                                                        : 16,
+                                                    color: Colors.black,
+                                                    decoration: TextDecoration
+                                                        .underline,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 32),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 32),
+                              ],
                               // Report Setup Section
                               const Text(
                                 'Report Setup',
@@ -1400,12 +1657,29 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
                                                       _reportOptions = {
                                                         'total_consumption':
                                                             true,
+                                                        'consumption_by_room':
+                                                            true,
                                                         'peak_loads': false,
+                                                        'measurement_type_breakdown':
+                                                            false,
+                                                        'eui': false,
+                                                        'per_capita_consumption':
+                                                            false,
+                                                        'benchmark_comparison':
+                                                            false,
+                                                        'inefficient_usage':
+                                                            true,
                                                         'anomalies': false,
-                                                        'rooms_by_consumption':
-                                                            true,
-                                                        'underutilization':
-                                                            true,
+                                                        'period_comparison':
+                                                            false,
+                                                        'time_based_analysis':
+                                                            false,
+                                                        'building_comparison':
+                                                            false,
+                                                        'temperature_analysis':
+                                                            false,
+                                                        'data_quality_report':
+                                                            false,
                                                       };
                                                     }
                                                     _savedReportConfigs
@@ -1527,27 +1801,44 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
                               // Report Options Checkboxes
                               Wrap(
                                 spacing: 16,
-                                runSpacing: 16,
+                                runSpacing: 12,
                                 alignment: WrapAlignment.center,
                                 children: [
                                   _buildReportOptionCheckbox(
                                     'total_consumption',
                                   ),
-                                  _buildReportOptionCheckbox('peak_loads'),
-                                  _buildReportOptionCheckbox('anomalies'),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Wrap(
-                                spacing: 16,
-                                runSpacing: 16,
-                                alignment: WrapAlignment.center,
-                                children: [
                                   _buildReportOptionCheckbox(
-                                    'rooms_by_consumption',
+                                    'consumption_by_room',
+                                  ),
+                                  _buildReportOptionCheckbox('peak_loads'),
+                                  _buildReportOptionCheckbox(
+                                    'measurement_type_breakdown',
+                                  ),
+                                  _buildReportOptionCheckbox('eui'),
+                                  _buildReportOptionCheckbox(
+                                    'per_capita_consumption',
                                   ),
                                   _buildReportOptionCheckbox(
-                                    'underutilization',
+                                    'benchmark_comparison',
+                                  ),
+                                  _buildReportOptionCheckbox(
+                                    'inefficient_usage',
+                                  ),
+                                  _buildReportOptionCheckbox('anomalies'),
+                                  _buildReportOptionCheckbox(
+                                    'period_comparison',
+                                  ),
+                                  _buildReportOptionCheckbox(
+                                    'time_based_analysis',
+                                  ),
+                                  _buildReportOptionCheckbox(
+                                    'building_comparison',
+                                  ),
+                                  _buildReportOptionCheckbox(
+                                    'temperature_analysis',
+                                  ),
+                                  _buildReportOptionCheckbox(
+                                    'data_quality_report',
                                   ),
                                 ],
                               ),

@@ -51,7 +51,7 @@ import 'package:frontend_aicono/features/dashboard/presentation/pages/view_repor
 import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_site_page.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_building_page.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_floor_page.dart';
-import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_room_page.dart';
+import 'package:frontend_aicono/features/dashboard/presentation/pages/edit_sensors_thrashold.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/pages/dashboard_report_setup_page.dart';
 import 'package:frontend_aicono/core/pages/not_found_page.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/pages/switch_settings_page.dart';
@@ -1422,7 +1422,7 @@ class AppRouter {
         return _buildPage(
           context,
           state,
-          EditRoomPage(roomId: roomId, buildingId: buildingId),
+          EditSensorThrasholdPage(roomId: roomId, buildingId: buildingId),
         );
       },
     ),

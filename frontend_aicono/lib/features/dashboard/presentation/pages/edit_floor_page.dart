@@ -21,9 +21,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
 import '../../../../core/widgets/primary_outline_button.dart';
+import '../../../../core/widgets/top_part_widget.dart';
 
 class EditFloorPage extends StatefulWidget {
   final String floorId;
+  // final String? buildingId;
 
   const EditFloorPage({super.key, required this.floorId});
 
@@ -38,6 +40,7 @@ class _EditFloorPageState extends State<EditFloorPage> {
   bool _isLoading = false;
   String? _floorPlanUrl;
   String? _floorName;
+  String? _buildingId;
   StreamSubscription? _uploadSubscription;
 
   @override
@@ -75,6 +78,7 @@ class _EditFloorPageState extends State<EditFloorPage> {
             _floorNameController.text = state.details.name;
             _floorPlanUrl = state.details.floorPlanLink;
             _floorName = state.details.name;
+            _buildingId = state.details.buildingId;
           });
         }
       },
@@ -105,6 +109,19 @@ class _EditFloorPageState extends State<EditFloorPage> {
                           // crossAxisAlignment: CrossAxisAlignment.stretch,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
+                            const SizedBox(height: 20),
+                            Material(
+                              color: Colors.transparent,
+                              child: TopHeader(
+                                onLanguageChanged: _handleLanguageChanged,
+                                containerWidth: screenSize.width > 500
+                                    ? 500
+                                    : screenSize.width * 0.98,
+                                // userInitial: widget.userName?[0].toUpperCase(),
+                                verseInitial: null,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
                             SizedBox(
                               width: screenSize.width < 600
                                   ? screenSize.width * 0.95

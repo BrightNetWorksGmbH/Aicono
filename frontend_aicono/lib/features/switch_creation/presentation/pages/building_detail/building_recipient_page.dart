@@ -23,7 +23,8 @@ class BuildingRecipientPage extends StatefulWidget {
   final String? totalArea;
   final String? numberOfRooms;
   final String? constructionYear;
-  final String? fromDashboard; // Flag to indicate if navigation is from dashboard
+  final String?
+  fromDashboard; // Flag to indicate if navigation is from dashboard
   final String? floorName; // Floor name from add floor name page
 
   const BuildingRecipientPage({
@@ -625,11 +626,12 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
     }
 
     // Extract fromDashboard from widget or current route
-    final fromDashboard = widget.fromDashboard ??
+    final fromDashboard =
+        widget.fromDashboard ??
         Uri.parse(
           GoRouterState.of(context).uri.toString(),
         ).queryParameters['fromDashboard'];
-    
+
     // If confirmed, navigate to responsible persons page to add report configs for all users
     // This will combine individual recipient configs with all-user configs
     context.pushNamed(
@@ -683,10 +685,19 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
             config['reportOptions'] ??
                 {
                   'total_consumption': true,
+                  'consumption_by_room': true,
                   'peak_loads': false,
+                  'measurement_type_breakdown': false,
+                  'eui': false,
+                  'per_capita_consumption': false,
+                  'benchmark_comparison': false,
+                  'inefficient_usage': true,
                   'anomalies': false,
-                  'rooms_by_consumption': true,
-                  'underutilization': true,
+                  'period_comparison': false,
+                  'time_based_analysis': false,
+                  'building_comparison': false,
+                  'temperature_analysis': false,
+                  'data_quality_report': false,
                 },
           ),
         });
@@ -701,10 +712,19 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
     String currentSelectedFrequencyKey = 'monthly';
     Map<String, bool> currentReportOptions = {
       'total_consumption': false,
+      'consumption_by_room': false,
       'peak_loads': false,
+      'measurement_type_breakdown': false,
+      'eui': false,
+      'per_capita_consumption': false,
+      'benchmark_comparison': false,
+      'inefficient_usage': false,
       'anomalies': false,
-      'rooms_by_consumption': false,
-      'underutilization': false,
+      'period_comparison': false,
+      'time_based_analysis': false,
+      'building_comparison': false,
+      'temperature_analysis': false,
+      'data_quality_report': false,
     };
     int? editingRoutineIndex; // Track which routine is being edited
 
@@ -759,10 +779,19 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                 routine['reportOptions'] ??
                     {
                       'total_consumption': true,
+                      'consumption_by_room': true,
                       'peak_loads': false,
+                      'measurement_type_breakdown': false,
+                      'eui': false,
+                      'per_capita_consumption': false,
+                      'benchmark_comparison': false,
+                      'inefficient_usage': true,
                       'anomalies': false,
-                      'rooms_by_consumption': true,
-                      'underutilization': true,
+                      'period_comparison': false,
+                      'time_based_analysis': false,
+                      'building_comparison': false,
+                      'temperature_analysis': false,
+                      'data_quality_report': false,
                     },
               );
             });
@@ -799,10 +828,19 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
               currentSelectedFrequencyKey = 'monthly';
               currentReportOptions = {
                 'total_consumption': true,
+                'consumption_by_room': true,
                 'peak_loads': false,
+                'measurement_type_breakdown': false,
+                'eui': false,
+                'per_capita_consumption': false,
+                'benchmark_comparison': false,
+                'inefficient_usage': true,
                 'anomalies': false,
-                'rooms_by_consumption': true,
-                'underutilization': true,
+                'period_comparison': false,
+                'time_based_analysis': false,
+                'building_comparison': false,
+                'temperature_analysis': false,
+                'data_quality_report': false,
               };
             });
             Navigator.of(context).pop();
@@ -961,10 +999,19 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                                         currentSelectedFrequencyKey = 'monthly';
                                         currentReportOptions = {
                                           'total_consumption': true,
+                                          'consumption_by_room': true,
                                           'peak_loads': false,
+                                          'measurement_type_breakdown': false,
+                                          'eui': false,
+                                          'per_capita_consumption': false,
+                                          'benchmark_comparison': false,
+                                          'inefficient_usage': true,
                                           'anomalies': false,
-                                          'rooms_by_consumption': true,
-                                          'underutilization': true,
+                                          'period_comparison': false,
+                                          'time_based_analysis': false,
+                                          'building_comparison': false,
+                                          'temperature_analysis': false,
+                                          'data_quality_report': false,
                                         };
                                       }
                                       savedRoutines.removeAt(index);
@@ -1211,14 +1258,19 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    // Report Options Checkboxes - Row 1
+                    // Report Options Checkboxes
                     Wrap(
                       spacing: 16,
-                      runSpacing: 16,
-                      alignment: WrapAlignment.start,
+                      runSpacing: 12,
+                      alignment: WrapAlignment.center,
                       children: [
                         _buildReportOptionCheckbox(
                           'total_consumption',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
+                        _buildReportOptionCheckbox(
+                          'consumption_by_room',
                           currentReportOptions,
                           setDialogState,
                         ),
@@ -1227,27 +1279,58 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                           currentReportOptions,
                           setDialogState,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Report Options Checkboxes - Row 2
-                    Wrap(
-                      spacing: 16,
-                      runSpacing: 16,
-                      alignment: WrapAlignment.start,
-                      children: [
+                        _buildReportOptionCheckbox(
+                          'measurement_type_breakdown',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
+                        _buildReportOptionCheckbox(
+                          'eui',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
+                        _buildReportOptionCheckbox(
+                          'per_capita_consumption',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
+                        _buildReportOptionCheckbox(
+                          'benchmark_comparison',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
+                        _buildReportOptionCheckbox(
+                          'inefficient_usage',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
                         _buildReportOptionCheckbox(
                           'anomalies',
                           currentReportOptions,
                           setDialogState,
                         ),
                         _buildReportOptionCheckbox(
-                          'rooms_by_consumption',
+                          'period_comparison',
                           currentReportOptions,
                           setDialogState,
                         ),
                         _buildReportOptionCheckbox(
-                          'underutilization',
+                          'time_based_analysis',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
+                        _buildReportOptionCheckbox(
+                          'building_comparison',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
+                        _buildReportOptionCheckbox(
+                          'temperature_analysis',
+                          currentReportOptions,
+                          setDialogState,
+                        ),
+                        _buildReportOptionCheckbox(
+                          'data_quality_report',
                           currentReportOptions,
                           setDialogState,
                         ),
@@ -1337,17 +1420,44 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
                     if (routineOptions['total_consumption'] == true) {
                       reportContents.add('TotalConsumption');
                     }
-                    if (routineOptions['rooms_by_consumption'] == true) {
+                    if (routineOptions['consumption_by_room'] == true) {
                       reportContents.add('ConsumptionByRoom');
                     }
                     if (routineOptions['peak_loads'] == true) {
                       reportContents.add('PeakLoads');
                     }
+                    if (routineOptions['measurement_type_breakdown'] == true) {
+                      reportContents.add('MeasurementTypeBreakdown');
+                    }
+                    if (routineOptions['eui'] == true) {
+                      reportContents.add('EUI');
+                    }
+                    if (routineOptions['per_capita_consumption'] == true) {
+                      reportContents.add('PerCapitaConsumption');
+                    }
+                    if (routineOptions['benchmark_comparison'] == true) {
+                      reportContents.add('BenchmarkComparison');
+                    }
+                    if (routineOptions['inefficient_usage'] == true) {
+                      reportContents.add('InefficientUsage');
+                    }
                     if (routineOptions['anomalies'] == true) {
                       reportContents.add('Anomalies');
                     }
-                    if (routineOptions['underutilization'] == true) {
-                      reportContents.add('InefficientUsage');
+                    if (routineOptions['period_comparison'] == true) {
+                      reportContents.add('PeriodComparison');
+                    }
+                    if (routineOptions['time_based_analysis'] == true) {
+                      reportContents.add('TimeBasedAnalysis');
+                    }
+                    if (routineOptions['building_comparison'] == true) {
+                      reportContents.add('BuildingComparison');
+                    }
+                    if (routineOptions['temperature_analysis'] == true) {
+                      reportContents.add('TemperatureAnalysis');
+                    }
+                    if (routineOptions['data_quality_report'] == true) {
+                      reportContents.add('DataQualityReport');
                     }
 
                     // Map frequency key to API format
@@ -1496,6 +1606,29 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
     );
   }
 
+  String _getReportOptionLabel(String key) {
+    // Map option keys to translation keys from en.json
+    final translationKeyMap = {
+      'total_consumption': 'Total Consumption',
+      'consumption_by_room': 'Consumption by Room',
+      'peak_loads': 'Peak Loads',
+      'measurement_type_breakdown': 'Measurement Type Breakdown',
+      'eui': 'EUI',
+      'per_capita_consumption': 'Per Capita Consumption',
+      'benchmark_comparison': 'Benchmark Comparison',
+      'inefficient_usage': 'Inefficient Usage',
+      'anomalies': 'Anomalies',
+      'period_comparison': 'Period Comparison',
+      'time_based_analysis': 'Time Based Analysis',
+      'building_comparison': 'Building Comparison',
+      'temperature_analysis': 'Temperature Analysis',
+      'data_quality_report': 'Data Quality Report',
+    };
+
+    final translationKey = translationKeyMap[key] ?? key;
+    return translationKey.tr();
+  }
+
   Widget _buildReportOptionCheckbox(
     String option,
     Map<String, bool> reportOptions,
@@ -1512,7 +1645,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
         },
         borderRadius: BorderRadius.zero,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1544,7 +1677,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
               // ),
               const SizedBox(width: 8),
               Text(
-                'building_responsible_persons.$option'.tr(),
+                _getReportOptionLabel(option),
                 style: AppTextStyles.bodyMedium.copyWith(color: Colors.black87),
               ),
             ],

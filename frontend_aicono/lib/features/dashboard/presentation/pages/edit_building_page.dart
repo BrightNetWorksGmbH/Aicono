@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
+import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/constant.dart';
@@ -738,6 +739,18 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: TopHeader(
+                                      onLanguageChanged: _handleLanguageChanged,
+                                      containerWidth: screenSize.width > 500
+                                          ? 500
+                                          : screenSize.width * 0.98,
+                                      // userInitial: widget.userName?[0].toUpperCase(),
+                                      verseInitial: null,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
                                   SizedBox(
                                     width: screenSize.width < 600
                                         ? screenSize.width * 0.95
