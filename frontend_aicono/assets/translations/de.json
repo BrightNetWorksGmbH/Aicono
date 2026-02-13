@@ -292,7 +292,21 @@
     "interval_label": "Intervall",
     "add_responsible_person": "Verantwortliche Person hinzufügen",
     "name_hint": "Name",
-    "email_hint": "Mailadresse"
+    "email_hint": "Mailadresse",
+    "TotalConsumption": "Gesamtverbrauch",
+    "ConsumptionByRoom": "Verbrauch nach Raum",
+    "PeakLoads": "Lastspitzen",
+    "MeasurementTypeBreakdown": "Messdatentyp-Aufschlüsselung",
+    "EUI": "EUI",
+    "PerCapitaConsumption": "Verbrauch pro Kopf",
+    "BenchmarkComparison": "Benchmark-Vergleich",
+    "InefficientUsage": "Effizienzanalyse",
+    "Anomalies": "Anomalien",
+    "PeriodComparison": "Zeitliche Analyse",
+    "TimeBasedAnalysis": "Zeitbasierte Analyse",
+    "BuildingComparison": "Gebäude-Vergleich",
+    "TemperatureAnalysis": "Temperaturen",
+    "DataQualityReport": "Datenqualität"
   },
   "dashboard": {
     "error": {

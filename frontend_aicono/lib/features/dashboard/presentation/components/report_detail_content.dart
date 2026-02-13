@@ -1277,7 +1277,12 @@ class ReportDetailContent extends StatelessWidget {
                 ),
                 SizedBox(width: 24),
                 if (recipients.isNotEmpty)
-                  _buildRecipientsTrigger(context, recipients),
+                  _buildRecipientsTrigger(
+                    context,
+                    recipients,
+                    building,
+                    reportId,
+                  ),
               ],
             ),
           ),
@@ -1285,7 +1290,7 @@ class ReportDetailContent extends StatelessWidget {
         if (recipients.isNotEmpty &&
             (building.address == null || building.address!.isEmpty)) ...[
           const SizedBox(height: 8),
-          _buildRecipientsTrigger(context, recipients),
+          _buildRecipientsTrigger(context, recipients, building, reportId),
         ],
         const SizedBox(height: 16),
         if (periodWithoutBorder)
@@ -1376,9 +1381,16 @@ class ReportDetailContent extends StatelessWidget {
   Widget _buildRecipientsTrigger(
     BuildContext context,
     List<ReportRecipientEntity> recipients,
+    ReportDetailBuildingEntity building,
+    String? reportId,
   ) {
     return GestureDetector(
-      onTap: () => RecipientsPopupDialog.show(context, recipients),
+      onTap: () => RecipientsPopupDialog.show(
+        context,
+        recipients,
+        building.id,
+        reportId ?? '',
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

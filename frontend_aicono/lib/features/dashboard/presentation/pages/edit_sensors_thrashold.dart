@@ -11,6 +11,8 @@ import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_room_details_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_loxone_rooms_bloc.dart';
 
+import '../../../../core/widgets/top_part_widget.dart';
+
 // Color palette matching floor_plan_backup.dart
 const List<Color> _colorPalette = [
   Color(0xFFFFB74D), // Light orange
@@ -20,17 +22,22 @@ const List<Color> _colorPalette = [
   Color(0xFF81C784), // Green
 ];
 
-class EditRoomPage extends StatefulWidget {
+class EditSensorThrasholdPage extends StatefulWidget {
   final String roomId;
   final String? buildingId; // Optional, can be passed or fetched from floor
 
-  const EditRoomPage({super.key, required this.roomId, this.buildingId});
+  const EditSensorThrasholdPage({
+    super.key,
+    required this.roomId,
+    this.buildingId,
+  });
 
   @override
-  State<EditRoomPage> createState() => _EditRoomPageState();
+  State<EditSensorThrasholdPage> createState() =>
+      _EditSensorThrasholdPageState();
 }
 
-class _EditRoomPageState extends State<EditRoomPage> {
+class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
   final TextEditingController _roomNameController = TextEditingController();
   Color _selectedColor = _colorPalette[0];
   String? _selectedLoxoneRoomId;
@@ -630,6 +637,18 @@ class _EditRoomPageState extends State<EditRoomPage> {
                                 : screenSize.width * 0.6,
                             child: Column(
                               children: [
+                                Material(
+                                  color: Colors.transparent,
+                                  child: TopHeader(
+                                    onLanguageChanged: _handleLanguageChanged,
+                                    containerWidth: screenSize.width > 500
+                                        ? 500
+                                        : screenSize.width * 0.98,
+                                    // userInitial: widget.userName?[0].toUpperCase(),
+                                    verseInitial: null,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
                                 SizedBox(
                                   width: screenSize.width < 600
                                       ? screenSize.width * 0.95
@@ -646,7 +665,7 @@ class _EditRoomPageState extends State<EditRoomPage> {
                                       const Expanded(
                                         child: Center(
                                           child: Text(
-                                            'Edit Room',
+                                            'Update Sensor Threshold',
                                             style: TextStyle(
                                               fontSize: 24,
                                               fontWeight: FontWeight.bold,
@@ -659,7 +678,7 @@ class _EditRoomPageState extends State<EditRoomPage> {
                                 ),
                                 const SizedBox(height: 8),
                                 const Text(
-                                  'Update room information',
+                                  'Update sensor threshold information',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.grey,
@@ -667,75 +686,76 @@ class _EditRoomPageState extends State<EditRoomPage> {
                                 ),
                                 const SizedBox(height: 32),
 
-                                // Loxone Room Selection
-                                SizedBox(
-                                  width: screenSize.width < 600
-                                      ? screenSize.width * 0.95
-                                      : screenSize.width < 1200
-                                      ? screenSize.width * 0.5
-                                      : screenSize.width * 0.6,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Loxone Room',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      InkWell(
-                                        onTap: _showLoxoneRoomSelector,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 18,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                              color: Colors.black54,
-                                              width: 2,
-                                            ),
-                                            borderRadius: BorderRadius.zero,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              if (_selectedLoxoneRoomName !=
-                                                  null) ...[
-                                                Text(
-                                                  _selectedLoxoneRoomName!,
-                                                  style: AppTextStyles
-                                                      .bodyMedium
-                                                      .copyWith(
-                                                        color: Colors.black87,
-                                                      ),
-                                                ),
-                                              ] else ...[
-                                                Text(
-                                                  'Select Loxone room',
-                                                  style: AppTextStyles
-                                                      .bodyMedium
-                                                      .copyWith(
-                                                        color: Colors.grey,
-                                                      ),
-                                                ),
-                                              ],
-                                              const Spacer(),
-                                              Icon(
-                                                Icons.arrow_forward_ios,
-                                                size: 16,
-                                                color: Colors.black54,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
+                                // // Loxone Room Selection
+                                // SizedBox(
+                                //   width: screenSize.width < 600
+                                //       ? screenSize.width * 0.95
+                                //       : screenSize.width < 1200
+                                //       ? screenSize.width * 0.5
+                                //       : screenSize.width * 0.6,
+                                //   child: Column(
+                                //     crossAxisAlignment:
+                                //         CrossAxisAlignment.start,
+                                //     children: [
+                                //       const Text(
+                                //         'Loxone Room',
+                                //         style: TextStyle(
+                                //           fontSize: 18,
+                                //           fontWeight: FontWeight.bold,
+                                //         ),
+                                //       ),
+                                //       const SizedBox(height: 16),
+                                //       InkWell(
+                                //         onTap: _showLoxoneRoomSelector,
+                                //         child: Container(
+                                //           padding: const EdgeInsets.symmetric(
+                                //             horizontal: 16,
+                                //             vertical: 18,
+                                //           ),
+                                //           decoration: BoxDecoration(
+                                //             border: Border.all(
+                                //               color: Colors.black54,
+                                //               width: 2,
+                                //             ),
+                                //             borderRadius: BorderRadius.zero,
+                                //           ),
+                                //           child: Row(
+                                //             children: [
+                                //               if (_selectedLoxoneRoomName !=
+                                //                   null) ...[
+                                //                 Text(
+                                //                   _selectedLoxoneRoomName!,
+                                //                   style: AppTextStyles
+                                //                       .bodyMedium
+                                //                       .copyWith(
+                                //                         color: Colors.black87,
+                                //                       ),
+                                //                 ),
+                                //               ] else ...[
+                                //                 Text(
+                                //                   'Select Loxone room',
+                                //                   style: AppTextStyles
+                                //                       .bodyMedium
+                                //                       .copyWith(
+                                //                         color: Colors.grey,
+                                //                       ),
+                                //                 ),
+                                //               ],
+                                //               const Spacer(),
+                                //               Icon(
+                                //                 Icons.arrow_forward_ios,
+                                //                 size: 16,
+                                //                 color: Colors.black54,
+                                //               ),
+                                //             ],
+                                //           ),
+                                //         ),
+                                //       ),
+
+                                //     ],
+                                //   ),
+                                // ),
+                                // const SizedBox(height: 24),
                                 // Color Selection
                                 // SizedBox(
                                 //   width: screenSize.width < 600
@@ -800,16 +820,16 @@ class _EditRoomPageState extends State<EditRoomPage> {
                                 // ),
                                 // const SizedBox(height: 24),
                                 // Save button
-                                _isLoading
-                                    ? const Center(
-                                        child: CircularProgressIndicator(),
-                                      )
-                                    : PrimaryOutlineButton(
-                                        onPressed: _handleSave,
-                                        label: 'Update Loxone Room',
-                                        width: 260,
-                                      ),
-                                const SizedBox(height: 32),
+                                // _isLoading
+                                //     ? const Center(
+                                //         child: CircularProgressIndicator(),
+                                //       )
+                                //     : PrimaryOutlineButton(
+                                //         onPressed: _handleSave,
+                                //         label: 'Update Loxone Room',
+                                //         width: 260,
+                                //       ),
+                                // const SizedBox(height: 32),
                                 // Sensors Section
                                 if (_sensors.isNotEmpty) ...[
                                   SizedBox(

@@ -300,7 +300,21 @@
     "interval_label": "Interval",
     "add_responsible_person": "Add responsible person",
     "name_hint": "Name",
-    "email_hint": "Email address"
+    "email_hint": "Email address",
+    "TotalConsumption": "Total Consumption",
+    "ConsumptionByRoom": "Consumption By Room",
+    "PeakLoads": "Peak Loads",
+    "MeasurementTypeBreakdown": "Measurement Type Breakdown",
+    "EUI": "EUI",
+    "PerCapitaConsumption": "Per Capita Consumption",
+    "BenchmarkComparison": "Benchmark Comparison",
+    "InefficientUsage": "Inefficient Usage",
+    "Anomalies": "Anomalies",
+    "PeriodComparison": "Period Comparison",
+    "TimeBasedAnalysis": "Time Based Analysis",
+    "BuildingComparison": "Building Comparison",
+    "TemperatureAnalysis": "Temperature Analysis",
+    "DataQualityReport": "Data Quality Report"
   },
   "dashboard": {
     "report_setup": {

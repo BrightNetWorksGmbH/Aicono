@@ -62,10 +62,19 @@ class _BuildingResponsiblePersonsPageState
   String _selectedFrequencyKey = 'monthly';
   Map<String, bool> _reportOptions = {
     'total_consumption': true,
+    'consumption_by_room': true,
     'peak_loads': false,
+    'measurement_type_breakdown': false,
+    'eui': false,
+    'per_capita_consumption': false,
+    'benchmark_comparison': false,
+    'inefficient_usage': true,
     'anomalies': false,
-    'rooms_by_consumption': true,
-    'underutilization': true,
+    'period_comparison': false,
+    'time_based_analysis': false,
+    'building_comparison': false,
+    'temperature_analysis': false,
+    'data_quality_report': false,
   };
   final List<Map<String, dynamic>> _responsiblePersons = [];
   final DioClient _dioClient = sl<DioClient>();
@@ -170,7 +179,8 @@ class _BuildingResponsiblePersonsPageState
         if (widget.userName != null) 'userName': widget.userName!,
         if (widget.siteId != null) 'siteId': widget.siteId!,
         if (widget.buildingId != null) 'buildingId': widget.buildingId!,
-        if (widget.fromDashboard != null) 'fromDashboard': widget.fromDashboard!,
+        if (widget.fromDashboard != null)
+          'fromDashboard': widget.fromDashboard!,
       },
     );
     // final propertyCubit = sl<PropertySetupCubit>();
@@ -308,17 +318,44 @@ class _BuildingResponsiblePersonsPageState
     if (_reportOptions['total_consumption'] == true) {
       reportContents.add('TotalConsumption');
     }
-    if (_reportOptions['rooms_by_consumption'] == true) {
+    if (_reportOptions['consumption_by_room'] == true) {
       reportContents.add('ConsumptionByRoom');
     }
     if (_reportOptions['peak_loads'] == true) {
       reportContents.add('PeakLoads');
     }
+    if (_reportOptions['measurement_type_breakdown'] == true) {
+      reportContents.add('MeasurementTypeBreakdown');
+    }
+    if (_reportOptions['eui'] == true) {
+      reportContents.add('EUI');
+    }
+    if (_reportOptions['per_capita_consumption'] == true) {
+      reportContents.add('PerCapitaConsumption');
+    }
+    if (_reportOptions['benchmark_comparison'] == true) {
+      reportContents.add('BenchmarkComparison');
+    }
+    if (_reportOptions['inefficient_usage'] == true) {
+      reportContents.add('InefficientUsage');
+    }
     if (_reportOptions['anomalies'] == true) {
       reportContents.add('Anomalies');
     }
-    if (_reportOptions['underutilization'] == true) {
-      reportContents.add('InefficientUsage');
+    if (_reportOptions['period_comparison'] == true) {
+      reportContents.add('PeriodComparison');
+    }
+    if (_reportOptions['time_based_analysis'] == true) {
+      reportContents.add('TimeBasedAnalysis');
+    }
+    if (_reportOptions['building_comparison'] == true) {
+      reportContents.add('BuildingComparison');
+    }
+    if (_reportOptions['temperature_analysis'] == true) {
+      reportContents.add('TemperatureAnalysis');
+    }
+    if (_reportOptions['data_quality_report'] == true) {
+      reportContents.add('DataQualityReport');
     }
 
     // Map frequency key to API format
@@ -365,10 +402,19 @@ class _BuildingResponsiblePersonsPageState
       _selectedFrequencyKey = 'monthly';
       _reportOptions = {
         'total_consumption': true,
+        'consumption_by_room': true,
         'peak_loads': false,
+        'measurement_type_breakdown': false,
+        'eui': false,
+        'per_capita_consumption': false,
+        'benchmark_comparison': false,
+        'inefficient_usage': true,
         'anomalies': false,
-        'rooms_by_consumption': true,
-        'underutilization': true,
+        'period_comparison': false,
+        'time_based_analysis': false,
+        'building_comparison': false,
+        'temperature_analysis': false,
+        'data_quality_report': false,
       };
     });
 
@@ -386,7 +432,26 @@ class _BuildingResponsiblePersonsPageState
   }
 
   String _getReportOptionLabel(String key) {
-    return 'building_responsible_persons.$key'.tr();
+    // Map option keys to translation keys from en.json
+    final translationKeyMap = {
+      'total_consumption': 'Total Consumption',
+      'consumption_by_room': 'Consumption by Room',
+      'peak_loads': 'Peak Loads',
+      'measurement_type_breakdown': 'Measurement Type Breakdown',
+      'eui': 'EUI',
+      'per_capita_consumption': 'Per Capita Consumption',
+      'benchmark_comparison': 'Benchmark Comparison',
+      'inefficient_usage': 'Inefficient Usage',
+      'anomalies': 'Anomalies',
+      'period_comparison': 'Period Comparison',
+      'time_based_analysis': 'Time Based Analysis',
+      'building_comparison': 'Building Comparison',
+      'temperature_analysis': 'Temperature Analysis',
+      'data_quality_report': 'Data Quality Report',
+    };
+
+    final translationKey = translationKeyMap[key] ?? key;
+    return translationKey.tr();
   }
 
   void _showEditRoutineDialog(int index) {
@@ -402,10 +467,19 @@ class _BuildingResponsiblePersonsPageState
       savedConfig['reportOptions'] ??
           {
             'total_consumption': true,
+            'consumption_by_room': true,
             'peak_loads': false,
+            'measurement_type_breakdown': false,
+            'eui': false,
+            'per_capita_consumption': false,
+            'benchmark_comparison': false,
+            'inefficient_usage': true,
             'anomalies': false,
-            'rooms_by_consumption': true,
-            'underutilization': true,
+            'period_comparison': false,
+            'time_based_analysis': false,
+            'building_comparison': false,
+            'temperature_analysis': false,
+            'data_quality_report': false,
           },
     );
 
@@ -459,17 +533,44 @@ class _BuildingResponsiblePersonsPageState
             if (dialogReportOptions['total_consumption'] == true) {
               reportContents.add('TotalConsumption');
             }
-            if (dialogReportOptions['rooms_by_consumption'] == true) {
+            if (dialogReportOptions['consumption_by_room'] == true) {
               reportContents.add('ConsumptionByRoom');
             }
             if (dialogReportOptions['peak_loads'] == true) {
               reportContents.add('PeakLoads');
             }
+            if (dialogReportOptions['measurement_type_breakdown'] == true) {
+              reportContents.add('MeasurementTypeBreakdown');
+            }
+            if (dialogReportOptions['eui'] == true) {
+              reportContents.add('EUI');
+            }
+            if (dialogReportOptions['per_capita_consumption'] == true) {
+              reportContents.add('PerCapitaConsumption');
+            }
+            if (dialogReportOptions['benchmark_comparison'] == true) {
+              reportContents.add('BenchmarkComparison');
+            }
+            if (dialogReportOptions['inefficient_usage'] == true) {
+              reportContents.add('InefficientUsage');
+            }
             if (dialogReportOptions['anomalies'] == true) {
               reportContents.add('Anomalies');
             }
-            if (dialogReportOptions['underutilization'] == true) {
-              reportContents.add('InefficientUsage');
+            if (dialogReportOptions['period_comparison'] == true) {
+              reportContents.add('PeriodComparison');
+            }
+            if (dialogReportOptions['time_based_analysis'] == true) {
+              reportContents.add('TimeBasedAnalysis');
+            }
+            if (dialogReportOptions['building_comparison'] == true) {
+              reportContents.add('BuildingComparison');
+            }
+            if (dialogReportOptions['temperature_analysis'] == true) {
+              reportContents.add('TemperatureAnalysis');
+            }
+            if (dialogReportOptions['data_quality_report'] == true) {
+              reportContents.add('DataQualityReport');
             }
 
             // Map frequency key to API format
@@ -527,8 +628,8 @@ class _BuildingResponsiblePersonsPageState
                 borderRadius: BorderRadius.zero,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+                    horizontal: 6,
+                    vertical: 2,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -832,26 +933,26 @@ class _BuildingResponsiblePersonsPageState
                       ),
                     ),
                     const SizedBox(height: 24),
-                    // Report Options Checkboxes - Row 1
+                    // Report Options Checkboxes
                     Wrap(
                       spacing: 16,
-                      runSpacing: 16,
-                      alignment: WrapAlignment.start,
+                      runSpacing: 12,
+                      alignment: WrapAlignment.center,
                       children: [
                         buildDialogCheckbox('total_consumption'),
+                        buildDialogCheckbox('consumption_by_room'),
                         buildDialogCheckbox('peak_loads'),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Report Options Checkboxes - Row 2
-                    Wrap(
-                      spacing: 16,
-                      runSpacing: 16,
-                      alignment: WrapAlignment.start,
-                      children: [
+                        buildDialogCheckbox('measurement_type_breakdown'),
+                        buildDialogCheckbox('eui'),
+                        buildDialogCheckbox('per_capita_consumption'),
+                        buildDialogCheckbox('benchmark_comparison'),
+                        buildDialogCheckbox('inefficient_usage'),
                         buildDialogCheckbox('anomalies'),
-                        buildDialogCheckbox('rooms_by_consumption'),
-                        buildDialogCheckbox('underutilization'),
+                        buildDialogCheckbox('period_comparison'),
+                        buildDialogCheckbox('time_based_analysis'),
+                        buildDialogCheckbox('building_comparison'),
+                        buildDialogCheckbox('temperature_analysis'),
+                        buildDialogCheckbox('data_quality_report'),
                       ],
                     ),
                   ],
@@ -916,17 +1017,44 @@ class _BuildingResponsiblePersonsPageState
     if (_reportOptions['total_consumption'] == true) {
       reportContents.add('TotalConsumption');
     }
-    if (_reportOptions['rooms_by_consumption'] == true) {
+    if (_reportOptions['consumption_by_room'] == true) {
       reportContents.add('ConsumptionByRoom');
     }
     if (_reportOptions['peak_loads'] == true) {
       reportContents.add('PeakLoads');
     }
+    if (_reportOptions['measurement_type_breakdown'] == true) {
+      reportContents.add('MeasurementTypeBreakdown');
+    }
+    if (_reportOptions['eui'] == true) {
+      reportContents.add('EUI');
+    }
+    if (_reportOptions['per_capita_consumption'] == true) {
+      reportContents.add('PerCapitaConsumption');
+    }
+    if (_reportOptions['benchmark_comparison'] == true) {
+      reportContents.add('BenchmarkComparison');
+    }
+    if (_reportOptions['inefficient_usage'] == true) {
+      reportContents.add('InefficientUsage');
+    }
     if (_reportOptions['anomalies'] == true) {
       reportContents.add('Anomalies');
     }
-    if (_reportOptions['underutilization'] == true) {
-      reportContents.add('InefficientUsage');
+    if (_reportOptions['period_comparison'] == true) {
+      reportContents.add('PeriodComparison');
+    }
+    if (_reportOptions['time_based_analysis'] == true) {
+      reportContents.add('TimeBasedAnalysis');
+    }
+    if (_reportOptions['building_comparison'] == true) {
+      reportContents.add('BuildingComparison');
+    }
+    if (_reportOptions['temperature_analysis'] == true) {
+      reportContents.add('TemperatureAnalysis');
+    }
+    if (_reportOptions['data_quality_report'] == true) {
+      reportContents.add('DataQualityReport');
     }
 
     // Map frequency key to API format
@@ -1084,8 +1212,20 @@ class _BuildingResponsiblePersonsPageState
         if (_reportOptions['total_consumption'] == true) {
           reportContents.add('TotalConsumption');
         }
-        if (_reportOptions['rooms_by_consumption'] == true) {
+        if (_reportOptions['consumption_by_room'] == true) {
           reportContents.add('ConsumptionByRoom');
+        }
+        if (_reportOptions['measurement_type_breakdown'] == true) {
+          reportContents.add('MeasurementTypeBreakdown');
+        }
+        if (_reportOptions['eui'] == true) {
+          reportContents.add('EUI');
+        }
+        if (_reportOptions['per_capita_consumption'] == true) {
+          reportContents.add('PerCapitaConsumption');
+        }
+        if (_reportOptions['benchmark_comparison'] == true) {
+          reportContents.add('BenchmarkComparison');
         }
         if (_reportOptions['peak_loads'] == true) {
           reportContents.add('PeakLoads');
@@ -1093,8 +1233,23 @@ class _BuildingResponsiblePersonsPageState
         if (_reportOptions['anomalies'] == true) {
           reportContents.add('Anomalies');
         }
-        if (_reportOptions['underutilization'] == true) {
+        if (_reportOptions['inefficient_usage'] == true) {
           reportContents.add('InefficientUsage');
+        }
+        if (_reportOptions['period_comparison'] == true) {
+          reportContents.add('PeriodComparison');
+        }
+        if (_reportOptions['time_based_analysis'] == true) {
+          reportContents.add('TimeBasedAnalysis');
+        }
+        if (_reportOptions['building_comparison'] == true) {
+          reportContents.add('BuildingComparison');
+        }
+        if (_reportOptions['temperature_analysis'] == true) {
+          reportContents.add('TemperatureAnalysis');
+        }
+        if (_reportOptions['data_quality_report'] == true) {
+          reportContents.add('DataQualityReport');
         }
 
         // Map frequency key to API format
@@ -1209,8 +1364,20 @@ class _BuildingResponsiblePersonsPageState
         if (_reportOptions['total_consumption'] == true) {
           reportContents.add('TotalConsumption');
         }
-        if (_reportOptions['rooms_by_consumption'] == true) {
+        if (_reportOptions['consumption_by_room'] == true) {
           reportContents.add('ConsumptionByRoom');
+        }
+        if (_reportOptions['measurement_type_breakdown'] == true) {
+          reportContents.add('MeasurementTypeBreakdown');
+        }
+        if (_reportOptions['eui'] == true) {
+          reportContents.add('EUI');
+        }
+        if (_reportOptions['per_capita_consumption'] == true) {
+          reportContents.add('PerCapitaConsumption');
+        }
+        if (_reportOptions['benchmark_comparison'] == true) {
+          reportContents.add('BenchmarkComparison');
         }
         if (_reportOptions['peak_loads'] == true) {
           reportContents.add('PeakLoads');
@@ -1218,8 +1385,23 @@ class _BuildingResponsiblePersonsPageState
         if (_reportOptions['anomalies'] == true) {
           reportContents.add('Anomalies');
         }
-        if (_reportOptions['underutilization'] == true) {
+        if (_reportOptions['inefficient_usage'] == true) {
           reportContents.add('InefficientUsage');
+        }
+        if (_reportOptions['period_comparison'] == true) {
+          reportContents.add('PeriodComparison');
+        }
+        if (_reportOptions['time_based_analysis'] == true) {
+          reportContents.add('TimeBasedAnalysis');
+        }
+        if (_reportOptions['building_comparison'] == true) {
+          reportContents.add('BuildingComparison');
+        }
+        if (_reportOptions['temperature_analysis'] == true) {
+          reportContents.add('TemperatureAnalysis');
+        }
+        if (_reportOptions['data_quality_report'] == true) {
+          reportContents.add('DataQualityReport');
         }
 
         // Map frequency key to API format
@@ -1423,17 +1605,44 @@ class _BuildingResponsiblePersonsPageState
           if (_reportOptions['total_consumption'] == true) {
             reportContents.add('TotalConsumption');
           }
-          if (_reportOptions['rooms_by_consumption'] == true) {
+          if (_reportOptions['consumption_by_room'] == true) {
             reportContents.add('ConsumptionByRoom');
           }
           if (_reportOptions['peak_loads'] == true) {
             reportContents.add('PeakLoads');
           }
+          if (_reportOptions['measurement_type_breakdown'] == true) {
+            reportContents.add('MeasurementTypeBreakdown');
+          }
+          if (_reportOptions['eui'] == true) {
+            reportContents.add('EUI');
+          }
+          if (_reportOptions['per_capita_consumption'] == true) {
+            reportContents.add('PerCapitaConsumption');
+          }
+          if (_reportOptions['benchmark_comparison'] == true) {
+            reportContents.add('BenchmarkComparison');
+          }
+          if (_reportOptions['inefficient_usage'] == true) {
+            reportContents.add('InefficientUsage');
+          }
           if (_reportOptions['anomalies'] == true) {
             reportContents.add('Anomalies');
           }
-          if (_reportOptions['underutilization'] == true) {
-            reportContents.add('InefficientUsage');
+          if (_reportOptions['period_comparison'] == true) {
+            reportContents.add('PeriodComparison');
+          }
+          if (_reportOptions['time_based_analysis'] == true) {
+            reportContents.add('TimeBasedAnalysis');
+          }
+          if (_reportOptions['building_comparison'] == true) {
+            reportContents.add('BuildingComparison');
+          }
+          if (_reportOptions['temperature_analysis'] == true) {
+            reportContents.add('TemperatureAnalysis');
+          }
+          if (_reportOptions['data_quality_report'] == true) {
+            reportContents.add('DataQualityReport');
           }
 
           // Map frequency key to API format
@@ -1565,17 +1774,44 @@ class _BuildingResponsiblePersonsPageState
       if (_reportOptions['total_consumption'] == true) {
         reportContents.add('TotalConsumption');
       }
-      if (_reportOptions['rooms_by_consumption'] == true) {
+      if (_reportOptions['consumption_by_room'] == true) {
         reportContents.add('ConsumptionByRoom');
       }
       if (_reportOptions['peak_loads'] == true) {
         reportContents.add('PeakLoads');
       }
+      if (_reportOptions['measurement_type_breakdown'] == true) {
+        reportContents.add('MeasurementTypeBreakdown');
+      }
+      if (_reportOptions['eui'] == true) {
+        reportContents.add('EUI');
+      }
+      if (_reportOptions['per_capita_consumption'] == true) {
+        reportContents.add('PerCapitaConsumption');
+      }
+      if (_reportOptions['benchmark_comparison'] == true) {
+        reportContents.add('BenchmarkComparison');
+      }
+      if (_reportOptions['inefficient_usage'] == true) {
+        reportContents.add('InefficientUsage');
+      }
       if (_reportOptions['anomalies'] == true) {
         reportContents.add('Anomalies');
       }
-      if (_reportOptions['underutilization'] == true) {
-        reportContents.add('InefficientUsage');
+      if (_reportOptions['period_comparison'] == true) {
+        reportContents.add('PeriodComparison');
+      }
+      if (_reportOptions['time_based_analysis'] == true) {
+        reportContents.add('TimeBasedAnalysis');
+      }
+      if (_reportOptions['building_comparison'] == true) {
+        reportContents.add('BuildingComparison');
+      }
+      if (_reportOptions['temperature_analysis'] == true) {
+        reportContents.add('TemperatureAnalysis');
+      }
+      if (_reportOptions['data_quality_report'] == true) {
+        reportContents.add('DataQualityReport');
       }
 
       // Map frequency key to API format
@@ -2006,14 +2242,31 @@ class _BuildingResponsiblePersonsPageState
                                                             _reportOptions = {
                                                               'total_consumption':
                                                                   true,
+                                                              'consumption_by_room':
+                                                                  true,
                                                               'peak_loads':
                                                                   false,
+                                                              'measurement_type_breakdown':
+                                                                  false,
+                                                              'eui': false,
+                                                              'per_capita_consumption':
+                                                                  false,
+                                                              'benchmark_comparison':
+                                                                  false,
+                                                              'inefficient_usage':
+                                                                  true,
                                                               'anomalies':
                                                                   false,
-                                                              'rooms_by_consumption':
-                                                                  true,
-                                                              'underutilization':
-                                                                  true,
+                                                              'period_comparison':
+                                                                  false,
+                                                              'time_based_analysis':
+                                                                  false,
+                                                              'building_comparison':
+                                                                  false,
+                                                              'temperature_analysis':
+                                                                  false,
+                                                              'data_quality_report':
+                                                                  false,
                                                             };
                                                           }
                                                           _savedReportConfigs
@@ -2145,33 +2398,49 @@ class _BuildingResponsiblePersonsPageState
                                     ),
                                     const SizedBox(height: 32),
 
-                                    // Report Options Checkboxes - Row 1
+                                    // Report Options Checkboxes
                                     Wrap(
                                       spacing: 16,
-                                      runSpacing: 16,
+                                      runSpacing: 12,
                                       alignment: WrapAlignment.center,
                                       children: [
                                         _buildReportOptionCheckbox(
                                           'total_consumption',
                                         ),
                                         _buildReportOptionCheckbox(
+                                          'consumption_by_room',
+                                        ),
+                                        _buildReportOptionCheckbox(
                                           'peak_loads',
                                         ),
-                                        _buildReportOptionCheckbox('anomalies'),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    // Report Options Checkboxes - Row 2
-                                    Wrap(
-                                      spacing: 16,
-                                      runSpacing: 16,
-                                      alignment: WrapAlignment.center,
-                                      children: [
                                         _buildReportOptionCheckbox(
-                                          'rooms_by_consumption',
+                                          'measurement_type_breakdown',
+                                        ),
+                                        _buildReportOptionCheckbox('eui'),
+                                        _buildReportOptionCheckbox(
+                                          'per_capita_consumption',
                                         ),
                                         _buildReportOptionCheckbox(
-                                          'underutilization',
+                                          'benchmark_comparison',
+                                        ),
+                                        _buildReportOptionCheckbox(
+                                          'inefficient_usage',
+                                        ),
+                                        _buildReportOptionCheckbox('anomalies'),
+                                        _buildReportOptionCheckbox(
+                                          'period_comparison',
+                                        ),
+                                        _buildReportOptionCheckbox(
+                                          'time_based_analysis',
+                                        ),
+                                        _buildReportOptionCheckbox(
+                                          'building_comparison',
+                                        ),
+                                        _buildReportOptionCheckbox(
+                                          'temperature_analysis',
+                                        ),
+                                        _buildReportOptionCheckbox(
+                                          'data_quality_report',
                                         ),
                                       ],
                                     ),
@@ -2320,7 +2589,7 @@ class _BuildingResponsiblePersonsPageState
                                                   'TotalConsumption',
                                                 );
                                               }
-                                              if (_reportOptions['rooms_by_consumption'] ==
+                                              if (_reportOptions['consumption_by_room'] ==
                                                   true) {
                                                 reportContents.add(
                                                   'ConsumptionByRoom',
@@ -2330,14 +2599,66 @@ class _BuildingResponsiblePersonsPageState
                                                   true) {
                                                 reportContents.add('PeakLoads');
                                               }
+                                              if (_reportOptions['measurement_type_breakdown'] ==
+                                                  true) {
+                                                reportContents.add(
+                                                  'MeasurementTypeBreakdown',
+                                                );
+                                              }
+                                              if (_reportOptions['eui'] ==
+                                                  true) {
+                                                reportContents.add('EUI');
+                                              }
+                                              if (_reportOptions['per_capita_consumption'] ==
+                                                  true) {
+                                                reportContents.add(
+                                                  'PerCapitaConsumption',
+                                                );
+                                              }
+                                              if (_reportOptions['benchmark_comparison'] ==
+                                                  true) {
+                                                reportContents.add(
+                                                  'BenchmarkComparison',
+                                                );
+                                              }
+                                              if (_reportOptions['inefficient_usage'] ==
+                                                  true) {
+                                                reportContents.add(
+                                                  'InefficientUsage',
+                                                );
+                                              }
                                               if (_reportOptions['anomalies'] ==
                                                   true) {
                                                 reportContents.add('Anomalies');
                                               }
-                                              if (_reportOptions['underutilization'] ==
+                                              if (_reportOptions['period_comparison'] ==
                                                   true) {
                                                 reportContents.add(
-                                                  'InefficientUsage',
+                                                  'PeriodComparison',
+                                                );
+                                              }
+                                              if (_reportOptions['time_based_analysis'] ==
+                                                  true) {
+                                                reportContents.add(
+                                                  'TimeBasedAnalysis',
+                                                );
+                                              }
+                                              if (_reportOptions['building_comparison'] ==
+                                                  true) {
+                                                reportContents.add(
+                                                  'BuildingComparison',
+                                                );
+                                              }
+                                              if (_reportOptions['temperature_analysis'] ==
+                                                  true) {
+                                                reportContents.add(
+                                                  'TemperatureAnalysis',
+                                                );
+                                              }
+                                              if (_reportOptions['data_quality_report'] ==
+                                                  true) {
+                                                reportContents.add(
+                                                  'DataQualityReport',
                                                 );
                                               }
                                               String interval = 'Monthly';
@@ -2448,7 +2769,7 @@ class _BuildingResponsiblePersonsPageState
         onTap: () => _handleReportOptionToggle(option),
         borderRadius: BorderRadius.zero,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           decoration: BoxDecoration(
             // border: Border.all(color: Colors.black54, width: 1),
             //             borderRadius: BorderRadius.zero,
