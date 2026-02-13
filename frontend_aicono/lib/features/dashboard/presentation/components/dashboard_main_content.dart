@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/utils/locale_number_format.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
+import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_details_filter.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/dashboard_date_range_picker_dialog.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/components/weekday_weekend_cylinder_chart.dart';
@@ -3355,16 +3356,20 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
         _buildActionLink(
           text: 'dashboard.main_content.add_branding'.tr(),
           onTap: () {
-            // TODO: Navigate to branding page
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'dashboard.main_content.add_branding'.tr() +
-                      ' ' +
-                      'dashboard.main_content.coming_soon'.tr(),
+            final switchId = widget.verseId ?? sl<LocalStorage>().getSelectedVerseId();
+            if (switchId != null && switchId.isNotEmpty) {
+              context.pushNamed(
+                Routelists.switchSettings,
+                queryParameters: {'switchId': switchId},
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('switch_settings.no_switch_selected'.tr()),
+                  backgroundColor: Colors.orange,
                 ),
-              ),
-            );
+              );
+            }
           },
         ),
       ],
