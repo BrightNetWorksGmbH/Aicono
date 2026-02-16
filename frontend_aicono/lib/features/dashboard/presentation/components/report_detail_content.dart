@@ -1402,15 +1402,15 @@ class ReportDetailContent extends StatelessWidget {
               decoration: TextDecoration.underline,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           SizedBox(
-            width: 24,
-            height: 24,
+            width: 18,
+            height: 18,
             child: CircleAvatar(
               backgroundColor: const Color(0xFF2DD4BF),
               child: Text(
                 '${recipients.length}',
-                style: AppTextStyles.labelMedium.copyWith(
+                style: AppTextStyles.labelSmall.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
                   height: 1,
