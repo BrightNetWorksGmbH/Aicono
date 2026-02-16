@@ -83,7 +83,9 @@ function getBaseUnit(measurementType) {
         'Temperature': '°C',
         'Water': 'm³',
         'Heating': 'm³',
-        'Gas': 'm³'
+        'Gas': 'm³',
+        'CO2': 'g/kWh',     // EFM CO2 emissions factor
+        'Price': '€/kWh'    // EFM energy price (import/export)
     };
     return baseUnits[measurementType] || '';
 }
@@ -1372,6 +1374,7 @@ class DashboardDiscoveryService {
         for (const result of rawResults) {
             const measurementType = result._id.measurementType;
             const stateType = result._id.stateType || null;
+            const controlType = result._id.controlType || null; // NEW: Get controlType from aggregation result
             const unit = result.units || '';
             const baseUnit = getBaseUnit(measurementType);
             
@@ -1390,6 +1393,7 @@ class DashboardDiscoveryService {
                 processedResults.set(key, {
                     measurementType: measurementType,
                     stateType: stateType,
+                    controlType: controlType, // NEW: Store controlType for Power breakdown separation
                     values: [],
                     timestampValuePairs: [], // Store timestamp/value pairs for partial period calculations
                     baseUnit: baseUnit,
@@ -1436,14 +1440,27 @@ class DashboardDiscoveryService {
         const powerUnit = 'kW';
         
         // Find Energy data for total_consumption, base, averageEnergy
+        // Separate consumption (total*) and production (totalNeg*) queries
         // Priority order: totalDay > totalWeek > totalMonth > totalYear > total > any Energy
         let energyData = null;
         let energyStateType = null;
+        let productionData = null;
+        let productionStateType = null;
         
         // Check for Energy data with different stateTypes
         const energyKeys = Array.from(processedResults.keys()).filter(k => k.startsWith('Energy:'));
         
-        if (energyKeys.length > 0) {
+        // Separate consumption (total*) and production (totalNeg*) states
+        const consumptionKeys = energyKeys.filter(k => {
+            const stateType = processedResults.get(k)?.stateType;
+            return stateType && (stateType.startsWith('total') && !stateType.startsWith('totalNeg'));
+        });
+        const productionKeys = energyKeys.filter(k => {
+            const stateType = processedResults.get(k)?.stateType;
+            return stateType && stateType.startsWith('totalNeg');
+        });
+        
+        if (consumptionKeys.length > 0) {
             // For reports with interval: prefer the matching stateType
             if (options.interval) {
                 const intervalStateType = getStateTypeForInterval(options.interval);
@@ -1452,8 +1469,8 @@ class DashboardDiscoveryService {
                     energyData = processedResults.get(preferredKey);
                     energyStateType = intervalStateType;
                 } else {
-                    // Fallback to any Energy data
-                    energyData = processedResults.get(energyKeys[0]);
+                    // Fallback to any consumption Energy data
+                    energyData = processedResults.get(consumptionKeys[0]);
                     energyStateType = energyData?.stateType;
                 }
             } else {
@@ -1463,7 +1480,7 @@ class DashboardDiscoveryService {
                 let found = false;
                 
                 for (const stateType of priorityOrder) {
-                    const key = energyKeys.find(k => k.includes(`:${stateType}`));
+                    const key = consumptionKeys.find(k => k.includes(`:${stateType}`));
                     if (key) {
                         energyData = processedResults.get(key);
                         energyStateType = stateType;
@@ -1472,17 +1489,100 @@ class DashboardDiscoveryService {
                     }
                 }
                 
-                // If no priority stateType found, use any Energy data
+                // If no priority stateType found, use any consumption Energy data
                 if (!found) {
-                    energyData = processedResults.get(energyKeys[0]);
+                    energyData = processedResults.get(consumptionKeys[0]);
                     energyStateType = energyData?.stateType;
                 }
             }
         }
         
+        // Find production data (totalNeg* states)
+        if (productionKeys.length > 0) {
+            // For reports with interval: prefer the matching stateType
+            if (options.interval) {
+                const intervalStateType = getStateTypeForInterval(options.interval);
+                // Map interval to production stateType: totalDay -> totalNegDay, totalWeek -> totalNegWeek, etc.
+                let productionStateTypeForInterval = null;
+                if (intervalStateType === 'totalDay') {
+                    productionStateTypeForInterval = 'totalNegDay';
+                } else if (intervalStateType === 'totalWeek') {
+                    productionStateTypeForInterval = 'totalNegWeek';
+                } else if (intervalStateType === 'totalMonth') {
+                    productionStateTypeForInterval = 'totalNegMonth';
+                } else if (intervalStateType === 'totalYear') {
+                    productionStateTypeForInterval = 'totalNegYear';
+                }
+                
+                if (productionStateTypeForInterval) {
+                    const preferredKey = `Energy:${productionStateTypeForInterval}`;
+                    if (processedResults.has(preferredKey)) {
+                        productionData = processedResults.get(preferredKey);
+                        productionStateType = productionStateTypeForInterval;
+                    }
+                }
+            }
+            
+            // If no production data found yet, use priority order
+            if (!productionData) {
+                const priorityOrder = ['totalNegDay', 'totalNegWeek', 'totalNegMonth', 'totalNegYear', 'totalNeg'];
+                for (const stateType of priorityOrder) {
+                    const key = productionKeys.find(k => k.includes(`:${stateType}`));
+                    if (key) {
+                        productionData = processedResults.get(key);
+                        productionStateType = stateType;
+                        break;
+                    }
+                }
+                
+                // If no priority stateType found, use any production Energy data
+                if (!productionData && productionKeys.length > 0) {
+                    productionData = processedResults.get(productionKeys[0]);
+                    productionStateType = productionData?.stateType;
+                }
+            }
+        }
+        
         // For dashboard arbitrary ranges: calculate energy from Power if no Energy data
-        const powerKey = Array.from(processedResults.keys()).find(k => k.startsWith('Power:'));
-        const powerData = powerKey ? processedResults.get(powerKey) : null;
+        // CRITICAL: Use Meter power (actual*), NOT EFM power for energy calculation
+        // Per Loxone StructureFile:
+        // - EFM actual* states are no longer stored (skipped at source in loxoneStorageService.js)
+        //   They were pass-through duplicates of linked Meter controls' actual states
+        // - EFM-specific power states (selfConsumption, Gpwr, Ppwr, Spwr) represent aggregated 
+        //   energy flow values, NOT individual consumption — too large for per-sensor energy calc
+        // - Meter actual* states represent individual sensor power readings — correct for energy calc
+        // Solution: Always prefer Meter actual* states, exclude EFM power states
+        // BACKWARD COMPATIBILITY: If controlType is missing (old data before fix), filter by stateType
+        const meterPowerKey = Array.from(processedResults.keys()).find(k => {
+            if (!k.startsWith('Power:')) return false;
+            const data = processedResults.get(k);
+            // If controlType is available, use it - prefer Meter, exclude EFM
+            if (data.controlType === 'Meter') return true;
+            if (data.controlType === 'EFM') return false; // Explicitly exclude EFM actual* states
+            // Backward compatibility: If controlType is missing, check stateType
+            // Meter power states: actual* (actual, actual0, actual1, actual2, actual3, actual5, etc.)
+            // EFM power states: selfConsumption, Gpwr, Ppwr, Spwr, Ppv, Pbat, Pload
+            // Note: Without controlType, we can't distinguish Meter actual* from EFM actual*
+            // But we can exclude known EFM-specific states
+            if (!data.controlType && data.stateType) {
+                const stateType = data.stateType;
+                // Meter power: actual* states (but could be EFM actual* if controlType missing)
+                if (stateType.startsWith('actual')) return true; // Assume Meter if controlType missing
+                // NOT EFM: exclude selfConsumption, Gpwr, Ppwr, Spwr, Ppv, Pbat, Pload
+                if (['selfConsumption', 'Gpwr', 'Ppwr', 'Spwr', 'Ppv', 'Pbat', 'Pload'].includes(stateType)) {
+                    return false;
+                }
+            }
+            return false;
+        });
+        // Do NOT use EFM power for energy calculation:
+        // - EFM actual* states are duplicates of Meter actual* states (pass-through from linked meters)
+        // - EFM-specific states (selfConsumption, Gpwr, etc.) are aggregated and too large
+        // const efmPowerKey = Array.from(processedResults.keys()).find(k => 
+        //     k.startsWith('Power:') && processedResults.get(k).controlType === 'EFM'
+        // );
+        
+        const powerData = meterPowerKey ? processedResults.get(meterPowerKey) : null;
         const usePowerForEnergy = !energyData && powerData && powerData.values.length > 0 && !options.interval;
         
         if (energyData && energyData.values.length > 0) {
@@ -1962,22 +2062,150 @@ class DashboardDiscoveryService {
                     ? energyData.avgQuality.reduce((sum, q) => sum + q, 0) / energyData.avgQuality.length 
                     : 100;
             }
-        } else if (usePowerForEnergy && powerData && powerData.values.length > 0) {
+        }
+        
+        // Calculate total production from totalNeg* states
+        let totalProduction = 0;
+        if (productionData && productionData.values.length > 0) {
+            // Do NOT filter negative values for production - production values are typically positive
+            // (representing energy produced). Negative values would indicate data issues.
+            const validProductionValues = productionData.values.filter(v => v >= 0);
+            
+            if (validProductionValues.length > 0) {
+                const productionValues = validProductionValues;
+                
+                // Handle different stateTypes correctly (same logic as consumption):
+                // - totalNegDay: resets at midnight, cumulative within day
+                // - totalNegWeek: resets at week start (Monday), cumulative within week
+                // - totalNegMonth: resets at month start, cumulative within month
+                // - totalNegYear: resets at year start, cumulative within year
+                // - totalNeg: cumulative counter (never resets)
+                const isPeriodTotal = productionStateType && (
+                    productionStateType === 'totalNegDay' || 
+                    productionStateType === 'totalNegWeek' || 
+                    productionStateType === 'totalNegMonth' || 
+                    productionStateType === 'totalNegYear'
+                );
+                
+                if (isPeriodTotal) {
+                    // Period totals: need to handle full periods, partial periods, and multiple periods
+                    const resolution = options.resolution || 60;
+                    const startDate = options.startDate ? new Date(options.startDate) : null;
+                    const endDate = options.endDate ? new Date(options.endDate) : null;
+                    
+                    // Get timestamp/value pairs if available
+                    let timestampValuePairs = productionData.timestampValuePairs || [];
+                    
+                    // Determine period type and boundaries
+                    let periodType = null;
+                    if (productionStateType === 'totalNegDay') {
+                        periodType = 'day';
+                    } else if (productionStateType === 'totalNegWeek') {
+                        periodType = 'week';
+                    } else if (productionStateType === 'totalNegMonth') {
+                        periodType = 'month';
+                    } else if (productionStateType === 'totalNegYear') {
+                        periodType = 'year';
+                    }
+                    
+                    // Use same logic as consumption calculation for period totals
+                    // For simplicity, use MAX for single period, SUM for multiple periods
+                    const timeRangeDays = startDate && endDate 
+                        ? (endDate - startDate) / (1000 * 60 * 60 * 24)
+                        : null;
+                    
+                    let isSinglePeriod = false;
+                    if (periodType === 'day') {
+                        if (startDate && endDate) {
+                            const startDay = roundToDayStart(startDate);
+                            const endDay = roundToDayStart(endDate);
+                            isSinglePeriod = (startDay.getTime() === endDay.getTime()) || 
+                                           (timeRangeDays !== null && timeRangeDays >= 0.9 && timeRangeDays < 1.1);
+                        }
+                    } else if (periodType === 'week') {
+                        isSinglePeriod = timeRangeDays !== null && timeRangeDays >= 6 && timeRangeDays < 8;
+                    } else if (periodType === 'month') {
+                        isSinglePeriod = timeRangeDays !== null && timeRangeDays >= 28 && timeRangeDays < 32;
+                    } else if (periodType === 'year') {
+                        isSinglePeriod = timeRangeDays !== null && timeRangeDays >= 360 && timeRangeDays < 370;
+                    }
+                    
+                    if (isSinglePeriod) {
+                        // Single period: use MAX (latest period total)
+                        totalProduction = Math.max(...productionValues);
+                    } else {
+                        // Multiple periods: SUM them (each value is one period's total)
+                        totalProduction = productionValues.reduce((sum, v) => sum + v, 0);
+                    }
+                } else {
+                    // Cumulative counter (totalNeg): use last - first
+                    if (productionValues.length > 1) {
+                        const sortedValues = [...productionValues].sort((a, b) => a - b);
+                        totalProduction = Math.max(0, 
+                            productionValues[productionValues.length - 1] - productionValues[0]
+                        );
+                    } else if (productionValues.length === 1) {
+                        totalProduction = productionValues[0];
+                    }
+                }
+            }
+        }
+        
+        if (usePowerForEnergy && powerData && powerData.values.length > 0) {
             // For dashboard arbitrary ranges: calculate energy consumption from Power
             // Each power value represents average power during its time period
             // Energy (kWh) = Sum of (Power_i (kW) × Time_Period_i (hours))
             
-            // Get resolution from options (default to 60 minutes/hourly if not provided)
-            const resolutionMinutes = options.resolution || 60;
-            const resolutionHours = resolutionMinutes / 60;
+            // CRITICAL: For mixed resolutions (hourly + 15-minute), we need to calculate energy correctly
+            // Each power value has its own resolution, so we need to use timestampValuePairs if available
+            let totalEnergyFromPower = 0;
             
-            // Calculate total energy by summing energy from each measurement period
-            // Each power value represents average power during that period
-            totalConsumption = powerData.values.reduce((sum, power) => sum + (power * resolutionHours), 0);
+            if (powerData.timestampValuePairs && powerData.timestampValuePairs.length > 0) {
+                // Use timestampValuePairs to calculate energy with correct resolution per period
+                // Sort by timestamp to process chronologically
+                const sortedPairs = [...powerData.timestampValuePairs].sort((a, b) => {
+                    const aTime = a.timestamp.getTime ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
+                    const bTime = b.timestamp.getTime ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+                    return aTime - bTime;
+                });
+                
+                for (let i = 0; i < sortedPairs.length; i++) {
+                    const pair = sortedPairs[i];
+                    const nextPair = sortedPairs[i + 1];
+                    
+                    // Determine resolution for this period
+                    // If pair has resolution, use it; otherwise, calculate from next timestamp
+                    let periodHours = 0.25; // Default to 15 minutes (0.25 hours)
+                    if (pair.resolution !== undefined && pair.resolution !== null) {
+                        periodHours = pair.resolution / 60; // Convert minutes to hours
+                    } else if (nextPair) {
+                        // Calculate from time difference
+                        const currentTime = pair.timestamp.getTime ? pair.timestamp.getTime() : new Date(pair.timestamp).getTime();
+                        const nextTime = nextPair.timestamp.getTime ? nextPair.timestamp.getTime() : new Date(nextPair.timestamp).getTime();
+                        periodHours = (nextTime - currentTime) / (1000 * 60 * 60); // Convert ms to hours
+                    } else {
+                        // Last period: use default or calculate from endDate
+                        const endTime = options.endDate ? new Date(options.endDate).getTime() : Date.now();
+                        const currentTime = pair.timestamp.getTime ? pair.timestamp.getTime() : new Date(pair.timestamp).getTime();
+                        periodHours = Math.max(0.25, (endTime - currentTime) / (1000 * 60 * 60)); // At least 15 minutes
+                    }
+                    
+                    // Energy (kWh) = Power (kW) × Time (hours)
+                    totalEnergyFromPower += pair.value * periodHours;
+                }
+                
+                totalConsumption = totalEnergyFromPower;
+            } else {
+                // Fallback: use average resolution (less accurate for mixed resolutions)
+                const resolutionMinutes = options.resolution || 60;
+                const resolutionHours = resolutionMinutes / 60;
+                totalConsumption = powerData.values.reduce((sum, power) => sum + (power * resolutionHours), 0);
+            }
             
-            // Base is minimum energy consumption (kWh), calculated from minimum power × resolution
-            // Note: This differs from breakdown.min for Power (which is in kW) - base is in kWh (energy)
-            base = Math.min(...powerData.values) * resolutionHours;
+            // Base is minimum energy consumption (kWh), calculated from minimum power × minimum resolution
+            // For mixed resolutions, use 15 minutes (0.25 hours) as minimum
+            const minResolutionHours = 0.25; // 15 minutes
+            base = Math.min(...powerData.values) * minResolutionHours;
             
             // Average energy per measurement period
             averageEnergy = totalConsumption / powerData.values.length;
@@ -1991,11 +2219,66 @@ class DashboardDiscoveryService {
             avgQuality = qualitySum / powerData.avgQuality.length;
         }
         
+        // Calculate net consumption: Net = Gross Consumption - Production
+        // CRITICAL: Calculate AFTER power-based energy calculation (if used) to ensure correct values
+        const netConsumption = Math.max(0, totalConsumption - totalProduction);
+        
         // Find Power data for peak power (instantaneous maximum) and average power
         // Peak is maximum instantaneous power (kW) from Power measurements, not from Energy
         // Note: Peak is in kW (power), while base is in kWh (energy) - they represent different metrics
-        if (powerData && powerData.values.length > 0) {
-            const powerValues = powerData.values;
+        // CRITICAL: For peak/average power calculation, prefer Meter power (actual*) over EFM power
+        // According to Loxone structure file: EFM actual* states are pass-through from linked Meter controls
+        // They represent the SAME data as Meter actual* states, so we must exclude them to avoid double-counting
+        // BACKWARD COMPATIBILITY: If powerData is null (from energy calculation), try to find Meter power
+        let powerDataForPeak = powerData;
+        if (!powerDataForPeak) {
+            // Try to find Meter power (for peak/average calculation)
+            // Prefer Meter power (actual*) over EFM power (selfConsumption, Gpwr, etc.)
+            const allPowerKeys = Array.from(processedResults.keys()).filter(k => k.startsWith('Power:'));
+            
+            // Priority 1: Meter power with controlType (explicitly exclude EFM)
+            let meterPowerKeyForPeak = allPowerKeys.find(k => {
+                const data = processedResults.get(k);
+                return data.controlType === 'Meter'; // Only Meter, not EFM
+            });
+            
+            // Priority 2: Meter power by stateType (backward compatibility)
+            // Note: Without controlType, we can't distinguish Meter actual* from EFM actual*
+            // But we can exclude known EFM-specific states
+            if (!meterPowerKeyForPeak) {
+                meterPowerKeyForPeak = allPowerKeys.find(k => {
+                    const data = processedResults.get(k);
+                    if (data.controlType === 'EFM') return false; // Explicitly exclude EFM
+                    if (!data.controlType && data.stateType) {
+                        const stateType = data.stateType;
+                        // Meter power: actual* states (assume Meter if controlType missing)
+                        if (stateType.startsWith('actual')) return true;
+                    }
+                    return false;
+                });
+            }
+            
+            // Priority 3: Any Power data (fallback, but prefer Meter and exclude EFM)
+            if (!meterPowerKeyForPeak && allPowerKeys.length > 0) {
+                // Try to avoid EFM states if possible
+                const nonEfmKey = allPowerKeys.find(k => {
+                    const data = processedResults.get(k);
+                    // Explicitly exclude EFM controlType
+                    if (data.controlType === 'EFM') return false;
+                    // Exclude EFM-specific states
+                    const stateType = data.stateType;
+                    return !['selfConsumption', 'Gpwr', 'Ppwr', 'Spwr', 'Ppv', 'Pbat', 'Pload'].includes(stateType);
+                });
+                meterPowerKeyForPeak = nonEfmKey || allPowerKeys[0];
+            }
+            
+            if (meterPowerKeyForPeak) {
+                powerDataForPeak = processedResults.get(meterPowerKeyForPeak);
+            }
+        }
+        
+        if (powerDataForPeak && powerDataForPeak.values.length > 0) {
+            const powerValues = powerDataForPeak.values;
             peak = Math.max(...powerValues); // Maximum instantaneous power (kW)
             // Calculate average power if not already set
             if (averagePower === 0) {
@@ -2007,6 +2290,7 @@ class DashboardDiscoveryService {
         }
         
         // Build breakdown for ALL measurement types found in the data
+        // CRITICAL: For Power, keep EFM and Meter separate - never combine them
         // Group by measurementType (combine different stateTypes for same measurementType)
         // Track stateTypes to handle period totals correctly
         const breakdownMap = new Map();
@@ -2014,22 +2298,30 @@ class DashboardDiscoveryService {
         for (const [key, data] of processedResults.entries()) {
             const measurementType = data.measurementType;
             const stateType = data.stateType;
+            const controlType = data.controlType; // NEW: Get controlType
             const values = data.values;
             if (values.length === 0) continue;
             
-            if (!breakdownMap.has(measurementType)) {
-                breakdownMap.set(measurementType, {
-                    measurement_type: measurementType,
+            // For Power: create separate keys for EFM and Meter
+            let breakdownKey = measurementType;
+            if (measurementType === 'Power' && controlType) {
+                breakdownKey = `${measurementType} (${controlType})`; // "Power (EFM)" or "Power (Meter)"
+            }
+            
+            if (!breakdownMap.has(breakdownKey)) {
+                breakdownMap.set(breakdownKey, {
+                    measurement_type: breakdownKey, // "Power (EFM)" or "Power (Meter)" for Power, or original measurementType for others
                     values: [],
                     timestampValuePairs: [], // Preserve timestampValuePairs for multi-sensor breakdown calculation
                     stateTypes: new Set(), // Track all stateTypes for this measurementType
                     avgQuality: [],
                     count: 0,
-                    baseUnit: data.baseUnit
+                    baseUnit: data.baseUnit,
+                    controlType: controlType // NEW: Store controlType for reference
                 });
             }
             
-            const breakdownItem = breakdownMap.get(measurementType);
+            const breakdownItem = breakdownMap.get(breakdownKey);
             breakdownItem.values.push(...values);
             // Preserve timestampValuePairs for multi-sensor aggregation
             if (data.timestampValuePairs && Array.isArray(data.timestampValuePairs)) {
@@ -2146,7 +2438,9 @@ class DashboardDiscoveryService {
         const kpis = {
             // Energy metrics (kWh) - consumption over time period
             energy: {
-                total_consumption: Math.round(totalConsumption * 1000) / 1000, // Total energy consumed (kWh)
+                total_consumption: Math.round(totalConsumption * 1000) / 1000, // Gross consumption (total* states) (kWh)
+                total_production: Math.round(totalProduction * 1000) / 1000,   // Production (totalNeg* states) (kWh)
+                net_consumption: Math.round(netConsumption * 1000) / 1000,     // Net = consumption - production (kWh)
                 average: Math.round(averageEnergy * 1000) / 1000, // Average energy per measurement period (kWh)
                 base: Math.round(base * 1000) / 1000, // Minimum energy consumption (kWh) - calculated from Power min × hours when using Power for energy
                 unit: 'kWh'
@@ -3731,77 +4025,204 @@ class DashboardDiscoveryService {
         }
         
         // Also query Power measurements separately for peak power calculations
-        // Use the most appropriate resolution for Power (not necessarily the same as Energy)
+        // For today's data: query both hourly (60) and 15-minute (15) aggregations and merge them
+        // For past days: use daily (1440) if available, else hourly (60)
         const duration = endDate - startDate;
         const days = duration / (1000 * 60 * 60 * 24);
         const hoursSinceEndDate = (new Date() - endDate) / (1000 * 60 * 60);
         const daysSinceEndDate = hoursSinceEndDate / 24;
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         
-        let powerResolution = 15;
+        // Determine which resolutions to query based on date range
+        // Strategy: Query appropriate resolution for each time segment
+        let powerResolutions = [];
         if (options.resolution !== undefined) {
-            powerResolution = options.resolution;
+            powerResolutions = [options.resolution];
         } else {
-            if (days > 90 || daysSinceEndDate > 7) {
-                powerResolution = 1440; // daily
-            } else if (days > 7 || daysSinceEndDate > 1) {
-                powerResolution = 60; // hourly
-            } else if (hoursSinceEndDate > 1) {
-                powerResolution = 60; // hourly
+            // Check if query includes today's data
+            const includesToday = endDate >= todayStart;
+            const includesPastDays = startDate < todayStart;
+            console.log('includesToday', includesToday);
+            console.log('includesPastDays', includesPastDays);
+            console.log('days', days);
+            console.log('daysSinceEndDate', daysSinceEndDate);
+            
+            if (includesToday && includesPastDays) {
+                // Mixed range: past days + today
+                // For past days: use daily (1440) if old enough, else hourly (60)
+                // For today: use hourly (60) + 15-minute (15)
+                // We'll query all possible resolutions and filter by timestamp
+                if (days > 90 || daysSinceEndDate > 7) {
+                    powerResolutions = [1440, 60, 15]; // daily, hourly, 15-minute
+                } else if (days > 7 || daysSinceEndDate > 1) {
+                    powerResolutions = [60, 15]; // hourly, 15-minute
+                } else {
+                    powerResolutions = [60, 15]; // hourly, 15-minute
+                }
+            } else if (includesToday) {
+                // Only today's data: query both hourly and 15-minute
+                powerResolutions = [60, 15]; // Query hourly first, then 15-minute
             } else {
-                powerResolution = 15; // 15-minute
+                // Only past days: use appropriate resolution
+                if (days > 90 || daysSinceEndDate > 7) {
+                    powerResolutions = [1440]; // daily
+                } else if (days > 7 || daysSinceEndDate > 1) {
+                    powerResolutions = [60]; // hourly
+                } else if (hoursSinceEndDate > 1) {
+                    powerResolutions = [60]; // hourly
+                } else {
+                    powerResolutions = [15]; // 15-minute
+                }
             }
         }
         
-        const powerMatchStage = {
-            'meta.sensorId': sensorObjectId,
-            'meta.measurementType': 'Power',
-            'meta.stateType': { $regex: '^actual' },
-            resolution_minutes: powerResolution,
-            timestamp: { $gte: startDate, $lt: endDate }
-        };
-        
-        const powerPipeline = [
-            { $match: powerMatchStage },
-            {
-                $group: {
-                    _id: {
-                        measurementType: '$meta.measurementType',
-                        stateType: '$meta.stateType',
-                        unit: '$unit'
-                    },
-                    values: { $push: '$value' },
-                    units: { $first: '$unit' },
-                    avgQuality: { $avg: '$quality' },
-                    count: { $sum: 1 }
+        // Query Power measurements from all resolutions
+        const powerResults = [];
+        for (const powerResolution of powerResolutions) {
+            const powerMatchStage = {
+                'meta.sensorId': sensorObjectId,
+                'meta.measurementType': 'Power',
+                'meta.stateType': { $regex: '^actual' },
+                resolution_minutes: powerResolution,
+                timestamp: { $gte: startDate, $lt: endDate } // CRITICAL: Filter by exact time range
+            };
+            
+            const powerPipeline = [
+                { $match: powerMatchStage },
+                {
+                    $group: {
+                        _id: {
+                            measurementType: '$meta.measurementType',
+                            stateType: '$meta.stateType',
+                            controlType: '$meta.controlType', // Include controlType if available
+                            unit: '$unit',
+                            resolution: '$resolution_minutes' // Track resolution for deduplication
+                        },
+                        timestampValuePairs: {
+                            $push: {
+                                timestamp: '$timestamp',
+                                value: '$value',
+                                sensorId: '$meta.sensorId',
+                                resolution: '$resolution_minutes'
+                            }
+                        },
+                        values: { $push: '$value' },
+                        units: { $first: '$unit' },
+                        avgQuality: { $avg: '$quality' },
+                        count: { $sum: 1 }
+                    }
                 }
-            }
-        ];
+            ];
+            
+            const resolutionResults = await db.collection('measurements_aggregated').aggregate(powerPipeline).toArray();
+            powerResults.push(...resolutionResults);
+        }
         
-        const powerResults = await db.collection('measurements_aggregated').aggregate(powerPipeline).toArray();
-        rawResults.push(...powerResults);
+        // Merge Power results by measurementType/stateType/unit, merging by timestamp
+        // CRITICAL: Merge timestampValuePairs from different resolutions, preferring higher resolution for overlapping timestamps
+        // This ensures we use hourly data to fill gaps where 15-minute data doesn't exist
+        const mergedPowerResults = new Map();
+        for (const result of powerResults) {
+            const key = `${result._id.measurementType}:${result._id.stateType || 'unknown'}:${result._id.unit}`;
+            const existing = mergedPowerResults.get(key);
+            
+            if (!existing) {
+                mergedPowerResults.set(key, result);
+            } else {
+                // Merge timestampValuePairs from both resolutions, preferring higher resolution for same timestamps
+                // Higher resolution (smaller number) = more granular: 15-minute (15) > hourly (60) > daily (1440)
+                if (!existing.timestampValuePairs) {
+                    existing.timestampValuePairs = [];
+                }
+                if (!result.timestampValuePairs) {
+                    result.timestampValuePairs = [];
+                }
+                
+                // Create a map of timestamp -> best pair (prefer higher resolution)
+                const timestampMap = new Map();
+                
+                // Add existing pairs
+                for (const pair of existing.timestampValuePairs) {
+                    const pairTimestamp = pair.timestamp.getTime ? pair.timestamp.getTime() : new Date(pair.timestamp).getTime();
+                    const existingResolution = existing._id.resolution;
+                    timestampMap.set(pairTimestamp, { pair, resolution: existingResolution });
+                }
+                
+                // Add new pairs, replacing if new resolution is higher (smaller number)
+                for (const pair of result.timestampValuePairs) {
+                    const pairTimestamp = pair.timestamp.getTime ? pair.timestamp.getTime() : new Date(pair.timestamp).getTime();
+                    const newResolution = result._id.resolution;
+                    const existingEntry = timestampMap.get(pairTimestamp);
+                    
+                    if (!existingEntry || newResolution < existingEntry.resolution) {
+                        // No existing entry or new resolution is higher - use new pair
+                        timestampMap.set(pairTimestamp, { pair, resolution: newResolution });
+                    }
+                    // If existing resolution is higher, keep existing (don't replace)
+                }
+                
+                // Rebuild timestampValuePairs and values arrays from merged map
+                existing.timestampValuePairs = Array.from(timestampMap.values())
+                    .map(entry => entry.pair)
+                    .sort((a, b) => {
+                        const aTime = a.timestamp.getTime ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
+                        const bTime = b.timestamp.getTime ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+                        return aTime - bTime;
+                    });
+                
+                // Rebuild values array from merged timestampValuePairs
+                existing.values = existing.timestampValuePairs.map(p => p.value);
+                existing.count = existing.timestampValuePairs.length;
+                
+                // Update resolution to reflect the most granular resolution used
+                const resolutions = Array.from(timestampMap.values()).map(entry => entry.resolution);
+                existing._id.resolution = Math.min(...resolutions);
+                
+                // Recalculate average quality (weighted by count)
+                const totalQuality = (existing.avgQuality * (existing.count - result.count)) + (result.avgQuality * result.count);
+                existing.avgQuality = existing.count > 0 ? totalQuality / existing.count : existing.avgQuality;
+            }
+        }
+        
+        rawResults.push(...Array.from(mergedPowerResults.values()));
         foundMeasurementTypes.add('Power');
         
         // Query other measurement types if not filtering by measurementType
+        // Use same resolution strategy as Power (query multiple resolutions for today's data)
         if (!options.measurementType) {
-            const otherMatchStage = {
-                'meta.sensorId': sensorObjectId,
-                'meta.measurementType': { $nin: ['Energy', 'Power'] },
-                resolution_minutes: powerResolution,
-                timestamp: { $gte: startDate, $lt: endDate }
-            };
-            
-            if (options.stateType) {
-                otherMatchStage['meta.stateType'] = options.stateType;
-            }
-            
-            const otherPipeline = [
-                { $match: otherMatchStage },
+            // Query other measurement types from all resolutions (same as Power)
+            const otherResults = [];
+            for (const otherResolution of powerResolutions) {
+                const otherMatchStage = {
+                    'meta.sensorId': sensorObjectId,
+                    'meta.measurementType': { $nin: ['Energy', 'Power'] },
+                    resolution_minutes: otherResolution,
+                    timestamp: { $gte: startDate, $lt: endDate } // CRITICAL: Filter by exact time range
+                };
+                
+                if (options.stateType) {
+                    otherMatchStage['meta.stateType'] = options.stateType;
+                }
+                
+                const otherPipeline = [
+                    { $match: otherMatchStage },
                     {
                         $group: {
                             _id: {
                                 measurementType: '$meta.measurementType',
-                            stateType: '$meta.stateType',
-                                unit: '$unit'
+                                stateType: '$meta.stateType',
+                                controlType: '$meta.controlType', // Include controlType if available
+                                unit: '$unit',
+                                resolution: '$resolution_minutes' // Track resolution for deduplication
+                            },
+                            timestampValuePairs: {
+                                $push: {
+                                    timestamp: '$timestamp',
+                                    value: '$value',
+                                    sensorId: '$meta.sensorId',
+                                    resolution: '$resolution_minutes'
+                                }
                             },
                             values: { $push: '$value' },
                             units: { $first: '$unit' },
@@ -3811,9 +4232,54 @@ class DashboardDiscoveryService {
                     }
                 ];
                 
-            const otherResults = await db.collection('measurements_aggregated').aggregate(otherPipeline).toArray();
-            rawResults.push(...otherResults);
+                const resolutionOtherResults = await db.collection('measurements_aggregated').aggregate(otherPipeline).toArray();
+                otherResults.push(...resolutionOtherResults);
+            }
+            
+            // Merge other measurement type results by measurementType/stateType/unit, preferring higher resolution
+            const mergedOtherResults = new Map();
             for (const result of otherResults) {
+                const key = `${result._id.measurementType}:${result._id.stateType || 'unknown'}:${result._id.unit}`;
+                const existing = mergedOtherResults.get(key);
+                
+                if (!existing) {
+                    mergedOtherResults.set(key, result);
+                } else {
+                    // Prefer higher resolution (smaller number = more granular)
+                    if (result._id.resolution < existing._id.resolution) {
+                        mergedOtherResults.set(key, result);
+                    } else if (result._id.resolution === existing._id.resolution) {
+                        // Same resolution: merge values
+                        existing.values.push(...result.values);
+                        if (result.timestampValuePairs) {
+                            if (!existing.timestampValuePairs) {
+                                existing.timestampValuePairs = [];
+                            }
+                            // Filter out duplicates by timestamp
+                            const existingTimestamps = new Set(
+                                existing.timestampValuePairs.map(p => p.timestamp.getTime ? p.timestamp.getTime() : new Date(p.timestamp).getTime())
+                            );
+                            for (const pair of result.timestampValuePairs) {
+                                const pairTimestamp = pair.timestamp.getTime ? pair.timestamp.getTime() : new Date(pair.timestamp).getTime();
+                                if (!existingTimestamps.has(pairTimestamp)) {
+                                    existing.timestampValuePairs.push(pair);
+                                    existingTimestamps.add(pairTimestamp);
+                                }
+                            }
+                            existing.timestampValuePairs.sort((a, b) => {
+                                const aTime = a.timestamp.getTime ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
+                                const bTime = b.timestamp.getTime ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+                                return aTime - bTime;
+                            });
+                        }
+                        existing.count += result.count;
+                        existing.avgQuality = (existing.avgQuality * (existing.count - result.count) + result.avgQuality * result.count) / existing.count;
+                    }
+                }
+            }
+            
+            rawResults.push(...Array.from(mergedOtherResults.values()));
+            for (const result of mergedOtherResults.values()) {
                 foundMeasurementTypes.add(result._id.measurementType);
             }
         }
@@ -3824,13 +4290,19 @@ class DashboardDiscoveryService {
             // No additional query needed - Power data is already in rawResults
         }
         
-        // Determine resolution for KPI calculation (use the most common resolution from segments)
-        const resolution = energySegments.length > 0 && energySegments[0].preferred 
-            ? energySegments[0].resolution 
-            : powerResolution;
+        // Determine resolution for KPI calculation
+        // For today's data with multiple resolutions, use the most granular (15-minute)
+        // For past days, use the resolution from energy segments
+        let finalResolution = 15; // Default to most granular
+        if (energySegments.length > 0 && energySegments[0].preferred) {
+            finalResolution = energySegments[0].resolution;
+        } else if (powerResolutions.length > 0) {
+            // Use the most granular resolution from Power queries
+            finalResolution = Math.min(...powerResolutions);
+        }
         
         // Pass time range and resolution for energy calculation
-        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval, resolution });
+        return this.calculateKPIsFromResults(rawResults, { startDate, endDate, interval, resolution: finalResolution });
     }
 
     /**

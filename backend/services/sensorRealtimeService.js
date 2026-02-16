@@ -271,6 +271,23 @@ class SensorRealtimeService {
             return; // No mapping available, skip broadcast
         }
 
+        // Build a set of subscribed EFM sensor IDs (sensors that are EFM controls)
+        // This allows us to show EFM actual* states when subscribing to EFM sensors
+        const subscribedEfmSensorIds = new Set();
+        for (const [sensorId, subscribers] of this.sensorSubscribers.entries()) {
+            if (subscribers.size > 0) {
+                // Check if this sensor is an EFM by looking at any mapping for this sensor
+                for (const mapping of uuidMap.values()) {
+                    if (mapping.sensor_id && mapping.sensor_id.toString() === sensorId) {
+                        if (mapping.controlType === 'EFM') {
+                            subscribedEfmSensorIds.add(sensorId);
+                            break; // Found EFM, no need to check more mappings
+                        }
+                    }
+                }
+            }
+        }
+
         // Process each measurement
         const updatesByClient = new Map(); // clientId -> Array<{sensorId, value, unit, timestamp}>
 
@@ -283,6 +300,60 @@ class SensorRealtimeService {
             }
 
             const sensorId = mapping.sensor_id.toString();
+
+            // Skip total* states - only send instantaneous (actual*) values
+            // total* states represent cumulative values (e.g., totalDay, totalWeek for Energy, 
+            // or cumulative temperature in degree-hours) which don't make sense for real-time display
+            if (mapping.stateType && 
+                (mapping.stateType.startsWith('total') || mapping.stateType.startsWith('totalNeg'))) {
+                continue; // Skip cumulative states
+            }
+            
+            // CRITICAL: Handle EFM states based on whether the subscribed sensor is an EFM
+            // Per Loxone StructureFile (EnergyFlowMonitor section):
+            // - EFM actual* states (actual0, actual1, actual2, etc.) are PASS-THROUGH states from linked Meter controls
+            //   They represent the SAME data as Meter actual* states, causing double-counting if both are used
+            // - EFM power states (selfConsumption, Gpwr, Ppwr, Spwr, Ppv, Pbat, Pload) are aggregated values
+            //   that represent different scope than individual sensor readings
+            // - EFM non-power states (CO2, Pre, Pri) are emissions/price data, not sensor readings
+            // Solution:
+            // - If subscribing to an EFM sensor: allow EFM actual* states (pass-throughs from linked meters)
+            // - If subscribing to a Meter sensor: filter out EFM actual* states (to avoid double-counting)
+            // - Always filter out EFM aggregated states and non-power states for real-time display
+            const efmNonActualStates = [
+                'selfConsumption', 'Gpwr', 'Ppwr', 'Spwr',  // EFM power aggregation states
+                'Ppv', 'Pbat', 'Pload',                       // EFM device-specific power states
+                'CO2', 'Pre', 'Pri'                            // EFM non-power states (emissions, prices)
+            ];
+            const isEfmAggregatedState = mapping.stateType && efmNonActualStates.includes(mapping.stateType);
+            const isEfmActualState = mapping.controlType === 'EFM' && 
+                                      mapping.stateType && 
+                                      mapping.stateType.startsWith('actual');
+            const isSubscribedEfmSensor = subscribedEfmSensorIds.has(sensorId);
+
+            if (mapping.controlType === 'EFM') {
+                // This is an EFM control state
+                if (isEfmAggregatedState) {
+                    // Always skip EFM aggregated states (selfConsumption, Gpwr, etc.)
+                    continue;
+                } else if (isEfmActualState) {
+                    // EFM actual* state: only allow if subscribing to the EFM sensor itself
+                    if (!isSubscribedEfmSensor) {
+                        // Not subscribing to EFM sensor - skip to avoid double-counting with Meter actual*
+                        continue;
+                    }
+                    // Subscribing to EFM sensor - allow EFM actual* states (pass-throughs from linked meters)
+                } else {
+                    // Other EFM states - skip
+                    continue;
+                }
+            } else {
+                // Not an EFM control - check for EFM-specific states (backward compatibility)
+                if (isEfmAggregatedState) {
+                    continue; // Skip EFM power states
+                }
+            }
+
             const subscribers = this.sensorSubscribers.get(sensorId);
 
             if (!subscribers || subscribers.size === 0) {
@@ -352,12 +423,65 @@ class SensorRealtimeService {
             // Convert to ObjectIds
             const objectIds = sensorIds.map(id => new mongoose.Types.ObjectId(id));
 
-            // Get latest measurement for each sensor
-            const results = await db.collection('measurements_raw').aggregate([
+            // Determine which sensors are EFM controls by checking if they have any EFM measurements
+            // This allows us to show EFM actual* states when querying EFM sensors
+            const efmSensorIds = new Set();
+            const efmCheckResult = await db.collection('measurements_raw').aggregate([
                 {
                     $match: {
-                        'meta.sensorId': { $in: objectIds }
+                        'meta.sensorId': { $in: objectIds },
+                        'meta.controlType': 'EFM'
                     }
+                },
+                {
+                    $group: {
+                        _id: '$meta.sensorId'
+                    }
+                }
+            ]).toArray();
+            
+            for (const result of efmCheckResult) {
+                efmSensorIds.add(result._id.toString());
+            }
+
+            // Get latest measurement for each sensor (only actual* states - instantaneous values)
+            // CRITICAL: Handle EFM states based on whether the queried sensor is an EFM
+            // - If querying an EFM sensor: allow EFM actual* states (pass-throughs from linked meters)
+            // - If querying a Meter sensor: filter out EFM actual* states (to avoid double-counting)
+            // - Always filter out EFM non-actual states (power aggregations, emissions, prices)
+            const efmNonActualStates = [
+                'selfConsumption', 'Gpwr', 'Ppwr', 'Spwr',  // EFM power aggregation states
+                'Ppv', 'Pbat', 'Pload',                       // EFM device-specific power states
+                'CO2', 'Pre', 'Pri'                            // EFM non-power states (emissions, prices)
+            ];
+            const efmObjectIds = Array.from(efmSensorIds).map(id => new mongoose.Types.ObjectId(id));
+            
+            const matchStage = {
+                'meta.sensorId': { $in: objectIds },
+                // Only actual* states (skip total*, totalNeg*)
+                // AND exclude EFM aggregated states (always)
+                $and: [
+                    { 'meta.stateType': { $regex: '^actual' } },
+                    { 'meta.stateType': { $nin: efmNonActualStates } }
+                ],
+                $or: [
+                    // Not EFM controlType
+                    { 'meta.controlType': { $ne: 'EFM' } },
+                    // OR EFM controlType but sensor is an EFM (allow EFM actual* for EFM sensors)
+                    {
+                        $and: [
+                            { 'meta.controlType': 'EFM' },
+                            { 'meta.sensorId': { $in: efmObjectIds } }
+                        ]
+                    },
+                    // OR controlType doesn't exist (backward compatibility)
+                    { 'meta.controlType': { $exists: false } }
+                ]
+            };
+            
+            const results = await db.collection('measurements_raw').aggregate([
+                {
+                    $match: matchStage
                 },
                 {
                     $sort: { timestamp: -1 }

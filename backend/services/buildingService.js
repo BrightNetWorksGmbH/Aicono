@@ -140,6 +140,14 @@ class BuildingService {
       buildingContactId = await buildingContactService.resolveContact(updateData.buildingContact);
       delete updateData.buildingContact; // Remove from updateData as we'll set buildingContact_id
       updateData.buildingContact_id = buildingContactId;
+
+      // Invalidate alert notification cache so new contact person is picked up immediately
+      try {
+        const alertNotificationService = require('./alertNotificationService');
+        alertNotificationService.invalidateBuildingContactCache();
+      } catch (e) {
+        // Non-critical - cache will expire naturally after 10 minutes
+      }
     }
 
     // Handle reportingRecipients and reportConfigs

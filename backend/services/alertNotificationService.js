@@ -7,6 +7,17 @@ const LocalRoom = require('../models/LocalRoom');
 const Floor = require('../models/Floor');
 const { sendAlertReportEmail } = require('./emailService');
 
+// 🔥 NEW: Cache for building contact lookup results
+// Avoids 5+ DB queries per alarm just to discover "no contact person configured"
+// Key: roomId string -> { building, hasContact, timestamp }
+const buildingContactCache = new Map();
+const BUILDING_CONTACT_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+// 🔥 NEW: Throttle "no contact person" log messages per building
+// Without this, the same warning floods the console on every single alarm
+const noContactLogThrottle = new Map(); // buildingId -> lastLogTimestamp
+const NO_CONTACT_LOG_COOLDOWN = 5 * 60 * 1000; // Log once per 5 minutes per building
+
 /**
  * Alert Notification Service
  * 
@@ -15,21 +26,33 @@ const { sendAlertReportEmail } = require('./emailService');
  */
 class AlertNotificationService {
     /**
-     * Find building associated with a Loxone Room
+     * Find building associated with a Loxone Room (with caching)
      * Traverses Room -> LocalRoom -> Floor -> Building path
+     * Results are cached to avoid repeated DB queries for the same room.
      * @param {string} roomId - Loxone Room ID
      * @returns {Promise<Object|null>} Building with populated buildingContact_id or null
      */
     async findBuildingForRoom(roomId) {
+        const roomIdStr = roomId.toString();
+
+        // Check cache first
+        const cached = buildingContactCache.get(roomIdStr);
+        if (cached && (Date.now() - cached.timestamp) < BUILDING_CONTACT_CACHE_TTL) {
+            return cached.building;
+        }
+
         // Find LocalRoom that references this Loxone Room
         const localRoom = await LocalRoom.findOne({ loxone_room_id: roomId });
         if (!localRoom) {
+            // Cache null result to avoid repeated lookups
+            buildingContactCache.set(roomIdStr, { building: null, hasContact: false, timestamp: Date.now() });
             return null;
         }
 
         // Find the Floor
         const floor = await Floor.findById(localRoom.floor_id);
         if (!floor) {
+            buildingContactCache.set(roomIdStr, { building: null, hasContact: false, timestamp: Date.now() });
             return null;
         }
 
@@ -37,7 +60,21 @@ class AlertNotificationService {
         const building = await Building.findById(floor.building_id)
             .populate('buildingContact_id');
         
+        // Cache the result
+        const hasContact = !!(building && building.buildingContact_id && building.buildingContact_id.email);
+        buildingContactCache.set(roomIdStr, { building, hasContact, timestamp: Date.now() });
+        
         return building;
+    }
+
+    /**
+     * Invalidate the building contact cache
+     * Call this when building contacts are created, updated, or deleted
+     */
+    invalidateBuildingContactCache() {
+        buildingContactCache.clear();
+        noContactLogThrottle.clear();
+        console.log('[ALERT] Building contact cache invalidated');
     }
 
     /**
@@ -70,23 +107,36 @@ class AlertNotificationService {
                 return { ok: false, error: 'Room not found' };
             }
 
-            // Find building via Room -> LocalRoom -> Floor -> Building path
+            // Find building via Room -> LocalRoom -> Floor -> Building path (cached)
             const building = await this.findBuildingForRoom(room._id);
             
             if (!building) {
-                console.error(`[ALERT] Building not found for room: ${room._id}. The room may not be mapped to a LocalRoom.`);
+                // Don't log on every call — this is a config issue, not a transient error
                 return { ok: false, error: 'Building not found' };
             }
 
             // Check if building has a contact person
             if (!building.buildingContact_id) {
-                console.warn(`[ALERT] Building ${building._id} has no contact person configured. Skipping alert.`);
+                // 🔥 THROTTLED: Only log this warning once per building per cooldown period
+                const buildingIdStr = building._id.toString();
+                const lastLog = noContactLogThrottle.get(buildingIdStr) || 0;
+                const now = Date.now();
+                if (now - lastLog > NO_CONTACT_LOG_COOLDOWN) {
+                    console.warn(`[ALERT] Building ${building._id} has no contact person configured. Suppressing further alerts for 5 minutes.`);
+                    noContactLogThrottle.set(buildingIdStr, now);
+                }
                 return { ok: false, error: 'No building contact person configured' };
             }
 
             const buildingContact = building.buildingContact_id;
             if (!buildingContact || !buildingContact.email) {
-                console.warn(`[ALERT] Building ${building._id} has no contact email configured. Skipping alert.`);
+                const buildingIdStr = building._id.toString();
+                const lastLog = noContactLogThrottle.get(buildingIdStr) || 0;
+                const now = Date.now();
+                if (now - lastLog > NO_CONTACT_LOG_COOLDOWN) {
+                    console.warn(`[ALERT] Building ${building._id} has no contact email configured. Suppressing further alerts for 5 minutes.`);
+                    noContactLogThrottle.set(buildingIdStr, now);
+                }
                 return { ok: false, error: 'No building contact email configured' };
             }
 

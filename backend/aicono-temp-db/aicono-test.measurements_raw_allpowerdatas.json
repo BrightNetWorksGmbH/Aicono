@@ -1,0 +1,3920 @@
+[{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:05.433Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0ee107d4e7dbc7835b4"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.013912290573120118,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:05.433Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0ee107d4e7dbc7835b5"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23566780281067,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:05.433Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0ee107d4e7dbc7835b6"
+  },
+  "quality": 100,
+  "value": 782438.6617569391,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:05.372Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0ee107d4e7dbc7835ab"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.013912290573120118,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:05.372Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0ee107d4e7dbc7835ac"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23566780281067,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:05.372Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0ee107d4e7dbc7835ad"
+  },
+  "quality": 100,
+  "value": 782438.6617569391,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:02.042Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0eb107d4e7dbc78350b"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.24958009338378906,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:02.042Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0eb107d4e7dbc78350a"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23427152729035,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:02.042Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0eb107d4e7dbc783509"
+  },
+  "value": 0.24958009338378906,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:02.042Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0eb107d4e7dbc78350c"
+  },
+  "quality": 100,
+  "value": 782438.5784991614,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:01.958Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0eb107d4e7dbc7834fb"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.24958009338378906,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:01.958Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0eb107d4e7dbc7834fa"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23427152729035,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:01.958Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0eb107d4e7dbc7834f9"
+  },
+  "value": 0.24958009338378906,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:02:01.958Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0eb107d4e7dbc7834fc"
+  },
+  "quality": 100,
+  "value": 782438.5784991614,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:59.470Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0e8107d4e7dbc783489"
+  },
+  "quality": 100,
+  "value": 782438.5167280503,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:59.423Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0e8107d4e7dbc783483"
+  },
+  "quality": 100,
+  "value": 782438.5167280503,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:56.966Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0e5107d4e7dbc78340f"
+  },
+  "quality": 100,
+  "value": 782438.4543702726,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:56.857Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0e5107d4e7dbc783404"
+  },
+  "quality": 100,
+  "value": 782438.4543702726,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:51.938Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0e0107d4e7dbc783352"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.2501857147216797,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:51.938Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0e0107d4e7dbc783350"
+  },
+  "value": 0.2501857147216797,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:51.938Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0e0107d4e7dbc783351"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23487714862824,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:51.938Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0e0107d4e7dbc783353"
+  },
+  "quality": 100,
+  "value": 782438.331854717,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:51.881Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0e0107d4e7dbc78333c"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23487714862824,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:51.881Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0e0107d4e7dbc78333d"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.2501857147216797,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:51.881Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0e0107d4e7dbc78333b"
+  },
+  "value": 0.2501857147216797,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:51.881Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0e0107d4e7dbc78333e"
+  },
+  "quality": 100,
+  "value": 782438.331854717,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:45.414Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0d9107d4e7dbc78320b"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23509583759308,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:45.414Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0d9107d4e7dbc78320c"
+  },
+  "quality": 100,
+  "value": 782438.1717680503,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:45.327Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0d9107d4e7dbc783202"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.015308566093444824,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:45.327Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0d9107d4e7dbc783203"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23509583759308,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:45.327Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0d9107d4e7dbc783204"
+  },
+  "quality": 100,
+  "value": 782438.1717680503,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:45.283Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0d9107d4e7dbc7831fb"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.015308566093444824,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:44.870Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0d9107d4e7dbc7831db"
+  },
+  "quality": 100,
+  "value": 782438.1593258281,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:44.812Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0d9107d4e7dbc7831d5"
+  },
+  "quality": 100,
+  "value": 782438.1593258281,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:44.357Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0d9107d4e7dbc7831cf"
+  },
+  "quality": 100,
+  "value": 782438.1470791614,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:44.289Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0d9107d4e7dbc7831c4"
+  },
+  "quality": 100,
+  "value": 782438.1470791614,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:42.202Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0d6107d4e7dbc78315d"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.25040440368652345,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:42.202Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0d6107d4e7dbc78315c"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23595379066467,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:42.202Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0d6107d4e7dbc78315e"
+  },
+  "quality": 100,
+  "value": 782438.0937169391,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:42.145Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0d6107d4e7dbc783153"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23595379066467,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:42.145Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0d6107d4e7dbc783154"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.25040440368652345,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:42.145Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0d6107d4e7dbc783155"
+  },
+  "quality": 100,
+  "value": 782438.0937169391,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:41.913Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0d6107d4e7dbc783152"
+  },
+  "value": 0.25040440368652345,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:41.852Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0d6107d4e7dbc78314b"
+  },
+  "value": 0.25040440368652345,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:41.681Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0d6107d4e7dbc78313f"
+  },
+  "quality": 100,
+  "value": 782438.0814213835,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:41.620Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0d6107d4e7dbc783134"
+  },
+  "quality": 100,
+  "value": 782438.0814213835,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:35.308Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0d0107d4e7dbc783010"
+  },
+  "quality": 100,
+  "value": 782437.9262480502,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:35.308Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0d0107d4e7dbc78300f"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23630706214905,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:35.308Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0d0107d4e7dbc78300e"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.014450613021850587,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:35.243Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0d0107d4e7dbc783001"
+  },
+  "quality": 100,
+  "value": 782437.9262480502,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:35.243Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0d0107d4e7dbc782fff"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.014450613021850587,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:35.243Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0d0107d4e7dbc783000"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23630706214905,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:31.885Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0cc107d4e7dbc782f69"
+  },
+  "quality": 100,
+  "value": 782437.8428191612,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:31.885Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0cc107d4e7dbc782f68"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.2507576751708984,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:31.885Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0cc107d4e7dbc782f67"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23667715835572,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:31.885Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0cc107d4e7dbc782f66"
+  },
+  "value": 0.2507576751708984,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:31.833Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0cc107d4e7dbc782f59"
+  },
+  "quality": 100,
+  "value": 782437.8428191612,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:31.833Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0cc107d4e7dbc782f57"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23667715835572,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:31.833Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0cc107d4e7dbc782f58"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.2507576751708984,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:31.833Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0cc107d4e7dbc782f56"
+  },
+  "value": 0.2507576751708984,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:25.229Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0c5107d4e7dbc782e1d"
+  },
+  "quality": 100,
+  "value": 782437.6792613835,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:25.229Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0c5107d4e7dbc782e1b"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.014080516815185547,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:25.229Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0c5107d4e7dbc782e1c"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23866222000122,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:25.168Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0c5107d4e7dbc782e0e"
+  },
+  "quality": 100,
+  "value": 782437.6792613835,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:25.168Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0c5107d4e7dbc782e0d"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23866222000122,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:25.168Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0c5107d4e7dbc782e0c"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.014080516815185547,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:21.805Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0c2107d4e7dbc782d78"
+  },
+  "quality": 100,
+  "value": 782437.5959547168,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:21.805Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0c2107d4e7dbc782d77"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.25274273681640624,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:21.805Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0c2107d4e7dbc782d76"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23815754318237,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:21.805Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0c2107d4e7dbc782d75"
+  },
+  "value": 0.25274273681640624,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:21.754Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0c2107d4e7dbc782d68"
+  },
+  "quality": 100,
+  "value": 782437.5959547168,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:21.754Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0c2107d4e7dbc782d66"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23815754318237,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:21.754Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0c2107d4e7dbc782d67"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.25274273681640624,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:21.754Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0c2107d4e7dbc782d65"
+  },
+  "value": 0.25274273681640624,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:15.087Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0bc107d4e7dbc782c54"
+  },
+  "quality": 100,
+  "value": 782437.4324213834,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:15.087Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0bc107d4e7dbc782c53"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23793885421753,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:15.087Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0bc107d4e7dbc782c52"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.014585193634033204,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:15.035Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0bc107d4e7dbc782c45"
+  },
+  "quality": 100,
+  "value": 782437.4324213834,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:15.035Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0bc107d4e7dbc782c44"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23793885421753,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:15.035Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0bc107d4e7dbc782c43"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.014585193634033204,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:11.729Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0b7107d4e7dbc782bbe"
+  },
+  "quality": 100,
+  "value": 782437.3490658279,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:11.729Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0b7107d4e7dbc782bbc"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.2382080154419,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:11.729Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0b7107d4e7dbc782bbd"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.2525240478515625,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:11.729Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0b7107d4e7dbc782bbb"
+  },
+  "value": 0.2525240478515625,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:11.675Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0b7107d4e7dbc782bae"
+  },
+  "quality": 100,
+  "value": 782437.3490658279,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:11.675Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0b7107d4e7dbc782bac"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.2382080154419,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:11.675Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0b7107d4e7dbc782bad"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.2525240478515625,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:11.675Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0b7107d4e7dbc782bab"
+  },
+  "value": 0.2525240478515625,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:05.120Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0b1107d4e7dbc782a72"
+  },
+  "quality": 100,
+  "value": 782437.1879524946,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:05.120Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0b1107d4e7dbc782a70"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.014316032409667969,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:05.120Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0b1107d4e7dbc782a71"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23770333099365,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:05.070Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0b1107d4e7dbc782a61"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.014316032409667969,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:05.070Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0b1107d4e7dbc782a63"
+  },
+  "quality": 100,
+  "value": 782437.1879524946,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:05.070Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0b1107d4e7dbc782a62"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23770333099365,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:01.777Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0ae107d4e7dbc7829be"
+  },
+  "quality": 100,
+  "value": 782437.1058436057,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:01.777Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0ae107d4e7dbc7829bd"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.2520193634033203,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:01.777Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0ae107d4e7dbc7829bc"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23834258937836,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:01.777Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0ae107d4e7dbc7829bb"
+  },
+  "value": 0.2520193634033203,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:01.707Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0ae107d4e7dbc7829ab"
+  },
+  "value": 0.2520193634033203,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:01.707Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0ae107d4e7dbc7829ae"
+  },
+  "quality": 100,
+  "value": 782437.1058436057,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:01.707Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0ae107d4e7dbc7829ac"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23834258937836,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:01:01.707Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0ae107d4e7dbc7829ad"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.2520193634033203,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:58.752Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0ab107d4e7dbc782913"
+  },
+  "quality": 100,
+  "value": 782437.0320213835,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:58.696Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0ab107d4e7dbc78290d"
+  },
+  "quality": 100,
+  "value": 782437.0320213835,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:56.612Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0a8107d4e7dbc7828a3"
+  },
+  "quality": 100,
+  "value": 782436.9802724946,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:56.549Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0a8107d4e7dbc78289d"
+  },
+  "quality": 100,
+  "value": 782436.9802724946,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:55.107Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0a7107d4e7dbc782862"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.01367677402496338,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:55.107Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0a7107d4e7dbc782864"
+  },
+  "quality": 100,
+  "value": 782436.9434102724,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:55.107Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0a7107d4e7dbc782863"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23798931789399,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:55.041Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0a7107d4e7dbc782855"
+  },
+  "quality": 100,
+  "value": 782436.9434102724,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:55.041Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c0a7107d4e7dbc782853"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.01367677402496338,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:55.041Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0a7107d4e7dbc782854"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23798931789399,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:51.623Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0a4107d4e7dbc7827ad"
+  },
+  "value": 0.25166609191894534,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:51.623Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0a4107d4e7dbc7827ae"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23735005950928,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:51.623Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0a4107d4e7dbc7827b0"
+  },
+  "quality": 100,
+  "value": 782436.8576591612,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:51.623Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0a4107d4e7dbc7827af"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.25166609191894534,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:51.563Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c0a4107d4e7dbc78279d"
+  },
+  "value": 0.25166609191894534,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:51.563Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c0a4107d4e7dbc7827a0"
+  },
+  "quality": 100,
+  "value": 782436.8576591612,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:51.563Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c0a4107d4e7dbc78279e"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23735005950928,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:51.563Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c0a4107d4e7dbc78279f"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.25166609191894534,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:45.187Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c09d107d4e7dbc78268c"
+  },
+  "quality": 100,
+  "value": 782436.7004569389,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:45.187Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c09d107d4e7dbc78268b"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23778743743897,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:45.136Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c09d107d4e7dbc782684"
+  },
+  "quality": 100,
+  "value": 782436.7004569389,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:45.136Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c09d107d4e7dbc782683"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23778743743897,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:45.136Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c09d107d4e7dbc782682"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.014316032409667969,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:45.070Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c09d107d4e7dbc78267b"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.014316032409667969,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:44.670Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c09d107d4e7dbc782665"
+  },
+  "quality": 100,
+  "value": 782436.6880147167,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:44.607Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c09d107d4e7dbc78265a"
+  },
+  "quality": 100,
+  "value": 782436.6880147167,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:44.143Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c09c107d4e7dbc782645"
+  },
+  "quality": 100,
+  "value": 782436.6749858279,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:44.105Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c09c107d4e7dbc78263f"
+  },
+  "quality": 100,
+  "value": 782436.6749858279,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:42.117Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c09a107d4e7dbc7825df"
+  },
+  "quality": 100,
+  "value": 782436.6253391613,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:42.056Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c09a107d4e7dbc7825d4"
+  },
+  "quality": 100,
+  "value": 782436.6253391613,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:41.595Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c09a107d4e7dbc7825b6"
+  },
+  "value": 0.2521034698486328,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:41.595Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c09a107d4e7dbc7825b9"
+  },
+  "quality": 100,
+  "value": 782436.6130436057,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:41.595Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c09a107d4e7dbc7825b8"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.2521034698486328,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:41.595Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c09a107d4e7dbc7825b7"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23755192089081,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:41.538Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c09a107d4e7dbc7825a6"
+  },
+  "value": 0.2521034698486328,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:41.538Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c09a107d4e7dbc7825a7"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23755192089081,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:41.538Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c09a107d4e7dbc7825a9"
+  },
+  "quality": 100,
+  "value": 782436.6130436057,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:41.538Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c09a107d4e7dbc7825a8"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.2521034698486328,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:35.100Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c094107d4e7dbc782499"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23667716503144,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:35.100Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c094107d4e7dbc78249a"
+  },
+  "quality": 100,
+  "value": 782436.4544236057,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:35.100Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c094107d4e7dbc782498"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.014551548957824708,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:35.050Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c094107d4e7dbc78248b"
+  },
+  "quality": 100,
+  "value": 782436.4544236057,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:35.050Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c094107d4e7dbc78248a"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23667716503144,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:35.050Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c094107d4e7dbc782489"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.014551548957824708,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:31.508Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c090107d4e7dbc7823c8"
+  },
+  "value": 0.25122871398925783,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:31.508Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c090107d4e7dbc7823c9"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23735006904603,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:31.508Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c090107d4e7dbc7823ca"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.25122871398925783,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:31.508Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c090107d4e7dbc7823cb"
+  },
+  "quality": 100,
+  "value": 782436.3663502723,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:31.458Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c090107d4e7dbc7823ba"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.25122871398925783,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:31.458Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c090107d4e7dbc7823b8"
+  },
+  "value": 0.25122871398925783,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:31.458Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c090107d4e7dbc7823bb"
+  },
+  "quality": 100,
+  "value": 782436.3663502723,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:31.458Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c090107d4e7dbc7823b9"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23735006904603,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:25.020Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c08a107d4e7dbc782296"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.013878644943237305,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:25.020Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c08a107d4e7dbc782298"
+  },
+  "quality": 100,
+  "value": 782436.2077547167,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:25.020Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c08a107d4e7dbc782297"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23664352607727,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:24.973Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c089107d4e7dbc782289"
+  },
+  "quality": 100,
+  "value": 782436.2077547167,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:24.973Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c089107d4e7dbc782287"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.013878644943237305,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:24.973Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c089107d4e7dbc782288"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23664352607727,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:21.429Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c085107d4e7dbc7821ec"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.2372659626007,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:21.429Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c085107d4e7dbc7821ed"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.25052217102050783,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:21.429Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c085107d4e7dbc7821ee"
+  },
+  "quality": 100,
+  "value": 782436.1198524946,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:21.429Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c085107d4e7dbc7821eb"
+  },
+  "value": 0.25052217102050783,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:21.378Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c085107d4e7dbc7821dd"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.25052217102050783,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:21.378Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c085107d4e7dbc7821dc"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.2372659626007,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:21.378Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c085107d4e7dbc7821de"
+  },
+  "quality": 100,
+  "value": 782436.1198524946,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:21.378Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c085107d4e7dbc7821db"
+  },
+  "value": 0.25052217102050783,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:15.007Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c080107d4e7dbc7820be"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.013256208419799805,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:15.007Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c080107d4e7dbc7820bf"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.2376192035675,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:15.007Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c080107d4e7dbc7820c0"
+  },
+  "quality": 100,
+  "value": 782435.9634324946,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:14.942Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c080107d4e7dbc7820af"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.013256208419799805,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:14.942Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c080107d4e7dbc7820b0"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.2376192035675,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:14.942Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c080107d4e7dbc7820b1"
+  },
+  "quality": 100,
+  "value": 782435.9634324946,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:11.416Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c07b107d4e7dbc78200a"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23703041267396,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:11.416Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c07b107d4e7dbc78200b"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.2508754119873047,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:11.416Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c07b107d4e7dbc782009"
+  },
+  "value": 0.2508754119873047,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:11.416Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c07b107d4e7dbc78200c"
+  },
+  "quality": 100,
+  "value": 782435.8753347168,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:11.351Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c07b107d4e7dbc781ff9"
+  },
+  "value": 0.2508754119873047,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:11.351Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c07b107d4e7dbc781ffa"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23703041267396,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:11.351Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c07b107d4e7dbc781ffc"
+  },
+  "quality": 100,
+  "value": 782435.8753347168,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:11.351Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c07b107d4e7dbc781ffb"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.2508754119873047,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:05.044Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c076107d4e7dbc781ee8"
+  },
+  "quality": 100,
+  "value": 782435.7189147167,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:05.044Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c076107d4e7dbc781ee6"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.013844999313354492,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:05.044Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c076107d4e7dbc781ee7"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23736688423158,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:05.023Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c076107d4e7dbc781ed8"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23736688423158,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:05.023Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c076107d4e7dbc781ed9"
+  },
+  "quality": 100,
+  "value": 782435.7189147167,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:05.023Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual2"
+  },
+  "resolution_minutes": 0,
+  "_id": {
+    "$oid": "6992c076107d4e7dbc781ed7"
+  },
+  "quality": 100,
+  "unit": "W",
+  "value": 0.013844999313354492,
+  "source": "websocket"
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:01.409Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c071107d4e7dbc781df9"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23689585113526,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:01.409Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c071107d4e7dbc781dfa"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.25121188354492185,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:01.409Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c071107d4e7dbc781df8"
+  },
+  "value": 0.25121188354492185,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:01.409Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c071107d4e7dbc781dfb"
+  },
+  "quality": 100,
+  "value": 782435.6306458279,
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:01.393Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "Gpwr"
+  },
+  "_id": {
+    "$oid": "6992c071107d4e7dbc781dea"
+  },
+  "unit": "W",
+  "quality": 100,
+  "source": "websocket",
+  "value": 0.25121188354492185,
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:01.393Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual1"
+  },
+  "_id": {
+    "$oid": "6992c071107d4e7dbc781de8"
+  },
+  "value": 0.25121188354492185,
+  "quality": 100,
+  "unit": "W",
+  "source": "websocket",
+  "resolution_minutes": 0
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:01.393Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "actual5"
+  },
+  "_id": {
+    "$oid": "6992c071107d4e7dbc781de9"
+  },
+  "source": "websocket",
+  "resolution_minutes": 0,
+  "unit": "W",
+  "value": 88.23689585113526,
+  "quality": 100
+},
+{
+  "timestamp": {
+    "$date": "2026-02-16T07:00:01.393Z"
+  },
+  "meta": {
+    "measurementType": "Power",
+    "sensorId": {
+      "$oid": "698447fec2c42135dd20473b"
+    },
+    "stateType": "selfConsumption"
+  },
+  "unit": "W",
+  "_id": {
+    "$oid": "6992c071107d4e7dbc781deb"
+  },
+  "quality": 100,
+  "value": 782435.6306458279,
+  "source": "websocket",
+  "resolution_minutes": 0
+}]

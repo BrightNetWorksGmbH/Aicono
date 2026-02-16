@@ -22,6 +22,7 @@ const measurementDataSchema = new mongoose.Schema({
     },
     measurementType: String, // e.g., 'Energy', 'Temperature', 'Water', 'Power'
     stateType: String, // e.g., 'actual', 'total', 'totalDay'
+    controlType: String, // NEW: 'Meter', 'EFM', or undefined - distinguishes Meter vs EFM power readings
   },
   // Measurement Data
   value: {
@@ -52,6 +53,8 @@ const measurementDataSchema = new mongoose.Schema({
 measurementDataSchema.index({ 'meta.sensorId': 1, timestamp: -1 });
 measurementDataSchema.index({ 'meta.sensorId': 1, resolution_minutes: 1, timestamp: -1 });
 measurementDataSchema.index({ timestamp: -1 });
+// Index for controlType queries (used for filtering Meter vs EFM power)
+measurementDataSchema.index({ 'meta.controlType': 1, 'meta.measurementType': 1 });
 
 // Static helper method to get collection name based on resolution
 measurementDataSchema.statics.getCollectionName = function(resolution_minutes) {
