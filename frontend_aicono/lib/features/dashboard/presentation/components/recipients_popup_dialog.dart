@@ -58,9 +58,12 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
   final TextEditingController _newNameController = TextEditingController();
   final TextEditingController _newEmailController = TextEditingController();
   bool _isCreating = false;
-  String? _selectedContactId; // For domain contact selection
+  String?
+  _selectedContactId; // For domain contact selection (single, for backward compatibility)
   String? _selectedContactName;
   String? _selectedContactEmail;
+  List<Map<String, String>> _selectedRecipients =
+      []; // For multiple recipient selection with details
 
   // Delete state
   bool _isDeleting = false;
@@ -130,6 +133,7 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
       _selectedContactId = null;
       _selectedContactName = null;
       _selectedContactEmail = null;
+      _selectedRecipients.clear();
     });
   }
 
@@ -141,6 +145,7 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
       _selectedContactId = null;
       _selectedContactName = null;
       _selectedContactEmail = null;
+      _selectedRecipients.clear();
     });
   }
 
@@ -152,51 +157,45 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
     );
 
     try {
-      final response = await _dioClient.dio.get(
-        '/api/v1/buildings/contacts',
-        queryParameters: {'buildingId': widget.buildingId},
-      );
+      final response = await _dioClient.dio.get('/api/v1/reporting/recipients');
 
       if (mounted) {
         Navigator.of(context).pop();
       }
 
-      List<Map<String, dynamic>> contactsList = [];
+      List<Map<String, dynamic>> recipientsList = [];
       if (response.data != null) {
-        if (response.data is List) {
-          contactsList = List<Map<String, dynamic>>.from(response.data);
-        } else if (response.data is Map<String, dynamic>) {
+        if (response.data is Map<String, dynamic>) {
           final responseMap = response.data as Map<String, dynamic>;
+          // Handle the new response format: {success: true, data: [...], count: 3}
           if (responseMap['data'] != null && responseMap['data'] is List) {
-            contactsList = List<Map<String, dynamic>>.from(responseMap['data']);
-          } else if (responseMap['contacts'] != null &&
-              responseMap['contacts'] is List) {
-            contactsList = List<Map<String, dynamic>>.from(
-              responseMap['contacts'],
-            );
-          } else if (responseMap['results'] != null &&
-              responseMap['results'] is List) {
-            contactsList = List<Map<String, dynamic>>.from(
-              responseMap['results'],
+            recipientsList = List<Map<String, dynamic>>.from(
+              responseMap['data'],
             );
           }
+        } else if (response.data is List) {
+          recipientsList = List<Map<String, dynamic>>.from(response.data);
         }
       }
 
       if (mounted) {
-        _showContactsDialog(contactsList);
+        _showRecipientsDialog(recipientsList);
       }
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
-        _showContactsDialog([]);
+        _showRecipientsDialog([]);
       }
     }
   }
 
-  void _showContactsDialog(List<Map<String, dynamic>> contactsList) {
+  void _showRecipientsDialog(List<Map<String, dynamic>> recipientsList) {
     final Size screenSize = MediaQuery.of(context).size;
-    String? selectedContactId;
+    Set<String> selectedRecipientIds = Set.from(
+      _selectedRecipients
+          .map((r) => r['id'] ?? '')
+          .where((id) => id.isNotEmpty),
+    );
 
     showDialog(
       context: context,
@@ -208,11 +207,7 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Text(
-                  'building_contact_person.contacts_from_domain'.tr(),
-                ),
-              ),
+              Expanded(child: Text('Select Recipients')),
               IconButton(
                 icon: const Icon(Icons.close, size: 20),
                 onPressed: () => Navigator.of(context).pop(),
@@ -227,12 +222,10 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                 : screenSize.width < 1200
                 ? screenSize.width * 0.5
                 : screenSize.width * 0.4,
-            child: contactsList.isEmpty
+            child: recipientsList.isEmpty
                 ? Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'building_contact_person.no_contacts_found'.tr(),
-                    ),
+                    child: Text('No recipients found'),
                   )
                 : Column(
                     mainAxisSize: MainAxisSize.min,
@@ -241,7 +234,7 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16.0),
                         child: Text(
-                          'building_contact_person.choose_one_contact'.tr(),
+                          'Select one or more recipients',
                           style: AppTextStyles.bodyMedium.copyWith(
                             color: Colors.grey[700],
                           ),
@@ -250,22 +243,31 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                       Flexible(
                         child: ListView.builder(
                           shrinkWrap: true,
-                          itemCount: contactsList.length,
+                          itemCount: recipientsList.length,
                           itemBuilder: (context, index) {
-                            final contact = contactsList[index];
-                            final name =
-                                contact['name'] ?? contact['fullName'] ?? '';
-                            final email =
-                                contact['email'] ??
-                                contact['emailAddress'] ??
+                            final recipient = recipientsList[index];
+                            final name = recipient['name'] ?? '';
+                            final email = recipient['email'] ?? '';
+                            final recipientId =
+                                recipient['_id']?.toString() ??
+                                recipient['id']?.toString() ??
                                 '';
-                            final contactId =
-                                contact['_id'] ?? contact['id'] ?? '';
+
+                            if (recipientId.isEmpty)
+                              return const SizedBox.shrink();
+
+                            final isSelected = selectedRecipientIds.contains(
+                              recipientId,
+                            );
 
                             return InkWell(
                               onTap: () {
                                 setDialogState(() {
-                                  selectedContactId = contactId;
+                                  if (isSelected) {
+                                    selectedRecipientIds.remove(recipientId);
+                                  } else {
+                                    selectedRecipientIds.add(recipientId);
+                                  }
                                 });
                               },
                               child: Padding(
@@ -274,13 +276,20 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                                 ),
                                 child: Row(
                                   children: [
-                                    Radio<String>(
-                                      value: contactId,
+                                    Checkbox(
+                                      value: isSelected,
                                       activeColor: Colors.black,
-                                      groupValue: selectedContactId,
                                       onChanged: (value) {
                                         setDialogState(() {
-                                          selectedContactId = value;
+                                          if (value == true) {
+                                            selectedRecipientIds.add(
+                                              recipientId,
+                                            );
+                                          } else {
+                                            selectedRecipientIds.remove(
+                                              recipientId,
+                                            );
+                                          }
                                         });
                                       },
                                     ),
@@ -291,9 +300,7 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            name.isNotEmpty
-                                                ? name
-                                                : 'Unbekannt',
+                                            name.isNotEmpty ? name : 'Unknown',
                                             style: AppTextStyles.bodyMedium
                                                 .copyWith(
                                                   fontWeight: FontWeight.w500,
@@ -323,35 +330,42 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
           ),
           actions: [
             PrimaryOutlineButton(
-              label: 'building_contact_person.choose_contact'.tr(),
-              onPressed: selectedContactId == null
+              label: selectedRecipientIds.isEmpty
+                  ? 'Select Recipients'
+                  : 'Add ${selectedRecipientIds.length} Recipient${selectedRecipientIds.length > 1 ? 's' : ''}',
+              onPressed: selectedRecipientIds.isEmpty
                   ? null
                   : () {
-                      final selectedContact = contactsList.firstWhere((
-                        contact,
-                      ) {
-                        final contactId = contact['_id'] ?? contact['id'] ?? '';
-                        return contactId == selectedContactId;
-                      });
-
-                      final name =
-                          selectedContact['name'] ??
-                          selectedContact['fullName'] ??
-                          '';
-                      final email =
-                          selectedContact['email'] ??
-                          selectedContact['emailAddress'] ??
-                          '';
-                      final contactId =
-                          selectedContact['_id'] ?? selectedContact['id'] ?? '';
+                      // Store selected recipient details for use in _createRecipient
+                      final selectedRecipients = recipientsList
+                          .where((r) {
+                            final id =
+                                r['_id']?.toString() ??
+                                r['id']?.toString() ??
+                                '';
+                            return selectedRecipientIds.contains(id);
+                          })
+                          .map(
+                            (r) => {
+                              'id':
+                                  r['_id']?.toString() ??
+                                  r['id']?.toString() ??
+                                  '',
+                              'name': r['name']?.toString() ?? '',
+                              'email': r['email']?.toString() ?? '',
+                            },
+                          )
+                          .toList();
 
                       setState(() {
-                        _selectedContactId = contactId;
-                        _selectedContactName = name;
-                        _selectedContactEmail = email;
+                        _selectedRecipients = selectedRecipients;
                         // Clear manual entry fields
                         _newNameController.clear();
                         _newEmailController.clear();
+                        // Clear single selection (backward compatibility)
+                        _selectedContactId = null;
+                        _selectedContactName = null;
+                        _selectedContactEmail = null;
                       });
 
                       Navigator.of(context).pop();
@@ -365,11 +379,15 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
   }
 
   Future<void> _createRecipient() async {
-    // Check if contact is selected from domain or manual entry
+    // Check if recipients are selected from domain or manual entry
+    final hasSelectedRecipients = _selectedRecipients.isNotEmpty;
     final isFromDomain =
         _selectedContactId != null && _selectedContactId!.isNotEmpty;
 
-    if (!isFromDomain) {
+    // If using new multiple selection, prioritize that
+    final useMultipleSelection = hasSelectedRecipients;
+
+    if (!useMultipleSelection && !isFromDomain) {
       // Validate manual entry
       final name = _newNameController.text.trim();
       final email = _newEmailController.text.trim();
@@ -423,9 +441,16 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
         }
       }
 
-      // Add new recipient: either ID (from domain) or object (manual entry)
-      if (isFromDomain) {
-        // Add contact ID if selected from domain
+      // Add new recipient(s): either IDs (from domain selection) or object (manual entry)
+      if (useMultipleSelection) {
+        // Add all selected recipient IDs
+        recipients.addAll(
+          _selectedRecipients
+              .map((r) => r['id'] ?? '')
+              .where((id) => id.isNotEmpty),
+        );
+      } else if (isFromDomain) {
+        // Add contact ID if selected from domain (backward compatibility)
         recipients.add(_selectedContactId!);
       } else {
         // Add recipient object with name and email for manual entry
@@ -451,30 +476,63 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
         throw Exception('Failed to create recipient: ${response.statusCode}');
       }
 
-      // Get the created recipient data from response
-      String? newRecipientId;
-      String recipientName;
-      String recipientEmail;
+      // Handle response - may contain multiple recipients if multiple were added
+      List<ReportRecipientEntity> newRecipients = [];
 
-      if (isFromDomain) {
-        // Use selected contact data
-        newRecipientId = _selectedContactId;
-        recipientName = _selectedContactName ?? '';
-        recipientEmail = _selectedContactEmail ?? '';
+      if (useMultipleSelection) {
+        // Use stored recipient details directly
+        for (var recipient in _selectedRecipients) {
+          newRecipients.add(
+            ReportRecipientEntity(
+              recipientId: recipient['id'] ?? '',
+              recipientName: recipient['name'] ?? '',
+              recipientEmail: recipient['email'] ?? '',
+            ),
+          );
+        }
       } else {
-        // Use manual entry data
-        recipientName = _newNameController.text.trim();
-        recipientEmail = _newEmailController.text.trim();
-      }
+        // Single recipient (backward compatibility)
+        String? newRecipientId;
+        String recipientName;
+        String recipientEmail;
 
-      if (response.data != null) {
-        final responseData = response.data;
-        // Try to extract the new recipient ID from the response
-        if (responseData is Map) {
-          final data = responseData['data'] ?? responseData;
-          if (data is List && data.isNotEmpty) {
-            // If response is an array, get the last one (the newly created)
-            final createdRecipient = data.last;
+        if (isFromDomain) {
+          // Use selected contact data
+          newRecipientId = _selectedContactId;
+          recipientName = _selectedContactName ?? '';
+          recipientEmail = _selectedContactEmail ?? '';
+        } else {
+          // Use manual entry data
+          recipientName = _newNameController.text.trim();
+          recipientEmail = _newEmailController.text.trim();
+        }
+
+        if (response.data != null) {
+          final responseData = response.data;
+          // Try to extract the new recipient ID from the response
+          if (responseData is Map) {
+            final data = responseData['data'] ?? responseData;
+            if (data is List && data.isNotEmpty) {
+              // If response is an array, get the last one (the newly created)
+              final createdRecipient = data.last;
+              if (createdRecipient is Map) {
+                final extractedId =
+                    createdRecipient['_id']?.toString() ??
+                    createdRecipient['id']?.toString();
+                if (extractedId != null) {
+                  newRecipientId = extractedId;
+                }
+              }
+            } else if (data is Map) {
+              final extractedId =
+                  data['_id']?.toString() ?? data['id']?.toString();
+              if (extractedId != null) {
+                newRecipientId = extractedId;
+              }
+            }
+          } else if (responseData is List && responseData.isNotEmpty) {
+            // Direct array response
+            final createdRecipient = responseData.last;
             if (createdRecipient is Map) {
               final extractedId =
                   createdRecipient['_id']?.toString() ??
@@ -483,51 +541,44 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                 newRecipientId = extractedId;
               }
             }
-          } else if (data is Map) {
-            final extractedId =
-                data['_id']?.toString() ?? data['id']?.toString();
-            if (extractedId != null) {
-              newRecipientId = extractedId;
-            }
-          }
-        } else if (responseData is List && responseData.isNotEmpty) {
-          // Direct array response
-          final createdRecipient = responseData.last;
-          if (createdRecipient is Map) {
-            final extractedId =
-                createdRecipient['_id']?.toString() ??
-                createdRecipient['id']?.toString();
-            if (extractedId != null) {
-              newRecipientId = extractedId;
-            }
           }
         }
-      }
 
-      // Create new recipient entity for local state
-      final newRecipientEntity = ReportRecipientEntity(
-        recipientId:
-            newRecipientId ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        recipientName: recipientName,
-        recipientEmail: recipientEmail,
-      );
+        newRecipients.add(
+          ReportRecipientEntity(
+            recipientId:
+                newRecipientId ??
+                DateTime.now().millisecondsSinceEpoch.toString(),
+            recipientName: recipientName,
+            recipientEmail: recipientEmail,
+          ),
+        );
+      }
 
       // Update local state
       setState(() {
-        widget.recipients.add(newRecipientEntity);
+        widget.recipients.addAll(newRecipients);
         _filtered = List.from(widget.recipients);
-        _isAdding = false;
+        // Keep form open so user can add more recipients
+        // _isAdding = false; // Don't close the form
         _newNameController.clear();
         _newEmailController.clear();
+        // Clear single contact selection (backward compatibility)
         _selectedContactId = null;
         _selectedContactName = null;
         _selectedContactEmail = null;
+        // Clear selected recipients from domain (they've been added)
+        _selectedRecipients.clear();
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Recipient created successfully'),
+          SnackBar(
+            content: Text(
+              useMultipleSelection
+                  ? '${newRecipients.length} recipient(s) added successfully'
+                  : 'Recipient created successfully',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -911,6 +962,8 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                 itemBuilder: (context, index) {
                   // Show add form at the top if adding
                   if (_isAdding && index == 0) {
+                    final hasSelectedRecipients =
+                        _selectedRecipients.isNotEmpty;
                     final isFromDomain =
                         _selectedContactId != null &&
                         _selectedContactId!.isNotEmpty;
@@ -920,8 +973,91 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (isFromDomain) ...[
-                            // Show selected contact from domain
+                          // Show selected recipients list (if any)
+                          if (hasSelectedRecipients) ...[
+                            ..._selectedRecipients.map((recipient) {
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey[300]!),
+                                  borderRadius: BorderRadius.zero,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Row(
+                                    children: [
+                                      Image.asset(
+                                        'assets/images/check.png',
+                                        width: 16,
+                                        height: 16,
+                                        color: const Color(0xFF238636),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              recipient['name']?.isNotEmpty ==
+                                                      true
+                                                  ? recipient['name']!
+                                                  : 'Unknown',
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            if (recipient['email']
+                                                    ?.isNotEmpty ==
+                                                true) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                recipient['email']!,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onTap: _isCreating
+                                              ? null
+                                              : () {
+                                                  setState(() {
+                                                    _selectedRecipients
+                                                        .removeWhere(
+                                                          (r) =>
+                                                              r['id'] ==
+                                                              recipient['id'],
+                                                        );
+                                                  });
+                                                },
+                                          borderRadius: BorderRadius.zero,
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(4),
+                                            child: Icon(
+                                              Icons.close,
+                                              size: 18,
+                                              color: Colors.grey[700],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                            const SizedBox(height: 12),
+                          ],
+                          // Show selected contact from domain (backward compatibility) - only if no multiple recipients
+                          if (!hasSelectedRecipients && isFromDomain) ...[
                             Container(
                               margin: const EdgeInsets.only(bottom: 12),
                               decoration: BoxDecoration(
@@ -985,77 +1121,72 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                                 ),
                               ),
                             ),
-                          ] else ...[
-                            // Manual entry fields
-                            // Name field
-                            Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              height: 50,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: const Color(0xFF8B9A5B),
-                                  width: 1,
-                                ),
-                                borderRadius: BorderRadius.zero,
-                                color: Colors.white,
-                              ),
-                              child: TextFormField(
-                                controller: _newNameController,
-                                enabled: !_isCreating,
-                                decoration: InputDecoration(
-                                  hintText: 'Name',
-                                  border: InputBorder.none,
-                                  hintStyle: AppTextStyles.bodyMedium.copyWith(
-                                    color: Colors.grey[600],
-                                  ),
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                                style: AppTextStyles.bodyMedium.copyWith(
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ),
-                            // Email field
-                            Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              height: 50,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: const Color(0xFF8B9A5B),
-                                  width: 1,
-                                ),
-                                borderRadius: BorderRadius.zero,
-                                color: Colors.white,
-                              ),
-                              child: TextFormField(
-                                controller: _newEmailController,
-                                enabled: !_isCreating,
-                                keyboardType: TextInputType.emailAddress,
-                                decoration: InputDecoration(
-                                  hintText: 'Email',
-                                  border: InputBorder.none,
-                                  hintStyle: AppTextStyles.bodyMedium.copyWith(
-                                    color: Colors.grey[600],
-                                  ),
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                                style: AppTextStyles.bodyMedium.copyWith(
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ),
                           ],
-                          // Action links - select from domain or create manually
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (!isFromDomain) ...[
+                          // Manual entry fields - always visible
+                          // Name field
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            height: 50,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: const Color(0xFF8B9A5B),
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.zero,
+                              color: Colors.white,
+                            ),
+                            child: TextFormField(
+                              controller: _newNameController,
+                              enabled: !_isCreating,
+                              decoration: InputDecoration(
+                                hintText: 'Name',
+                                border: InputBorder.none,
+                                hintStyle: AppTextStyles.bodyMedium.copyWith(
+                                  color: Colors.grey[600],
+                                ),
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          // Email field
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            height: 50,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: const Color(0xFF8B9A5B),
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.zero,
+                              color: Colors.white,
+                            ),
+                            child: TextFormField(
+                              controller: _newEmailController,
+                              enabled: !_isCreating,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: InputDecoration(
+                                hintText: 'Email',
+                                border: InputBorder.none,
+                                hintStyle: AppTextStyles.bodyMedium.copyWith(
+                                  color: Colors.grey[600],
+                                ),
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          // Action links - select from domain (always visible unless single contact selected)
+                          if (!isFromDomain) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
                                 Material(
                                   color: Colors.transparent,
                                   child: InkWell(
@@ -1098,8 +1229,8 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                                   ),
                                 ),
                               ],
-                            ],
-                          ),
+                            ),
+                          ],
                           const SizedBox(height: 12),
                           // Confirm button
                           Row(
