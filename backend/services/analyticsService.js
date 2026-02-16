@@ -44,6 +44,8 @@ class AnalyticsService {
     if (kpis.energy && kpis.power) {
       return {
         total_consumption: kpis.energy.total_consumption || 0,
+        total_production: kpis.energy.total_production || 0, // NEW: Extract production
+        net_consumption: kpis.energy.net_consumption || 0,   // NEW: Extract net consumption
         averageEnergy: kpis.energy.average || 0,
         average: kpis.energy.average || 0,
         base: kpis.energy.base || 0,
@@ -156,7 +158,8 @@ class AnalyticsService {
     const extracted = this.extractKPIs(kpis);
     
     // Calculate EUI: total consumption / heated area
-    const consumption = extracted.total_consumption;
+    // Use net_consumption (consumption - production) for EUI calculation
+    const consumption = extracted.net_consumption || extracted.total_consumption;
     
     // Calculate period-based EUI (not annualized - shows actual period EUI)
     const eui = consumption / heatedArea;
@@ -208,7 +211,8 @@ class AnalyticsService {
     // Extract KPIs values (handles both new structured and legacy formats)
     const extracted = this.extractKPIs(kpis);
     
-    const consumption = extracted.total_consumption; // Energy consumption in kWh
+    // Use net_consumption (consumption - production) for EUI calculation
+    const consumption = extracted.net_consumption || extracted.total_consumption; // Energy consumption in kWh
     const perCapita = consumption / numPeople;
     
     // Ensure we use energyUnit (kWh) for consumption
@@ -264,7 +268,8 @@ class AnalyticsService {
     // Extract KPIs values (handles both new structured and legacy formats)
     const extracted = this.extractKPIs(kpis);
     
-    const consumption = extracted.total_consumption;
+    // Use net_consumption (consumption - production) for EUI calculation
+    const consumption = extracted.net_consumption || extracted.total_consumption;
     const targetEUI = parseFloat(benchmark.target_eui_kwh_m2_year.toString());
     
     // Calculate annualized EUI for comparison with benchmark (which is annual)

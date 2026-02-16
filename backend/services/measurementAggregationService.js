@@ -443,19 +443,12 @@ class MeasurementAggregationService {
                                     },
                                     // Period totals: use last value (represents the period's total consumption)
                                     '$lastValue',
-                                    // Case 2: Power (actual* states) → average
+                                    // Case 2: Power (all states: Meter actual* and EFM states like selfConsumption, Gpwr) → average
+                                    // Remove stateType regex filter - include all Power states (both Meter actual* and EFM states)
                                     {
                                         $cond: [
                                             {
-                                                $and: [
-                                                    { $eq: ['$_id.measurementType', 'Power'] },
-                                                    {
-                                                        $regexMatch: {
-                                                            input: '$_id.stateType',
-                                                            regex: '^actual'
-                                                        }
-                                                    }
-                                                ]
+                                                $eq: ['$_id.measurementType', 'Power']
                                             },
                                             '$avgValue',
                                             // Case 3: Water/Gas (total state) → consumption = last - first (cumulative counter)
@@ -723,6 +716,7 @@ class MeasurementAggregationService {
                             'meta.sensorId': doc.meta.sensorId,
                             'meta.measurementType': doc.meta.measurementType,
                             'meta.stateType': doc.meta.stateType,
+                            'meta.controlType': doc.meta.controlType || null, // NEW: Include controlType in upsert key
                             resolution_minutes: 15
                         },
                         doc,
@@ -1252,6 +1246,7 @@ class MeasurementAggregationService {
                                     'meta.sensorId': doc.meta.sensorId,
                                     'meta.measurementType': doc.meta.measurementType,
                                     'meta.stateType': doc.meta.stateType,
+                                    'meta.controlType': doc.meta.controlType || null, // NEW: Include controlType in upsert key
                                     resolution_minutes: 15
                                 },
                                 doc,
@@ -1358,6 +1353,7 @@ class MeasurementAggregationService {
                         sensorId: '$meta.sensorId',
                         measurementType: '$meta.measurementType',
                         stateType: '$meta.stateType',
+                        controlType: '$meta.controlType', // NEW: Group by controlType to keep EFM and Meter separate
                         bucket: {
                             $dateTrunc: {
                                 date: '$timestamp',
@@ -1383,7 +1379,8 @@ class MeasurementAggregationService {
                     meta: {
                         sensorId: '$_id.sensorId',
                         measurementType: '$_id.measurementType',
-                        stateType: '$_id.stateType'
+                        stateType: '$_id.stateType',
+                        controlType: '$_id.controlType' // NEW: Include controlType in aggregated documents
                     },
                     value: {
                         $cond: [
@@ -1449,19 +1446,12 @@ class MeasurementAggregationService {
                                     },
                                     // Period totals: use last value (represents the period's total consumption)
                                     '$lastValue',
-                                    // Case 2: Power (actual* states) → average
+                                    // Case 2: Power (all states: Meter actual* and EFM states like selfConsumption, Gpwr) → average
+                                    // Remove stateType regex filter - include all Power states (both Meter actual* and EFM states)
                                     {
                                         $cond: [
                                             {
-                                                $and: [
-                                                    { $eq: ['$_id.measurementType', 'Power'] },
-                                                    {
-                                                        $regexMatch: {
-                                                            input: '$_id.stateType',
-                                                            regex: '^actual'
-                                                        }
-                                                    }
-                                                ]
+                                                $eq: ['$_id.measurementType', 'Power']
                                             },
                                             '$avgValue',
                                             // Case 3: Water/Gas (total state) → consumption = last - first (cumulative counter)
@@ -1649,6 +1639,7 @@ class MeasurementAggregationService {
                         sensorId: '$meta.sensorId',
                         measurementType: '$meta.measurementType',
                         stateType: '$meta.stateType',
+                        controlType: '$meta.controlType', // NEW: Group by controlType to keep EFM and Meter separate
                         bucket: {
                             $dateTrunc: {
                                 date: '$timestamp',
@@ -1678,7 +1669,8 @@ class MeasurementAggregationService {
                     meta: {
                         sensorId: '$_id.sensorId',
                         measurementType: '$_id.measurementType',
-                        stateType: '$_id.stateType'
+                        stateType: '$_id.stateType',
+                        controlType: '$_id.controlType' // NEW: Include controlType in aggregated documents
                     },
                     // Aggregation strategy for hourly from 15-minute aggregates:
                     // - Energy (total state): sum consumption deltas from 15-min aggregates
@@ -1729,19 +1721,12 @@ class MeasurementAggregationService {
                                     },
                                     // Period totals: use last value (represents the period's total consumption)
                                     '$lastValue',
-                                    // Case 2: Power (actual* states) → average
+                                    // Case 2: Power (all states: Meter actual* and EFM states like selfConsumption, Gpwr) → average
+                                    // Remove stateType regex filter - include all Power states (both Meter actual* and EFM states)
                                     {
                                         $cond: [
                                             {
-                                                $and: [
-                                                    { $eq: ['$_id.measurementType', 'Power'] },
-                                                    {
-                                                        $regexMatch: {
-                                                            input: '$_id.stateType',
-                                                            regex: '^actual'
-                                                        }
-                                                    }
-                                                ]
+                                                $eq: ['$_id.measurementType', 'Power']
                                             },
                                             '$avgValue',
                                             // Case 3: Water/Gas (total state) → sum consumption deltas
@@ -1930,6 +1915,7 @@ class MeasurementAggregationService {
                         sensorId: '$meta.sensorId',
                         measurementType: '$meta.measurementType',
                         stateType: '$meta.stateType',
+                        controlType: '$meta.controlType', // NEW: Group by controlType to keep EFM and Meter separate
                         bucket: {
                             $dateTrunc: {
                                 date: '$timestamp',
@@ -1959,7 +1945,8 @@ class MeasurementAggregationService {
                     meta: {
                         sensorId: '$_id.sensorId',
                         measurementType: '$_id.measurementType',
-                        stateType: '$_id.stateType'
+                        stateType: '$_id.stateType',
+                        controlType: '$_id.controlType' // NEW: Include controlType in aggregated documents
                     },
                     // Aggregation strategy for daily from hourly aggregates:
                     // - Energy (total state): sum consumption deltas from hourly aggregates
@@ -2010,19 +1997,12 @@ class MeasurementAggregationService {
                                     },
                                     // Period totals: use last value (represents the period's total consumption)
                                     '$lastValue',
-                                    // Case 2: Power (actual* states) → average
+                                    // Case 2: Power (all states: Meter actual* and EFM states like selfConsumption, Gpwr) → average
+                                    // Remove stateType regex filter - include all Power states (both Meter actual* and EFM states)
                                     {
                                         $cond: [
                                             {
-                                                $and: [
-                                                    { $eq: ['$_id.measurementType', 'Power'] },
-                                                    {
-                                                        $regexMatch: {
-                                                            input: '$_id.stateType',
-                                                            regex: '^actual'
-                                                        }
-                                                    }
-                                                ]
+                                                $eq: ['$_id.measurementType', 'Power']
                                             },
                                             '$avgValue',
                                             // Case 3: Water/Gas (total state) → sum consumption deltas
@@ -2239,6 +2219,7 @@ class MeasurementAggregationService {
                         sensorId: '$meta.sensorId',
                         measurementType: '$meta.measurementType',
                         stateType: '$meta.stateType',
+                        controlType: '$meta.controlType', // NEW: Group by controlType to keep EFM and Meter separate
                         bucket: '$weekStart'
                     },
                     // Aggregate from daily aggregates:
@@ -2261,7 +2242,8 @@ class MeasurementAggregationService {
                     meta: {
                         sensorId: '$_id.sensorId',
                         measurementType: '$_id.measurementType',
-                        stateType: '$_id.stateType'
+                        stateType: '$_id.stateType',
+                        controlType: '$_id.controlType' // NEW: Include controlType in aggregated documents
                     },
                     // Aggregation strategy for weekly from daily aggregates:
                     // - Energy (total* states): sum consumption from daily aggregates
@@ -2484,6 +2466,7 @@ class MeasurementAggregationService {
                         sensorId: '$meta.sensorId',
                         measurementType: '$meta.measurementType',
                         stateType: '$meta.stateType',
+                        controlType: '$meta.controlType', // NEW: Group by controlType to keep EFM and Meter separate
                         bucket: '$monthStart'
                     },
                     // Aggregate from weekly/daily aggregates:
@@ -2506,7 +2489,8 @@ class MeasurementAggregationService {
                     meta: {
                         sensorId: '$_id.sensorId',
                         measurementType: '$_id.measurementType',
-                        stateType: '$_id.stateType'
+                        stateType: '$_id.stateType',
+                        controlType: '$_id.controlType' // NEW: Include controlType in aggregated documents
                     },
                     // Aggregation strategy for monthly from weekly/daily aggregates:
                     // - Energy (total* states): sum consumption from weekly/daily aggregates

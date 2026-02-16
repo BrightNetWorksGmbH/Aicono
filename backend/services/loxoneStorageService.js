@@ -25,6 +25,14 @@ const SENSOR_CACHE_TTL = 300000; // Cache sensors for 5 minutes
 const allowedSensorIdsCache = new Map(); // serialNumber -> { sensorIds: Set, timestamp: number }
 const ALLOWED_SENSOR_IDS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// 🔥 NEW: Alarm deduplication cooldown
+// Prevents creating duplicate alarms for the same sensor + violation type within a cooldown window.
+// Without this, every single real-time measurement that violates a threshold would create an AlarmLog
+// entry AND trigger the full sendAlertReport chain (5+ DB queries each), flooding logs and DB.
+// Key: "sensorId:violationType" -> timestamp of last alarm
+const alarmCooldownMap = new Map();
+const ALARM_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes between alarms for the same sensor + violation type
+
 // Normalize UUID format
 function normalizeUUID(uuid) {
     if (!uuid) return uuid;
@@ -48,6 +56,15 @@ function normalizeUUID(uuid) {
  * - EFM instantaneous states (selfConsumption, Gpwr, etc.) = Power (instantaneous, W/kW) if unit is W/kW
  * - actual* states with Temperature unit (°C/°F) = Temperature
  * - total* states (total, totalDay, totalWeek, etc.) = Energy (cumulative, Wh/kWh)
+ * 
+ * CRITICAL: EFM actual* states (actual0, actual1, actual2, etc.) are PASS-THROUGH states from linked Meter controls
+ * According to Loxone structure file analysis:
+ * - EFM control has a "nodes" array that links to Meter controls
+ * - Each node has an "actualEfmState" UUID that maps to an EFM actual* state
+ * - These EFM actual* states represent the SAME data as the linked Meter control's "actual" state
+ * - Storing both Meter actual* and EFM actual* would cause double-counting
+ * - Solution: In queries/calculations, always prefer Meter actual* over EFM actual* states
+ * - In real-time display, filter out EFM actual* states (use Meter actual* instead)
  */
 function getMeasurementType(sensor, controlType, categoryInfo = null, controlData = null, stateType = null, unit = null) {
     // Priority 1: For Meter and EFM controls, stateType + format string/unit combination is most reliable
@@ -60,15 +77,40 @@ function getMeasurementType(sensor, controlType, categoryInfo = null, controlDat
         // actual* states with Temperature unit = Temperature
         // total* states = Energy (cumulative, Wh/kWh)
         
+        // FIRST: Handle EFM-specific NON-power states before any format string checks
+        // These states have special semantics and must NOT be classified by the generic
+        // actualFormat ("%.0fW") which would incorrectly match them as Power
+        // Per Loxone StructureFile (EnergyFlowMonitor section, page 69):
+        // - CO2: CO2 emissions factor (g/kWh) — NOT power
+        // - Pre: Energy export price/revenue (€/kWh or ct/kWh) — NOT power  
+        // - Pri: Energy import price/cost (€/kWh or ct/kWh) — NOT power
+        // - jLocked: Lock state (boolean 0/1) — NOT a measurement at all
+        if (controlType === 'EFM' && stateType) {
+            if (stateType === 'CO2') return 'CO2';
+            if (stateType === 'Pre' || stateType === 'Pri') return 'Price';
+            if (stateType === 'jLocked') return null; // Signal to skip storage
+        }
+        
+        // Also skip jLocked for Meter controls (it's a lock state, not a measurement)
+        if (controlType === 'Meter' && stateType === 'jLocked') return null;
+        
         // Check for instantaneous power states (actual* for Meter, or EFM-specific states)
+        // Per Loxone StructureFile:
+        // - Meter: actual = instantaneous power/flow reading
+        // - EFM: actual0-actualN = pass-through from linked Meter controls (same data!)
+        // - EFM: selfConsumption = self-consumed power (W)
+        // - EFM: Gpwr = grid power (W), Ppwr = production power (W), Spwr = storage power (W)
+        // - EFM: Ppv = photovoltaic power (W), Pbat = battery power (W), Pload = load power (W)
         const isInstantaneousPowerState = 
             (stateType && stateType.startsWith('actual')) ||  // actual, actual0, actual1, actual5, etc.
             (controlType === 'EFM' && stateType && (
                 stateType === 'selfConsumption' ||
                 stateType === 'Gpwr' ||
-                stateType === 'Ppv' ||  // Photovoltaic power
-                stateType === 'Pbat' || // Battery power
-                stateType === 'Pload'   // Load power
+                stateType === 'Ppwr' ||  // Production power (from StructureFile EFM states)
+                stateType === 'Spwr' ||  // Storage power (from StructureFile EFM states)
+                stateType === 'Ppv' ||   // Photovoltaic power
+                stateType === 'Pbat' ||  // Battery power
+                stateType === 'Pload'    // Load power
             ));
         
         if (isInstantaneousPowerState) {
@@ -624,7 +666,9 @@ class LoxoneStorageService {
                             loxone_control_uuid: 1,
                             loxone_category_uuid: 1,
                             loxone_category_name: 1,
-                            loxone_category_type: 1
+                            loxone_category_type: 1,
+                            threshold_min: 1,
+                            threshold_max: 1
                         }
                     }
                 ]).toArray();
@@ -855,6 +899,22 @@ class LoxoneStorageService {
     }
 
     /**
+     * Invalidate the sensor cache (call when sensor data is updated, e.g., thresholds)
+     * This forces a fresh DB fetch on the next measurement batch so plausibility checks
+     * use the latest threshold_min/threshold_max values.
+     * @param {string|null} serialNumber - Server serial to invalidate, or null for all servers
+     */
+    invalidateSensorCache(serialNumber = null) {
+        if (serialNumber) {
+            sensorCache.delete(serialNumber);
+            console.log(`[LOXONE-STORAGE] [${serialNumber}] Sensor cache invalidated (threshold update)`);
+        } else {
+            sensorCache.clear();
+            console.log(`[LOXONE-STORAGE] Sensor cache cleared for all servers (threshold update)`);
+        }
+    }
+
+    /**
      * Store measurements for a server
      * Optimized to avoid N+1 queries by batching sensor lookups
      * Only stores measurements for sensors in rooms mapped to LocalRooms
@@ -961,7 +1021,7 @@ class LoxoneStorageService {
             try {
                 const fetchedSensors = await db.collection('sensors')
                     .find({ _id: { $in: missingIds } })
-                    .project({ _id: 1, name: 1, unit: 1, loxone_category_name: 1, loxone_category_type: 1 })
+                    .project({ _id: 1, name: 1, unit: 1, loxone_category_name: 1, loxone_category_type: 1, threshold_min: 1, threshold_max: 1 })
                     .toArray();
 
                 // Add to sensor map and cache
@@ -1015,6 +1075,24 @@ class LoxoneStorageService {
                 } : null
             } : null);
 
+            // SKIP: EFM actual* states are pass-through DUPLICATES of linked Meter controls
+            // Per Loxone StructureFile: EFM has a "nodes" array linking to Meter controls.
+            // Each node's "actualEfmState" UUID maps to an EFM actual0-actualN state that mirrors
+            // the linked Meter control's "actual" state — SAME value, different UUID.
+            // Example from LoxAPP3: EFM actual5 (1fcadbfc-0325-f872-...) = Meter "Rest" actual (1fcada66-03c1-7e70-...)
+            // Storing both causes double-counting in aggregations and KPI calculations.
+            // The linked Meter controls' data is ALREADY stored with controlType 'Meter'.
+            if (mapping.controlType === 'EFM' && mapping.stateType && mapping.stateType.startsWith('actual')) {
+                skippedCount++;
+                continue;
+            }
+            
+            // SKIP: jLocked is a lock/security state (boolean 0/1), NOT a measurement value
+            if (mapping.stateType === 'jLocked') {
+                skippedCount++;
+                continue;
+            }
+
             // Determine unit based on stateType and format strings (actualFormat vs totalFormat)
             // This ensures correct units for different state types (actual vs total*)
             let unit = sensor.unit || ''; // Default to stored unit
@@ -1035,8 +1113,31 @@ class LoxoneStorageService {
                     if (extractedUnit) {
                         unit = extractedUnit;
                     }
+                } else if (mapping.controlType === 'EFM') {
+                    // EFM controls: Use stateType-specific units
+                    // The generic actualFormat ("%.0fW") is ONLY correct for power states
+                    // Per Loxone StructureFile (EnergyFlowMonitor):
+                    // - CO2: emissions factor (g/kWh) — actualFormat "%.0fW" is WRONG for this
+                    // - Pre: export price/revenue — actualFormat "%.0fW" is WRONG for this
+                    // - Pri: import price/cost — actualFormat "%.0fW" is WRONG for this
+                    // - Power states (selfConsumption, Gpwr, Ppwr, Spwr): use actualFormat (W) ✓
+                    const efmStateUnitMap = {
+                        'CO2': 'g/kWh',    // CO2 emissions factor
+                        'Pre': '€/kWh',    // Export price (revenue per kWh)
+                        'Pri': '€/kWh',    // Import price (cost per kWh)
+                    };
+                    if (efmStateUnitMap[mapping.stateType]) {
+                        unit = efmStateUnitMap[mapping.stateType];
+                    } else {
+                        // Power states (selfConsumption, Gpwr, Ppwr, Spwr) → use actualFormat
+                        const formatStr = controlData.details.actualFormat || controlData.details.totalFormat || '';
+                        const extractedUnit = extractUnitFromFormat(formatStr);
+                        if (extractedUnit) {
+                            unit = extractedUnit;
+                        }
+                    }
                 } else {
-                    // For non-Meter controls, extract from format if available
+                    // For other non-Meter/non-EFM controls, extract from format if available
                     const formatStr = controlData.details.actualFormat || controlData.details.totalFormat || controlData.details.format || '';
                     const extractedUnit = extractUnitFromFormat(formatStr);
                     if (extractedUnit) {
@@ -1048,6 +1149,12 @@ class LoxoneStorageService {
             // Determine measurement type (pass stateType and unit for better detection)
             // Unit is determined above, so we can use it to correctly classify actual* states
             const measurementType = getMeasurementType(sensor, mapping.controlType, categoryInfo, controlData, mapping.stateType, unit);
+            
+            // Skip if measurementType is null (e.g., jLocked states that slip through, or future unknown states)
+            if (!measurementType) {
+                skippedCount++;
+                continue;
+            }
 
             // Priority 1: Filter invalid "total*" states for Temperature measurement type
             // Temperature meters' "total" states represent cumulative values (degree-hours) that shouldn't be stored as temperature
@@ -1074,8 +1181,19 @@ class LoxoneStorageService {
             // 🔥 FIX: Fire-and-forget plausibility check - DON'T AWAIT
             // This was a major bottleneck causing queue to fill up
             // Plausibility checks are important but should not block measurement storage
-            if (!options.skipPlausibilityCheck) {
+            // CRITICAL: Only validate 'actual' state types (instantaneous readings)
+            // Thresholds (min/max) are set by the user for expected instantaneous values
+            // (e.g., temperature 10-30°C, power 0-5000W). Other state types would always
+            // violate these thresholds:
+            // - total* / totalNeg*: cumulative energy counters (785,000+ kWh) → always exceed max
+            // - selfConsumption, Gpwr, Ppwr, Spwr, Ppv, Pbat, Pload: EFM building-wide sums → wrong scope
+            // - CO2, Pre, Pri: different units entirely (g/kWh, €/kWh) → incompatible with thresholds
+            // The 'actual' stateType is the only one that represents the instantaneous sensor reading
+            // that users set thresholds for. For controls without explicit states, the default is 'actual'.
+            const isPlausibilityCheckable = mapping.stateType === 'actual';
+            if (!options.skipPlausibilityCheck && isPlausibilityCheckable) {
                 // Run asynchronously without awaiting (fire-and-forget)
+                const sensorIdStr = sensor._id.toString();
                 plausibilityCheckService.validateMeasurement(
                     sensor._id,
                     measurement.value,
@@ -1086,6 +1204,20 @@ class LoxoneStorageService {
                     // If validation fails, create alarm log entries (also non-blocking)
                     if (!validation.isValid && validation.violations.length > 0) {
                         for (const violation of validation.violations) {
+                            // 🔥 DEDUP: Check cooldown before creating alarm + sending alert
+                            // Without this, every real-time measurement (~1/sec) that violates a
+                            // threshold would create an AlarmLog + trigger 5+ DB queries for sendAlertReport.
+                            // Cooldown ensures at most 1 alarm per sensor per violation type per 15 minutes.
+                            const cooldownKey = `${sensorIdStr}:${violation.type}`;
+                            const lastAlarmTime = alarmCooldownMap.get(cooldownKey);
+                            const now = Date.now();
+                            if (lastAlarmTime && (now - lastAlarmTime) < ALARM_COOLDOWN_MS) {
+                                // Same sensor + same violation type triggered recently — skip
+                                return;
+                            }
+                            // Mark this sensor + violation type as triggered
+                            alarmCooldownMap.set(cooldownKey, now);
+                            
                             alarmService.createPlausibilityAlarm(
                                 violation,
                                 sensor._id,
@@ -1114,7 +1246,8 @@ class LoxoneStorageService {
                 meta: {
                     sensorId: sensor._id,
                     measurementType: measurementType,
-                    stateType: mapping.stateType
+                    stateType: mapping.stateType,
+                    controlType: mapping.controlType || null // NEW: Store control type (Meter/EFM) to distinguish power readings
                 },
                 value: measurement.value,
                 unit: unit,

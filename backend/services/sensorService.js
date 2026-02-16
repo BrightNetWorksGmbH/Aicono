@@ -155,6 +155,17 @@ class SensorService {
 
         const updatedSensors = await Promise.all(updatePromises);
 
+        // Invalidate sensor cache so plausibility checks use the fresh threshold values
+        // Without this, the cached sensor objects (missing updated thresholds) would be used
+        // for up to 5 minutes (SENSOR_CACHE_TTL), causing Rule 1 (Min/Max) to silently skip
+        try {
+            const loxoneStorageService = require('./loxoneStorageService');
+            loxoneStorageService.invalidateSensorCache();
+        } catch (e) {
+            // Non-critical - cache will expire naturally after 5 minutes
+            console.warn('[SENSOR-SERVICE] Failed to invalidate sensor cache:', e.message);
+        }
+
         return {
             updated: updatedSensors.length,
             sensors: updatedSensors.map(sensor => ({
