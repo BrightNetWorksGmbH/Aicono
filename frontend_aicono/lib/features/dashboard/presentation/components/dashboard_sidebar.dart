@@ -79,6 +79,18 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
   List<SwitchRoleEntity> _roles = [];
   String? _userName; // Full name for navigation
 
+  /// Effective switch/verse ID: prefer parent's verseId, then sidebar's currentVerseId.
+  String? get _effectiveVerseId => widget.verseId ?? currentVerseId;
+
+  void _requestSitesForCurrentSwitch() {
+    final verseId = _effectiveVerseId;
+    if (verseId != null && verseId.isNotEmpty && mounted) {
+      context.read<DashboardSitesBloc>().add(
+        DashboardSitesRequested(bryteswitchId: verseId),
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -87,13 +99,26 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
     if (widget.roles == null) {
       _loadUserAndRoles();
     }
+    // Request sites for the selected switch (ensures Properties section shows
+    // correct sites on profile/switch-settings and other pages, not just dashboard).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _requestSitesForCurrentSwitch();
+    });
   }
 
   @override
   void didUpdateWidget(DashboardSidebar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.verseId != oldWidget.verseId && widget.verseId != null) {
-      setState(() => currentVerseId = widget.verseId);
+    if (widget.verseId != oldWidget.verseId) {
+      setState(() {
+        if (widget.verseId != null) currentVerseId = widget.verseId;
+      });
+      // Reload sites when switch changes so Properties section stays in sync.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _requestSitesForCurrentSwitch();
+      });
     }
     if (widget.roles != oldWidget.roles) {
       _applyRoles(widget.roles);
