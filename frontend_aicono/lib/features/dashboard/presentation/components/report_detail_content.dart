@@ -45,9 +45,13 @@ class ReportDetailContent extends StatelessWidget {
     this.periodWithoutBorder = false,
   });
 
-  static const double _sectionSpacing = 28;
-  static const double _sectionGap = 36;
-  static const double _cardPadding = 24;
+  // Consistent spacing (aligned with dashboard_main_content)
+  static const double _spacingBlock = 24.0;
+  static const double _spacingSection = 24.0;
+  static const double _spacingContent = 16.0;
+  static const double _spacingTitleSubtitle = 8.0;
+  static const double _spacingCardGap = 12.0;
+  static const double _cardPadding = 16.0;
   static const double _chartHeight = 220;
   static const double _hourlyChartHeight = 200;
   static const int _maxBars = 10;
@@ -74,31 +78,31 @@ class ReportDetailContent extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: horizontalPadding,
-        vertical: 24,
+        vertical: _spacingBlock,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(context, building, reporting, timeRange, recipients),
-          const SizedBox(height: _sectionGap),
+          const SizedBox(height: _spacingSection),
           _buildKpis(reportData, locale),
-          const SizedBox(height: _sectionGap),
+          const SizedBox(height: _spacingSection),
           _buildContents(contents, locale),
-          const SizedBox(height: _sectionGap),
+          const SizedBox(height: _spacingSection),
           _buildChartsSection(context, contents, locale),
-          const SizedBox(height: _sectionGap),
+          const SizedBox(height: _spacingSection),
           _buildTimeBasedAnalysisSection(contents, locale),
-          const SizedBox(height: _sectionGap),
+          const SizedBox(height: _spacingSection),
           _buildHourlyPatternSection(contents, locale),
           if (_shouldShowPeriodComparison(reporting, contents)) ...[
-            const SizedBox(height: _sectionGap),
+            const SizedBox(height: _spacingSection),
             _buildPeriodComparison(contents, locale),
           ],
-          const SizedBox(height: _sectionGap),
+          const SizedBox(height: _spacingSection),
           _buildBuildingComparison(contents, locale),
-          const SizedBox(height: _sectionGap),
+          const SizedBox(height: _spacingSection),
           _buildAnomaliesSection(context, contents, locale),
-          const SizedBox(height: _sectionSpacing),
+          const SizedBox(height: _spacingSection),
         ],
       ),
     );
@@ -134,7 +138,6 @@ class ReportDetailContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: _sectionSpacing),
         _sectionWrapper(
           title: 'Period Comparison',
           showBorder: false,
@@ -343,7 +346,6 @@ class ReportDetailContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: _sectionSpacing),
         _sectionWrapper(
           title: 'Building Comparison',
           showBorder: false,
@@ -487,7 +489,6 @@ class ReportDetailContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: _sectionSpacing),
         Row(
           children: [
             Text(
@@ -513,7 +514,7 @@ class ReportDetailContent extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: _spacingCardGap),
         SizedBox(
           width: double.infinity,
           child: LayoutBuilder(
@@ -672,7 +673,6 @@ class ReportDetailContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: _sectionSpacing),
         Text(
           'TIMEBASEDANALYSIS',
           style: AppTextStyles.overline.copyWith(
@@ -681,7 +681,7 @@ class ReportDetailContent extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: _spacingCardGap),
         LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth > 700;
@@ -700,7 +700,7 @@ class ReportDetailContent extends StatelessWidget {
                         ),
                       ),
                     if (dayNight != null && weekdayWeekend != null)
-                      const SizedBox(width: 16),
+                      const SizedBox(width: _spacingContent),
                     if (weekdayWeekend != null)
                       Expanded(
                         child: _buildWeekdayWeekendCard(
@@ -717,7 +717,7 @@ class ReportDetailContent extends StatelessWidget {
               children: [
                 if (dayNight != null) ...[
                   _buildDayNightCard(dayNight, dayColor, nightColor, locale),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: _spacingContent),
                 ],
                 if (weekdayWeekend != null)
                   _buildWeekdayWeekendCard(
@@ -766,7 +766,7 @@ class ReportDetailContent extends StatelessWidget {
               color: Colors.grey[800],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: _spacingContent),
           SizedBox(
             height: 180,
             child: Stack(
@@ -833,7 +833,7 @@ class ReportDetailContent extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: _spacingCardGap),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -914,7 +914,7 @@ class ReportDetailContent extends StatelessWidget {
               color: Colors.grey[800],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: _spacingContent),
           WeekdayWeekendCylinderChart(
             weekendValue: weekend,
             weekdayValue: weekday,
@@ -961,7 +961,6 @@ class ReportDetailContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: _sectionSpacing),
         _sectionWrapper(
           title: 'Consumption by hour',
           showBorder: false,
@@ -972,7 +971,7 @@ class ReportDetailContent extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    'KWH',
+                    'kWh',
                     style: AppTextStyles.labelSmall.copyWith(
                       color: Colors.grey[600],
                       fontWeight: FontWeight.w600,
@@ -980,7 +979,7 @@ class ReportDetailContent extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: _spacingTitleSubtitle),
               SizedBox(
                 height: _hourlyChartHeight,
                 child: LineChart(
@@ -1106,19 +1105,20 @@ class ReportDetailContent extends StatelessWidget {
     required Widget child,
     bool showBorder = true,
     bool zeroHorizontalPadding = false,
-    double titleToContentSpacing = 10,
+    double? titleToContentSpacing,
   }) {
+    final spacing = titleToContentSpacing ?? _spacingCardGap;
     return Builder(
       builder: (context) {
         final isMobile = MediaQuery.of(context).size.width < 600;
         final padding = zeroHorizontalPadding
-            ? const EdgeInsets.only(top: 8, bottom: 16)
+            ? const EdgeInsets.only(top: _spacingTitleSubtitle, bottom: _spacingContent)
             : (isMobile
                   ? EdgeInsets.only(
-                      top: showBorder ? _cardPadding : 16,
-                      bottom: showBorder ? _cardPadding : 16,
+                      top: showBorder ? _cardPadding : _spacingContent,
+                      bottom: showBorder ? _cardPadding : _spacingContent,
                     )
-                  : EdgeInsets.all(showBorder ? _cardPadding : 16));
+                  : EdgeInsets.all(showBorder ? _cardPadding : _spacingContent));
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1130,7 +1130,7 @@ class ReportDetailContent extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: titleToContentSpacing),
+            SizedBox(height: spacing),
             Container(
               width: double.infinity,
               padding: padding,
@@ -1259,7 +1259,7 @@ class ReportDetailContent extends StatelessWidget {
           ],
         ),
         if (building.address != null && building.address!.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: _spacingTitleSubtitle),
           SingleChildScrollView(
             child: Wrap(
               children: [
@@ -1289,10 +1289,10 @@ class ReportDetailContent extends StatelessWidget {
         ],
         if (recipients.isNotEmpty &&
             (building.address == null || building.address!.isEmpty)) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: _spacingTitleSubtitle),
           _buildRecipientsTrigger(context, recipients, building, reportId),
         ],
-        const SizedBox(height: 16),
+        const SizedBox(height: _spacingContent),
         if (periodWithoutBorder)
           Text(
             periodLabel,
@@ -1368,7 +1368,7 @@ class ReportDetailContent extends StatelessWidget {
               ],
             ),
           ),
-        const SizedBox(height: 12),
+        const SizedBox(height: _spacingSection),
         Divider(
           color: Colors.grey[300],
           thickness: 0.7,
@@ -1598,7 +1598,7 @@ class ReportDetailContent extends StatelessWidget {
                 ],
               ),
               if (hasQuality) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: _spacingCardGap),
                 _buildDataQualityKpiCard(quality, locale),
               ],
             ],
@@ -1641,7 +1641,7 @@ class ReportDetailContent extends StatelessWidget {
             'Average Data Quality',
             style: AppTextStyles.labelMedium.copyWith(color: Colors.grey[700]),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: _spacingSection),
           Text(
             isWarning ? 'Needs attention' : 'Excellent',
             style: AppTextStyles.titleMedium.copyWith(
@@ -1777,11 +1777,11 @@ class ReportDetailContent extends StatelessWidget {
     if (lineChart == null && peakLoadChart == null) {
       return const SizedBox.shrink();
     }
-    const chartPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 24);
+    const chartPadding = EdgeInsets.symmetric(
+        horizontal: _spacingContent, vertical: _spacingSection);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: _sectionSpacing),
         Text(
           'OVERVIEW',
           style: AppTextStyles.overline.copyWith(
@@ -1790,7 +1790,7 @@ class ReportDetailContent extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: _spacingContent),
         LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth > 1200;
@@ -1813,13 +1813,13 @@ class ReportDetailContent extends StatelessWidget {
                             color: Colors.grey[800],
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: _spacingContent),
                         SizedBox(
                           width: chartWidth ?? double.infinity,
                           height: _chartHeight,
                           child: lineChart,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: _spacingContent),
                         _buildLineChartLegend(),
                       ],
                     ),
@@ -1843,7 +1843,7 @@ class ReportDetailContent extends StatelessWidget {
                             color: Colors.grey[800],
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: _spacingContent),
                         SizedBox(
                           width: chartWidth ?? double.infinity,
                           height: _chartHeight,
@@ -1860,7 +1860,7 @@ class ReportDetailContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(child: lineChartWidget),
-                    const SizedBox(width: 20),
+                    const SizedBox(width: _spacingContent),
                     Expanded(child: peakChartWidget),
                   ],
                 ),
@@ -1871,7 +1871,7 @@ class ReportDetailContent extends StatelessWidget {
               children: [
                 if (lineChartWidget != null) ...[
                   lineChartWidget,
-                  const SizedBox(height: 20),
+                  const SizedBox(height: _spacingContent),
                 ],
                 if (peakChartWidget != null) peakChartWidget,
               ],
@@ -2269,10 +2269,10 @@ class ReportDetailContent extends StatelessWidget {
       title: 'Detail Metrics',
       showBorder: false,
       zeroHorizontalPadding: true,
-      titleToContentSpacing: 4,
+      titleToContentSpacing: _spacingTitleSubtitle,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          const spacing = 12.0;
+          const spacing = _spacingCardGap;
           final isTwoColumns = constraints.maxWidth > 700;
           if (isTwoColumns) {
             final cardWidth = (constraints.maxWidth - spacing) / 2;
@@ -2360,7 +2360,7 @@ class ReportDetailContent extends StatelessWidget {
               color: Colors.grey[800],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: _spacingTitleSubtitle),
           ...metricRows.map(
             (row) => Padding(
               padding: const EdgeInsets.only(bottom: 4),
@@ -2384,7 +2384,7 @@ class ReportDetailContent extends StatelessWidget {
               ),
             ),
           ),
-          if (type == 'Per-Capita') const SizedBox(height: 24),
+          if (type == 'Per-Capita') const SizedBox(height: _spacingSection),
         ],
       ),
     );

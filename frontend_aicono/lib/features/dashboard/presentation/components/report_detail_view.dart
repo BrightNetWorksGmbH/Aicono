@@ -11,6 +11,8 @@ class ReportDetailView extends StatelessWidget {
   final String? reportId;
   final List<ReportRecipientEntity> recipients;
 
+  static const double _spacingBlock = 24.0;
+
   const ReportDetailView({
     super.key,
     this.reportId,
@@ -66,7 +68,7 @@ class ReportDetailView extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.assessment_outlined, size: 72, color: Colors.grey[400]),
-            const SizedBox(height: 20),
+            SizedBox(height: _spacingBlock),
             Text(
               'Select a report from the sidebar',
               style: AppTextStyles.titleMedium.copyWith(
@@ -92,7 +94,7 @@ class ReportDetailView extends StatelessWidget {
               height: 40,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: _spacingBlock),
             Text(
               'Loading report...',
               style: AppTextStyles.titleSmall.copyWith(color: Colors.grey[600]),
@@ -111,7 +113,7 @@ class ReportDetailView extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.error_outline, size: 56, color: Colors.red[400]),
-            const SizedBox(height: 20),
+            SizedBox(height: _spacingBlock),
             Text(
               message,
               style: AppTextStyles.titleSmall.copyWith(color: Colors.red[700]),

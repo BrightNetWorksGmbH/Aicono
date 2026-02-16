@@ -93,6 +93,14 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
   String? _userName; // Full name for navigation
   List<SwitchRoleEntity> _switches = [];
 
+  // Consistent spacing constants for the dashboard UI
+  static const double _spacingBlock = 24.0; // Between main content blocks
+  static const double _spacingSection = 24.0; // Between sections within a block
+  static const double _spacingContent = 16.0; // After header, before content
+  static const double _spacingTitleSubtitle = 8.0; // Between title and subtitle
+  static const double _spacingTight = 4.0; // Value to label in metric cards
+  static const double _spacingCardGap = 12.0; // Between cards, list items
+
   @override
   void initState() {
     super.initState();
@@ -221,14 +229,14 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                         children: [
                           if (!hasPropertySelection) ...[
                             _buildWelcomeSection(),
-                            const SizedBox(height: 24),
+                            SizedBox(height: _spacingBlock),
                           ],
                           // Selected Item Details (Site/Building/Floor/Room)
                           _buildSelectedItemDetails(),
-                          const SizedBox(height: 32),
+                          SizedBox(height: _spacingBlock),
                           // Trigger Manual Report Button
                           _buildTriggerManualReportButton(),
-                          const SizedBox(height: 32),
+                          SizedBox(height: _spacingBlock),
                           // "Was brauchst Du gerade?" Section
                           _buildActionLinksSection(),
                         ],
@@ -319,9 +327,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
       }
     }
     final canChangeDate = widget.onDashboardDateRangeChanged != null;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Container(
+    return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.zero,
@@ -382,7 +388,6 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             ],
           ],
         ),
-      ),
     );
   }
 
@@ -656,7 +661,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 filter: _buildDashboardPeriodHeader(context, d.timeRange),
               ),
               if (kpis != null) ...[
-                const SizedBox(height: 32),
+                SizedBox(height: _spacingSection),
                 _buildPropertyKpiSection(
                   title: 'Site KPIs',
                   subtitle:
@@ -665,7 +670,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                   locale: locale,
                 ),
               ],
-              const SizedBox(height: 24),
+              SizedBox(height: _spacingSection),
               Text(
                 'Buildings',
                 style: AppTextStyles.titleMedium.copyWith(
@@ -673,14 +678,14 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                   color: Colors.black87,
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: _spacingTitleSubtitle),
               Text(
                 'Select a building from the sidebar to view details.',
                 style: AppTextStyles.labelSmall.copyWith(
                   color: Colors.grey[600],
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: _spacingContent),
               if (d.buildings.isEmpty)
                 Text(
                   'No buildings for this site yet.',
@@ -810,7 +815,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             filter: _buildDashboardPeriodHeader(context, d.timeRange),
           ),
           if (kpis != null) ...[
-            const SizedBox(height: 32),
+            SizedBox(height: _spacingSection),
             _buildPropertyKpiSection(
               title: 'Room KPIs',
               subtitle:
@@ -819,7 +824,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               locale: locale,
             ),
           ],
-          const SizedBox(height: 24),
+          SizedBox(height: _spacingSection),
           _RoomRealtimeSensorsSection(roomId: state.roomId, sensors: d.sensors),
         ],
       );
@@ -914,7 +919,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             ],
           ),
           if (kpis != null) ...[
-            const SizedBox(height: 32),
+            SizedBox(height: _spacingSection),
             _buildPropertyKpiSection(
               title: 'Floor KPIs',
               subtitle:
@@ -923,7 +928,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               locale: locale,
             ),
           ],
-          const SizedBox(height: 24),
+          SizedBox(height: _spacingSection),
           _buildCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -937,7 +942,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                       color: Colors.black87,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: _spacingTitleSubtitle),
                   Container(
                     width: double.infinity,
                     constraints: const BoxConstraints(maxHeight: 400),
@@ -951,7 +956,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                       child: _buildFloorPlanImage(d.floorPlanLink!),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: _spacingContent),
                 ],
                 Text(
                   'Rooms',
@@ -960,14 +965,14 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: _spacingTitleSubtitle),
                 Text(
                   'Select a room from the sidebar to view details.',
                   style: AppTextStyles.labelSmall.copyWith(
                     color: Colors.grey[600],
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: _spacingContent),
                 if (d.rooms.isEmpty)
                   Text(
                     'No rooms on this floor.',
@@ -1085,7 +1090,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             filter: _buildDashboardPeriodHeader(context, d.timeRange),
           ),
           if (kpis != null) ...[
-            const SizedBox(height: 32),
+            SizedBox(height: _spacingSection),
             _buildPropertyKpiSection(
               title: 'Building KPIs',
               subtitle:
@@ -1097,30 +1102,30 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
           if ((analytics != null &&
                   (analytics.eui != null || analytics.perCapita != null)) ||
               (kpis != null && kpis.breakdown.isNotEmpty)) ...[
-            const SizedBox(height: 24),
+            SizedBox(height: _spacingSection),
             _buildBuildingDetailMetricsSection(analytics, kpis, locale),
           ],
           if (kpis != null) ...[
-            const SizedBox(height: 24),
+            SizedBox(height: _spacingSection),
             _buildPropertyDataQualitySummary(kpis, locale),
           ],
           if (d.analyticsRaw != null && d.analyticsRaw!.isNotEmpty) ...[
-            const SizedBox(height: 24),
+            SizedBox(height: _spacingSection),
             _buildBuildingBenchmarkSection(d.analyticsRaw!, locale),
-            const SizedBox(height: 24),
+            SizedBox(height: _spacingSection),
             _buildBuildingInefficientUsageSection(d.analyticsRaw!, locale),
-            const SizedBox(height: 24),
+            SizedBox(height: _spacingSection),
             _buildBuildingTemperatureSection(d.analyticsRaw!, locale),
-            const SizedBox(height: 24),
+            SizedBox(height: _spacingSection),
             _buildBuildingComparisonSection(d.analyticsRaw!, locale),
-            const SizedBox(height: 24),
+            SizedBox(height: _spacingSection),
             _buildBuildingTimeBasedAnalysisSection(d.analyticsRaw!, locale),
-            const SizedBox(height: 24),
+            SizedBox(height: _spacingSection),
             _buildBuildingHourlyPatternSection(d.analyticsRaw!, locale),
-            const SizedBox(height: 24),
+            SizedBox(height: _spacingSection),
             _buildBuildingAnomaliesSection(context, d.analyticsRaw!, locale),
           ],
-          const SizedBox(height: 24),
+          SizedBox(height: _spacingSection),
           _buildCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1132,14 +1137,14 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: _spacingTitleSubtitle),
                 Text(
                   'Select a floor from the sidebar to view details.',
                   style: AppTextStyles.labelSmall.copyWith(
                     color: Colors.grey[600],
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: _spacingContent),
                 if (d.floors.isEmpty)
                   Text(
                     'No floors in this building yet.',
@@ -1244,7 +1249,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
   }) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.only(bottom: _spacingCardGap),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1282,7 +1287,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                   ),
                 ),
                 if (subtitle != null && subtitle.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  SizedBox(height: _spacingTight),
                   Text(
                     subtitle,
                     style: AppTextStyles.labelSmall.copyWith(
@@ -1729,7 +1734,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     fontSize: 22,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: _spacingTight),
                 Text(
                   label,
                   style: AppTextStyles.labelSmall.copyWith(
@@ -1779,7 +1784,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     ),
                   ),
                   if (address != null && address.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    SizedBox(height: _spacingTitleSubtitle),
                     Row(
                       children: [
                         Icon(
@@ -1841,27 +1846,27 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
           ],
         ),
         if (filter != null) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: _spacingContent),
           filter,
-          const SizedBox(height: 12),
+          SizedBox(height: _spacingContent),
           Divider(
             color: Colors.grey[300],
             thickness: 0.7,
             height: 0,
           ),
         ],
-        const SizedBox(height: 16),
+        SizedBox(height: _spacingContent),
         LayoutBuilder(
           builder: (context, constraints) {
             final isNarrow = constraints.maxWidth < 700;
             if (isNarrow) {
               return Wrap(
-                spacing: 12,
-                runSpacing: 12,
+                spacing: _spacingCardGap,
+                runSpacing: _spacingCardGap,
                 children: metricCards
                     .map(
                       (w) => SizedBox(
-                        width: (constraints.maxWidth - 12) / 2,
+                        width: (constraints.maxWidth - _spacingCardGap) / 2,
                         child: w,
                       ),
                     )
@@ -1871,7 +1876,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             return Row(
               children: [
                 for (int i = 0; i < metricCards.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 12),
+                  if (i > 0) SizedBox(width: _spacingCardGap),
                   Expanded(child: metricCards[i]),
                 ],
               ],
@@ -1972,7 +1977,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     fontSize: 22,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: _spacingTight),
                 Text(
                   label,
                   style: AppTextStyles.labelSmall.copyWith(
@@ -2012,22 +2017,22 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             color: Colors.black87,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: _spacingTitleSubtitle),
         Text(
           subtitle,
           style: AppTextStyles.labelSmall.copyWith(color: Colors.grey[600]),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: _spacingContent),
         LayoutBuilder(
           builder: (context, constraints) {
             final isNarrow = constraints.maxWidth < 700;
             if (isNarrow) {
               return Wrap(
-                spacing: 12,
-                runSpacing: 12,
+                spacing: _spacingCardGap,
+                runSpacing: _spacingCardGap,
                 children: [
                   SizedBox(
-                    width: (constraints.maxWidth - 12) / 2,
+                    width: (constraints.maxWidth - _spacingCardGap) / 2,
                     child: _buildKpiMetricCard(
                       label: 'Total',
                       value: LocaleNumberFormat.formatDecimal(
@@ -2085,7 +2090,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     indicatorColor: const Color(0xFF64B5F6),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: _spacingCardGap),
                 Expanded(
                   child: _buildKpiMetricCard(
                     label: 'Peak',
@@ -2096,7 +2101,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     indicatorColor: const Color(0xFFFFB74D),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: _spacingCardGap),
                 Expanded(
                   child: _buildKpiMetricCard(
                     label: 'Average',
@@ -2107,7 +2112,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     indicatorColor: const Color(0xFFFFEE58),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: _spacingCardGap),
                 Expanded(
                   child: _buildKpiMetricCard(
                     label: 'Base',
@@ -2213,7 +2218,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     color: Colors.grey[800],
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: _spacingTitleSubtitle),
                 _buildBreakdownRow('Total', item.total, locale),
                 _buildBreakdownRow('Average', item.average, locale),
                 _buildBreakdownRow('Min', item.min, locale),
@@ -2239,11 +2244,11 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             color: Colors.black87,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: _spacingCardGap),
         LayoutBuilder(
           builder: (context, constraints) {
             final isNarrow = constraints.maxWidth < 700;
-            final spacing = 12.0;
+            final spacing = _spacingCardGap;
             if (isNarrow) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2329,7 +2334,6 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 24),
         Text(
           'Building Comparison',
           style: AppTextStyles.titleMedium.copyWith(
@@ -2337,7 +2341,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             color: Colors.black87,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: _spacingCardGap),
         LayoutBuilder(
           builder: (context, constraints) {
             final fullWidth = constraints.maxWidth;
@@ -2430,7 +2434,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             color: Colors.black87,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: _spacingCardGap),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
@@ -2470,7 +2474,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             color: Colors.black87,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: _spacingCardGap),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
@@ -2522,7 +2526,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             color: Colors.black87,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: _spacingCardGap),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
@@ -2603,7 +2607,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             color: Colors.black87,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: _spacingCardGap),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
@@ -2747,7 +2751,6 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 24),
         Text(
           'Time-based analysis',
           style: AppTextStyles.titleMedium.copyWith(
@@ -2755,7 +2758,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             color: Colors.black87,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: _spacingCardGap),
         LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth > 700;
@@ -3020,7 +3023,6 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 24),
         Row(
           children: [
             Text(
@@ -3045,7 +3047,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: _spacingCardGap),
         LayoutBuilder(
           builder: (context, constraints) {
             final crossAxisCount = constraints.maxWidth > 500 ? 2 : 1;
@@ -3169,9 +3171,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               color: Colors.grey[800],
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: _spacingTitleSubtitle),
           for (int i = 0; i < rows.length; i++) ...[
-            if (i > 0) const SizedBox(height: 4),
+            if (i > 0) SizedBox(height: _spacingTight),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -3209,7 +3211,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             color: Colors.black87,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: _spacingTitleSubtitle),
         Text(
           'dashboard.main_content.welcome_back'.tr(),
           style: AppTextStyles.titleMedium.copyWith(
@@ -3333,7 +3335,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             Icon(Icons.search, size: 20, color: Colors.grey[600]),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: _spacingContent),
         _buildActionLink(
           text: 'dashboard.main_content.enter_measurement_data'.tr(),
           onTap: () {
@@ -3349,21 +3351,21 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             );
           },
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: _spacingTitleSubtitle),
         _buildActionLink(
           text: 'dashboard.main_content.add_building'.tr(),
           onTap: () {
             _showSiteSelectionDialog();
           },
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: _spacingTitleSubtitle),
         _buildActionLink(
           text: 'dashboard.main_content.add_site'.tr(),
           onTap: () {
             _showSwitchSelectionDialog();
           },
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: _spacingTitleSubtitle),
         _buildActionLink(
           text: 'dashboard.main_content.add_branding'.tr(),
           onTap: () {
