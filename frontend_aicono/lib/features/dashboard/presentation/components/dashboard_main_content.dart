@@ -4932,7 +4932,7 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
       return;
     }
 
-    final result = await showDialog<String?>(
+    final result = await showDialog<Map<String, String>?>(
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) => BlocProvider(
@@ -4946,14 +4946,17 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
     );
 
     if (result != null && mounted) {
-      setState(() {
-        _loxoneRoomIds[room.id] = result;
-      });
+      final loxoneRoomId = result['id'];
+      if (loxoneRoomId != null && loxoneRoomId.isNotEmpty) {
+        setState(() {
+          _loxoneRoomIds[room.id] = loxoneRoomId;
+        });
 
-      // Update room in backend with loxone_room_id
-      final backendRoomId = _backendRoomIds[room.id];
-      if (backendRoomId != null) {
-        _updateRoomLoxoneIdInBackend(backendRoomId, result);
+        // Update room in backend with loxone_room_id
+        final backendRoomId = _backendRoomIds[room.id];
+        if (backendRoomId != null) {
+          _updateRoomLoxoneIdInBackend(backendRoomId, loxoneRoomId);
+        }
       }
     }
   }
@@ -5998,19 +6001,16 @@ class SimplifiedFloorPlanEditorState extends State<SimplifiedFloorPlanEditor> {
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         )
-                      : IconButton(
-                          icon: Icon(
-                            Icons.link_outlined,
-                            color: Colors.blue[600],
-                            size: 20,
-                          ),
-                          tooltip: 'Link to Loxone',
-                          onPressed: () {
+                      : InkWell(
+                          onTap: () {
                             _showLinkToLoxoneDialog(room);
                           },
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
+                          child: _buildSvgIcon(
+                            _assetRoom,
+                            color: Color(0xFF00897B),
+                          ),
                         ),
+
                   const SizedBox(width: 4),
                   // Delete button
                   IconButton(

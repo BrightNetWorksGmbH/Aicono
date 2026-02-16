@@ -235,51 +235,47 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
     );
 
     try {
-      final response = await _dioClient.dio.get(
-        '/api/v1/buildings/contacts',
-        queryParameters: {'buildingId': widget.buildingId},
-      );
+      final response = await _dioClient.dio.get('/api/v1/reporting/recipients');
 
       if (mounted) {
         Navigator.of(context).pop();
       }
 
-      List<Map<String, dynamic>> contactsList = [];
+      List<Map<String, dynamic>> recipientsList = [];
       if (response.data != null) {
-        if (response.data is List) {
-          contactsList = List<Map<String, dynamic>>.from(response.data);
-        } else if (response.data is Map<String, dynamic>) {
+        if (response.data is Map<String, dynamic>) {
           final responseMap = response.data as Map<String, dynamic>;
+          // Handle the new response format: {success: true, data: [...], count: 3}
           if (responseMap['data'] != null && responseMap['data'] is List) {
-            contactsList = List<Map<String, dynamic>>.from(responseMap['data']);
-          } else if (responseMap['contacts'] != null &&
-              responseMap['contacts'] is List) {
-            contactsList = List<Map<String, dynamic>>.from(
-              responseMap['contacts'],
-            );
-          } else if (responseMap['results'] != null &&
-              responseMap['results'] is List) {
-            contactsList = List<Map<String, dynamic>>.from(
-              responseMap['results'],
+            recipientsList = List<Map<String, dynamic>>.from(
+              responseMap['data'],
             );
           }
+        } else if (response.data is List) {
+          recipientsList = List<Map<String, dynamic>>.from(response.data);
         }
       }
 
       if (mounted) {
-        _showContactsDialog(contactsList);
+        _showRecipientsDialog(recipientsList);
       }
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
-        _showContactsDialog([]);
+        _showRecipientsDialog([]);
       }
     }
   }
 
-  void _showContactsDialog(List<Map<String, dynamic>> contactsList) {
+  void _showRecipientsDialog(List<Map<String, dynamic>> recipientsList) {
     final Size screenSize = MediaQuery.of(context).size;
-    String? selectedContactId;
+    // Get currently selected recipient IDs to pre-select them
+    Set<String> selectedRecipientIds = Set.from(
+      _selectedResponsiblePersons
+          .where((p) => p['method'] == 'domain' && p['id'] != null)
+          .map((p) => p['id'].toString())
+          .where((id) => id.isNotEmpty),
+    );
 
     showDialog(
       context: context,
@@ -291,11 +287,7 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Text(
-                  'building_contact_person.contacts_from_domain'.tr(),
-                ),
-              ),
+              Expanded(child: Text('Select Recipients')),
               IconButton(
                 icon: const Icon(Icons.close, size: 20),
                 onPressed: () => Navigator.of(context).pop(),
@@ -310,12 +302,10 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
                 : screenSize.width < 1200
                 ? screenSize.width * 0.5
                 : screenSize.width * 0.4,
-            child: contactsList.isEmpty
+            child: recipientsList.isEmpty
                 ? Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'building_contact_person.no_contacts_found'.tr(),
-                    ),
+                    child: Text('No recipients found'),
                   )
                 : Column(
                     mainAxisSize: MainAxisSize.min,
@@ -324,7 +314,7 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16.0),
                         child: Text(
-                          'building_contact_person.choose_one_contact'.tr(),
+                          'Select one or more recipients',
                           style: AppTextStyles.bodyMedium.copyWith(
                             color: Colors.grey[700],
                           ),
@@ -333,22 +323,31 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
                       Flexible(
                         child: ListView.builder(
                           shrinkWrap: true,
-                          itemCount: contactsList.length,
+                          itemCount: recipientsList.length,
                           itemBuilder: (context, index) {
-                            final contact = contactsList[index];
-                            final name =
-                                contact['name'] ?? contact['fullName'] ?? '';
-                            final email =
-                                contact['email'] ??
-                                contact['emailAddress'] ??
+                            final recipient = recipientsList[index];
+                            final name = recipient['name'] ?? '';
+                            final email = recipient['email'] ?? '';
+                            final recipientId =
+                                recipient['_id']?.toString() ??
+                                recipient['id']?.toString() ??
                                 '';
-                            final contactId =
-                                contact['_id'] ?? contact['id'] ?? '';
+
+                            if (recipientId.isEmpty)
+                              return const SizedBox.shrink();
+
+                            final isSelected = selectedRecipientIds.contains(
+                              recipientId,
+                            );
 
                             return InkWell(
                               onTap: () {
                                 setDialogState(() {
-                                  selectedContactId = contactId;
+                                  if (isSelected) {
+                                    selectedRecipientIds.remove(recipientId);
+                                  } else {
+                                    selectedRecipientIds.add(recipientId);
+                                  }
                                 });
                               },
                               child: Padding(
@@ -357,13 +356,20 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
                                 ),
                                 child: Row(
                                   children: [
-                                    Radio<String>(
-                                      value: contactId,
+                                    Checkbox(
+                                      value: isSelected,
                                       activeColor: Colors.black,
-                                      groupValue: selectedContactId,
                                       onChanged: (value) {
                                         setDialogState(() {
-                                          selectedContactId = value;
+                                          if (value == true) {
+                                            selectedRecipientIds.add(
+                                              recipientId,
+                                            );
+                                          } else {
+                                            selectedRecipientIds.remove(
+                                              recipientId,
+                                            );
+                                          }
                                         });
                                       },
                                     ),
@@ -374,9 +380,7 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            name.isNotEmpty
-                                                ? name
-                                                : 'Unbekannt',
+                                            name.isNotEmpty ? name : 'Unknown',
                                             style: AppTextStyles.bodyMedium
                                                 .copyWith(
                                                   fontWeight: FontWeight.w500,
@@ -406,47 +410,49 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
           ),
           actions: [
             PrimaryOutlineButton(
-              label: 'building_contact_person.choose_contact'.tr(),
-              onPressed: selectedContactId == null
+              label: selectedRecipientIds.isEmpty
+                  ? 'Select Recipients'
+                  : 'Add ${selectedRecipientIds.length} Recipient${selectedRecipientIds.length > 1 ? 's' : ''}',
+              onPressed: selectedRecipientIds.isEmpty
                   ? null
                   : () {
-                      final selectedContact = contactsList.firstWhere((
-                        contact,
-                      ) {
-                        final contactId = contact['_id'] ?? contact['id'] ?? '';
-                        return contactId == selectedContactId;
-                      });
+                      // Get selected recipients from the list
+                      final selectedRecipients = recipientsList.where((r) {
+                        final id =
+                            r['_id']?.toString() ?? r['id']?.toString() ?? '';
+                        return selectedRecipientIds.contains(id);
+                      }).toList();
 
-                      final name =
-                          selectedContact['name'] ??
-                          selectedContact['fullName'] ??
-                          '';
-                      final email =
-                          selectedContact['email'] ??
-                          selectedContact['emailAddress'] ??
-                          '';
-                      final contactId =
-                          selectedContact['_id'] ?? selectedContact['id'] ?? '';
+                      // Add all selected recipients to _selectedResponsiblePersons
+                      for (var recipient in selectedRecipients) {
+                        final recipientId =
+                            recipient['_id']?.toString() ??
+                            recipient['id']?.toString() ??
+                            '';
+                        final name = recipient['name']?.toString() ?? '';
+                        final email = recipient['email']?.toString() ?? '';
 
-                      // Check if person already exists
-                      final existingIndex = _selectedResponsiblePersons
-                          .indexWhere((p) => p['id'] == contactId);
+                        // Check if person already exists
+                        final existingIndex = _selectedResponsiblePersons
+                            .indexWhere((p) => p['id'] == recipientId);
 
-                      if (existingIndex == -1) {
-                        // Add new person
-                        setState(() {
-                          _selectedResponsiblePersons.add({
-                            'name': name,
-                            'email': email,
-                            'phone': selectedContact['phone'] ?? '',
-                            'id': contactId.isNotEmpty
-                                ? contactId
-                                : DateTime.now().millisecondsSinceEpoch
-                                      .toString(),
-                            'method': 'domain',
+                        if (existingIndex == -1) {
+                          // Add new person
+                          setState(() {
+                            _selectedResponsiblePersons.add({
+                              'name': name,
+                              'email': email,
+                              'phone': recipient['phone']?.toString() ?? '',
+                              'id': recipientId.isNotEmpty
+                                  ? recipientId
+                                  : DateTime.now().millisecondsSinceEpoch
+                                        .toString(),
+                              'method': 'domain',
+                            });
                           });
-                        });
+                        }
                       }
+
                       Navigator.of(context).pop();
                     },
               width: 260,

@@ -1384,7 +1384,7 @@ class ReportDetailContent extends StatelessWidget {
     ReportDetailBuildingEntity building,
     String? reportId,
   ) {
-    return GestureDetector(
+    return InkWell(
       onTap: () => RecipientsPopupDialog.show(
         context,
         recipients,
