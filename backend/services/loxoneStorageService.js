@@ -42,22 +42,37 @@ function normalizeUUID(uuid) {
 // Get measurement type from sensor, control type, and category
 /**
  * Determine measurement type from sensor, control type, category, and format
- * Priority: 1. StateType + Format string/Unit (for Meter controls - most reliable), 2. Category type, 3. Category name, 4. Control type
- * Note: For Meter controls, stateType determines Power vs Energy:
+ * Priority: 1. StateType + Format string/Unit (for Meter/EFM controls - most reliable), 2. Category type, 3. Category name, 4. Control type
+ * Note: For Meter/EFM controls, stateType determines Power vs Energy:
  * - actual* states (actual, actual0, actual1, etc.) = Power (instantaneous, W/kW) ONLY if unit is W/kW
+ * - EFM instantaneous states (selfConsumption, Gpwr, etc.) = Power (instantaneous, W/kW) if unit is W/kW
  * - actual* states with Temperature unit (°C/°F) = Temperature
  * - total* states (total, totalDay, totalWeek, etc.) = Energy (cumulative, Wh/kWh)
  */
 function getMeasurementType(sensor, controlType, categoryInfo = null, controlData = null, stateType = null, unit = null) {
-    // Priority 1: For Meter controls, stateType + format string/unit combination is most reliable
+    // Priority 1: For Meter and EFM controls, stateType + format string/unit combination is most reliable
     // Meter controls can measure: Energy (kW/kWh), Temperature (°C), Gas/Water (m³/L), etc.
-    if (controlType === 'Meter' && controlData && controlData.details) {
-        // CRITICAL: StateType + Unit determines Power vs Energy vs Temperature for Meter controls
+    // EFM (Energy Flow Monitor) controls track energy flows with instantaneous power states
+    if ((controlType === 'Meter' || controlType === 'EFM') && controlData && controlData.details) {
+        // CRITICAL: StateType + Unit determines Power vs Energy vs Temperature for Meter/EFM controls
         // actual* states = Power (instantaneous, W/kW) ONLY if unit indicates power
+        // EFM instantaneous power states (selfConsumption, Gpwr, etc.) = Power if unit is W/kW
         // actual* states with Temperature unit = Temperature
         // total* states = Energy (cumulative, Wh/kWh)
-        if (stateType && stateType.startsWith('actual')) {
-            // actual, actual0, actual1, etc. → Check unit to determine type
+        
+        // Check for instantaneous power states (actual* for Meter, or EFM-specific states)
+        const isInstantaneousPowerState = 
+            (stateType && stateType.startsWith('actual')) ||  // actual, actual0, actual1, actual5, etc.
+            (controlType === 'EFM' && stateType && (
+                stateType === 'selfConsumption' ||
+                stateType === 'Gpwr' ||
+                stateType === 'Ppv' ||  // Photovoltaic power
+                stateType === 'Pbat' || // Battery power
+                stateType === 'Pload'   // Load power
+            ));
+        
+        if (isInstantaneousPowerState) {
+            // actual*, selfConsumption, Gpwr, etc. → Check unit to determine type
             // First, check if we have a unit parameter (most reliable)
             if (unit) {
                 const unitLower = unit.toLowerCase();

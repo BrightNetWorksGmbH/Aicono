@@ -282,6 +282,14 @@ class SensorRealtimeService {
                 continue; // No sensor mapping for this UUID
             }
 
+            // Skip total* states - only send instantaneous (actual*) values
+            // total* states represent cumulative values (e.g., totalDay, totalWeek for Energy, 
+            // or cumulative temperature in degree-hours) which don't make sense for real-time display
+            if (mapping.stateType && 
+                (mapping.stateType.startsWith('total') || mapping.stateType.startsWith('totalNeg'))) {
+                continue; // Skip cumulative states
+            }
+
             const sensorId = mapping.sensor_id.toString();
             const subscribers = this.sensorSubscribers.get(sensorId);
 
@@ -352,11 +360,12 @@ class SensorRealtimeService {
             // Convert to ObjectIds
             const objectIds = sensorIds.map(id => new mongoose.Types.ObjectId(id));
 
-            // Get latest measurement for each sensor
+            // Get latest measurement for each sensor (only actual* states - instantaneous values)
             const results = await db.collection('measurements_raw').aggregate([
                 {
                     $match: {
-                        'meta.sensorId': { $in: objectIds }
+                        'meta.sensorId': { $in: objectIds },
+                        'meta.stateType': { $regex: '^actual' } // Only actual* states (skip total*, totalNeg*)
                     }
                 },
                 {
