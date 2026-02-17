@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend_aicono/core/widgets/page_header_row.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_floors_entity.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:dio/dio.dart';
 
 import '../../../../../core/routing/routeLists.dart';

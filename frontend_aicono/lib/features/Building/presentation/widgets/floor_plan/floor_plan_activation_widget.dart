@@ -6,7 +6,7 @@ import 'dart:convert' show base64Encode, base64Decode, utf8, jsonEncode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:xml/xml.dart' as xml;
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:path_provider/path_provider.dart';

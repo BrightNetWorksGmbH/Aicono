@@ -9,7 +9,7 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_s
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_sites_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_buildings_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/building_reports_bloc.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:frontend_aicono/core/injection_container.dart';

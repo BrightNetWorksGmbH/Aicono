@@ -7,7 +7,7 @@ import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
 import 'package:frontend_aicono/features/join_invite/presentation/bloc/join_invite_bloc.dart';
 import 'package:frontend_aicono/features/join_invite/presentation/components/join_switch_almost_widget.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 
 class JoinSwitchAlmostDonePage extends StatefulWidget {

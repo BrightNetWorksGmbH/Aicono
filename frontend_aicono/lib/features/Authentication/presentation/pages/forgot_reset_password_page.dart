@@ -1,7 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
@@ -136,7 +137,12 @@ class _ForgotResetPasswordPageState extends State<ForgotResetPasswordPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Personalized greeting
+                          const SizedBox(height: 24),
+                          SvgPicture.asset(
+                            'assets/images/logo_white_horizontal.svg',
+                            height: 40,
+                            fit: BoxFit.contain,
+                          ),
                           const SizedBox(height: 24),
                           Text(
                             'Reset Your Password',

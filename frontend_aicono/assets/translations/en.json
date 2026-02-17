@@ -6,7 +6,8 @@
     "remember_me": "Save login details on this device",
     "login_button": "Log in securely now",
     "switch_account": "Switch Account",
-    "footer_title": "BryteVerse© by Publify is the future in Publishing.",
+    "footer_title": "Save energy.\nConserve resources.\nWith Aicono.",
+    "footer_tagline": "ENERGY. UNDERSTAND. CHANGE.",
     "menu": "Menu",
     "footer_feature_1": "We reduce your costs",
     "footer_feature_2": "We save you time",
@@ -19,7 +20,8 @@
     "footer_link_contact": "Contact",
     "footer_link_data_protection": "Data Protection",
     "footer_link_privacy_settings": "Privacy Settings",
-    "footer_link_imprint": "Imprint"
+    "footer_link_imprint": "Imprint",
+    "footer_profile_role_fallback": "CFO, BrightNetWorks GmbH"
   },
   "reset_password": {
     "title": "Set Your Password",

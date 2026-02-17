@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';

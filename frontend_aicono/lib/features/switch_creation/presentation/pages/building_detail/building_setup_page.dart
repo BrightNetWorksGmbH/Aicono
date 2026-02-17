@@ -4,7 +4,7 @@ import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/core/widgets/page_header_row.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';

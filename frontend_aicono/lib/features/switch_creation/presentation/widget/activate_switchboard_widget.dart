@@ -3,7 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 
 class ActivateSwitchboardWidget extends StatelessWidget {
   final String? userName;
@@ -46,9 +46,7 @@ class ActivateSwitchboardWidget extends StatelessWidget {
               const SizedBox(height: 20),
               TopHeader(
                 onLanguageChanged: onLanguageChanged,
-                containerWidth: screenSize.width > 500
-                    ? 500
-                    : screenSize.width * 0.98,
+                containerWidth: screenSize.width,
               ),
               const SizedBox(height: 50),
               SizedBox(
@@ -69,11 +67,7 @@ class ActivateSwitchboardWidget extends StatelessWidget {
                     ),
                     const SizedBox(height: 36),
                     InkWell(
-                      onTap: () {
-                        if (context.canPop()) {
-                          context.pop();
-                        }
-                      },
+                      onTap: () => context.pop(),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: const [Icon(Icons.close)],

@@ -117,6 +117,7 @@ class User {
       'password_hash': passwordHash,
       'first_name': firstName,
       'last_name': lastName,
+      'position': position,
       'avatar_url': avatarUrl,
       if (phoneNumber != null) 'phone_number': phoneNumber,
       'is_active': isActive,

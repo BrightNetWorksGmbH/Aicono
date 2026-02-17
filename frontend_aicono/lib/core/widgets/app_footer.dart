@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
@@ -13,10 +13,15 @@ class AppFooter extends StatefulWidget {
   final VoidCallback onLanguageChanged;
   final double containerWidth;
 
+  /// When true, footer text and icons use dark colors for use on a white background.
+  /// When false or not passed, uses theme colors (for dark backgrounds).
+  final bool isWhiteBackground;
+
   const AppFooter({
     super.key,
     required this.onLanguageChanged,
     required this.containerWidth,
+    this.isWhiteBackground = false,
   });
 
   @override
@@ -155,13 +160,22 @@ class _AppFooterState extends State<AppFooter> {
     );
   }
 
+  Color get _primaryTextColor =>
+      widget.isWhiteBackground ? Colors.black87 : AppTheme.text;
+  Color get _secondaryTextColor =>
+      widget.isWhiteBackground ? Colors.black54 : AppTheme.textSecondary;
+  Color get _featureTextColor =>
+      widget.isWhiteBackground ? Colors.black87 : Colors.white;
+  Color get _iconColor =>
+      widget.isWhiteBackground ? Colors.black87 : Colors.white;
+
   Widget _buildSocialIcon(String assetPath) {
     return Container(
       width: 24,
       height: 24,
       child: SvgPicture.asset(
         assetPath,
-        colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
+        colorFilter: ColorFilter.mode(_iconColor, BlendMode.srcIn),
         fit: BoxFit.contain,
       ),
     );
@@ -171,7 +185,7 @@ class _AppFooterState extends State<AppFooter> {
     return Container(
       width: 24,
       height: 24,
-      child: Image.asset(assetPath, color: Colors.white, fit: BoxFit.contain),
+      child: Image.asset(assetPath, color: _iconColor, fit: BoxFit.contain),
     );
   }
 
@@ -245,7 +259,6 @@ class _AppFooterState extends State<AppFooter> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      // color: const Color(0xFF161B22),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,7 +268,7 @@ class _AppFooterState extends State<AppFooter> {
             child: Text(
               'login_screen.footer_title'.tr(),
               style: AppTextStyles.headlineLarge.copyWith(
-                color: AppTheme.text,
+                color: _primaryTextColor,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -286,7 +299,7 @@ class _AppFooterState extends State<AppFooter> {
                     Text(
                       'login_screen.footer_relevant_links'.tr(),
                       style: AppTextStyles.titleSmall.copyWith(
-                        color: Colors.white,
+                        color: _primaryTextColor,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -311,7 +324,7 @@ class _AppFooterState extends State<AppFooter> {
                     Text(
                       'login_screen.footer_social_media'.tr(),
                       style: AppTextStyles.titleSmall.copyWith(
-                        color: Colors.white,
+                        color: _primaryTextColor,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -360,13 +373,26 @@ class _AppFooterState extends State<AppFooter> {
 
           const SizedBox(height: 8),
           Container(
-            height: 200,
+            height: 220,
             width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
               color: Colors.white,
             ),
-            child: Image.asset('assets/images/appfoter.png'),
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SvgPicture.asset(
+                  'assets/images/vetical_Logo_new.svg',
+                  height: 130,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -409,21 +435,27 @@ class _AppFooterState extends State<AppFooter> {
                           Text(
                             currentUserName!,
                             style: AppTextStyles.labelSmall.copyWith(
-                              color: Colors.white,
+                              color: _primaryTextColor,
                             ),
                           ),
                         const SizedBox(height: 4),
                         Text(
-                          currentUserRole ?? 'CEO & Founder',
+                          currentUserRole ??
+                              'login_screen.footer_profile_role_fallback'.tr(),
                           style: AppTextStyles.labelSmall.copyWith(
-                            color: Colors.white,
+                            color: _primaryTextColor,
                           ),
                         ),
                       ],
                     ),
                   ],
                 ),
-              Image.asset('assets/images/bryteversebubbles.png', height: 40),
+              // SvgPicture.asset(
+              //   'assets/images/Vector_Logo_Horizontal.svg',
+              //   height: 40,
+              //   fit: BoxFit.contain,
+              //   // colorFilter: ColorFilter.mode(AppTheme.text, BlendMode.srcIn),
+              // ),
               InkWell(
                 onTap: () {
                   _showMenuPopup(context);
@@ -439,11 +471,11 @@ class _AppFooterState extends State<AppFooter> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
-                        'MENU',
+                        'login_screen.menu'.tr(),
                         style: AppTextStyles.labelSmall.copyWith(
                           letterSpacing: 1,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                          color: _primaryTextColor,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -455,7 +487,7 @@ class _AppFooterState extends State<AppFooter> {
                             height: 2,
                             margin: EdgeInsets.only(bottom: i == 2 ? 0 : 4),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: _primaryTextColor,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           );
@@ -486,7 +518,7 @@ class _AppFooterState extends State<AppFooter> {
           const SizedBox(width: 8),
           Text(
             text,
-            style: AppTextStyles.labelSmall.copyWith(color: Colors.white),
+            style: AppTextStyles.labelSmall.copyWith(color: _featureTextColor),
           ),
         ],
       ),
@@ -501,9 +533,9 @@ class _AppFooterState extends State<AppFooter> {
         child: Text(
           text,
           style: AppTextStyles.labelSmall.copyWith(
-            color: AppTheme.textSecondary,
+            color: _secondaryTextColor,
             decoration: TextDecoration.underline,
-            decorationColor: AppTheme.textSecondary,
+            decorationColor: _secondaryTextColor,
           ),
         ),
       ),

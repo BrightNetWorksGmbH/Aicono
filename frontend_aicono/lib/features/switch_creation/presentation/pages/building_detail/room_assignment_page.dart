@@ -11,7 +11,7 @@ import 'package:frontend_aicono/features/switch_creation/domain/entities/save_fl
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/save_floor_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_loxone_rooms_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 
 import '../../../../../core/storage/local_storage.dart';

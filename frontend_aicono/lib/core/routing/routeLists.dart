@@ -30,7 +30,7 @@ class Routelists {
   static const dashboardImageListing = 'dashboardImageListing';
   static const entryListing = 'entryListing';
   static const statistics = 'statistics';
-  static const addVerseSuper = 'add-verse-super';
+  static const addVerseSuper = 'add-switch-super';
   static const joinVerseIntro = 'joinVerseIntro';
   static const adminDashboard = 'adminDashboard';
   static const brytesightAdminDashboard = 'brytesightAdminDashboard';

@@ -23,7 +23,7 @@ import 'package:frontend_aicono/features/dashboard/presentation/components/repor
 import 'package:frontend_aicono/features/dashboard/domain/entities/report_summary_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_building_details_entity.dart';
 import 'package:frontend_aicono/features/dashboard/domain/entities/dashboard_site_details_entity.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/network/dio_client.dart';
 
 import '../../../../core/routing/routeLists.dart';

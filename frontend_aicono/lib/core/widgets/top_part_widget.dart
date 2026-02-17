@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
@@ -71,10 +72,12 @@ class _TopHeaderState extends State<TopHeader> {
     if (user != null && mounted) {
       final avatarUrl = user.avatarUrl;
       setState(() {
-        _loadedUserAvatarUrl = widget.userAvatarUrl ??
+        _loadedUserAvatarUrl =
+            widget.userAvatarUrl ??
             (avatarUrl != null && avatarUrl.isNotEmpty ? avatarUrl : null);
         final name = '${user.firstName} ${user.lastName}'.trim();
-        _loadedUserInitial = widget.userInitial ??
+        _loadedUserInitial =
+            widget.userInitial ??
             (name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?');
       });
     }
@@ -89,34 +92,26 @@ class _TopHeaderState extends State<TopHeader> {
 
     final effectiveSwitchId =
         widget.switchId ?? sl<LocalStorage>().getSelectedVerseId();
-    if (effectiveSwitchId != null &&
-        effectiveSwitchId.isNotEmpty &&
-        mounted) {
-      final result =
-          await sl<GetSwitchByIdUseCase>().call(effectiveSwitchId);
+    if (effectiveSwitchId != null && effectiveSwitchId.isNotEmpty && mounted) {
+      final result = await sl<GetSwitchByIdUseCase>().call(effectiveSwitchId);
       if (!mounted) return;
-      result.fold(
-        (_) {},
-        (switchDetails) {
-          if (mounted) {
-            setState(() {
-              final logoUrl = switchDetails.branding.logoUrl;
-              _loadedSwitchLogoUrl = logoUrl != null && logoUrl.isNotEmpty
-                  ? logoUrl
-                  : null;
-              _loadedVerseInitial = switchDetails.organizationName.isNotEmpty
-                  ? switchDetails.organizationName
-                      .substring(0, 1)
-                      .toUpperCase()
-                  : 'B';
-            });
-            // Update AppTheme.primary to switch's branding color so UI reflects it
-            sl<DynamicThemeService>().setPrimaryFromSwitch(
-              switchDetails.branding.primaryColor,
-            );
-          }
-        },
-      );
+      result.fold((_) {}, (switchDetails) {
+        if (mounted) {
+          setState(() {
+            final logoUrl = switchDetails.branding.logoUrl;
+            _loadedSwitchLogoUrl = logoUrl != null && logoUrl.isNotEmpty
+                ? logoUrl
+                : null;
+            _loadedVerseInitial = switchDetails.organizationName.isNotEmpty
+                ? switchDetails.organizationName.substring(0, 1).toUpperCase()
+                : 'B';
+          });
+          // Update AppTheme.primary to switch's branding color so UI reflects it
+          sl<DynamicThemeService>().setPrimaryFromSwitch(
+            switchDetails.branding.primaryColor,
+          );
+        }
+      });
     }
   }
 
@@ -125,7 +120,7 @@ class _TopHeaderState extends State<TopHeader> {
     return SizedBox(
       height: widget.height,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _buildStackedAvatars(),
@@ -137,7 +132,7 @@ class _TopHeaderState extends State<TopHeader> {
   }
 
   Widget _buildStackedAvatars() {
-    const avatarSize = 36.0;
+    const avatarSize = 32.0;
     const overlap = 26.0;
 
     return SizedBox(
@@ -145,10 +140,7 @@ class _TopHeaderState extends State<TopHeader> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Positioned(
-            left: overlap,
-            child: _buildVerseAvatar(avatarSize / 2),
-          ),
+          Positioned(left: overlap, child: _buildVerseAvatar(avatarSize / 2)),
           Positioned(left: 0, child: _buildUserAvatar(avatarSize / 2)),
         ],
       ),
@@ -157,7 +149,8 @@ class _TopHeaderState extends State<TopHeader> {
 
   Widget _buildUserAvatar(double radius) {
     final avatarUrl = widget.userAvatarUrl ?? _loadedUserAvatarUrl;
-    final initial = widget.userInitial ??
+    final initial =
+        widget.userInitial ??
         _loadedUserInitial ??
         (avatarUrl == null || avatarUrl.isEmpty ? '?' : null) ??
         '?';
@@ -181,7 +174,8 @@ class _TopHeaderState extends State<TopHeader> {
 
   Widget _buildVerseAvatar(double radius) {
     final logoUrl = widget.switchLogoUrl ?? _loadedSwitchLogoUrl;
-    final initial = widget.verseInitial ??
+    final initial =
+        widget.verseInitial ??
         _loadedVerseInitial ??
         (logoUrl == null || logoUrl.isEmpty ? 'B' : null) ??
         'B';
@@ -204,25 +198,10 @@ class _TopHeaderState extends State<TopHeader> {
   }
 
   Widget _buildBrandLogo() {
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: 'AI',
-            style: AppTextStyles.appTitle.copyWith(
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          TextSpan(
-            text: 'CONO',
-            style: AppTextStyles.appTitle.copyWith(
-              color: const Color(0xFF636F57),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
+    return SvgPicture.asset(
+      'assets/images/Vector_Logo_Horizontal.svg',
+      height: 32,
+      fit: BoxFit.contain,
     );
   }
 
@@ -230,55 +209,49 @@ class _TopHeaderState extends State<TopHeader> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        if (widget.onMenuTap != null) ...[
-          const SizedBox(width: 6),
-          InkWell(
-            onTap: widget.onMenuTap,
-            borderRadius: BorderRadius.circular(8),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Icon(Icons.menu, color: Colors.black87, size: 24),
+        // const SizedBox(width: 6),
+        InkWell(
+          onTap: () {
+            if (widget.onMenuTap != null) {
+              widget.onMenuTap!();
+            } else {
+              _showMenuPopup(context);
+            }
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'MENU',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    letterSpacing: 1,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(3, (i) {
+                    return Container(
+                      width: 50,
+                      height: 2,
+                      margin: EdgeInsets.only(bottom: i == 2 ? 0 : 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    );
+                  }),
+                ),
+              ],
             ),
           ),
-        ] else ...[
-          const SizedBox(width: 6),
-          InkWell(
-            onTap: () => _showMenuPopup(context),
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    'MENU',
-                    style: AppTextStyles.labelSmall.copyWith(
-                      letterSpacing: 1,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: List.generate(3, (i) {
-                      return Container(
-                        width: 50,
-                        height: 2,
-                        margin: EdgeInsets.only(bottom: i == 2 ? 0 : 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      );
-                    }),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ],
     );
   }

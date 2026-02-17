@@ -12,7 +12,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:xml/xml.dart' as xml;
 import 'dart:io' show File;
 import 'dart:async';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:image_picker/image_picker.dart';
