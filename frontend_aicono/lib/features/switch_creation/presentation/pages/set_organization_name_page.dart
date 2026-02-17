@@ -47,11 +47,7 @@ class _SetOrganizationNamePageState extends State<SetOrganizationNamePage> {
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleNameChanged(String value) {
     setState(() {

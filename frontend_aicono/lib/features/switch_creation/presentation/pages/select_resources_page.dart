@@ -31,11 +31,7 @@ class _SelectResourcesPageState extends State<SelectResourcesPage> {
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleSkip() {
     // TODO: navigate to next step or skip resource selection

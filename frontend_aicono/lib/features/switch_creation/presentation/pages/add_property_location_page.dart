@@ -32,11 +32,7 @@ class _AddPropertyLocationPageState extends State<AddPropertyLocationPage> {
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleSkip() {
     // TODO: navigate to next step or skip location setup

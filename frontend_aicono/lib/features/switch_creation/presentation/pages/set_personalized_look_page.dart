@@ -35,11 +35,7 @@ class _SetPersonalizedLookPageState extends State<SetPersonalizedLookPage> {
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleContinue() {
     // The widget will handle calling the bloc to complete setup

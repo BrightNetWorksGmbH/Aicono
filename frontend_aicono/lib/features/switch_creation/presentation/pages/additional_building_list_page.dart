@@ -221,11 +221,7 @@ class _AdditionalBuildingListPageState
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleAddBuildingDetails(BuildingData building) async {
     // Store buildingId in PropertySetupCubit for global access

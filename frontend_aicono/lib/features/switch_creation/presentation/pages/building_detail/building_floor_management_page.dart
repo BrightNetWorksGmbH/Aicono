@@ -259,7 +259,7 @@ class _BuildingFloorManagementPageState
   void _handleBack() {
     if (widget.onBack != null) {
       widget.onBack!();
-    } else if (context.canPop()) {
+    } else {
       context.pop();
     }
   }

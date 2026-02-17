@@ -52,11 +52,7 @@ class _SetSwitchNamePageState extends State<SetSwitchNamePage> {
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleSubDomainChanged(String value) {
     setState(() {

@@ -148,13 +148,7 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
 
                       children: [
                         InkWell(
-                          onTap:
-                              widget.onEdit ??
-                              () {
-                                if (context.canPop()) {
-                                  context.pop();
-                                }
-                              },
+                          onTap: widget.onEdit ?? () => context.pop(),
 
                           child: Text(
                             'set_subdomain.edit_link'.tr(),

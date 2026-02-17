@@ -67,20 +67,14 @@ class _DataSourceSelectionPageState extends State<DataSourceSelectionPage> {
   }
 
   void _handleContinue() {
-    // Pass back the selected loxone room ID when popping
-    if (context.canPop() && _selectedSource != null) {
-      context.pop(_selectedSource); // Pass the selected loxone_room_id
-    } else if (context.canPop()) {
+    if (_selectedSource != null) {
+      context.pop(_selectedSource);
+    } else {
       context.pop();
     }
   }
 
-  void _handleSkip() {
-    // Skip to next step - don't assign a room
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleSkip() => context.pop();
 
   void _toggleSource(String source) {
     setState(() {

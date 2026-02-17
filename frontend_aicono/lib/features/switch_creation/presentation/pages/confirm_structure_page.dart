@@ -23,11 +23,7 @@ class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleSkip() async {
     // TODO: navigate to switchboard/dashboard directly (skip structure setup)

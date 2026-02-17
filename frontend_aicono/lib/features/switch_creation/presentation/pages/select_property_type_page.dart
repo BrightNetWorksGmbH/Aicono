@@ -31,11 +31,7 @@ class _SelectPropertyTypePageState extends State<SelectPropertyTypePage> {
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleContinue(BuildContext blocContext, bool isSingleProperty) {
     // If siteId exists, update the site with resource_type

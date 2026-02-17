@@ -43,11 +43,7 @@ class _AddFloorNamePageState extends State<AddFloorNamePage> {
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleFloorNameChanged(String value) {
     setState(() {

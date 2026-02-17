@@ -42,11 +42,7 @@ class _AddAdditionalBuildingsPageState
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleHasAdditionalBuildingsChanged(bool value) {
     // Handle yes/no selection if needed

@@ -59,11 +59,7 @@ class _SetSwitchImagePageState extends State<SetSwitchImagePage> {
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleImageSelected(XFile? imageFile) {
     setState(() {

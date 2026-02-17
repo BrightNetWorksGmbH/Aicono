@@ -99,11 +99,7 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleBuildingDetailsChanged(Map<String, String?> details) {
     setState(() {
@@ -325,9 +321,7 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
 
   void _handleEditAddress() {
     // Navigate back to address selection page
-    if (context.canPop()) {
-      context.pop();
-    }
+    context.pop();
   }
 
   @override

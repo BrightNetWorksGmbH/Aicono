@@ -64,11 +64,7 @@ class _SetSwitchColorPageState extends State<SetSwitchColorPage> {
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleColorChanged(Color color, String colorHex) {
     setState(() {

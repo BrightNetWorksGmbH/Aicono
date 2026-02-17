@@ -45,11 +45,7 @@ class _AddPropertiesPageState extends State<AddPropertiesPage> {
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleAddPropertyDetails(Map<String, String> data) async {
     final localStorage = sl<LocalStorage>();
