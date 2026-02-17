@@ -7,7 +7,7 @@ import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/get_loxone_rooms_bloc.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 
 class DataSourceSelectionPage extends StatefulWidget {
   final String? userName;
@@ -67,20 +67,14 @@ class _DataSourceSelectionPageState extends State<DataSourceSelectionPage> {
   }
 
   void _handleContinue() {
-    // Pass back the selected loxone room ID when popping
-    if (context.canPop() && _selectedSource != null) {
-      context.pop(_selectedSource); // Pass the selected loxone_room_id
-    } else if (context.canPop()) {
+    if (_selectedSource != null) {
+      context.pop(_selectedSource);
+    } else {
       context.pop();
     }
   }
 
-  void _handleSkip() {
-    // Skip to next step - don't assign a room
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleSkip() => context.pop();
 
   void _toggleSource(String source) {
     setState(() {

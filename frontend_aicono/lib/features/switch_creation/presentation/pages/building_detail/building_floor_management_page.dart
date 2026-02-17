@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
@@ -259,7 +259,7 @@ class _BuildingFloorManagementPageState
   void _handleBack() {
     if (widget.onBack != null) {
       widget.onBack!();
-    } else if (context.canPop()) {
+    } else {
       context.pop();
     }
   }

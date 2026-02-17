@@ -6,7 +6,7 @@ import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/user.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 import '../../features/Authentication/domain/repositories/login_repository.dart';

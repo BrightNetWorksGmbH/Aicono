@@ -81,9 +81,7 @@ class _AddPropertyNameWidgetState extends State<AddPropertyNameWidget> {
               const SizedBox(height: 20),
               TopHeader(
                 onLanguageChanged: widget.onLanguageChanged,
-                containerWidth: screenSize.width > 500
-                    ? 500
-                    : screenSize.width * 0.98,
+                containerWidth: screenSize.width,
               ),
 
               const SizedBox(height: 50),

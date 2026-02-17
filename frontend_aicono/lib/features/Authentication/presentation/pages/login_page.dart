@@ -38,7 +38,7 @@ class _LoginPageState extends State<LoginPage> {
             width: screenSize.width,
 
             decoration: BoxDecoration(
-              color: AppTheme.surface,
+              color: Colors.white,
 
               // borderRadius: BorderRadius.circular(24.0),
               boxShadow: [
@@ -53,12 +53,15 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 // LoginHeader(onLanguageChanged: _handleLanguageChanged),
                 LoginForm(
-                  key: ValueKey(widget.invitation?.id ?? widget.token ?? 'no-invitation'),
+                  key: ValueKey(
+                    widget.invitation?.id ?? widget.token ?? 'no-invitation',
+                  ),
                   invitation: widget.invitation,
                   token: widget.token,
                 ),
                 AppFooter(
                   onLanguageChanged: _handleLanguageChanged,
+                  isWhiteBackground: true,
                   containerWidth: screenSize.width,
                 ),
               ],

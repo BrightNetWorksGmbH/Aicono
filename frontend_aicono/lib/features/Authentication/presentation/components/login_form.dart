@@ -2,12 +2,13 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/services/auth_service.dart';
 import 'package:frontend_aicono/core/services/saved_accounts_service.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/storage/local_storage.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/invitation_entity.dart';
 import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
@@ -549,12 +550,13 @@ class _LoginFormState extends State<LoginForm> {
                       width: contentWidth > 600
                           ? contentWidth - 200
                           : contentWidth,
-                      child: Image.asset(
-                        'assets/images/bryteversebubbles.png',
-                        height: 80,
+                      child: SvgPicture.asset(
+                        'assets/images/logo_white_horizontal.svg',
+                        height: 30,
+                        fit: BoxFit.contain,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 56),
                     Text(
                       'login_screen.welcome_message'.tr(),
                       textAlign: TextAlign.center,

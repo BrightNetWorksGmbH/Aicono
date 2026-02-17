@@ -9,7 +9,7 @@ import 'package:frontend_aicono/core/widgets/top_part_widget.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/core/widgets/xChackbox.dart';
 import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 
 /// Confirmation page after sending an invite.
 /// Shows authenticated user's name and uses translations.

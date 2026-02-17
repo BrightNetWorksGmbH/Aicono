@@ -488,20 +488,12 @@ class _AddVerseFormState extends State<AddVerseForm> {
                                       ),
                                     ),
                                   )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.add_circle_outline, size: 20),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'superadmin.create_verse_button'.tr(),
-                                        style: AppTextStyles.buttonText
-                                            .copyWith(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                    ],
+                                : Text(
+                                    'superadmin.create_verse_button'.tr(),
+                                    style: AppTextStyles.buttonText.copyWith(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                           ),
                         ),

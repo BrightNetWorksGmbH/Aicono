@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
@@ -99,11 +99,7 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
     setState(() {});
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
+  void _handleBack() => context.pop();
 
   void _handleBuildingDetailsChanged(Map<String, String?> details) {
     setState(() {
@@ -325,9 +321,7 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
 
   void _handleEditAddress() {
     // Navigate back to address selection page
-    if (context.canPop()) {
-      context.pop();
-    }
+    context.pop();
   }
 
   @override

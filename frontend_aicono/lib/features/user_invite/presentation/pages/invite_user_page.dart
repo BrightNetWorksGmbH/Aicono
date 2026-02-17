@@ -18,7 +18,7 @@ import 'package:frontend_aicono/features/user_invite/presentation/bloc/roles_blo
 import 'package:frontend_aicono/features/user_invite/presentation/bloc/send_invitation_bloc/send_invitation_bloc.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/bloc/send_invitation_bloc/send_invitation_event.dart';
 import 'package:frontend_aicono/features/user_invite/presentation/bloc/send_invitation_bloc/send_invitation_state.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 
 /// Invite user page with full backend integration.
 /// Fetches roles from API and sends invitation via POST.

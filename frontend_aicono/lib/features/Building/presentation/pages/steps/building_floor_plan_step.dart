@@ -4,7 +4,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'dart:io' show File;
 import 'package:http/http.dart' as http;
 import 'package:flutter_bloc/flutter_bloc.dart';

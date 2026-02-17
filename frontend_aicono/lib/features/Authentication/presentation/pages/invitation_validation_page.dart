@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
@@ -99,23 +100,11 @@ class _InvitationValidationPageState extends State<InvitationValidationPage> {
                     padding: const EdgeInsets.all(32.0),
                     child: Column(
                       children: [
-                        // Logo or Icon
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF214a59), Color(0xFF171c23)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(40),
-                          ),
-                          child: const Icon(
-                            Icons.mail_outline,
-                            color: Colors.white,
-                            size: 40,
-                          ),
+                        // Logo
+                        SvgPicture.asset(
+                          'assets/images/logo_white_horizontal.svg',
+                          height: 40,
+                          fit: BoxFit.contain,
                         ),
                         const SizedBox(height: 24),
 

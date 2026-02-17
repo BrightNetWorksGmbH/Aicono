@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/theme/app_theme.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
@@ -148,13 +148,7 @@ class _SetSwitchNameWidgetState extends State<SetSwitchNameWidget> {
 
                       children: [
                         InkWell(
-                          onTap:
-                              widget.onEdit ??
-                              () {
-                                if (context.canPop()) {
-                                  context.pop();
-                                }
-                              },
+                          onTap: widget.onEdit ?? () => context.pop(),
 
                           child: Text(
                             'set_subdomain.edit_link'.tr(),

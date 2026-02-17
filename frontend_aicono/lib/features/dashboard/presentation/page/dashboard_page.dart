@@ -23,7 +23,7 @@ import 'package:frontend_aicono/features/dashboard/presentation/bloc/building_re
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/report_detail_bloc.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/trigger_report_bloc.dart';
 import 'package:frontend_aicono/features/realtime/presentation/bloc/realtime_sensor_bloc.dart';
-import 'package:go_router/go_router.dart';
+import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/features/Authentication/domain/entities/user.dart';
 
