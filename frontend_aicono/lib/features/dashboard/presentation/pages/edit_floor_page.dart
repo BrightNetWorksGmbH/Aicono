@@ -11,7 +11,7 @@ import 'package:frontend_aicono/core/widgets/app_footer.dart';
 import 'package:frontend_aicono/core/network/dio_client.dart';
 import 'package:frontend_aicono/core/storage/local_storage.dart';
 import 'package:frontend_aicono/features/dashboard/presentation/bloc/dashboard_floor_details_bloc.dart';
-import 'package:frontend_aicono/features/dashboard/presentation/components/dashboard_main_content.dart'
+import 'package:frontend_aicono/features/dashboard/presentation/components/dashboard_main_content_widgets/dashboard_main_content_widgets.dart'
     show FloorPlanEditorWrapper, SimplifiedFloorPlanEditorState;
 import 'package:frontend_aicono/features/upload/presentation/bloc/upload_bloc.dart';
 import 'package:frontend_aicono/features/upload/presentation/bloc/upload_event.dart';
