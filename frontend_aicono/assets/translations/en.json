@@ -82,7 +82,7 @@
   },
   "set_switch_image": {
     "title": "Would you like to add a logo to your Bryteswitch?",
-    "change_verse": "+ Change verse",
+    "change_verse": "Upload image",
     "tip": "Tip: Your organization's logo creates recognition and immediately clarifies who it's about.",
     "skip_logo": "Continue without logo",
     "button_text": "That's fine. Let's continue.",
@@ -136,6 +136,8 @@
     "progress_text": "Almost done, {name}!",
     "progress_text_fallback": "Almost done!",
     "title": "Add Properties",
+    "title_single": "What is your property called?",
+    "title_multiple": "What are your property names?",
     "property_name_hint": "Property name",
     "add_new_property": "Add new property",
     "confirm_properties": "Confirm properties",
@@ -147,6 +149,8 @@
     "progress_text": "Almost done, {name}!",
     "progress_text_fallback": "Almost done!",
     "title": "What is the name of the property?",
+    "title_single": "What is your property called?",
+    "title_multiple": "What are your property names?",
     "hint": "Name of the property",
     "skip_link": "Skip step",
     "button_text": "Continue"

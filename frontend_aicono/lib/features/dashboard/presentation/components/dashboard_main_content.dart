@@ -565,7 +565,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                   buildPropertyMetricCard(
                     label: 'Sensors',
                     value: LocaleNumberFormat.formatInt(d.totalSensors, locale: locale),
-                    icon: buildDashboardSvgIcon(assetSensor, color: _metricIconTeal),
+                    icon: buildDashboardSvgIcon(assetSensor, color: _metricIconTeal, size: 20),
                   ),
                   buildPropertyMetricCard(
                     label: 'Floors',
@@ -735,7 +735,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               buildPropertyMetricCard(
                 label: 'Sensors',
                 value: LocaleNumberFormat.formatInt(d.sensorCount, locale: locale),
-                icon: buildDashboardSvgIcon(assetSensor, color: _metricIconTeal),
+                icon: buildDashboardSvgIcon(assetSensor, color: _metricIconTeal, size: 20),
               ),
             ],
             filter: DashboardPeriodHeader(
@@ -850,7 +850,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
               buildPropertyMetricCard(
                 label: 'Sensors',
                 value: LocaleNumberFormat.formatInt(d.sensorCount, locale: locale),
-                icon: buildDashboardSvgIcon(assetSensor, color: _metricIconTeal),
+                icon: buildDashboardSvgIcon(assetSensor, color: _metricIconTeal, size: 20),
               ),
             ],
           ),

@@ -60,6 +60,7 @@ class DashboardPropertyOverviewSection extends StatelessWidget {
                             address!,
                             style: AppTextStyles.titleSmall.copyWith(
                               color: Colors.grey[600],
+                              fontSize: (AppTextStyles.titleSmall.fontSize ?? 14) + 2,
                             ),
                           ),
                         ),
@@ -70,8 +71,10 @@ class DashboardPropertyOverviewSection extends StatelessWidget {
               ),
             ),
             if (onEdit != null || onDelete != null)
-              PopupMenuButton<PropertyOverviewMenuAction>(
-                icon: const Icon(Icons.more_vert),
+              Tooltip(
+                message: 'Edit or Delete',
+                child: PopupMenuButton<PropertyOverviewMenuAction>(
+                  icon: const Icon(Icons.more_vert),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(0),
                 ),
@@ -104,6 +107,7 @@ class DashboardPropertyOverviewSection extends StatelessWidget {
                       ),
                     ),
                 ],
+                ),
               ),
           ],
         ),

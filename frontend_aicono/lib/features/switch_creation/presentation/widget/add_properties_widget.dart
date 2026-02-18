@@ -179,7 +179,9 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
                         ),
                         const SizedBox(height: 32),
                         PageHeaderRow(
-                          title: 'add_properties.title'.tr(),
+                          title: widget.isSingleProperty
+                              ? 'add_properties.title_single'.tr()
+                              : 'add_properties.title_multiple'.tr(),
                           showBackButton: widget.onBack != null,
                           onBack: widget.onBack,
                         ),
@@ -241,17 +243,13 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
                             final shouldShowGoToHome =
                                 hasAtLeastOneProperty && !hasAnyValue;
 
-                            // Show "Confirm" when:
-                            // - There is at least one property (site)
-                            // - Any text field has a value
-                            final shouldShowConfirm =
-                                hasAtLeastOneProperty && hasAnyValue;
+                            // Show "Confirm" when any text field has a value
+                            // (so user can confirm newly added property names even with 0 createdSites)
+                            final shouldShowConfirm = hasAnyValue;
 
                             return PrimaryOutlineButton(
                               label: shouldShowGoToHome
                                   ? 'add_properties.go_to_home'.tr()
-                                  : shouldShowConfirm
-                                  ? 'add_properties.confirm_properties'.tr()
                                   : 'add_properties.confirm_properties'.tr(),
                               width: 260,
                               enabled: shouldShowGoToHome || shouldShowConfirm,
@@ -324,9 +322,18 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
     );
   }
 
+  void _removePropertyAt(int index) {
+    if (_properties.length <= 1) return;
+    setState(() {
+      _properties[index].controller.dispose();
+      _properties.removeAt(index);
+    });
+  }
+
   Widget _buildPropertyField(int index) {
     final property = _properties[index];
     final isConfirmed = property.isConfirmed;
+    final canRemove = _properties.length > 1;
 
     return Container(
       width: double.infinity,
@@ -363,11 +370,23 @@ class _AddPropertiesWidgetState extends State<AddPropertiesWidget> {
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 disabledBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 0,
+                  vertical: 8,
+                ),
+                isDense: true,
               ),
               style: AppTextStyles.bodyMedium.copyWith(color: Colors.black87),
             ),
           ),
+          if (canRemove && !isConfirmed)
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => _removePropertyAt(index),
+              tooltip: 'Remove property',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
 
           // if (hasValue && _isConfirmed) ...[
           //   const SizedBox(width: 12),
