@@ -1,5 +1,5 @@
-import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/widgets/page_header_row.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/get_floors_entity.dart';
@@ -50,11 +50,6 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
   List<FloorDetail> _localFetchedFloors = [];
   bool _isLoadingFloors = false;
   int? _numFloorsFromBackend; // Store num_floors from building data response
-
-  // TODO: Replace with your Google Places API key
-  // You should store this securely, e.g., in environment variables or secure storage
-  static const String _googlePlacesApiKey =
-      'AIzaSyD80OmYALzbGTF3k9s_6UbAIrdhvEdQXV4';
 
   @override
   void initState() {
@@ -224,7 +219,11 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
     // Use totalFloors which is based on backend floors length
     for (int i = 1; i <= totalFloors; i++) {
       final floorDetail = floorMap[i];
-      final defaultName = floorDetail?.name ?? 'Etage $i';
+      final defaultName =
+          floorDetail?.name ??
+          'building_floor_list.default_floor_name'.tr(
+            namedArgs: {'number': i.toString()},
+          );
       _floorNameControllers[i] = TextEditingController(text: defaultName);
     }
   }
@@ -357,7 +356,7 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
                         ? screenSize.width * 0.5
                         : screenSize.width * 0.6,
                     child: PageHeaderRow(
-                      title: 'Etagen verwalten',
+                      title: 'building_floor_list.page_title'.tr(),
                       showBackButton: widget.onBack != null,
                       onBack: widget.onBack,
                     ),
@@ -379,7 +378,9 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
                       );
                       return _buildFloorItem(
                         floorNumber: floorNumber,
-                        floorName: 'Etage $floorNumber',
+                        floorName: 'building_floor_list.default_floor_name'.tr(
+                          namedArgs: {'number': floorNumber.toString()},
+                        ),
                         isCompleted: isCompleted,
                         screenSize: screenSize,
                       );
@@ -392,10 +393,13 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.grey[300]!),
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          'Keine Etagen definiert',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                          'building_floor_list.no_floors_defined'.tr(),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
                         ),
                       ),
                     ),
@@ -407,7 +411,7 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
                       child: InkWell(
                         onTap: _navigateAfterCompletion,
                         child: Text(
-                          'Schritt überspringen',
+                          'building_floor_list.skip_step'.tr(),
                           style: AppTextStyles.bodyMedium.copyWith(
                             decoration: TextDecoration.underline,
                             color: Colors.black87,
@@ -421,7 +425,7 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
                   Material(
                     color: Colors.transparent,
                     child: PrimaryOutlineButton(
-                      label: 'Das passt so',
+                      label: 'building_floor_list.button_text'.tr(),
                       width: 260,
                       onPressed: widget.onNext,
                     ),
@@ -506,8 +510,12 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
     // If numberOfFloors > fetchedFloors.length, show additional floors with default names
     for (int i = 1; i <= _totalFloors; i++) {
       final floorDetail = floorMap[i];
-      // Use name from backend if available, otherwise use default "Etage i"
-      final floorName = floorDetail?.name ?? 'Etage $i';
+      // Use name from backend if available, otherwise use default
+      final floorName =
+          floorDetail?.name ??
+          'building_floor_list.default_floor_name'.tr(
+            namedArgs: {'number': i.toString()},
+          );
       final isCompleted =
           floorDetail != null &&
           floorDetail.floorPlanLink != null &&
@@ -551,17 +559,9 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(0),
         border: Border.all(
-          color: isCompleted ? Colors.green : Colors.grey[300]!,
-          width: isCompleted ? 2 : 1,
+          color: isCompleted ? Colors.green : Color(0xFF636F57),
+          width: 2,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -648,16 +648,18 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
             //   ),
             // ),
             // Edit button
-            TextButton(
-              onPressed: () {
+            InkWell(
+              onTap: () {
                 final currentFloorName = controller.text.trim().isNotEmpty
                     ? controller.text.trim()
                     : floorName;
                 widget.onEditFloor(floorNumber, currentFloorName);
               },
               child: Text(
-                isCompleted ? 'Bearbeiten' : 'Hinzufügen',
-                style: TextStyle(
+                isCompleted
+                    ? 'building_floor_list.edit'.tr()
+                    : 'building_floor_list.add'.tr(),
+                style: const TextStyle(
                   decoration: TextDecoration.underline,
                   color: Colors.black87,
                   fontSize: 14,
@@ -671,120 +673,3 @@ class _BuildingFloorListStepState extends State<BuildingFloorListStep> {
     );
   }
 }
-//   void _showPlaceSearchDialog(int floorNumber) async {
-//     showDialog(
-//       context: context,
-//       builder: (context) => Dialog(
-//         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-//         child: Container(
-//           width: MediaQuery.of(context).size.width * 0.9,
-//           height: MediaQuery.of(context).size.height * 0.7,
-//           padding: const EdgeInsets.all(16),
-//           child: Column(
-//             children: [
-//               // Header
-//               Row(
-//                 children: [
-//                   Text(
-//                     'Search Places - Floor $floorNumber',
-//                     style: const TextStyle(
-//                       fontSize: 20,
-//                       fontWeight: FontWeight.bold,
-//                     ),
-//                   ),
-//                   const Spacer(),
-//                   IconButton(
-//                     icon: const Icon(Icons.close),
-//                     onPressed: () => Navigator.of(context).pop(),
-//                   ),
-//                 ],
-//               ),
-//               const SizedBox(height: 16),
-//               // PlaceSearchField widget
-//               Expanded(
-//                 child: PlaceSearchField(
-//                   apiKey: _googlePlacesApiKey,
-//                   isLatLongRequired: true,
-//                   // Optional: Add CORS proxy URL for web if needed
-//                   webCorsProxyUrl: "https://cors-anywhere.herokuapp.com",
-//                   onPlaceSelected: (placeId, latLng) async {
-//                     developer.log('Place ID: $placeId');
-//                     developer.log('Latitude and Longitude: $latLng');
-
-//                     // Get place details to get the name
-//                     try {
-//                       // Use the new Places API (New) REST endpoint to get place details
-//                       final response = await _dio.get(
-//                         'https://places.googleapis.com/v1/places/$placeId',
-//                         options: Options(
-//                           headers: {
-//                             'Content-Type': 'application/json',
-//                             'X-Goog-Api-Key': _googlePlacesApiKey,
-//                             'X-Goog-FieldMask':
-//                                 'id,displayName,formattedAddress',
-//                           },
-//                         ),
-//                       );
-
-//                       if (response.statusCode == 200 &&
-//                           response.data != null &&
-//                           mounted) {
-//                         final place = response.data;
-
-//                         // Handle displayName which can be an object with 'text' property or a string
-//                         final displayName = place['displayName'];
-//                         final displayNameText = displayName is Map
-//                             ? (displayName['text'] ?? displayName.toString())
-//                             : (displayName?.toString() ?? '');
-
-//                         // Update the floor name with the place name
-//                         final placeName = displayNameText.isNotEmpty
-//                             ? displayNameText
-//                             : (place['formattedAddress'] ?? '');
-
-//                         if (_floorNameControllers.containsKey(floorNumber)) {
-//                           _floorNameControllers[floorNumber]!.text = placeName;
-//                           // Call onEditFloor to save the change
-//                           widget.onEditFloor(floorNumber, placeName);
-//                         }
-
-//                         Navigator.of(context).pop();
-//                       }
-//                     } catch (e) {
-//                       developer.log('Error getting place details: $e');
-//                       if (mounted) {
-//                         ScaffoldMessenger.of(context).showSnackBar(
-//                           SnackBar(
-//                             content: Text('Error loading place details: $e'),
-//                             backgroundColor: Colors.red,
-//                           ),
-//                         );
-//                       }
-//                     }
-//                   },
-//                   decorationBuilder: (context, child) {
-//                     return Material(
-//                       type: MaterialType.card,
-//                       elevation: 4,
-//                       color: Colors.white,
-//                       borderRadius: BorderRadius.circular(8),
-//                       child: child,
-//                     );
-//                   },
-//                   itemBuilder: (context, prediction) => ListTile(
-//                     leading: const Icon(Icons.location_on),
-//                     title: Text(
-//                       prediction.description,
-//                       maxLines: 1,
-//                       overflow: TextOverflow.ellipsis,
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }

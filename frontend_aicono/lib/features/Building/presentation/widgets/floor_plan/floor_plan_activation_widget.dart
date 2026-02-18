@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:convert' show base64Encode, base64Decode, utf8, jsonEncode;
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -42,7 +43,9 @@ class Room {
     String? name,
     double? area,
   }) : fillColor = fillColor ?? const Color(0xFFF5F5DC),
-       name = name ?? 'Room',
+       name =
+           name ??
+           'floor_plan_editor.default_room_name'.tr(namedArgs: {'number': '1'}),
        area = area ?? 0.0;
 }
 
@@ -279,11 +282,11 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
             if (file.bytes != null) {
               svgContent = String.fromCharCodes(file.bytes!);
             } else {
-              _showError('Error: Could not read file data');
+              _showError('floor_plan_editor.error_read_file_data'.tr());
               return;
             }
           } else {
-            _showError('SVG upload is currently only available on web');
+            _showError('floor_plan_editor.error_svg_not_supported'.tr());
             return;
           }
           await _loadFromSVG(svgContent);
@@ -295,7 +298,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
             if (file.bytes != null) {
               await _loadImageBytes(file.bytes!);
             } else {
-              _showError('Error: Could not read file data');
+              _showError('floor_plan_editor.error_read_file_data'.tr());
             }
           } else {
             // For non-web platforms, read file from path
@@ -304,13 +307,17 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
               final fileData = await File(filePath).readAsBytes();
               await _loadImageBytes(fileData);
             } else {
-              _showError('Error: Could not read file path');
+              _showError('floor_plan_editor.error_read_file_path'.tr());
             }
           }
         }
       }
     } catch (e) {
-      _showError('Error uploading file: ${e.toString()}');
+      _showError(
+        'floor_plan_editor.error_uploading_file'.tr(
+          namedArgs: {'error': e.toString()},
+        ),
+      );
     }
   }
 
@@ -469,7 +476,9 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                 id: 'room_$roomIndex',
                 path: roomPath,
                 fillColor: fillColor,
-                name: 'Room $roomIndex',
+                name: 'floor_plan_editor.default_room_name'.tr(
+                  namedArgs: {'number': roomIndex.toString()},
+                ),
                 area: area,
               ),
             );
@@ -554,7 +563,11 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
         _roomCounter = newRooms.length + 1;
       });
     } catch (e) {
-      _showError('Error parsing SVG: ${e.toString()}');
+      _showError(
+        'floor_plan_editor.error_parsing_svg'.tr(
+          namedArgs: {'error': e.toString()},
+        ),
+      );
     }
   }
 
@@ -848,7 +861,9 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
 
     final area = _calculateArea(path);
     final roomId = 'room_$_roomCounter';
-    final roomName = 'Room $_roomCounter';
+    final roomName = 'floor_plan_editor.default_room_name'.tr(
+      namedArgs: {'number': _roomCounter.toString()},
+    );
 
     setState(() {
       rooms.add(
@@ -894,7 +909,9 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
     final path = shapeCreator();
     final area = _calculateArea(path);
     final roomId = 'room_$_roomCounter';
-    final roomName = 'Room $_roomCounter';
+    final roomName = 'floor_plan_editor.default_room_name'.tr(
+      namedArgs: {'number': _roomCounter.toString()},
+    );
 
     setState(() {
       rooms.add(
@@ -919,7 +936,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
 
   void _createRoomFromPolygon() {
     if (_polygonPoints.length < 3) {
-      _showError('Polygon muss mindestens 3 Punkte haben');
+      _showError('floor_plan_editor.polygon_min_points_error'.tr());
       return;
     }
 
@@ -934,7 +951,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
 
     // Check if area is too small (minimum 0.5 m² to prevent accidental tiny polygons)
     if (area < 0.5) {
-      _showError('Polygon ist zu klein (mindestens 0.5 m² erforderlich)');
+      _showError('floor_plan_editor.polygon_too_small'.tr());
       setState(() {
         _polygonPoints.clear();
         _polygonPreviewPosition = null;
@@ -944,7 +961,9 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
 
     _saveState();
     final roomId = 'room_$_roomCounter';
-    final roomName = 'Room $_roomCounter';
+    final roomName = 'floor_plan_editor.default_room_name'.tr(
+      namedArgs: {'number': _roomCounter.toString()},
+    );
 
     setState(() {
       rooms.add(
@@ -976,7 +995,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
 
   Future<void> _saveAndDownloadSVG() async {
     if (rooms.isEmpty) {
-      _showError('No rooms to export');
+      _showError('floor_plan_editor.no_rooms_to_export'.tr());
       return;
     }
 
@@ -1024,7 +1043,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
       // Listen to upload state and store subscription
       _uploadSubscription = uploadBloc.stream.listen((state) {
         if (state is UploadSuccess) {
-          _showSuccess('SVG uploaded successfully');
+          _showSuccess('floor_plan_editor.svg_uploaded'.tr());
 
           // Prepare rooms data for navigation
           final roomsData = rooms.map((room) {
@@ -1072,11 +1091,19 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
             });
           }
         } else if (state is UploadFailure) {
-          _showError('Upload failed: ${state.message}');
+          _showError(
+            'floor_plan_editor.upload_failed'.tr(
+              namedArgs: {'error': state.message},
+            ),
+          );
         }
       });
     } catch (e) {
-      _showError('Error generating SVG: ${e.toString()}');
+      _showError(
+        'floor_plan_editor.error_exporting_svg'.tr(
+          namedArgs: {'error': e.toString()},
+        ),
+      );
     }
   }
 
@@ -1282,7 +1309,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
       mainAxisSize: MainAxisSize.min,
       children: [
         PageHeaderRow(
-          title: 'Grundriss aktivieren',
+          title: 'floor_plan_editor.page_title'.tr(),
           showBackButton: true,
           onBack: () {
             Navigator.pop(context);
@@ -1306,7 +1333,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        'Ziehen Sie auf dem Bild, um Rechtecke zu erstellen',
+                        'floor_plan_editor.rectangle_drawing_instruction'.tr(),
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.blue[700],
@@ -1318,7 +1345,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        'Klicken Sie auf Punkte, um ein Polygon zu erstellen',
+                        'floor_plan_editor.polygon_drawing_instruction'.tr(),
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.blue[700],
@@ -1352,7 +1379,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                   Icon(Icons.add, color: Colors.blue[700], size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'Grundriss hochladen',
+                    'floor_plan_editor.upload_floor_plan'.tr(),
                     style: TextStyle(
                       color: Colors.blue[700],
                       fontSize: 16,
@@ -1423,7 +1450,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                'Kein Grundriss geladen',
+                                'floor_plan_editor.no_floor_plan_loaded'.tr(),
                                 style: TextStyle(
                                   color: Colors.grey[600],
                                   fontSize: 16,
@@ -1699,7 +1726,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                   ElevatedButton.icon(
                     onPressed: _createRoomFromPolygon,
                     icon: const Icon(Icons.check),
-                    label: const Text('Polygon abschließen'),
+                    label: Text('floor_plan_editor.complete_polygon'.tr()),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -1709,7 +1736,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                 ElevatedButton.icon(
                   onPressed: _cancelPolygon,
                   icon: const Icon(Icons.close),
-                  label: const Text('Abbrechen'),
+                  label: Text('floor_plan_editor.cancel'.tr()),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
                     foregroundColor: Colors.white,
@@ -1737,7 +1764,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                     // Shape buttons
                     _shapeOptionButton(
                       icon: 'assets/images/Pen.svg',
-                      label: "Polygon",
+                      label: 'floor_plan_editor.shape_polygon'.tr(),
                       onTap: () {
                         setState(() {
                           _selectedShapeTool = _ShapeTool.polygon;
@@ -1759,7 +1786,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                     ),
                     _shapeOptionButton(
                       icon: 'assets/images/Rectangle.svg',
-                      label: "Rectangle",
+                      label: 'floor_plan_editor.shape_rectangle'.tr(),
                       onTap: () {
                         setState(() {
                           _selectedShapeTool = _ShapeTool.rectangle;
@@ -1781,7 +1808,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                     ),
                     _shapeOptionButton(
                       icon: 'assets/images/Triangle.svg',
-                      label: "Triangle",
+                      label: 'floor_plan_editor.shape_triangle'.tr(),
                       onTap: () {
                         setState(() {
                           _selectedShapeTool = _ShapeTool.triangle;
@@ -1797,7 +1824,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                     ),
                     _shapeOptionButton(
                       icon: 'assets/images/Ellipse.svg',
-                      label: "Circle",
+                      label: 'floor_plan_editor.shape_circle'.tr(),
                       onTap: () {
                         setState(() {
                           _selectedShapeTool = _ShapeTool.circle;
@@ -1897,12 +1924,8 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey[50],
                 borderRadius: BorderRadius.circular(0),
-                border: Border.all(
-                  color: selectedRoom == room ? Colors.blue : Colors.grey[300]!,
-                  width: selectedRoom == room ? 2 : 1,
-                ),
+                border: Border.all(color: Color(0xFF636F57), width: 2),
               ),
               child: Row(
                 children: [
@@ -1913,7 +1936,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                       controller: _roomControllers[room.id] ??=
                           TextEditingController(text: room.name),
                       decoration: InputDecoration(
-                        hintText: 'Raumname / Label',
+                        hintText: 'floor_plan_editor.room_name_hint'.tr(),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -1942,17 +1965,12 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                         },
                         child: Container(
                           margin: const EdgeInsets.only(left: 6),
-                          width: 15,
-                          height: 15,
+                          width: 20,
+                          height: 20,
                           decoration: BoxDecoration(
                             color: color,
+
                             // shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSelected
-                                  ? Colors.black
-                                  : Colors.grey[400]!,
-                              width: isSelected ? 2 : 1,
-                            ),
                           ),
                           child: isSelected
                               ? Icon(Icons.clear, size: 12, color: Colors.black)
@@ -1969,7 +1987,7 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                       color: Colors.red[600],
                       size: 20,
                     ),
-                    tooltip: 'Löschen',
+                    tooltip: 'floor_plan_editor.delete'.tr(),
                     onPressed: () => _deleteRoom(room),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -1978,6 +1996,8 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
               ),
             );
           }).toList(),
+        const SizedBox(height: 12),
+
         // Add room button (always visible)
         InkWell(
           onTap: _showCreateRoomDialog,
@@ -1989,8 +2009,13 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
                 // Icon(Icons.add_box_outlined, color: Colors.grey[700], size: 20),
                 // const SizedBox(width: 8),
                 Text(
-                  '+ Raum anlegen',
-                  style: TextStyle(color: Colors.grey[700], fontSize: 16),
+                  'floor_plan_editor.add_room'.tr(),
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    decoration: TextDecoration.underline,
+                  ),
                 ),
               ],
             ),
@@ -2005,8 +2030,13 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Center(
               child: Text(
-                'Schritt überspringen',
-                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                'floor_plan_editor.skip_step'.tr(),
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  decoration: TextDecoration.underline,
+                ),
               ),
             ),
           ),
@@ -2014,7 +2044,9 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
         // Save and Next button
         Center(
           child: PrimaryOutlineButton(
-            label: _imageBytes != null ? 'Speichern & Weiter' : 'Das passt so',
+            label: _imageBytes != null
+                ? 'floor_plan_editor.save_and_continue'.tr()
+                : 'floor_plan_editor.button_text'.tr(),
 
             width: 260,
             onPressed: _imageBytes != null
@@ -2051,7 +2083,14 @@ class _FloorPlanActivationWidgetState extends State<FloorPlanActivationWidget> {
   void _showCreateRoomDialog() {
     setState(() {
       _showDrawingMode = true;
-      _drawingMode = DrawingMode.none; // Don't set a mode yet, let user choose
+      // Enable polygon mode by default when opening shape options
+      _drawingMode = DrawingMode.polygon;
+      _selectedShapeTool = _ShapeTool.polygon;
+      _polygonPoints.clear();
+      _polygonPreviewPosition = null;
+      _rectangleStart = null;
+      _currentRectangle = null;
+      selectedRoom = null;
     });
   }
 
@@ -2525,7 +2564,7 @@ class _FloorPlanPainter extends CustomPainter {
             fontWeight: FontWeight.w600,
           ),
         ),
-        textDirection: TextDirection.ltr,
+        textDirection: ui.TextDirection.ltr,
       );
       namePainter.layout();
       namePainter.paint(

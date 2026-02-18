@@ -587,7 +587,7 @@ class _BuildingContactPersonStepState extends State<BuildingContactPersonStep> {
     final Size screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AppTheme.primary,
       body: Center(
         child: SingleChildScrollView(
           child: Container(

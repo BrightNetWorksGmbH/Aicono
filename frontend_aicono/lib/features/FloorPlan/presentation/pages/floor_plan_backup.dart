@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:convert' show base64Encode, utf8, jsonEncode;
 import 'dart:ui' as ui;
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/services.dart';
@@ -45,7 +46,11 @@ class Room {
     String? name,
   }) : doorOpenings = doorOpenings ?? [],
        fillColor = fillColor ?? const Color(0xFFF5F5DC), // Default light beige
-       name = name ?? 'Room'; // Default name
+       name =
+           name ??
+           'floor_plan_editor.default_room_name'.tr(
+             namedArgs: {'number': '1'},
+           ); // Default name
 }
 
 class Door {
@@ -228,7 +233,11 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading floor plan: ${e.toString()}'),
+            content: Text(
+              'floor_plan_editor.error_loading_floor_plan'.tr(
+                namedArgs: {'error': e.toString()},
+              ),
+            ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
           ),
@@ -1118,9 +1127,11 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                   ),
                                   child: Column(
                                     children: [
-                                      const Text(
-                                        'Fast geschafft, Stephan!',
-                                        style: TextStyle(
+                                      Text(
+                                        'floor_plan_editor.progress_text'.tr(
+                                          namedArgs: {'name': 'Stephan'},
+                                        ),
+                                        style: const TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -1162,7 +1173,8 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                       children: [
                                         // Title
                                         PageHeaderRow(
-                                          title: 'Grundriss aktivieren',
+                                          title: 'floor_plan_editor.page_title'
+                                              .tr(),
                                           showBackButton: true,
                                         ),
                                         const SizedBox(height: 16),
@@ -1243,8 +1255,9 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                                     icon: const Icon(
                                                       Icons.check,
                                                     ),
-                                                    label: const Text(
-                                                      'Polygon abschließen',
+                                                    label: Text(
+                                                      'floor_plan_editor.complete_polygon'
+                                                          .tr(),
                                                     ),
                                                     style:
                                                         ElevatedButton.styleFrom(
@@ -1259,8 +1272,9 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                                 ElevatedButton.icon(
                                                   onPressed: _cancelPolygon,
                                                   icon: const Icon(Icons.close),
-                                                  label: const Text(
-                                                    'Abbrechen',
+                                                  label: Text(
+                                                    'floor_plan_editor.cancel'
+                                                        .tr(),
                                                   ),
                                                   style:
                                                       ElevatedButton.styleFrom(
@@ -1280,6 +1294,17 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                             setState(() {
                                               _showShapeOptions =
                                                   !_showShapeOptions;
+                                              // Enable polygon mode by default when opening shape options
+                                              if (_showShapeOptions) {
+                                                polygonMode = true;
+                                                _selectedShapeTool =
+                                                    _ShapeTool.polygon;
+                                                pencilMode = false;
+                                                drawingPath = null;
+                                                _polygonPoints.clear();
+                                                _polygonPreviewPosition = null;
+                                                doorPlacementMode = false;
+                                              }
                                             });
                                           },
                                           child: Padding(
@@ -1297,10 +1322,14 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                                 // ),
                                                 // const SizedBox(width: 8),
                                                 Text(
-                                                  '+ Raum anlegen',
-                                                  style: TextStyle(
-                                                    color: Colors.grey[700],
-                                                    fontSize: 16,
+                                                  'floor_plan_editor.add_room'
+                                                      .tr(),
+                                                  style: const TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.w500,
+                                                    decoration: TextDecoration
+                                                        .underline,
                                                   ),
                                                 ),
                                               ],
@@ -1317,16 +1346,15 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                               ),
                                               padding: const EdgeInsets.all(12),
                                               decoration: BoxDecoration(
-                                                color: Colors.grey[50],
                                                 borderRadius:
                                                     BorderRadius.circular(0),
                                                 border: Border.all(
-                                                  color: selectedRoom == room
-                                                      ? Colors.blue
-                                                      : Colors.grey[300]!,
-                                                  width: selectedRoom == room
-                                                      ? 2
-                                                      : 1,
+                                                  color:
+                                                      // selectedRoom == room
+                                                      //     ? Colors.blue
+                                                      //     :
+                                                      Color(0xFF636F57),
+                                                  width: 2,
                                                 ),
                                               ),
                                               child: Row(
@@ -1341,20 +1369,19 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                                               TextEditingController(
                                                                 text: room.name,
                                                               ),
-                                                      decoration:
-                                                          const InputDecoration(
-                                                            hintText:
-                                                                'Raumname / Label',
-                                                            border: InputBorder
-                                                                .none,
-                                                            contentPadding:
-                                                                EdgeInsets.symmetric(
-                                                                  horizontal:
-                                                                      12,
-                                                                  vertical: 8,
-                                                                ),
-                                                            isDense: true,
-                                                          ),
+                                                      decoration: InputDecoration(
+                                                        hintText:
+                                                            'floor_plan_editor.room_name_hint'
+                                                                .tr(),
+                                                        border:
+                                                            InputBorder.none,
+                                                        contentPadding:
+                                                            EdgeInsets.symmetric(
+                                                              horizontal: 12,
+                                                              vertical: 8,
+                                                            ),
+                                                        isDense: true,
+                                                      ),
                                                       onChanged: (value) {
                                                         setState(() {
                                                           room.name = value;
@@ -1386,20 +1413,12 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                                               const EdgeInsets.only(
                                                                 left: 6,
                                                               ),
-                                                          width: 15,
-                                                          height: 15,
-                                                          decoration: BoxDecoration(
-                                                            color: color,
-                                                            border: Border.all(
-                                                              color: isSelected
-                                                                  ? Colors.black
-                                                                  : Colors
-                                                                        .grey[400]!,
-                                                              width: isSelected
-                                                                  ? 2
-                                                                  : 1,
-                                                            ),
-                                                          ),
+                                                          width: 20,
+                                                          height: 20,
+                                                          decoration:
+                                                              BoxDecoration(
+                                                                color: color,
+                                                              ),
                                                           child: isSelected
                                                               ? Icon(
                                                                   Icons.clear,
@@ -1420,7 +1439,9 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                                       color: Colors.red[600],
                                                       size: 20,
                                                     ),
-                                                    tooltip: 'Löschen',
+                                                    tooltip:
+                                                        'floor_plan_editor.delete'
+                                                            .tr(),
                                                     onPressed: () {
                                                       _saveState();
                                                       setState(() {
@@ -1463,10 +1484,14 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                             ),
                                             child: Center(
                                               child: Text(
-                                                'Schritt überspringen',
-                                                style: TextStyle(
-                                                  color: Colors.grey[600],
-                                                  fontSize: 14,
+                                                'floor_plan_editor.skip_step'
+                                                    .tr(),
+                                                style: const TextStyle(
+                                                  color: Colors.black,
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w500,
+                                                  decoration:
+                                                      TextDecoration.underline,
                                                 ),
                                               ),
                                             ),
@@ -1476,8 +1501,10 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                                         Center(
                                           child: PrimaryOutlineButton(
                                             label: _backgroundImageBytes != null
-                                                ? 'Speichern & Weiter'
-                                                : 'Das passt so',
+                                                ? 'floor_plan_editor.save_and_continue'
+                                                      .tr()
+                                                : 'floor_plan_editor.button_text'
+                                                      .tr(),
                                             width: 260,
                                             enabled: rooms.isNotEmpty,
                                             onPressed:
@@ -1606,7 +1633,9 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                         id: UniqueKey().toString(),
                         path: closedPath,
                         fillColor: selectedColor ?? colorPalette[0],
-                        name: 'Room $_roomCounter',
+                        name: 'floor_plan_editor.default_room_name'.tr(
+                          namedArgs: {'number': _roomCounter.toString()},
+                        ),
                       );
                       rooms.add(newRoom);
                       // Initialize controller for new room
@@ -1660,7 +1689,7 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
               // Shape buttons
               _shapeOptionButton(
                 icon: 'assets/images/Pen.svg',
-                label: "Polygon",
+                label: 'floor_plan_editor.shape_polygon'.tr(),
                 onTap: () {
                   setState(() {
                     _selectedShapeTool = _ShapeTool.polygon;
@@ -1682,7 +1711,7 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
               ),
               _shapeOptionButton(
                 icon: 'assets/images/Rectangle.svg',
-                label: "Rectangle",
+                label: 'floor_plan_editor.shape_rectangle'.tr(),
                 onTap: () {
                   setState(() {
                     _selectedShapeTool = _ShapeTool.rectangle;
@@ -1720,7 +1749,7 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
               // ),
               _shapeOptionButton(
                 icon: 'assets/images/Triangle.svg',
-                label: "Triangle",
+                label: 'floor_plan_editor.shape_triangle'.tr(),
                 onTap: () {
                   setState(() {
                     _selectedShapeTool = _ShapeTool.triangle;
@@ -1734,11 +1763,13 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
               ),
               _shapeOptionButton(
                 icon: 'assets/images/Ellipse.svg',
-                label: "Circle",
+                label: 'floor_plan_editor.shape_circle'.tr(),
                 onTap: () {
                   setState(() {
                     _selectedShapeTool = _ShapeTool.circle;
                     polygonMode = false;
+                    pencilMode = false;
+                    drawingPath = null;
                   });
                   _addShapeToCanvas(
                     () => createCircle(const Offset(200, 200), radius: 50),
@@ -1747,9 +1778,8 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                 isSelected: _selectedShapeTool == _ShapeTool.circle,
               ),
 
-              // _shapeOptionButton(
-              //   icon: Icons.edit,
-              //   label: "Walls",
+              // // Pencil tool button
+              // InkWell(
               //   onTap: () {
               //     setState(() {
               //       pencilMode = !pencilMode;
@@ -1758,12 +1788,28 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
               //         doorPlacementMode = false;
               //       } else {
               //         polygonMode = false;
+              //         _selectedShapeTool = null;
               //         _polygonPoints.clear();
               //         _polygonPreviewPosition = null;
               //       }
               //     });
               //   },
-              //   isSelected: pencilMode,
+              //   borderRadius: BorderRadius.circular(0),
+              //   child: Container(
+              //     padding: const EdgeInsets.symmetric(
+              //       horizontal: 12,
+              //       vertical: 12,
+              //     ),
+              //     decoration: BoxDecoration(
+              //       color: pencilMode ? Colors.black : Colors.transparent,
+              //       borderRadius: BorderRadius.circular(0),
+              //     ),
+              //     child: Icon(
+              //       Icons.edit,
+              //       color: pencilMode ? Colors.white : Colors.black,
+              //       size: 20,
+              //     ),
+              //   ),
               // ),
             ],
           ),
@@ -1783,7 +1829,7 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                 ),
               ),
 
-              const SizedBox(width: 8),
+              const SizedBox(width: 16),
               InkWell(
                 onTap: _canRedo ? _redo : null,
                 child: SvgPicture.asset(
@@ -1843,8 +1889,8 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
   void _createRoomFromPolygon() {
     if (_polygonPoints.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Polygon muss mindestens 3 Punkte haben'),
+        SnackBar(
+          content: Text('floor_plan_editor.polygon_min_points_error'.tr()),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 2),
         ),
@@ -1861,7 +1907,9 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
 
     _saveState();
     final roomId = UniqueKey().toString();
-    final roomName = 'Room $_roomCounter';
+    final roomName = 'floor_plan_editor.default_room_name'.tr(
+      namedArgs: {'number': _roomCounter.toString()},
+    );
 
     setState(() {
       rooms.add(
@@ -1927,21 +1975,21 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
       child: Row(
         children: [
           // IconButton(icon: const Icon(Icons.menu), onPressed: () {}),
-          const Text(
-            "New project",
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          Text(
+            'floor_plan_editor.new_project'.tr(),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
           const SizedBox(width: 8),
-          const Text(
-            "Ground floor",
-            style: TextStyle(fontSize: 14, color: Colors.grey),
+          Text(
+            'floor_plan_editor.ground_floor'.tr(),
+            style: const TextStyle(fontSize: 14, color: Colors.grey),
           ),
           const Spacer(),
           // New button
           TextButton.icon(
             onPressed: () => _createNew(),
             icon: const Icon(Icons.add, size: 18),
-            label: const Text("New"),
+            label: Text('floor_plan_editor.new'.tr()),
             style: TextButton.styleFrom(foregroundColor: Colors.blue),
           ),
           const SizedBox(width: 8),
@@ -1949,7 +1997,7 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
           TextButton.icon(
             onPressed: () => _openSVG(),
             icon: const Icon(Icons.folder_open, size: 18),
-            label: const Text("Open"),
+            label: Text('floor_plan_editor.open'.tr()),
             style: TextButton.styleFrom(foregroundColor: Colors.blue),
           ),
           const SizedBox(width: 8),
@@ -1957,7 +2005,7 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
           TextButton.icon(
             onPressed: () => _uploadBackgroundImage(),
             icon: const Icon(Icons.image, size: 18),
-            label: const Text("Background"),
+            label: Text('floor_plan_editor.background'.tr()),
             style: TextButton.styleFrom(foregroundColor: Colors.blue),
           ),
           const SizedBox(width: 8),
@@ -1965,7 +2013,7 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
           ElevatedButton.icon(
             onPressed: () => _downloadSVG(),
             icon: const Icon(Icons.save, size: 18),
-            label: const Text("Save"),
+            label: Text('floor_plan_editor.save'.tr()),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
@@ -1981,14 +2029,12 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Create New Floor Plan'),
-        content: const Text(
-          'This will clear all current rooms and doors. Are you sure?',
-        ),
+        title: Text('floor_plan_editor.create_new_title'.tr()),
+        content: Text('floor_plan_editor.create_new_message'.tr()),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text('floor_plan_editor.cancel_button'.tr()),
           ),
           TextButton(
             onPressed: () {
@@ -2008,13 +2054,15 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
               });
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('New floor plan created'),
-                  duration: Duration(seconds: 2),
+                SnackBar(
+                  content: Text(
+                    'floor_plan_editor.new_floor_plan_created'.tr(),
+                  ),
+                  duration: const Duration(seconds: 2),
                 ),
               );
             },
-            child: const Text('Create New'),
+            child: Text('floor_plan_editor.create_new_button'.tr()),
           ),
         ],
       ),
@@ -2051,9 +2099,9 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
             final bytes = file.bytes;
             if (bytes == null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Error: Could not read file data'),
-                  duration: Duration(seconds: 2),
+                SnackBar(
+                  content: Text('floor_plan_editor.error_read_file_data'.tr()),
+                  duration: const Duration(seconds: 2),
                 ),
               );
               return;
@@ -2063,8 +2111,8 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
             final filePath = file.path;
             if (filePath == null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Error: Could not read file path'),
+                SnackBar(
+                  content: Text('floor_plan_editor.error_read_file_path'.tr()),
                   duration: Duration(seconds: 2),
                 ),
               );
@@ -2089,8 +2137,8 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
           image.dispose();
 
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Background image uploaded successfully'),
+            SnackBar(
+              content: Text('floor_plan_editor.background_uploaded'.tr()),
               duration: Duration(seconds: 2),
             ),
           );
@@ -2100,7 +2148,11 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
       debugPrint('Error uploading background image: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error uploading image: ${e.toString()}'),
+          content: Text(
+            'floor_plan_editor.error_uploading_image'.tr(
+              namedArgs: {'error': e.toString()},
+            ),
+          ),
           duration: const Duration(seconds: 3),
         ),
       );
@@ -2134,8 +2186,8 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
             svgContent = String.fromCharCodes(file.bytes!);
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Error: Could not read file data'),
+              SnackBar(
+                content: Text('floor_plan_editor.error_read_file_data'.tr()),
                 duration: Duration(seconds: 2),
               ),
             );
@@ -2168,8 +2220,8 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
         _loadFromSVG(svgContent);
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Floor plan loaded successfully'),
+          SnackBar(
+            content: Text('floor_plan_editor.floor_plan_loaded'.tr()),
             duration: Duration(seconds: 2),
           ),
         );
@@ -2178,7 +2230,11 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
       debugPrint('Error opening file: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error opening file: ${e.toString()}'),
+          content: Text(
+            'floor_plan_editor.error_opening_file'.tr(
+              namedArgs: {'error': e.toString()},
+            ),
+          ),
           duration: const Duration(seconds: 3),
         ),
       );
@@ -2347,7 +2403,11 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
       debugPrint('Error parsing SVG: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error parsing SVG: ${e.toString()}'),
+          content: Text(
+            'floor_plan_editor.error_parsing_svg'.tr(
+              namedArgs: {'error': e.toString()},
+            ),
+          ),
           duration: const Duration(seconds: 3),
         ),
       );
@@ -2784,7 +2844,9 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                         id: UniqueKey().toString(),
                         path: createRectangle(const Offset(200, 200)),
                         fillColor: selectedColor ?? const Color(0xFFF5F5DC),
-                        name: 'Room $_roomCounter',
+                        name: 'floor_plan_editor.default_room_name'.tr(
+                          namedArgs: {'number': _roomCounter.toString()},
+                        ),
                       ),
                     );
                     _roomCounter++;
@@ -2799,7 +2861,9 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                         id: UniqueKey().toString(),
                         path: createLShape(const Offset(200, 200)),
                         fillColor: selectedColor ?? const Color(0xFFF5F5DC),
-                        name: 'Room $_roomCounter',
+                        name: 'floor_plan_editor.default_room_name'.tr(
+                          namedArgs: {'number': _roomCounter.toString()},
+                        ),
                       ),
                     );
                     _roomCounter++;
@@ -2814,7 +2878,9 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                         id: UniqueKey().toString(),
                         path: createUShape(const Offset(200, 200)),
                         fillColor: selectedColor ?? const Color(0xFFF5F5DC),
-                        name: 'Room $_roomCounter',
+                        name: 'floor_plan_editor.default_room_name'.tr(
+                          namedArgs: {'number': _roomCounter.toString()},
+                        ),
                       ),
                     );
                     _roomCounter++;
@@ -2829,7 +2895,9 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                         id: UniqueKey().toString(),
                         path: createTShape(const Offset(200, 200)),
                         fillColor: selectedColor ?? const Color(0xFFF5F5DC),
-                        name: 'Room $_roomCounter',
+                        name: 'floor_plan_editor.default_room_name'.tr(
+                          namedArgs: {'number': _roomCounter.toString()},
+                        ),
                       ),
                     );
                     _roomCounter++;
@@ -2844,7 +2912,9 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
                         id: UniqueKey().toString(),
                         path: createCircle(const Offset(200, 200), radius: 50),
                         fillColor: selectedColor ?? const Color(0xFFF5F5DC),
-                        name: 'Room $_roomCounter',
+                        name: 'floor_plan_editor.default_room_name'.tr(
+                          namedArgs: {'number': _roomCounter.toString()},
+                        ),
                       ),
                     );
                     _roomCounter++;
@@ -3170,8 +3240,8 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
   Future<void> _downloadSVG() async {
     if (rooms.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No rooms to export'),
+        SnackBar(
+          content: Text('floor_plan_editor.no_rooms_to_export'.tr()),
           duration: Duration(seconds: 2),
         ),
       );
@@ -3223,8 +3293,8 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
       _uploadSubscription = uploadBloc.stream.listen((state) {
         if (state is UploadSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('SVG uploaded successfully'),
+            SnackBar(
+              content: Text('floor_plan_editor.svg_uploaded'.tr()),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 2),
             ),
@@ -3269,7 +3339,11 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
         } else if (state is UploadFailure) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Upload failed: ${state.message}'),
+              content: Text(
+                'floor_plan_editor.upload_failed'.tr(
+                  namedArgs: {'error': state.message},
+                ),
+              ),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 3),
             ),
@@ -3280,7 +3354,11 @@ class _FloorPlanBackupPageState extends State<FloorPlanBackupPage> {
       debugPrint('Error generating SVG: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error exporting SVG: ${e.toString()}'),
+          content: Text(
+            'floor_plan_editor.error_exporting_svg'.tr(
+              namedArgs: {'error': e.toString()},
+            ),
+          ),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
@@ -3591,7 +3669,7 @@ class FloorPainter extends CustomPainter {
           fontWeight: FontWeight.w600,
         ),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
     namePainter.layout();
     namePainter.paint(
@@ -3609,7 +3687,7 @@ class FloorPainter extends CustomPainter {
           fontWeight: FontWeight.w500,
         ),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
     areaPainter.layout();
     areaPainter.paint(
@@ -3832,7 +3910,7 @@ class FloorPainter extends CustomPainter {
 
     final textPainter = TextPainter(
       text: TextSpan(text: label, style: textStyle),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
     textPainter.layout();
 

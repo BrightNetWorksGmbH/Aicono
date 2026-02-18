@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
@@ -28,6 +29,7 @@ class EditSitePage extends StatefulWidget {
 class _EditSitePageState extends State<EditSitePage> {
   final TextEditingController _siteNameController = TextEditingController();
   final TextEditingController _siteAddressController = TextEditingController();
+  final FocusNode _siteAddressFocusNode = FocusNode();
   final Set<String> _selectedResources = {};
   bool _enableAutocomplete = true;
   List<Map<String, dynamic>> _searchResults = [];
@@ -40,12 +42,17 @@ class _EditSitePageState extends State<EditSitePage> {
     _loadSiteData();
     // Listen to address input changes with debouncing for autocomplete
     _siteAddressController.addListener(_onAddressChanged);
+    // Listen to focus changes
+    _siteAddressFocusNode.addListener(() {
+      setState(() {}); // Rebuild when focus changes
+    });
   }
 
   @override
   void dispose() {
     _siteNameController.dispose();
     _siteAddressController.dispose();
+    _siteAddressFocusNode.dispose();
     _debounceTimer?.cancel();
     super.dispose();
   }
@@ -217,8 +224,8 @@ class _EditSitePageState extends State<EditSitePage> {
             if (state is CreateSiteSuccess) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Site updated successfully'),
+                  SnackBar(
+                    content: Text('edit_site.site_updated_successfully'.tr()),
                     backgroundColor: Colors.green,
                   ),
                 );
@@ -242,7 +249,7 @@ class _EditSitePageState extends State<EditSitePage> {
             }
           },
           child: Scaffold(
-            backgroundColor: AppTheme.background,
+            backgroundColor: AppTheme.primary,
             body: SingleChildScrollView(
               child: Container(
                 width: MediaQuery.of(context).size.width,
@@ -260,8 +267,8 @@ class _EditSitePageState extends State<EditSitePage> {
                   children: [
                     Container(
                       width: double.infinity,
-                      height: screenSize.height * .9,
-                      margin: const EdgeInsets.all(16),
+                      height: screenSize.height * .97,
+                      margin: const EdgeInsets.all(8),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -321,10 +328,10 @@ class _EditSitePageState extends State<EditSitePage> {
                                                 onPressed: () => context.pop(),
                                               ),
                                               const SizedBox(width: 8),
-                                              const Expanded(
+                                              Expanded(
                                                 child: Center(
                                                   child: Text(
-                                                    'Edit Site',
+                                                    'edit_site.page_title'.tr(),
                                                     style: TextStyle(
                                                       fontSize: 24,
                                                       fontWeight:
@@ -337,8 +344,8 @@ class _EditSitePageState extends State<EditSitePage> {
                                           ),
                                         ),
                                         const SizedBox(height: 8),
-                                        const Text(
-                                          'Update site information',
+                                        Text(
+                                          'edit_site.subtitle'.tr(),
                                           style: TextStyle(
                                             fontSize: 14,
                                             color: Colors.grey,
@@ -355,23 +362,57 @@ class _EditSitePageState extends State<EditSitePage> {
                                           child: TextFormField(
                                             controller: _siteNameController,
                                             decoration: InputDecoration(
-                                              hintText: 'Enter site name',
+                                              hintText:
+                                                  'edit_site.site_name_hint'
+                                                      .tr(),
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 20,
+                                                  ),
                                               border: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(0),
+                                                borderSide: BorderSide(
+                                                  color: const Color(
+                                                    0xFF8B9A5B,
+                                                  ),
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(0),
+                                                borderSide: BorderSide(
+                                                  color: const Color(
+                                                    0xFF8B9A5B,
+                                                  ),
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              enabledBorder: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(0),
+                                                borderSide: BorderSide(
+                                                  color: const Color(
+                                                    0xFF8B9A5B,
+                                                  ),
+                                                  width: 2,
+                                                ),
                                               ),
                                               // prefixIcon: Icon(Icons.),
                                             ),
                                             validator: (value) {
                                               if (value == null ||
                                                   value.trim().isEmpty) {
-                                                return 'Site name is required';
+                                                return 'edit_site.site_name_required'
+                                                    .tr();
                                               }
                                               return null;
                                             },
                                           ),
                                         ),
-                                        const SizedBox(height: 24),
+                                        const SizedBox(height: 16),
                                         // Site address field with Autocomplete
                                         SizedBox(
                                           width: screenSize.width < 600
@@ -387,11 +428,9 @@ class _EditSitePageState extends State<EditSitePage> {
                                                 width: double.infinity,
                                                 decoration: BoxDecoration(
                                                   border: Border.all(
-                                                    color: _enableAutocomplete
-                                                        ? const Color(
-                                                            0xFF8B9A5B,
-                                                          )
-                                                        : Colors.black54,
+                                                    color: const Color(
+                                                      0xFF8B9A5B,
+                                                    ),
                                                     width: 2,
                                                   ),
                                                   borderRadius:
@@ -403,9 +442,12 @@ class _EditSitePageState extends State<EditSitePage> {
                                                       child: TextFormField(
                                                         controller:
                                                             _siteAddressController,
+                                                        focusNode:
+                                                            _siteAddressFocusNode,
                                                         decoration: InputDecoration(
                                                           hintText:
-                                                              'Enter site location',
+                                                              'edit_site.site_location_hint'
+                                                                  .tr(),
                                                           border:
                                                               InputBorder.none,
                                                           hintStyle: AppTextStyles
@@ -450,13 +492,20 @@ class _EditSitePageState extends State<EditSitePage> {
                                                           const EdgeInsets.symmetric(
                                                             horizontal: 8.0,
                                                           ),
-                                                      child: const Text('GPS'),
+                                                      child: Text(
+                                                        'edit_site.gps'.tr(),
+                                                      ),
                                                     ),
                                                   ],
                                                 ),
                                               ),
                                               // Autocomplete Results
                                               if (_enableAutocomplete &&
+                                                  _siteAddressFocusNode
+                                                      .hasFocus &&
+                                                  _siteAddressController.text
+                                                      .trim()
+                                                      .isNotEmpty &&
                                                   _searchResults
                                                       .isNotEmpty) ...[
                                                 const SizedBox(height: 8),
@@ -530,6 +579,8 @@ class _EditSitePageState extends State<EditSitePage> {
                                                   ),
                                                 ),
                                               ] else if (_enableAutocomplete &&
+                                                  _siteAddressFocusNode
+                                                      .hasFocus &&
                                                   _siteAddressController.text
                                                       .trim()
                                                       .isNotEmpty &&
@@ -550,7 +601,8 @@ class _EditSitePageState extends State<EditSitePage> {
                                                         BorderRadius.zero,
                                                   ),
                                                   child: Text(
-                                                    'No results found',
+                                                    'edit_site.no_results_found'
+                                                        .tr(),
                                                     style: AppTextStyles
                                                         .bodyMedium
                                                         .copyWith(
@@ -563,7 +615,7 @@ class _EditSitePageState extends State<EditSitePage> {
                                           ),
                                         ),
 
-                                        const SizedBox(height: 24),
+                                        const SizedBox(height: 16),
                                         // Resource selection
                                         SizedBox(
                                           width: screenSize.width < 600
@@ -575,7 +627,9 @@ class _EditSitePageState extends State<EditSitePage> {
                                             children: [
                                               _buildResourceCheckbox(
                                                 value: 'energy',
-                                                label: 'Energy',
+                                                label:
+                                                    'edit_site.resource_energy'
+                                                        .tr(),
                                                 isSelected: _selectedResources
                                                     .contains('energy'),
                                                 onChanged: (selected) {
@@ -595,7 +649,9 @@ class _EditSitePageState extends State<EditSitePage> {
                                               const SizedBox(width: 24),
                                               _buildResourceCheckbox(
                                                 value: 'water',
-                                                label: 'Water',
+                                                label:
+                                                    'edit_site.resource_water'
+                                                        .tr(),
                                                 isSelected: _selectedResources
                                                     .contains('water'),
                                                 onChanged: (selected) {
@@ -615,7 +671,8 @@ class _EditSitePageState extends State<EditSitePage> {
                                               const SizedBox(width: 24),
                                               _buildResourceCheckbox(
                                                 value: 'gas',
-                                                label: 'Gas',
+                                                label: 'edit_site.resource_gas'
+                                                    .tr(),
                                                 isSelected: _selectedResources
                                                     .contains('gas'),
                                                 onChanged: (selected) {
@@ -635,7 +692,7 @@ class _EditSitePageState extends State<EditSitePage> {
                                             ],
                                           ),
                                         ),
-                                        const SizedBox(height: 32),
+                                        const SizedBox(height: 48),
                                         // Save button
                                         isLoading
                                             ? const Center(
@@ -662,9 +719,10 @@ class _EditSitePageState extends State<EditSitePage> {
                                                     ScaffoldMessenger.of(
                                                       context,
                                                     ).showSnackBar(
-                                                      const SnackBar(
+                                                      SnackBar(
                                                         content: Text(
-                                                          'Site name is required',
+                                                          'edit_site.site_name_required'
+                                                              .tr(),
                                                         ),
                                                         backgroundColor:
                                                             Colors.red,
@@ -690,7 +748,8 @@ class _EditSitePageState extends State<EditSitePage> {
                                                         ),
                                                       );
                                                 },
-                                                label: 'Save Changes',
+                                                label: 'edit_site.save_changes'
+                                                    .tr(),
                                                 width: 260,
                                               ),
                                       ],

@@ -145,17 +145,16 @@ class _LoxoneConnectionWidgetState extends State<LoxoneConnectionWidget> {
                         TextField(
                           controller: _userController,
                           decoration: InputDecoration(
-                            labelText: 'Benutzer',
-                            hintText: 'AICONO_clouduser01',
+                            hintText: 'Benutzer',
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(0),
                               borderSide: const BorderSide(
                                 color: Colors.black54,
                                 width: 2,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(0),
                               borderSide: BorderSide(
                                 color: AppTheme.primary,
                                 width: 2,
@@ -173,8 +172,7 @@ class _LoxoneConnectionWidgetState extends State<LoxoneConnectionWidget> {
                           controller: _passController,
                           obscureText: true,
                           decoration: InputDecoration(
-                            labelText: 'Passwort',
-                            hintText: 'A9f!Q2m#R7xP',
+                            hintText: 'Passwort',
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(4),
                               borderSide: const BorderSide(
@@ -200,17 +198,16 @@ class _LoxoneConnectionWidgetState extends State<LoxoneConnectionWidget> {
                         TextField(
                           controller: _externalAddressController,
                           decoration: InputDecoration(
-                            labelText: 'Externe Adresse',
-                            hintText: 'dns.loxonecloud.com',
+                            hintText: 'Externe Adresse',
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(0),
                               borderSide: const BorderSide(
                                 color: Colors.black54,
                                 width: 2,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(0),
                               borderSide: BorderSide(
                                 color: AppTheme.primary,
                                 width: 2,
@@ -228,17 +225,16 @@ class _LoxoneConnectionWidgetState extends State<LoxoneConnectionWidget> {
                           controller: _portController,
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
-                            labelText: 'Port',
-                            hintText: '443',
+                            hintText: 'Port',
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(0),
                               borderSide: const BorderSide(
                                 color: Colors.black54,
                                 width: 2,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(0),
                               borderSide: BorderSide(
                                 color: AppTheme.primary,
                                 width: 2,
@@ -255,17 +251,16 @@ class _LoxoneConnectionWidgetState extends State<LoxoneConnectionWidget> {
                         TextField(
                           controller: _serialNumberController,
                           decoration: InputDecoration(
-                            labelText: 'Seriennummer',
-                            hintText: '504F94D107EE',
+                            hintText: 'Seriennummer',
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(0),
                               borderSide: const BorderSide(
                                 color: Colors.black54,
                                 width: 2,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(0),
                               borderSide: BorderSide(
                                 color: AppTheme.primary,
                                 width: 2,

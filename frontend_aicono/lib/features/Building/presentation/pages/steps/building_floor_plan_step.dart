@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:frontend_aicono/features/Building/domain/entities/building_entity.dart';
 import 'package:file_picker/file_picker.dart';
@@ -244,13 +245,25 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
   String _getBuildingSummary() {
     final parts = <String>[];
     if (widget.building.totalArea != null) {
-      parts.add('${widget.building.totalArea}qm');
+      parts.add(
+        'building_floor_plan.area_unit'.tr(
+          namedArgs: {'area': widget.building.totalArea.toString()},
+        ),
+      );
     }
     if (widget.building.numberOfRooms != null) {
-      parts.add('${widget.building.numberOfRooms} Räume');
+      parts.add(
+        'building_floor_plan.rooms'.tr(
+          namedArgs: {'count': widget.building.numberOfRooms.toString()},
+        ),
+      );
     }
     if (widget.building.constructionYear != null) {
-      parts.add('Baujahr ${widget.building.constructionYear}');
+      parts.add(
+        'building_floor_plan.construction_year'.tr(
+          namedArgs: {'year': widget.building.constructionYear.toString()},
+        ),
+      );
     }
     return parts.join(', ');
   }
@@ -283,14 +296,14 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
           if (kIsWeb) {
             final bytes = file.bytes;
             if (bytes == null) {
-              _showError('Error: Could not read file data');
+              _showError('building_floor_plan.error_file_data'.tr());
               return;
             }
             imageBytes = bytes;
           } else {
             final filePath = file.path;
             if (filePath == null) {
-              _showError('Error: Could not read file path');
+              _showError('building_floor_plan.error_file_path'.tr());
               return;
             }
             imageBytes = await File(filePath).readAsBytes();
@@ -301,13 +314,15 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
             _currentState = _FloorPlanState.uploaded;
           });
         } else if (file.extension == 'svg') {
-          _showError(
-            'SVG files are not supported for preview. Please use PNG or JPG.',
-          );
+          _showError('building_floor_plan.error_svg_not_supported'.tr());
         }
       }
     } catch (e) {
-      _showError('Error uploading file: ${e.toString()}');
+      _showError(
+        'building_floor_plan.error_uploading'.tr(
+          namedArgs: {'error': e.toString()},
+        ),
+      );
     }
   }
 
@@ -399,368 +414,394 @@ class _BuildingFloorPlanStepState extends State<BuildingFloorPlanStep> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(0),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: ListView(
-                    // crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Header with back button and title
-                      if (!isActivationBuildingActive)
-                        PageHeaderRow(
-                          title: _totalFloors > 1
-                              ? 'Gibt es einen Grundriss für Etage $_currentFloorNumber von $_totalFloors?'
-                              : 'Gibt es einen Grundriss zum Gebäude?',
-                          onBack: widget.onBack,
-                          showBackButton: widget.onBack != null,
-                        ),
-                      if (!isActivationBuildingActive) ...[
-                        const SizedBox(height: 32),
-                        // Previous info boxes
-                        if (widget.building.address != null)
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey[300]!),
-                              borderRadius: BorderRadius.circular(0),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  Image.asset(
-                                    'assets/images/check.png',
-                                    width: 20,
-                                    height: 20,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      widget.building.address!,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      // crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Header with back button and title
+                        if (!isActivationBuildingActive)
+                          PageHeaderRow(
+                            title: _totalFloors > 1
+                                ? 'building_floor_plan.title_multiple'.tr(
+                                    namedArgs: {
+                                      'current': _currentFloorNumber.toString(),
+                                      'total': _totalFloors.toString(),
+                                    },
+                                  )
+                                : 'building_floor_plan.title_single'.tr(),
+                            onBack: widget.onBack,
+                            showBackButton: widget.onBack != null,
+                          ),
+                        if (!isActivationBuildingActive) ...[
+                          const SizedBox(height: 32),
+                          // Previous info boxes
+                          if (widget.building.address != null)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Color(0xFF636F57),
+                                  width: 2,
+                                ),
+                                borderRadius: BorderRadius.circular(0),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    Image.asset(
+                                      'assets/images/check.png',
+                                      width: 20,
+                                      height: 20,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        widget.building.address!,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        if (_getBuildingSummary().isNotEmpty)
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey[300]!),
-                              borderRadius: BorderRadius.circular(0),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  Image.asset(
-                                    'assets/images/check.png',
-                                    width: 20,
-                                    height: 20,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      _getBuildingSummary(),
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
+                          if (_getBuildingSummary().isNotEmpty)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Color(0xFF636F57),
+                                  width: 2,
+                                ),
+                                borderRadius: BorderRadius.circular(0),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    Image.asset(
+                                      'assets/images/check.png',
+                                      width: 20,
+                                      height: 20,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _getBuildingSummary(),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        const SizedBox(height: 24),
-                        // Loading indicator
-                        if (_isLoadingImage)
-                          const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(24.0),
-                              child: CircularProgressIndicator(),
-                            ),
-                          )
-                        // Floor plan options - Show different UI based on state
-                        else
-                          DottedBorderContainer(
-                            child: Container(
-                              height: 250,
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                children: [
-                                  if (_currentState ==
-                                          _FloorPlanState.initial ||
-                                      (_currentState ==
-                                              _FloorPlanState.uploaded &&
-                                          _uploadedImageBytes != null))
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      spacing: 26,
-                                      // runSpacing: 16,
-                                      children: [
-                                        InkWell(
-                                          onTap:
-                                              // widget.onBuildFloorPlan ??
-                                              () {
-                                                context.pushNamed(
-                                                  Routelists.floorPlanEditor,
-                                                  queryParameters: {
-                                                    'buildingId':
-                                                        widget.building.id,
-                                                    'siteId': widget.siteId,
-                                                  },
-                                                );
-
-                                                // // Navigate to floor plan editor
-                                                // AppRouter.instance.pushNamed(
-                                                //   context,
-                                                //   'floor-plan-editor',
-                                                // );
-                                              },
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.add,
-                                                color: Colors.black,
-                                                size: 20,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                'Grundriss bauen',
-                                                style: TextStyle(
-                                                  color: Colors.black,
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        // Container(
-                                        //   height: 1,
-                                        //   color: Colors.grey[300],
-                                        //   margin: const EdgeInsets.symmetric(
-                                        //     vertical: 8,
-                                        //   ),
-                                        // ),
-                                        InkWell(
-                                          onTap: _uploadFloorPlan,
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.add,
-                                                color: Colors.black,
-                                                size: 20,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                'Grundriss hinzufügen',
-                                                style: TextStyle(
-                                                  color: Colors.black,
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  // Show uploaded image in uploaded state
-                                  const SizedBox(height: 8),
-                                  if (_currentState == _FloorPlanState.uploaded)
-                                    Container(
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(0),
-                                        child: _uploadedImageBytes != null
-                                            ? Image.memory(
-                                                _uploadedImageBytes!,
-                                                fit: BoxFit.contain,
-                                                width: double.infinity,
-                                                height: 180,
-                                              )
-                                            : _floorPlanUrl != null
-                                            ? SvgPicture.network(
-                                                _floorPlanUrl!,
-                                                fit: BoxFit.contain,
-                                                width: double.infinity,
-                                                height: 180,
-                                                errorBuilder:
-                                                    (
-                                                      context,
-                                                      error,
-                                                      stackTrace,
-                                                    ) {
-                                                      return Container(
-                                                        height: 180,
-                                                        color: Colors.grey[200],
-                                                        child: const Center(
-                                                          child: Icon(
-                                                            Icons
-                                                                .image_not_supported,
-                                                            color: Colors.grey,
-                                                          ),
-                                                        ),
-                                                      );
+                          const SizedBox(height: 24),
+                          // Loading indicator
+                          if (_isLoadingImage)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(24.0),
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          // Floor plan options - Show different UI based on state
+                          else
+                            DottedBorderContainer(
+                              child: Container(
+                                height: 250,
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  children: [
+                                    if (_currentState ==
+                                            _FloorPlanState.initial ||
+                                        (_currentState ==
+                                                _FloorPlanState.uploaded &&
+                                            _uploadedImageBytes != null))
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        spacing: 26,
+                                        // runSpacing: 16,
+                                        children: [
+                                          InkWell(
+                                            onTap:
+                                                // widget.onBuildFloorPlan ??
+                                                () {
+                                                  context.pushNamed(
+                                                    Routelists.floorPlanEditor,
+                                                    queryParameters: {
+                                                      'buildingId':
+                                                          widget.building.id,
+                                                      'siteId': widget.siteId,
                                                     },
-                                              )
-                                            : const SizedBox.shrink(),
-                                      ),
-                                    ),
-                                  // Show activation widget in activation state
-                                  if (_currentState ==
-                                          _FloorPlanState.activation &&
-                                      _uploadedImageBytes != null)
-                                    Column(
-                                      children: [
-                                        InkWell(
-                                          onTap: () {
-                                            setState(() {
-                                              isActivationBuildingActive = true;
-                                            });
-                                          },
-                                          child: Text(
-                                            "+ Grundriss aktivieren",
-                                            style: TextStyle(
-                                              color: Colors.black,
-                                              decoration:
-                                                  TextDecoration.underline,
+                                                  );
+
+                                                  // // Navigate to floor plan editor
+                                                  // AppRouter.instance.pushNamed(
+                                                  //   context,
+                                                  //   'floor-plan-editor',
+                                                  // );
+                                                },
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.add,
+                                                  color: Colors.black,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'building_floor_plan.build_floor_plan'
+                                                      .tr(),
+                                                  style: const TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                    decoration: TextDecoration
+                                                        .underline,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        ClipRRect(
+                                          // Container(
+                                          //   height: 1,
+                                          //   color: Colors.grey[300],
+                                          //   margin: const EdgeInsets.symmetric(
+                                          //     vertical: 8,
+                                          //   ),
+                                          // ),
+                                          InkWell(
+                                            onTap: _uploadFloorPlan,
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.add,
+                                                  color: Colors.black,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'building_floor_plan.add_floor_plan'
+                                                      .tr(),
+                                                  style: const TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                    decoration: TextDecoration
+                                                        .underline,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    // Show uploaded image in uploaded state
+                                    const SizedBox(height: 8),
+                                    if (_currentState ==
+                                        _FloorPlanState.uploaded)
+                                      Container(
+                                        child: ClipRRect(
                                           borderRadius: BorderRadius.circular(
                                             0,
                                           ),
-                                          child: Image.memory(
-                                            _uploadedImageBytes!,
-                                            fit: BoxFit.contain,
-                                            width: double.infinity,
-                                            height: 180,
-                                          ),
+                                          child: _uploadedImageBytes != null
+                                              ? Image.memory(
+                                                  _uploadedImageBytes!,
+                                                  fit: BoxFit.contain,
+                                                  width: double.infinity,
+                                                  height: 180,
+                                                )
+                                              : _floorPlanUrl != null
+                                              ? SvgPicture.network(
+                                                  _floorPlanUrl!,
+                                                  fit: BoxFit.contain,
+                                                  width: double.infinity,
+                                                  height: 180,
+                                                  errorBuilder:
+                                                      (
+                                                        context,
+                                                        error,
+                                                        stackTrace,
+                                                      ) {
+                                                        return Container(
+                                                          height: 180,
+                                                          color:
+                                                              Colors.grey[200],
+                                                          child: const Center(
+                                                            child: Icon(
+                                                              Icons
+                                                                  .image_not_supported,
+                                                              color:
+                                                                  Colors.grey,
+                                                            ),
+                                                          ),
+                                                        );
+                                                      },
+                                                )
+                                              : const SizedBox.shrink(),
                                         ),
-                                      ],
-                                    ),
-                                  // Expanded(
-                                  //   child: FloorPlanActivationWidget(
-                                  //     initialImageBytes: _uploadedImageBytes,
-                                  //     onComplete: _handleActivationComplete,
-                                  //     onSkip: _handleActivationSkip,
-                                  //   ),
-                                  // ),
-                                ],
+                                      ),
+                                    // Show activation widget in activation state
+                                    if (_currentState ==
+                                            _FloorPlanState.activation &&
+                                        _uploadedImageBytes != null)
+                                      Column(
+                                        children: [
+                                          InkWell(
+                                            onTap: () {
+                                              setState(() {
+                                                isActivationBuildingActive =
+                                                    true;
+                                              });
+                                            },
+                                            child: Text(
+                                              "+ ${'building_floor_plan.activate_floor_plan'.tr()}",
+                                              style: const TextStyle(
+                                                color: Colors.black,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              0,
+                                            ),
+                                            child: Image.memory(
+                                              _uploadedImageBytes!,
+                                              fit: BoxFit.contain,
+                                              width: double.infinity,
+                                              height: 180,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    // Expanded(
+                                    //   child: FloorPlanActivationWidget(
+                                    //     initialImageBytes: _uploadedImageBytes,
+                                    //     onComplete: _handleActivationComplete,
+                                    //     onSkip: _handleActivationSkip,
+                                    //   ),
+                                    // ),
+                                  ],
+                                ),
                               ),
                             ),
+                        ],
+                        if (isActivationBuildingActive)
+                          FloorPlanActivationWidget(
+                            initialImageBytes: _uploadedImageBytes,
+                            onComplete: _handleActivationComplete,
+                            onSkip: _handleActivationSkip,
+                            buildingId: widget.buildingId,
+                            siteId: widget.siteId,
+                            buildingName: widget.building.name,
+                            buildingAddress: widget.building.address,
+                            buildingSize: widget.building.totalArea?.toString(),
+                            numberOfRooms: widget.building.numberOfRooms,
+                            constructionYear: widget.building.constructionYear,
+                            floorName: widget.floorName,
+                            fromDashboard: widget.fromDashboard,
                           ),
-                      ],
-                      if (isActivationBuildingActive)
-                        FloorPlanActivationWidget(
-                          initialImageBytes: _uploadedImageBytes,
-                          onComplete: _handleActivationComplete,
-                          onSkip: _handleActivationSkip,
-                          buildingId: widget.buildingId,
-                          siteId: widget.siteId,
-                          buildingName: widget.building.name,
-                          buildingAddress: widget.building.address,
-                          buildingSize: widget.building.totalArea?.toString(),
-                          numberOfRooms: widget.building.numberOfRooms,
-                          constructionYear: widget.building.constructionYear,
-                          floorName: widget.floorName,
-                          fromDashboard: widget.fromDashboard,
-                        ),
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                      // Skip step link (only show in initial state)
-                      // if (_currentState == _FloorPlanState.initial)
-                      if (!isActivationBuildingActive) ...[
-                        InkWell(
-                          onTap: _handleSkip,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Center(
-                              child: Text(
-                                'Schri überspringen',
-                                // _hasMoreFloors
-                                //     ? 'Diese Etage überspringen'
-                                //     : 'Schritt überspringen',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
+                        // Skip step link (only show in initial state)
+                        // if (_currentState == _FloorPlanState.initial)
+                        if (!isActivationBuildingActive) ...[
+                          InkWell(
+                            onTap: _handleSkip,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Center(
+                                child: Text(
+                                  'building_floor_plan.skip_step'.tr(),
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    decoration: TextDecoration.underline,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        // if (_currentState == _FloorPlanState.initial)
-                        const SizedBox(height: 8),
+                          // if (_currentState == _FloorPlanState.initial)
+                          const SizedBox(height: 8),
 
-                        // Confirm/Next button
-                        if (_currentState == _FloorPlanState.initial)
-                          Center(
-                            child: PrimaryOutlineButton(
-                              label: 'Das passt so',
-                              width: 260,
-                              enabled: false,
-                              // onPressed: _handleNext,
+                          // Confirm/Next button
+                          if (_currentState == _FloorPlanState.initial)
+                            Center(
+                              child: PrimaryOutlineButton(
+                                label: 'building_floor_plan.button_text'.tr(),
+                                width: 260,
+                                enabled: false,
+                                // onPressed: _handleNext,
+                              ),
                             ),
-                          ),
-                        if (_currentState == _FloorPlanState.uploaded)
-                          Center(
-                            child: (_floorPlanUrl != null)
-                                ? PrimaryOutlineButton(
-                                    label: 'go back',
-                                    width: 260,
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                    },
-                                  )
-                                : PrimaryOutlineButton(
-                                    label: _hasMoreFloors
-                                        ? 'Weiter zur nächsten Etage'
-                                        : 'Das passt so',
-                                    width: 260,
-                                    onPressed: _handleNext,
-                                  ),
-                          ),
+                          if (_currentState == _FloorPlanState.uploaded)
+                            Center(
+                              child: (_floorPlanUrl != null)
+                                  ? PrimaryOutlineButton(
+                                      label: 'building_floor_plan.go_back'.tr(),
+                                      width: 260,
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                      },
+                                    )
+                                  : PrimaryOutlineButton(
+                                      label: _hasMoreFloors
+                                          ? 'building_floor_plan.next_floor'
+                                                .tr()
+                                          : 'building_floor_plan.button_text'
+                                                .tr(),
+                                      width: 260,
+                                      onPressed: _handleNext,
+                                    ),
+                            ),
 
-                        // Next button for uploaded state (moves to activation state)
-                        // if (_currentState == _FloorPlanState.uploaded)
-                        //   ElevatedButton(
-                        //     onPressed: _handleNext,
-                        //     style: ElevatedButton.styleFrom(
-                        //       padding: const EdgeInsets.symmetric(vertical: 16),
-                        //       backgroundColor: Colors.blue[700],
-                        //       shape: RoundedRectangleBorder(
-                        //         borderRadius: BorderRadius.circular(8),
-                        //       ),
-                        //     ),
-                        //     child: Text(
-                        //       _hasMoreFloors
-                        //           ? 'Weiter zur nächsten Etage'
-                        //           : 'Weiter',
-                        //       style: const TextStyle(
-                        //         color: Colors.white,
-                        //         fontSize: 16,
-                        //         fontWeight: FontWeight.w500,
-                        //       ),
-                        //     ),
-                        //   ),
+                          // Next button for uploaded state (moves to activation state)
+                          // if (_currentState == _FloorPlanState.uploaded)
+                          //   ElevatedButton(
+                          //     onPressed: _handleNext,
+                          //     style: ElevatedButton.styleFrom(
+                          //       padding: const EdgeInsets.symmetric(vertical: 16),
+                          //       backgroundColor: Colors.blue[700],
+                          //       shape: RoundedRectangleBorder(
+                          //         borderRadius: BorderRadius.circular(8),
+                          //       ),
+                          //     ),
+                          //     child: Text(
+                          //       _hasMoreFloors
+                          //           ? 'Weiter zur nächsten Etage'
+                          //           : 'Weiter',
+                          //       style: const TextStyle(
+                          //         color: Colors.white,
+                          //         fontSize: 16,
+                          //         fontWeight: FontWeight.w500,
+                          //       ),
+                          //     ),
+                          //   ),
+                        ],
+                        const SizedBox(height: 8),
                       ],
-                      const SizedBox(height: 8),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -795,7 +836,7 @@ class _DottedBorderPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.grey[300]!
+      ..color = Color(0xFF636F57)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
 

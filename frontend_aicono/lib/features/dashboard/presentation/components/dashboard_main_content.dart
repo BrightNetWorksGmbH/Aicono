@@ -34,7 +34,8 @@ class DashboardMainContent extends StatefulWidget {
   final User? user;
   final String? selectedReportId;
   final DashboardDetailsFilter? dashboardFilter;
-  final void Function(DateTime start, DateTime end)? onDashboardDateRangeChanged;
+  final void Function(DateTime start, DateTime end)?
+  onDashboardDateRangeChanged;
 
   const DashboardMainContent({
     super.key,
@@ -207,9 +208,11 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    'dashboard.main_content.enter_measurement_data'.tr() +
+                                    'dashboard.main_content.enter_measurement_data'
+                                            .tr() +
                                         ' ' +
-                                        'dashboard.main_content.coming_soon'.tr(),
+                                        'dashboard.main_content.coming_soon'
+                                            .tr(),
                                   ),
                                 ),
                               );
@@ -217,10 +220,10 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                             onAddBuilding: _showSiteSelectionDialog,
                             onAddSite: _showSwitchSelectionDialog,
                             onAddBranding: () {
-                              final switchId = widget.verseId ??
+                              final switchId =
+                                  widget.verseId ??
                                   sl<LocalStorage>().getSelectedVerseId();
-                              if (switchId != null &&
-                                  switchId.isNotEmpty) {
+                              if (switchId != null && switchId.isNotEmpty) {
                                 context.pushNamed(
                                   Routelists.switchSettings,
                                   queryParameters: {'switchId': switchId},
@@ -229,7 +232,8 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                        'switch_settings.no_switch_selected'.tr()),
+                                      'switch_settings.no_switch_selected'.tr(),
+                                    ),
                                     backgroundColor: Colors.orange,
                                   ),
                                 );
@@ -293,10 +297,7 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     }
     if (siteState is DashboardSiteDetailsSuccess) {
       context.read<DashboardSiteDetailsBloc>().add(
-        DashboardSiteDetailsRequested(
-          siteId: siteState.siteId,
-          filter: filter,
-        ),
+        DashboardSiteDetailsRequested(siteId: siteState.siteId, filter: filter),
       );
     }
   }
@@ -554,31 +555,56 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                 metricCards: [
                   buildPropertyMetricCard(
                     label: 'Buildings',
-                    value: LocaleNumberFormat.formatInt(d.buildingCount, locale: locale),
-                    icon: buildDashboardSvgIcon(assetBuilding, color: _metricIconTeal),
+                    value: LocaleNumberFormat.formatInt(
+                      d.buildingCount,
+                      locale: locale,
+                    ),
+                    icon: buildDashboardSvgIcon(
+                      assetBuilding,
+                      color: _metricIconTeal,
+                    ),
                   ),
                   buildPropertyMetricCard(
                     label: 'Rooms',
-                    value: LocaleNumberFormat.formatInt(d.totalRooms, locale: locale),
-                    icon: buildDashboardSvgIcon(assetRoom, color: _metricIconTeal),
+                    value: LocaleNumberFormat.formatInt(
+                      d.totalRooms,
+                      locale: locale,
+                    ),
+                    icon: buildDashboardSvgIcon(
+                      assetRoom,
+                      color: _metricIconTeal,
+                    ),
                   ),
                   buildPropertyMetricCard(
                     label: 'Sensors',
-                    value: LocaleNumberFormat.formatInt(d.totalSensors, locale: locale),
-                    icon: buildDashboardSvgIcon(assetSensor, color: _metricIconTeal, size: 20),
+                    value: LocaleNumberFormat.formatInt(
+                      d.totalSensors,
+                      locale: locale,
+                    ),
+                    icon: buildDashboardSvgIcon(
+                      assetSensor,
+                      color: _metricIconTeal,
+                      size: 20,
+                    ),
                   ),
                   buildPropertyMetricCard(
                     label: 'Floors',
-                    value: LocaleNumberFormat.formatInt(d.totalFloors, locale: locale),
-                    icon: buildDashboardSvgIcon(assetFloor, color: _metricIconTeal),
+                    value: LocaleNumberFormat.formatInt(
+                      d.totalFloors,
+                      locale: locale,
+                    ),
+                    icon: buildDashboardSvgIcon(
+                      assetFloor,
+                      color: _metricIconTeal,
+                    ),
                   ),
                 ],
                 filter: DashboardPeriodHeader(
-                timeRange: d.timeRange,
-                onDateRangeChanged: widget.onDashboardDateRangeChanged != null
-                    ? (s, e) => _onDateRangeChanged(context, s, e)
-                    : null,
-              ),
+                  timeRange: d.timeRange,
+                  onDateRangeChanged: widget.onDashboardDateRangeChanged != null
+                      ? (s, e) => _onDateRangeChanged(context, s, e)
+                      : null,
+                ),
               ),
               if (kpis != null) ...[
                 SizedBox(height: _spacingSection),
@@ -734,16 +760,23 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             metricCards: [
               buildPropertyMetricCard(
                 label: 'Sensors',
-                value: LocaleNumberFormat.formatInt(d.sensorCount, locale: locale),
-                icon: buildDashboardSvgIcon(assetSensor, color: _metricIconTeal, size: 20),
+                value: LocaleNumberFormat.formatInt(
+                  d.sensorCount,
+                  locale: locale,
+                ),
+                icon: buildDashboardSvgIcon(
+                  assetSensor,
+                  color: _metricIconTeal,
+                  size: 20,
+                ),
               ),
             ],
             filter: DashboardPeriodHeader(
-                timeRange: d.timeRange,
-                onDateRangeChanged: widget.onDashboardDateRangeChanged != null
-                    ? (s, e) => _onDateRangeChanged(context, s, e)
-                    : null,
-              ),
+              timeRange: d.timeRange,
+              onDateRangeChanged: widget.onDashboardDateRangeChanged != null
+                  ? (s, e) => _onDateRangeChanged(context, s, e)
+                  : null,
+            ),
           ),
           if (kpis != null) ...[
             SizedBox(height: _spacingSection),
@@ -827,11 +860,11 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
           DashboardPropertyOverviewSection(
             title: d.name,
             filter: DashboardPeriodHeader(
-                timeRange: d.timeRange,
-                onDateRangeChanged: widget.onDashboardDateRangeChanged != null
-                    ? (s, e) => _onDateRangeChanged(context, s, e)
-                    : null,
-              ),
+              timeRange: d.timeRange,
+              onDateRangeChanged: widget.onDashboardDateRangeChanged != null
+                  ? (s, e) => _onDateRangeChanged(context, s, e)
+                  : null,
+            ),
             onEdit: () {
               context.pushNamed(
                 Routelists.editFloor,
@@ -844,13 +877,23 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             metricCards: [
               buildPropertyMetricCard(
                 label: 'Rooms',
-                value: LocaleNumberFormat.formatInt(d.roomCount, locale: locale),
+                value: LocaleNumberFormat.formatInt(
+                  d.roomCount,
+                  locale: locale,
+                ),
                 icon: buildDashboardSvgIcon(assetRoom, color: _metricIconTeal),
               ),
               buildPropertyMetricCard(
                 label: 'Sensors',
-                value: LocaleNumberFormat.formatInt(d.sensorCount, locale: locale),
-                icon: buildDashboardSvgIcon(assetSensor, color: _metricIconTeal, size: 20),
+                value: LocaleNumberFormat.formatInt(
+                  d.sensorCount,
+                  locale: locale,
+                ),
+                icon: buildDashboardSvgIcon(
+                  assetSensor,
+                  color: _metricIconTeal,
+                  size: 20,
+                ),
               ),
             ],
           ),
@@ -889,7 +932,9 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.zero,
-                      child: DashboardFloorPlanImage(imageUrl: d.floorPlanLink!),
+                      child: DashboardFloorPlanImage(
+                        imageUrl: d.floorPlanLink!,
+                      ),
                     ),
                   ),
                   SizedBox(height: _spacingContent),
@@ -1021,11 +1066,11 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
             },
             metricCards: buildBuildingDetailsMetricCards(d, locale),
             filter: DashboardPeriodHeader(
-                timeRange: d.timeRange,
-                onDateRangeChanged: widget.onDashboardDateRangeChanged != null
-                    ? (s, e) => _onDateRangeChanged(context, s, e)
-                    : null,
-              ),
+              timeRange: d.timeRange,
+              onDateRangeChanged: widget.onDashboardDateRangeChanged != null
+                  ? (s, e) => _onDateRangeChanged(context, s, e)
+                  : null,
+            ),
           ),
           if (kpis != null) ...[
             SizedBox(height: _spacingSection),
@@ -1696,4 +1741,3 @@ class _DashboardMainContentState extends State<DashboardMainContent> {
     }
   }
 }
-

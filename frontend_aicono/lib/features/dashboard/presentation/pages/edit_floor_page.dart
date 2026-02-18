@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert' show utf8;
 import 'dart:io' show File;
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -83,15 +84,15 @@ class _EditFloorPageState extends State<EditFloorPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppTheme.background,
+        backgroundColor: AppTheme.primary,
         body: SingleChildScrollView(
           child: Center(
             child: Column(
               children: [
                 Container(
                   width: double.infinity,
-                  height: screenSize.height * .9,
-                  margin: const EdgeInsets.all(16),
+                  height: screenSize.height * .97,
+                  margin: const EdgeInsets.all(8),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -135,10 +136,10 @@ class _EditFloorPageState extends State<EditFloorPage> {
                                     onPressed: () => context.pop(),
                                   ),
                                   const SizedBox(width: 8),
-                                  const Expanded(
+                                  Expanded(
                                     child: Center(
                                       child: Text(
-                                        'Edit Floor',
+                                        'edit_floor.page_title'.tr(),
                                         style: TextStyle(
                                           fontSize: 24,
                                           fontWeight: FontWeight.bold,
@@ -150,8 +151,8 @@ class _EditFloorPageState extends State<EditFloorPage> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
-                              'Update floor information',
+                            Text(
+                              'edit_floor.subtitle'.tr(),
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey,
@@ -168,7 +169,7 @@ class _EditFloorPageState extends State<EditFloorPage> {
                               child: TextFormField(
                                 controller: _floorNameController,
                                 decoration: InputDecoration(
-                                  hintText: 'Enter floor name',
+                                  hintText: 'edit_floor.floor_name_hint'.tr(),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(0),
                                   ),
@@ -176,7 +177,8 @@ class _EditFloorPageState extends State<EditFloorPage> {
                                 ),
                                 validator: (value) {
                                   if (value == null || value.trim().isEmpty) {
-                                    return 'Floor name is required';
+                                    return 'edit_floor.floor_name_required'
+                                        .tr();
                                   }
                                   return null;
                                 },
@@ -184,16 +186,16 @@ class _EditFloorPageState extends State<EditFloorPage> {
                             ),
                             const SizedBox(height: 32),
                             // Floor Plan Editor Section
-                            const Text(
-                              'Edit Floor Plan',
+                            Text(
+                              'edit_floor.floor_plan_title'.tr(),
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
-                              'Add or edit rooms and floor plan',
+                            Text(
+                              'edit_floor.floor_plan_subtitle'.tr(),
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey,
@@ -227,7 +229,12 @@ class _EditFloorPageState extends State<EditFloorPage> {
                                           ).showSnackBar(
                                             SnackBar(
                                               content: Text(
-                                                'Error creating rooms: $e',
+                                                'edit_floor.error_creating_rooms'
+                                                    .tr(
+                                                      namedArgs: {
+                                                        'error': e.toString(),
+                                                      },
+                                                    ),
                                               ),
                                               backgroundColor: Colors.orange,
                                             ),
@@ -251,9 +258,10 @@ class _EditFloorPageState extends State<EditFloorPage> {
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                               content: Text(
-                                                'Floor plan saved successfully',
+                                                'edit_floor.floor_plan_saved_successfully'
+                                                    .tr(),
                                               ),
                                               backgroundColor: Colors.green,
                                             ),
@@ -277,7 +285,12 @@ class _EditFloorPageState extends State<EditFloorPage> {
                                           ).showSnackBar(
                                             SnackBar(
                                               content: Text(
-                                                'Error saving floor plan: $e',
+                                                'edit_floor.error_saving_floor_plan'
+                                                    .tr(
+                                                      namedArgs: {
+                                                        'error': e.toString(),
+                                                      },
+                                                    ),
                                               ),
                                               backgroundColor: Colors.red,
                                             ),
@@ -307,7 +320,7 @@ class _EditFloorPageState extends State<EditFloorPage> {
                                 : PrimaryOutlineButton(
                                     width: 260,
                                     onPressed: _handleSave,
-                                    label: 'Save Changes',
+                                    label: 'edit_floor.save_changes'.tr(),
                                   ),
                           ],
                         ),
@@ -332,8 +345,8 @@ class _EditFloorPageState extends State<EditFloorPage> {
 
     if (floorName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Floor name is required'),
+        SnackBar(
+          content: Text('edit_floor.floor_name_required'.tr()),
           backgroundColor: Colors.red,
         ),
       );
@@ -449,8 +462,8 @@ class _EditFloorPageState extends State<EditFloorPage> {
       if (mounted) {
         if (response.statusCode == 200 || response.statusCode == 201) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Floor updated successfully'),
+            SnackBar(
+              content: Text('edit_floor.floor_updated_successfully'.tr()),
               backgroundColor: Colors.green,
             ),
           );
@@ -463,7 +476,11 @@ class _EditFloorPageState extends State<EditFloorPage> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to update floor: ${response.statusCode}'),
+              content: Text(
+                'edit_floor.failed_to_update'.tr(
+                  namedArgs: {'code': response.statusCode.toString()},
+                ),
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -473,7 +490,11 @@ class _EditFloorPageState extends State<EditFloorPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error updating floor: $e'),
+            content: Text(
+              'edit_floor.error_updating_floor'.tr(
+                namedArgs: {'error': e.toString()},
+              ),
+            ),
             backgroundColor: Colors.red,
           ),
         );

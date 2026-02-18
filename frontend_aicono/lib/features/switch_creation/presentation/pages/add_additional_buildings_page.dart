@@ -157,7 +157,7 @@ class _AddAdditionalBuildingsPageState
           }
         },
         child: Scaffold(
-          backgroundColor: AppTheme.background,
+          backgroundColor: AppTheme.primary,
           body: Center(
             child: SingleChildScrollView(
               child: Container(

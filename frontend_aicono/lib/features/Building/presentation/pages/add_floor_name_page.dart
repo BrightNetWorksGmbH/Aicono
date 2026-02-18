@@ -53,8 +53,10 @@ class _AddFloorNamePageState extends State<AddFloorNamePage> {
 
   void _handleSkip() {
     // Navigate to floor management page without floor name
-    if (widget.buildingId != null && widget.buildingId!.isNotEmpty &&
-        widget.siteId != null && widget.siteId!.isNotEmpty) {
+    if (widget.buildingId != null &&
+        widget.buildingId!.isNotEmpty &&
+        widget.siteId != null &&
+        widget.siteId!.isNotEmpty) {
       context.pushNamed(
         Routelists.buildingFloorManagement,
         queryParameters: {
@@ -62,7 +64,8 @@ class _AddFloorNamePageState extends State<AddFloorNamePage> {
           if (widget.switchId != null) 'switchId': widget.switchId!,
           'siteId': widget.siteId!,
           'buildingId': widget.buildingId!,
-          if (widget.fromDashboard != null) 'fromDashboard': widget.fromDashboard!,
+          if (widget.fromDashboard != null)
+            'fromDashboard': widget.fromDashboard!,
         },
       );
     }
@@ -71,8 +74,10 @@ class _AddFloorNamePageState extends State<AddFloorNamePage> {
   void _handleContinue() {
     if (_floorName != null && _floorName!.isNotEmpty) {
       // Navigate to floor management page with floor name
-      if (widget.buildingId != null && widget.buildingId!.isNotEmpty &&
-          widget.siteId != null && widget.siteId!.isNotEmpty) {
+      if (widget.buildingId != null &&
+          widget.buildingId!.isNotEmpty &&
+          widget.siteId != null &&
+          widget.siteId!.isNotEmpty) {
         context.pushNamed(
           Routelists.buildingFloorManagement,
           queryParameters: {
@@ -81,7 +86,8 @@ class _AddFloorNamePageState extends State<AddFloorNamePage> {
             'siteId': widget.siteId!,
             'buildingId': widget.buildingId!,
             'floorName': _floorName!,
-            if (widget.fromDashboard != null) 'fromDashboard': widget.fromDashboard!,
+            if (widget.fromDashboard != null)
+              'fromDashboard': widget.fromDashboard!,
           },
         );
       }
@@ -93,7 +99,7 @@ class _AddFloorNamePageState extends State<AddFloorNamePage> {
     final screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AppTheme.primary,
       body: Center(
         child: SingleChildScrollView(
           child: Container(
@@ -117,9 +123,7 @@ class _AddFloorNamePageState extends State<AddFloorNamePage> {
                   onFloorNameChanged: _handleFloorNameChanged,
                   onBack: _handleBack,
                   onSkip: _handleSkip,
-                  onContinue: _floorName != null
-                      ? _handleContinue
-                      : null,
+                  onContinue: _floorName != null ? _handleContinue : null,
                 ),
                 AppFooter(
                   onLanguageChanged: _handleLanguageChanged,
@@ -133,4 +137,3 @@ class _AddFloorNamePageState extends State<AddFloorNamePage> {
     );
   }
 }
-

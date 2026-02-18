@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:frontend_aicono/core/injection_container.dart';
-import 'package:frontend_aicono/core/storage/local_storage.dart';
-import 'package:frontend_aicono/core/widgets/page_header_row.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/property_setup_cubit.dart';
 import 'package:frontend_aicono/core/routing/safe_go_router.dart';
@@ -68,44 +67,6 @@ class _BuildingSetupPageState extends State<BuildingSetupPage> {
     );
   }
 
-  void _navigateAfterCompletion() {
-    // Get switchId from PropertySetupCubit (saved at login stage)
-    final propertyCubit = sl<PropertySetupCubit>();
-    final switchId = propertyCubit.state.switchId;
-    final localStorage = sl<LocalStorage>();
-    final siteId =
-        widget.siteId ??
-        Uri.parse(
-          GoRouterState.of(context).uri.toString(),
-        ).queryParameters['siteId'];
-    // localStorage.getSelectedSiteId() ?? propertyCubit.state.siteId;
-
-    // Check if navigation is from dashboard
-    final isFromDashboard = widget.fromDashboard == 'true';
-
-    if (isFromDashboard) {
-      // If from dashboard, redirect to dashboard after completion
-      context.goNamed(Routelists.dashboard);
-    } else if (siteId == null && switchId != null && switchId.isNotEmpty) {
-      context.goNamed(
-        Routelists.addPropertyName,
-        queryParameters: {'switchId': switchId},
-      );
-    } else {
-      // Fallback: navigate to additional building list if switchId not available
-
-      context.goNamed(
-        Routelists.additionalBuildingList,
-        queryParameters: {
-          if (widget.userName != null) 'userName': widget.userName!,
-          if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
-          if (widget.fromDashboard != null)
-            'fromDashboard': widget.fromDashboard!,
-        },
-      );
-    }
-  }
-
   void _navigateToSetContactPerson() {
     context.pushNamed(
       Routelists.buildingContactPerson,
@@ -129,8 +90,8 @@ class _BuildingSetupPageState extends State<BuildingSetupPage> {
   void _navigateToSetSensorMinMax() {
     if (widget.buildingId == null || widget.buildingId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Building ID is required'),
+        SnackBar(
+          content: Text('building_setup.building_id_required'.tr()),
           backgroundColor: Colors.red,
         ),
       );
@@ -148,11 +109,46 @@ class _BuildingSetupPageState extends State<BuildingSetupPage> {
     );
   }
 
+  void _navigateAfterCompletion() {
+    // Get switchId from PropertySetupCubit (saved at login stage)
+    final propertyCubit = sl<PropertySetupCubit>();
+    final switchId = propertyCubit.state.switchId;
+    final siteId =
+        widget.siteId ??
+        Uri.parse(
+          GoRouterState.of(context).uri.toString(),
+        ).queryParameters['siteId'];
+
+    // Check if navigation is from dashboard
+    final isFromDashboard = widget.fromDashboard == 'true';
+
+    if (isFromDashboard) {
+      // If from dashboard, redirect to dashboard after completion
+      context.goNamed(Routelists.dashboard);
+    } else if (siteId == null && switchId != null && switchId.isNotEmpty) {
+      context.goNamed(
+        Routelists.addPropertyName,
+        queryParameters: {'switchId': switchId},
+      );
+    } else {
+      // Fallback: navigate to additional building list if switchId not available
+      context.goNamed(
+        Routelists.additionalBuildingList,
+        queryParameters: {
+          if (widget.userName != null) 'userName': widget.userName!,
+          if (siteId != null && siteId.isNotEmpty) 'siteId': siteId,
+          if (widget.fromDashboard != null)
+            'fromDashboard': widget.fromDashboard!,
+        },
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AppTheme.primary,
       body: SingleChildScrollView(
         child: Container(
           width: MediaQuery.of(context).size.width,
@@ -235,212 +231,164 @@ class _BuildingSetupPageState extends State<BuildingSetupPage> {
                                   onPressed: () => context.pop(),
                                 ),
                                 const SizedBox(width: 8),
-                                const Expanded(
+                                Expanded(
                                   child: Center(
                                     child: Text(
-                                      'Building Setup',
-                                      style: TextStyle(
+                                      'building_setup.title'.tr(),
+                                      style: const TextStyle(
                                         fontSize: 24,
                                         fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
                                       ),
+                                      textAlign: TextAlign.center,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Configure your building settings',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
-                          ),
                           const SizedBox(height: 48),
-                          // Set Floors Option
+                          // Configure building floors Option
                           SizedBox(
                             width: screenSize.width < 600
                                 ? screenSize.width * 0.95
                                 : screenSize.width < 1200
                                 ? screenSize.width * 0.5
                                 : screenSize.width * 0.6,
-                            child: InkWell(
-                              onTap: _navigateToSetFloors,
-                              child: Container(
-                                padding: const EdgeInsets.all(24),
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Colors.black54,
-                                    width: 2,
-                                  ),
-                                  borderRadius: BorderRadius.zero,
+                            child: Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Color(0xFF636F57),
+                                  width: 2,
                                 ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.layers,
-                                      size: 32,
-                                      color: Colors.black87,
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Set Floors',
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Configure building floors',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey[600],
-                                            ),
-                                          ),
-                                        ],
+                                borderRadius: BorderRadius.zero,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'building_setup.configure_floors'.tr(),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.black87,
                                       ),
                                     ),
-                                    Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: 16,
-                                      color: Colors.black54,
+                                  ),
+                                  InkWell(
+                                    onTap: _navigateToSetFloors,
+                                    child: Text(
+                                      'building_setup.update'.tr(),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.black87,
+                                        decoration: TextDecoration.underline,
+                                      ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          const SizedBox(height: 24),
-                          // Set Contact and Reporting User Option
+                          const SizedBox(height: 16),
+                          // Set contact and report person Option
                           SizedBox(
                             width: screenSize.width < 600
                                 ? screenSize.width * 0.95
                                 : screenSize.width < 1200
                                 ? screenSize.width * 0.5
                                 : screenSize.width * 0.6,
-                            child: InkWell(
-                              onTap: _navigateToSetContactPerson,
-                              child: Container(
-                                padding: const EdgeInsets.all(24),
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Colors.black54,
-                                    width: 2,
-                                  ),
-                                  borderRadius: BorderRadius.zero,
+                            child: Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Color(0xFF636F57),
+                                  width: 2,
                                 ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.person,
-                                      size: 32,
-                                      color: Colors.black87,
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Set Contact and Reporting User',
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Configure contact person and reporting user',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey[600],
-                                            ),
-                                          ),
-                                        ],
+                                borderRadius: BorderRadius.zero,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'building_setup.set_contact_report'.tr(),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.black87,
                                       ),
                                     ),
-                                    Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: 16,
-                                      color: Colors.black54,
+                                  ),
+                                  InkWell(
+                                    onTap: _navigateToSetContactPerson,
+                                    child: Text(
+                                      'building_setup.update'.tr(),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.black87,
+                                        decoration: TextDecoration.underline,
+                                      ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          const SizedBox(height: 24),
-                          // Set Sensor Min and Max Values Option
+                          const SizedBox(height: 16),
+                          // Set sensor values Option
                           SizedBox(
                             width: screenSize.width < 600
                                 ? screenSize.width * 0.95
                                 : screenSize.width < 1200
                                 ? screenSize.width * 0.5
                                 : screenSize.width * 0.6,
-                            child: InkWell(
-                              onTap: _navigateToSetSensorMinMax,
-                              child: Container(
-                                padding: const EdgeInsets.all(24),
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Colors.black54,
-                                    width: 2,
-                                  ),
-                                  borderRadius: BorderRadius.zero,
+                            child: Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Color(0xFF636F57),
+                                  width: 2,
                                 ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.sensors,
-                                      size: 32,
-                                      color: Colors.black87,
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Set Sensors Min and Max Values',
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Configure sensor threshold values',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey[600],
-                                            ),
-                                          ),
-                                        ],
+                                borderRadius: BorderRadius.zero,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'building_setup.set_sensor_values'.tr(),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.black87,
                                       ),
                                     ),
-                                    Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: 16,
-                                      color: Colors.black54,
+                                  ),
+                                  InkWell(
+                                    onTap: _navigateToSetSensorMinMax,
+                                    child: Text(
+                                      'building_setup.update'.tr(),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.black87,
+                                        decoration: TextDecoration.underline,
+                                      ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 32),
                           PrimaryOutlineButton(
-                            onPressed: () => _navigateAfterCompletion(),
-                            label: 'Continue to the next building',
+                            onPressed: _navigateAfterCompletion,
+                            label: 'building_setup.continue_button'.tr(),
                             width: 260,
                           ),
                         ],

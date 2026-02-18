@@ -1129,7 +1129,7 @@ class _DashboardReportSetupPageState extends State<DashboardReportSetupPage> {
     final screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AppTheme.primary,
       body: SingleChildScrollView(
         child: Container(
           width: screenSize.width,
