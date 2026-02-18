@@ -3,6 +3,7 @@ import 'package:frontend_aicono/core/routing/safe_go_router.dart';
 import 'package:frontend_aicono/core/constant.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
+import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/widget/confirm_structure_widget.dart';
 
 import '../../../../core/injection_container.dart';
@@ -19,6 +20,41 @@ class ConfirmStructurePage extends StatefulWidget {
 }
 
 class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
+  String? _userDisplayName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final loginRepository = sl<LoginRepository>();
+      final userResult = await loginRepository.getCurrentUser();
+      userResult.fold(
+        (_) {
+          if (mounted) {
+            setState(() => _userDisplayName = widget.userName ?? 'User');
+          }
+        },
+        (user) {
+          if (mounted && user != null) {
+            final firstName = user.firstName.isNotEmpty ? user.firstName : '';
+            final lastName = user.lastName.isNotEmpty ? user.lastName : '';
+            final name = '$firstName $lastName'.trim();
+            setState(() =>
+                _userDisplayName = name.isNotEmpty ? name : (widget.userName ?? 'User'));
+          }
+        },
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() => _userDisplayName = widget.userName ?? 'User');
+      }
+    }
+  }
+
   void _handleLanguageChanged() {
     setState(() {});
   }
@@ -74,7 +110,7 @@ class _ConfirmStructurePageState extends State<ConfirmStructurePage> {
             child: Column(
               children: [
                 ConfirmStructureWidget(
-                  userName: widget.userName,
+                  userName: _userDisplayName ?? widget.userName,
                   onLanguageChanged: _handleLanguageChanged,
                   onBack: _handleBack,
                   onSkip: _handleSkip,

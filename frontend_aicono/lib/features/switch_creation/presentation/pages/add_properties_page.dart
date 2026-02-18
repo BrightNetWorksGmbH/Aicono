@@ -7,6 +7,7 @@ import 'package:frontend_aicono/core/injection_container.dart';
 import 'package:frontend_aicono/core/network/dio_client.dart';
 import 'package:frontend_aicono/core/routing/routeLists.dart';
 import 'package:frontend_aicono/core/widgets/app_footer.dart';
+import 'package:frontend_aicono/features/Authentication/domain/repositories/login_repository.dart';
 import 'package:frontend_aicono/features/switch_creation/domain/entities/create_site_entity.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/bloc/create_site_bloc.dart';
 import 'package:frontend_aicono/features/switch_creation/presentation/widget/add_properties_widget.dart';
@@ -33,12 +34,41 @@ class AddPropertiesPage extends StatefulWidget {
 class _AddPropertiesPageState extends State<AddPropertiesPage> {
   List<Map<String, dynamic>> _createdSites = [];
   bool _isLoadingSites = false;
+  String? _userDisplayName;
 
   @override
   void initState() {
     super.initState();
+    _loadUserData();
     // Fetch existing sites on page load
     _fetchSites();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final loginRepository = sl<LoginRepository>();
+      final userResult = await loginRepository.getCurrentUser();
+      userResult.fold(
+        (_) {
+          if (mounted) {
+            setState(() => _userDisplayName = widget.userName ?? 'User');
+          }
+        },
+        (user) {
+          if (mounted && user != null) {
+            final firstName = user.firstName.isNotEmpty ? user.firstName : '';
+            final lastName = user.lastName.isNotEmpty ? user.lastName : '';
+            final name = '$firstName $lastName'.trim();
+            setState(() =>
+                _userDisplayName = name.isNotEmpty ? name : (widget.userName ?? 'User'));
+          }
+        },
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() => _userDisplayName = widget.userName ?? 'User');
+      }
+    }
   }
 
   void _handleLanguageChanged() {
@@ -240,7 +270,7 @@ class _AddPropertiesPageState extends State<AddPropertiesPage> {
                       children: [
                         AddPropertiesWidget(
                           fromDashboard: widget.fromDashboard,
-                          userName: widget.userName,
+                          userName: _userDisplayName ?? widget.userName,
                           switchId: widget.switchId,
                           isSingleProperty: widget.isSingleProperty,
                           createdSites: _createdSites,

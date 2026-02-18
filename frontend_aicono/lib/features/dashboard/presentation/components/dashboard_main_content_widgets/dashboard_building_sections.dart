@@ -35,7 +35,7 @@ List<Widget> buildBuildingDetailsMetricCards(
     buildPropertyMetricCard(
       label: 'Sensors',
       value: LocaleNumberFormat.formatInt(d.sensorCount, locale: locale),
-      icon: buildDashboardSvgIcon(assetSensor, color: _metricIconTeal),
+      icon: buildDashboardSvgIcon(assetSensor, color: _metricIconTeal, size: 20),
     ),
   ];
   if (d.buildingSize != null) {

@@ -126,7 +126,7 @@ class _SetPersonalizeLookWidgetState extends State<SetPersonalizeLookWidget> {
                     const SizedBox(height: 24),
                     Text(
                       'set_personalized_look.tip'.tr(),
-                      textAlign: TextAlign.left,
+                      textAlign: TextAlign.center,
                       style: AppTextStyles.bodySmall.copyWith(
                         color: Colors.black87,
                       ),

@@ -10,6 +10,9 @@ import '../../../../core/widgets/page_header_row.dart';
 class AddPropertyNameWidget extends StatefulWidget {
   final String? userName;
   final String? initialPropertyName;
+
+  /// When true, title is "What is your property called?"; when false, "What are your property names?"
+  final bool isSingleProperty;
   final VoidCallback onLanguageChanged;
   final ValueChanged<String>? onPropertyNameChanged;
   final VoidCallback? onSkip;
@@ -20,6 +23,7 @@ class AddPropertyNameWidget extends StatefulWidget {
     super.key,
     this.userName,
     this.initialPropertyName,
+    this.isSingleProperty = true,
     required this.onLanguageChanged,
     this.onPropertyNameChanged,
     this.onSkip,
@@ -115,7 +119,9 @@ class _AddPropertyNameWidgetState extends State<AddPropertyNameWidget> {
                     ),
                     const SizedBox(height: 32),
                     PageHeaderRow(
-                      title: 'add_property_name.title'.tr(),
+                      title: widget.isSingleProperty
+                          ? 'add_property_name.title_single'.tr()
+                          : 'add_property_name.title_multiple'.tr(),
                       showBackButton: widget.onBack != null,
                       onBack: widget.onBack,
                     ),
@@ -148,8 +154,9 @@ class _AddPropertyNameWidgetState extends State<AddPropertyNameWidget> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 18,
+                          vertical: 12,
                         ),
+                        isDense: true,
                       ),
                     ),
                     const SizedBox(height: 24),

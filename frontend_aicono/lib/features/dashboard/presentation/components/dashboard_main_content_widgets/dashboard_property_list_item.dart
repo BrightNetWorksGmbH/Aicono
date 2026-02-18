@@ -71,6 +71,7 @@ class DashboardPropertyListItem extends StatelessWidget {
                     subtitle!,
                     style: AppTextStyles.labelSmall.copyWith(
                       color: Colors.grey[600],
+                      fontSize: (AppTextStyles.labelSmall.fontSize ?? 12) + 2,
                     ),
                   ),
                 ],
@@ -99,15 +100,21 @@ class DashboardPropertyListItem extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 if (onEdit != null)
-                  IconButton(
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit),
+                  Tooltip(
+                    message: 'Edit',
+                    child: IconButton(
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit),
+                    ),
                   ),
                 if (onEdit != null) const SizedBox(width: 8),
                 if (onDelete != null)
-                  IconButton(
-                    onPressed: onDelete,
-                    icon: const Icon(Icons.delete),
+                  Tooltip(
+                    message: 'Delete',
+                    child: IconButton(
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete),
+                    ),
                   ),
               ],
             ),

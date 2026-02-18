@@ -82,7 +82,7 @@
   },
   "set_switch_image": {
     "title": "Möchtest Du Deinem Bryteswitch ein Logo hinzufügen?",
-    "change_verse": "+ Verse wechseln",
+    "change_verse": "Bild hochladen",
     "tip": "Tipp: Das Logo Deiner Organisation schafft Wiedererkennung und macht sofort klar, um wen es geht.",
     "skip_logo": "ohne Logo fortfahren",
     "button_text": "Das passt so. Weiter geht's.",
@@ -136,6 +136,8 @@
     "progress_text": "Fast geschafft, {name}!",
     "progress_text_fallback": "Fast geschafft!",
     "title": "Liegenschaften hinzufügen",
+    "title_single": "Wie heißt Ihre Liegenschaft?",
+    "title_multiple": "Wie heißen Ihre Liegenschaften?",
     "property_name_hint": "Name der Liegenschaft",
     "add_new_property": "Neue Liegenschaft hinzufügen",
     "confirm_properties": "Liegenschaften bestätigen",
@@ -147,9 +149,11 @@
     "progress_text": "Fast geschafft, {name}!",
     "progress_text_fallback": "Fast geschafft!",
     "title": "Wie heißt die Liegenschaft?",
+    "title_single": "Wie heißt Ihre Liegenschaft?",
+    "title_multiple": "Wie heißen Ihre Liegenschaften?",
     "hint": "Name der Liegenschaft",
     "skip_link": "Schritt überspringen",
-    "button_text": "Das passt so"
+    "button_text": "Weiter"
   },
   "add_property_location": {
     "progress_text": "Fast geschafft, {name}!",
