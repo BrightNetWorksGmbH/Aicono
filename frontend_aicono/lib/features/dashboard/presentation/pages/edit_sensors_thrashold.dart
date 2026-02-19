@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend_aicono/core/widgets/primary_outline_button.dart';
@@ -147,7 +148,11 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading sensors: ${e.toString()}'),
+            content: Text(
+              'edit_sensors.error_loading_sensors'.tr(
+                namedArgs: {'error': e.toString()},
+              ),
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -219,8 +224,8 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
     // Validate that values are numbers if provided
     if (minValue.isNotEmpty && double.tryParse(minValue) == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Min value must be a valid number'),
+        SnackBar(
+          content: Text('edit_sensors.min_value_invalid'.tr()),
           backgroundColor: Colors.red,
         ),
       );
@@ -229,8 +234,8 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
 
     if (maxValue.isNotEmpty && double.tryParse(maxValue) == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Max value must be a valid number'),
+        SnackBar(
+          content: Text('edit_sensors.max_value_invalid'.tr()),
           backgroundColor: Colors.red,
         ),
       );
@@ -288,7 +293,11 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to update sensor: ${response.statusCode}'),
+              content: Text(
+                'edit_sensors.failed_to_update_sensor'.tr(
+                  namedArgs: {'code': response.statusCode.toString()},
+                ),
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -298,7 +307,11 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error updating sensor: $e'),
+            content: Text(
+              'edit_sensors.error_updating_sensor'.tr(
+                namedArgs: {'error': e.toString()},
+              ),
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -316,8 +329,8 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
     final buildingId = widget.buildingId ?? _buildingId;
     if (buildingId == null || buildingId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Building ID is required to select Loxone room'),
+        SnackBar(
+          content: Text('edit_sensors.building_id_required'.tr()),
           backgroundColor: Colors.red,
         ),
       );
@@ -350,8 +363,8 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
 
     if (roomName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Room name is required'),
+        SnackBar(
+          content: Text('edit_sensors.room_name_required'.tr()),
           backgroundColor: Colors.red,
         ),
       );
@@ -382,8 +395,8 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
       if (mounted) {
         if (response.statusCode == 200 || response.statusCode == 201) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Room updated successfully'),
+            SnackBar(
+              content: Text('edit_sensors.room_updated_successfully'.tr()),
               backgroundColor: Colors.green,
             ),
           );
@@ -396,7 +409,11 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to update room: ${response.statusCode}'),
+              content: Text(
+                'edit_sensors.failed_to_update_room'.tr(
+                  namedArgs: {'code': response.statusCode.toString()},
+                ),
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -406,7 +423,11 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error updating room: $e'),
+            content: Text(
+              'edit_sensors.error_updating_room'.tr(
+                namedArgs: {'error': e.toString()},
+              ),
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -451,7 +472,9 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Min value for ${sensor.name} must be a valid number',
+                'edit_sensors.min_value_for_sensor_invalid'.tr(
+                  namedArgs: {'name': sensor.name},
+                ),
               ),
               backgroundColor: Colors.red,
             ),
@@ -466,7 +489,9 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Max value for ${sensor.name} must be a valid number',
+                'edit_sensors.max_value_for_sensor_invalid'.tr(
+                  namedArgs: {'name': sensor.name},
+                ),
               ),
               backgroundColor: Colors.red,
             ),
@@ -497,8 +522,8 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
       if (sensorsToUpdate.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No sensor values to update'),
+            SnackBar(
+              content: Text('edit_sensors.no_sensor_values_to_update'.tr()),
               backgroundColor: Colors.orange,
             ),
           );
@@ -533,7 +558,11 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to update sensors: ${response.statusCode}'),
+              content: Text(
+                'edit_sensors.failed_to_update_sensors'.tr(
+                  namedArgs: {'code': response.statusCode.toString()},
+                ),
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -543,7 +572,11 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error updating sensors: $e'),
+            content: Text(
+              'edit_sensors.error_updating_sensors'.tr(
+                namedArgs: {'error': e.toString()},
+              ),
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -594,7 +627,7 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppTheme.background,
+        backgroundColor: AppTheme.primary,
         body: SingleChildScrollView(
           child: Container(
             width: MediaQuery.of(context).size.width,
@@ -662,10 +695,10 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
                                         onPressed: () => context.pop(),
                                       ),
                                       const SizedBox(width: 8),
-                                      const Expanded(
+                                      Expanded(
                                         child: Center(
                                           child: Text(
-                                            'Update Sensor Threshold',
+                                            'edit_sensors.page_title'.tr(),
                                             style: TextStyle(
                                               fontSize: 24,
                                               fontWeight: FontWeight.bold,
@@ -677,8 +710,8 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
-                                  'Update sensor threshold information',
+                                Text(
+                                  'edit_sensors.subtitle'.tr(),
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.grey,
@@ -842,8 +875,8 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
-                                          'Sensors',
+                                        Text(
+                                          'edit_sensors.sensors'.tr(),
                                           style: TextStyle(
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold,
@@ -926,7 +959,8 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
                                                                   ),
                                                               decoration: InputDecoration(
                                                                 hintText:
-                                                                    'Enter minimum value',
+                                                                    'edit_sensors.min_value_hint'
+                                                                        .tr(),
                                                                 border: OutlineInputBorder(
                                                                   borderRadius:
                                                                       BorderRadius.circular(
@@ -955,7 +989,8 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
                                                                   ),
                                                               decoration: InputDecoration(
                                                                 hintText:
-                                                                    'Enter maximum value',
+                                                                    'edit_sensors.max_value_hint'
+                                                                        .tr(),
                                                                 border: OutlineInputBorder(
                                                                   borderRadius:
                                                                       BorderRadius.circular(
@@ -1065,7 +1100,8 @@ class _EditSensorThrasholdPageState extends State<EditSensorThrasholdPage> {
                                       )
                                     : PrimaryOutlineButton(
                                         onPressed: _handleSaveSensors,
-                                        label: 'Save Sensors thresholds',
+                                        label: 'edit_sensors.save_thresholds'
+                                            .tr(),
                                         width: 260,
                                       ),
                               ],
@@ -1219,7 +1255,7 @@ class _LoxoneRoomSelectionDialogState
                           children: [
                             Expanded(
                               child: Text(
-                                'Select Loxone Room',
+                                'edit_sensors.select_loxone_room'.tr(),
                                 textAlign: TextAlign.center,
                                 style: AppTextStyles.headlineSmall.copyWith(
                                   fontWeight: FontWeight.w900,
@@ -1295,7 +1331,8 @@ class _LoxoneRoomSelectionDialogState
                                       controller: _searchController,
                                       onChanged: _onSearchChanged,
                                       decoration: InputDecoration(
-                                        hintText: 'Search...',
+                                        hintText: 'edit_sensors.search_hint'
+                                            .tr(),
                                         hintStyle: AppTextStyles.bodyMedium
                                             .copyWith(color: Colors.grey),
                                         border: InputBorder.none,
@@ -1334,7 +1371,7 @@ class _LoxoneRoomSelectionDialogState
                                     Padding(
                                       padding: const EdgeInsets.all(16.0),
                                       child: Text(
-                                        'No results found',
+                                        'edit_sensors.no_results_found'.tr(),
                                         style: AppTextStyles.bodyMedium
                                             .copyWith(color: Colors.grey),
                                         textAlign: TextAlign.center,
@@ -1359,7 +1396,9 @@ class _LoxoneRoomSelectionDialogState
                                   Padding(
                                     padding: const EdgeInsets.all(16.0),
                                     child: Text(
-                                      'Error loading rooms: ${state.message}',
+                                      'edit_sensors.error_loading_rooms'.tr(
+                                        namedArgs: {'error': state.message},
+                                      ),
                                       style: AppTextStyles.bodyMedium.copyWith(
                                         color: Colors.red,
                                       ),
@@ -1370,7 +1409,7 @@ class _LoxoneRoomSelectionDialogState
                                   Padding(
                                     padding: const EdgeInsets.all(16.0),
                                     child: Text(
-                                      'No rooms available',
+                                      'edit_sensors.no_rooms_available'.tr(),
                                       style: AppTextStyles.bodyMedium,
                                       textAlign: TextAlign.center,
                                     ),
@@ -1383,7 +1422,7 @@ class _LoxoneRoomSelectionDialogState
                         Material(
                           color: Colors.transparent,
                           child: PrimaryOutlineButton(
-                            label: 'Select',
+                            label: 'edit_sensors.select'.tr(),
                             width: 260,
                             onPressed: _handleContinue,
                           ),

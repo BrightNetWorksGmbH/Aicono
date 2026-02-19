@@ -279,7 +279,7 @@ class _AddPropertyLocationWidgetState extends State<AddPropertyLocationWidget> {
                             _buildCompletedField(value: propertyName),
                             const SizedBox(height: 24),
                           ],
-                          // Location TextField with Autocomplete
+                          // Location  with Autocomplete
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -338,8 +338,13 @@ class _AddPropertyLocationWidgetState extends State<AddPropertyLocationWidget> {
                                     //         : Colors.black87,
                                     //   ),
                                     //   child:
-                                    Text(
-                                      'add_property_location.option_gps'.tr(),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8.0,
+                                      ),
+                                      child: Text(
+                                        'add_property_location.option_gps'.tr(),
+                                      ),
                                     ),
                                     // ),
                                   ],

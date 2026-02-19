@@ -126,8 +126,11 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
     // Prepare request body
     final requestBody = <String, dynamic>{};
 
-    // Name - use building name from widget or existing data
-    if (_buildingName != null &&
+    // Name - check _buildingDetails first, then _buildingName, then existing data
+    if (_buildingDetails['name'] != null &&
+        _buildingDetails['name']!.isNotEmpty) {
+      requestBody['name'] = _buildingDetails['name'];
+    } else if (_buildingName != null &&
         _buildingName!.isNotEmpty &&
         _buildingName != 'Building') {
       requestBody['name'] = _buildingName;
@@ -140,16 +143,22 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
         _buildingDetails['size']!.isNotEmpty) {
       final size = double.tryParse(_buildingDetails['size']!);
       if (size != null) {
-        requestBody['building_size'] = size;
+        requestBody['building_size'] = size.toInt();
       }
     } else if (_buildingData?['building_size'] != null) {
-      requestBody['building_size'] = _buildingData!['building_size'];
+      final size = _buildingData!['building_size'];
+      requestBody['building_size'] = size is double ? size.toInt() : size;
     }
 
-    // Number of floors - use existing data if available
-    if (_buildingDetails['rooms'] != null &&
-        _buildingDetails['rooms']!.isNotEmpty) {
-      requestBody['num_floors'] = int.tryParse(_buildingDetails['rooms']!);
+    // Number of floors
+    if (_buildingDetails['floors'] != null &&
+        _buildingDetails['floors']!.isNotEmpty) {
+      final floors = int.tryParse(_buildingDetails['floors']!);
+      if (floors != null) {
+        requestBody['num_floors'] = floors;
+      }
+    } else if (_buildingData?['num_floors'] != null) {
+      requestBody['num_floors'] = _buildingData!['num_floors'];
     }
 
     // Year of construction
@@ -164,35 +173,45 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
           _buildingData!['year_of_construction'];
     }
 
-    // Heated building area - use building_size if available, otherwise existing data
-    if (_buildingDetails['size'] != null &&
-        _buildingDetails['size']!.isNotEmpty) {
-      final heatedArea = double.tryParse(_buildingDetails['size']!);
+    // Heated building area
+    if (_buildingDetails['heatedArea'] != null &&
+        _buildingDetails['heatedArea']!.isNotEmpty) {
+      final heatedArea = double.tryParse(_buildingDetails['heatedArea']!);
       if (heatedArea != null) {
-        requestBody['heated_building_area'] = heatedArea;
+        requestBody['heated_building_area'] = heatedArea.toInt();
       }
     } else if (_buildingData?['heated_building_area'] != null) {
       // Handle nested structure
       if (_buildingData!['heated_building_area'] is Map) {
         final nested = _buildingData!['heated_building_area'] as Map;
-        requestBody['heated_building_area'] =
+        final heatedArea =
             double.tryParse(nested['\$numberDecimal']?.toString() ?? '') ??
-            nested.values.first;
+            (nested.values.first is num
+                ? (nested.values.first as num).toDouble()
+                : null);
+        if (heatedArea != null) {
+          requestBody['heated_building_area'] = heatedArea.toInt();
+        }
       } else {
-        requestBody['heated_building_area'] =
-            _buildingData!['heated_building_area'];
+        final heatedArea = _buildingData!['heated_building_area'];
+        requestBody['heated_building_area'] = heatedArea is double
+            ? heatedArea.toInt()
+            : heatedArea;
       }
     }
 
-    // Type of use - use existing data if available
-    if (_buildingData?['type_of_use'] != null) {
+    // Type of use
+    if (_buildingDetails['type'] != null &&
+        _buildingDetails['type']!.isNotEmpty) {
+      requestBody['type_of_use'] = _buildingDetails['type'];
+    } else if (_buildingData?['type_of_use'] != null) {
       requestBody['type_of_use'] = _buildingData!['type_of_use'];
     }
 
     // Number of students/employees
-    if (_buildingDetails['rooms'] != null &&
-        _buildingDetails['rooms']!.isNotEmpty) {
-      final numStudents = int.tryParse(_buildingDetails['rooms']!);
+    if (_buildingDetails['num_employees'] != null &&
+        _buildingDetails['num_employees']!.isNotEmpty) {
+      final numStudents = int.tryParse(_buildingDetails['num_employees']!);
       if (numStudents != null) {
         requestBody['num_students_employees'] = numStudents;
       }
@@ -214,8 +233,8 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         // Navigate to floor management page with building details
-        final numberOfFloors = _buildingDetails['rooms'] != null
-            ? int.tryParse(_buildingDetails['rooms']!)
+        final numberOfFloors = _buildingDetails['floors'] != null
+            ? int.tryParse(_buildingDetails['floors']!)
             : (_buildingData?['num_floors'] as int?) ?? 1;
 
         final totalArea = _buildingDetails['size'] != null
@@ -235,8 +254,8 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
                                 : null))
                       : null);
 
-        final numberOfRooms = _buildingDetails['rooms'] != null
-            ? int.tryParse(_buildingDetails['rooms']!)
+        final numberOfEmployees = _buildingDetails['num_employees'] != null
+            ? int.tryParse(_buildingDetails['num_employees']!)
             : (_buildingData?['num_students_employees'] as int?);
 
         if (mounted) {
@@ -258,8 +277,8 @@ class _SetBuildingDetailsPageState extends State<SetBuildingDetailsPage> {
               if (widget.buildingAddress != null)
                 'buildingAddress': widget.buildingAddress!,
               'numberOfFloors': numberOfFloors.toString(),
-              if (numberOfRooms != null)
-                'numberOfRooms': numberOfRooms.toString(),
+              if (numberOfEmployees != null)
+                'numberOfEmployees': numberOfEmployees.toString(),
               if (totalArea != null) 'totalArea': totalArea.toString(),
               if (_buildingDetails['year'] != null)
                 'constructionYear': _buildingDetails['year']!,

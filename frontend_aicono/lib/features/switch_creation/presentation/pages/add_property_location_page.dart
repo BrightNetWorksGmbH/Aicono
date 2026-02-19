@@ -121,7 +121,7 @@ class _AddPropertyLocationPageState extends State<AddPropertyLocationPage> {
           }
         },
         child: Scaffold(
-          backgroundColor: AppTheme.background,
+          backgroundColor: AppTheme.primary,
           body: Builder(
             builder: (blocContext) {
               return Center(

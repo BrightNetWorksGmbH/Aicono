@@ -891,11 +891,11 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Total: $total recipient${total == 1 ? '' : 's'}',
-                              style: AppTextStyles.bodyMedium.copyWith(
-                                color: Colors.black87,
-                              ),
+                        Text(
+                          'Total: $total recipient${total == 1 ? '' : 's'}',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: Colors.black87,
+                          ),
                             ),
                             IconButton(
                               icon: const Icon(Icons.add_circle_outline),
@@ -1304,11 +1304,11 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                                   if (isEditing) ...[
                                     TextField(
                                       controller: _editNameController,
@@ -1329,30 +1329,30 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                                       ),
                                     ),
                                   ] else ...[
-                                    Text(
-                                      r.recipientName.isNotEmpty
-                                          ? r.recipientName
-                                          : '—',
-                                      style: AppTextStyles.titleSmall.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                  ],
-                                  if (r.recipientEmail.isNotEmpty) ...[
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      r.recipientEmail,
-                                      style: AppTextStyles.bodySmall.copyWith(
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                              Text(
+                                r.recipientName.isNotEmpty
+                                    ? r.recipientName
+                                    : '—',
+                                style: AppTextStyles.titleSmall.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black,
+                                ),
                               ),
-                            ),
-                            Row(
-                              children: [
+                                  ],
+                              if (r.recipientEmail.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  r.recipientEmail,
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        Row(
+                          children: [
                                 if (isEditing) ...[
                                   IconButton(
                                     icon: _isUpdating
@@ -1379,13 +1379,13 @@ class _RecipientsPopupDialogState extends State<RecipientsPopupDialog> {
                                     tooltip: 'Cancel',
                                   ),
                                 ] else ...[
-                                  IconButton(
+                            IconButton(
                                     icon: const Icon(Icons.edit),
                                     onPressed: () => _startEditing(r),
                                     tooltip: 'Edit',
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
                                     icon: _isDeleting
                                         ? const SizedBox(
                                             width: 20,

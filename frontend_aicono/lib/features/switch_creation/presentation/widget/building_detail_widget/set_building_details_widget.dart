@@ -39,8 +39,12 @@ class SetBuildingDetailsWidget extends StatefulWidget {
 }
 
 class _SetBuildingDetailsWidgetState extends State<SetBuildingDetailsWidget> {
+  late final TextEditingController _buildingNameController;
+  late final TextEditingController _buildingTypeController;
+  late final TextEditingController _numberOfFloorsController;
   late final TextEditingController _buildingSizeController;
-  late final TextEditingController _numberOfRoomsController;
+  late final TextEditingController _heatedBuildingAreaController;
+  late final TextEditingController _numberOfEmployeesController;
   late final TextEditingController _yearOfConstructionController;
 
   @override
@@ -51,6 +55,15 @@ class _SetBuildingDetailsWidgetState extends State<SetBuildingDetailsWidget> {
   }
 
   void _initializeControllers(Map<String, dynamic>? data) {
+    // Building name
+    final nameValue = data?['name']?.toString() ?? '';
+
+    // Building type
+    final typeValue = data?['type_of_use']?.toString() ?? '';
+
+    // Number of floors
+    final floorsValue = data?['num_floors']?.toString() ?? '';
+
     // Handle building_size - can be direct value or null
     final buildingSize = data?['building_size']?.toString() ?? '';
 
@@ -66,14 +79,17 @@ class _SetBuildingDetailsWidgetState extends State<SetBuildingDetailsWidget> {
       }
     }
 
-    final sizeValue = buildingSize.isNotEmpty
-        ? buildingSize
-        : (heatedArea ?? '');
     final roomsValue = data?['num_students_employees']?.toString() ?? '';
     final yearValue = data?['year_of_construction']?.toString() ?? '';
 
-    _buildingSizeController = TextEditingController(text: sizeValue);
-    _numberOfRoomsController = TextEditingController(text: roomsValue);
+    _buildingNameController = TextEditingController(text: nameValue);
+    _buildingTypeController = TextEditingController(text: typeValue);
+    _numberOfFloorsController = TextEditingController(text: floorsValue);
+    _buildingSizeController = TextEditingController(text: buildingSize);
+    _heatedBuildingAreaController = TextEditingController(
+      text: heatedArea ?? '',
+    );
+    _numberOfEmployeesController = TextEditingController(text: roomsValue);
     _yearOfConstructionController = TextEditingController(text: yearValue);
   }
 
@@ -88,8 +104,29 @@ class _SetBuildingDetailsWidgetState extends State<SetBuildingDetailsWidget> {
   }
 
   void _updateControllers(Map<String, dynamic> data) {
+    // Building name
+    final nameValue = data['name']?.toString() ?? '';
+    if (_buildingNameController.text.isEmpty && nameValue.isNotEmpty) {
+      _buildingNameController.text = nameValue;
+    }
+
+    // Building type
+    final typeValue = data['type_of_use']?.toString() ?? '';
+    if (_buildingTypeController.text.isEmpty && typeValue.isNotEmpty) {
+      _buildingTypeController.text = typeValue;
+    }
+
+    // Number of floors
+    final floorsValue = data['num_floors']?.toString() ?? '';
+    if (_numberOfFloorsController.text.isEmpty && floorsValue.isNotEmpty) {
+      _numberOfFloorsController.text = floorsValue;
+    }
+
     // Handle building_size - can be direct value or null
     final buildingSize = data['building_size']?.toString() ?? '';
+    if (_buildingSizeController.text.isEmpty && buildingSize.isNotEmpty) {
+      _buildingSizeController.text = buildingSize;
+    }
 
     // Handle heated_building_area which might have nested structure
     String? heatedArea;
@@ -102,20 +139,18 @@ class _SetBuildingDetailsWidgetState extends State<SetBuildingDetailsWidget> {
         heatedArea = data['heated_building_area']?.toString();
       }
     }
+    if (_heatedBuildingAreaController.text.isEmpty &&
+        heatedArea != null &&
+        heatedArea.isNotEmpty) {
+      _heatedBuildingAreaController.text = heatedArea;
+    }
 
-    final sizeValue = buildingSize.isNotEmpty
-        ? buildingSize
-        : (heatedArea ?? '');
     final roomsValue = data['num_students_employees']?.toString() ?? '';
-    final yearValue = data['year_of_construction']?.toString() ?? '';
+    if (_numberOfEmployeesController.text.isEmpty && roomsValue.isNotEmpty) {
+      _numberOfEmployeesController.text = roomsValue;
+    }
 
-    // Only update if field is empty to avoid overwriting user input
-    if (_buildingSizeController.text.isEmpty && sizeValue.isNotEmpty) {
-      _buildingSizeController.text = sizeValue;
-    }
-    if (_numberOfRoomsController.text.isEmpty && roomsValue.isNotEmpty) {
-      _numberOfRoomsController.text = roomsValue;
-    }
+    final yearValue = data['year_of_construction']?.toString() ?? '';
     if (_yearOfConstructionController.text.isEmpty && yearValue.isNotEmpty) {
       _yearOfConstructionController.text = yearValue;
     }
@@ -123,8 +158,12 @@ class _SetBuildingDetailsWidgetState extends State<SetBuildingDetailsWidget> {
 
   @override
   void dispose() {
+    _buildingNameController.dispose();
+    _buildingTypeController.dispose();
+    _numberOfFloorsController.dispose();
     _buildingSizeController.dispose();
-    _numberOfRoomsController.dispose();
+    _heatedBuildingAreaController.dispose();
+    _numberOfEmployeesController.dispose();
     _yearOfConstructionController.dispose();
     super.dispose();
   }
@@ -140,12 +179,24 @@ class _SetBuildingDetailsWidgetState extends State<SetBuildingDetailsWidget> {
   void _notifyDetailsChanged() {
     widget.onBuildingDetailsChanged?.call({
       'address': widget.buildingAddress,
+      'name': _buildingNameController.text.trim().isEmpty
+          ? null
+          : _buildingNameController.text.trim(),
+      'type': _buildingTypeController.text.trim().isEmpty
+          ? null
+          : _buildingTypeController.text.trim(),
+      'floors': _numberOfFloorsController.text.trim().isEmpty
+          ? null
+          : _numberOfFloorsController.text.trim(),
       'size': _buildingSizeController.text.trim().isEmpty
           ? null
           : _buildingSizeController.text.trim(),
-      'rooms': _numberOfRoomsController.text.trim().isEmpty
+      'heatedArea': _heatedBuildingAreaController.text.trim().isEmpty
           ? null
-          : _numberOfRoomsController.text.trim(),
+          : _heatedBuildingAreaController.text.trim(),
+      'num_employees': _numberOfEmployeesController.text.trim().isEmpty
+          ? null
+          : _numberOfEmployeesController.text.trim(),
       'year': _yearOfConstructionController.text.trim().isEmpty
           ? null
           : _yearOfConstructionController.text.trim(),
@@ -213,7 +264,7 @@ class _SetBuildingDetailsWidgetState extends State<SetBuildingDetailsWidget> {
                           ),
                           const SizedBox(height: 40),
                           PageHeaderRow(
-                            title: 'Einrichtung der Gebäudeinformationen',
+                            title: 'set_building_details.page_title'.tr(),
                             showBackButton: widget.onBack != null,
                             onBack: widget.onBack,
                           ),
@@ -228,21 +279,110 @@ class _SetBuildingDetailsWidgetState extends State<SetBuildingDetailsWidget> {
                             ),
                             const SizedBox(height: 16),
                           ],
-                          // Building size field
+
+                          // Building type field
                           TextField(
-                            controller: _buildingSizeController,
+                            controller: _buildingTypeController,
                             onChanged: (_) => _notifyDetailsChanged(),
                             decoration: InputDecoration(
-                              hintText: 'set_building_details.size_hint'.tr(),
+                              hintText: 'set_building_details.type_hint'.tr(),
                               enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(0),
                                 borderSide: const BorderSide(
                                   color: Colors.black54,
                                   width: 2,
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(0),
+                                borderSide: BorderSide(
+                                  color: AppTheme.primary,
+                                  width: 2,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 18,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Number of floors field
+                          TextField(
+                            controller: _numberOfEmployeesController,
+                            keyboardType: TextInputType.number,
+                            onChanged: (_) => _notifyDetailsChanged(),
+                            decoration: InputDecoration(
+                              hintText: 'set_building_details.employees_hint'
+                                  .tr(),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(0),
+                                borderSide: const BorderSide(
+                                  color: Colors.black54,
+                                  width: 2,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(0),
+                                borderSide: BorderSide(
+                                  color: AppTheme.primary,
+                                  width: 2,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 18,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Building size field
+                          TextField(
+                            controller: _buildingSizeController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            onChanged: (_) => _notifyDetailsChanged(),
+                            decoration: InputDecoration(
+                              hintText: 'set_building_details.size_hint'.tr(),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(0),
+                                borderSide: const BorderSide(
+                                  color: Colors.black54,
+                                  width: 2,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(0),
+                                borderSide: BorderSide(
+                                  color: AppTheme.primary,
+                                  width: 2,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 18,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Heated building area field
+                          TextField(
+                            controller: _heatedBuildingAreaController,
+                            keyboardType: TextInputType.number,
+                            onChanged: (_) => _notifyDetailsChanged(),
+                            decoration: InputDecoration(
+                              hintText: 'set_building_details.heated_area_hint'
+                                  .tr(),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(0),
+                                borderSide: const BorderSide(
+                                  color: Colors.black54,
+                                  width: 2,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(0),
                                 borderSide: BorderSide(
                                   color: AppTheme.primary,
                                   width: 2,
@@ -257,19 +397,20 @@ class _SetBuildingDetailsWidgetState extends State<SetBuildingDetailsWidget> {
                           const SizedBox(height: 16),
                           // Number of rooms field
                           TextField(
-                            controller: _numberOfRoomsController,
+                            controller: _numberOfFloorsController,
+                            keyboardType: TextInputType.number,
                             onChanged: (_) => _notifyDetailsChanged(),
                             decoration: InputDecoration(
                               hintText: 'set_building_details.rooms_hint'.tr(),
                               enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(0),
                                 borderSide: const BorderSide(
                                   color: Colors.black54,
                                   width: 2,
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(0),
                                 borderSide: BorderSide(
                                   color: AppTheme.primary,
                                   width: 2,
@@ -285,11 +426,12 @@ class _SetBuildingDetailsWidgetState extends State<SetBuildingDetailsWidget> {
                           // Year of construction field
                           TextField(
                             controller: _yearOfConstructionController,
+                            keyboardType: TextInputType.number,
                             onChanged: (_) => _notifyDetailsChanged(),
                             decoration: InputDecoration(
                               hintText: 'set_building_details.year_hint'.tr(),
                               enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(0),
                                 borderSide: const BorderSide(
                                   color: Colors.black54,
                                   width: 2,

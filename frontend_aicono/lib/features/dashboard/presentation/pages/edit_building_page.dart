@@ -203,15 +203,19 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
       if (mounted) {
         if (response.statusCode == 200 || response.statusCode == 201) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Building contact saved successfully'),
+            SnackBar(
+              content: Text(
+                'edit_building.building_contact_saved_successfully'.tr(),
+              ),
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Failed to save building contact: ${response.statusCode}',
+                'edit_building.failed_to_save_contact'.tr(
+                  namedArgs: {'code': response.statusCode.toString()},
+                ),
               ),
               backgroundColor: Colors.red,
             ),
@@ -222,7 +226,11 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
       debugPrint('Error saving building contact: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error saving building contact: $e'),
+          content: Text(
+            'edit_building.error_saving_contact'.tr(
+              namedArgs: {'error': e.toString()},
+            ),
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -255,8 +263,10 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
       if (mounted) {
         if (response.statusCode == 200 || response.statusCode == 201) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Loxone changes updated successfully'),
+            SnackBar(
+              content: Text(
+                'edit_building.loxone_changes_updated_successfully'.tr(),
+              ),
               backgroundColor: Colors.green,
             ),
           );
@@ -274,7 +284,9 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Failed to update Loxone changes: ${response.statusCode}',
+                'edit_building.failed_to_update_loxone'.tr(
+                  namedArgs: {'code': response.statusCode.toString()},
+                ),
               ),
               backgroundColor: Colors.red,
             ),
@@ -292,7 +304,11 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
             debugPrint('Error connecting Loxone: $connectError');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Error connecting Loxone: $connectError'),
+                content: Text(
+                  'edit_building.error_connecting_loxone'.tr(
+                    namedArgs: {'error': connectError.toString()},
+                  ),
+                ),
                 backgroundColor: Colors.red,
               ),
             );
@@ -301,7 +317,11 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
           debugPrint('Error saving Loxone changes: $e');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error updating Loxone changes: $e'),
+              content: Text(
+                'edit_building.error_updating_loxone'.tr(
+                  namedArgs: {'error': e.toString()},
+                ),
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -640,8 +660,8 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
         if (connectResponse.statusCode == 200 ||
             connectResponse.statusCode == 201) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Loxone connected successfully'),
+            SnackBar(
+              content: Text('edit_building.loxone_connected_successfully'.tr()),
               backgroundColor: Colors.green,
             ),
           );
@@ -655,7 +675,9 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Failed to connect Loxone: ${connectResponse.statusCode}',
+                'edit_building.failed_to_connect_loxone'.tr(
+                  namedArgs: {'code': connectResponse.statusCode.toString()},
+                ),
               ),
               backgroundColor: Colors.red,
             ),
@@ -694,7 +716,7 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppTheme.background,
+        backgroundColor: AppTheme.primary,
         body: SingleChildScrollView(
           child: Container(
             width: MediaQuery.of(context).size.width,
@@ -712,8 +734,8 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
               children: [
                 Container(
                   width: double.infinity,
-                  height: screenSize.height * .9,
-                  margin: const EdgeInsets.all(16),
+                  height: screenSize.height * .97,
+                  margin: const EdgeInsets.all(8),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -764,10 +786,10 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                           onPressed: () => context.pop(),
                                         ),
                                         const SizedBox(width: 8),
-                                        const Expanded(
+                                        Expanded(
                                           child: Center(
                                             child: Text(
-                                              'Edit Building',
+                                              'edit_building.page_title'.tr(),
                                               style: TextStyle(
                                                 fontSize: 24,
                                                 fontWeight: FontWeight.bold,
@@ -789,8 +811,9 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.start,
                                       children: [
-                                        const Text(
-                                          'Building information',
+                                        Text(
+                                          'edit_building.building_information'
+                                              .tr(),
                                           textAlign: TextAlign.start,
                                           style: TextStyle(
                                             fontSize: 18,
@@ -800,7 +823,7 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(height: 32),
+                                  const SizedBox(height: 24),
                                   // Building name field
                                   SizedBox(
                                     width: screenSize.width < 600
@@ -811,10 +834,34 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                     child: TextFormField(
                                       controller: _buildingNameController,
                                       decoration: InputDecoration(
-                                        hintText: 'Enter building name',
+                                        hintText:
+                                            'edit_building.building_name_hint'
+                                                .tr(),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
                                           ),
                                         ),
                                         //  prefixIcon: Icon(Icons.business),
@@ -822,13 +869,14 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                       validator: (value) {
                                         if (value == null ||
                                             value.trim().isEmpty) {
-                                          return 'Building name is required';
+                                          return 'edit_building.building_name_required'
+                                              .tr();
                                         }
                                         return null;
                                       },
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 8),
                                   // Building type field
                                   SizedBox(
                                     width: screenSize.width < 600
@@ -839,17 +887,41 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                     child: TextFormField(
                                       controller: _buildingTypeController,
                                       decoration: InputDecoration(
-                                        hintText: 'Enter type of use',
+                                        hintText:
+                                            'edit_building.type_of_use_hint'
+                                                .tr(),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
                                           ),
                                         ),
                                         //  prefixIcon: Icon(Icons.category),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 8),
                                   // Number of floors field
                                   SizedBox(
                                     width: screenSize.width < 600
@@ -861,10 +933,34 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                       controller: _numberOfFloorsController,
                                       keyboardType: TextInputType.number,
                                       decoration: InputDecoration(
-                                        hintText: 'Enter number of floors',
+                                        hintText:
+                                            'edit_building.number_of_floors_hint'
+                                                .tr(),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
                                           ),
                                         ),
                                         //  prefixIcon: Icon(Icons.layers),
@@ -874,13 +970,14 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                             value.trim().isNotEmpty &&
                                             int.tryParse(value.trim()) ==
                                                 null) {
-                                          return 'Please enter a valid number';
+                                          return 'edit_building.valid_number_required'
+                                              .tr();
                                         }
                                         return null;
                                       },
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 8),
                                   // Total area field
                                   SizedBox(
                                     width: screenSize.width < 600
@@ -895,10 +992,34 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                             decimal: true,
                                           ),
                                       decoration: InputDecoration(
-                                        hintText: 'Enter total area',
+                                        hintText:
+                                            'edit_building.total_area_hint'
+                                                .tr(),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
                                           ),
                                         ),
                                         //  prefixIcon: Icon(Icons.square_foot),
@@ -908,13 +1029,14 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                             value.trim().isNotEmpty &&
                                             double.tryParse(value.trim()) ==
                                                 null) {
-                                          return 'Please enter a valid number';
+                                          return 'edit_building.valid_number_required'
+                                              .tr();
                                         }
                                         return null;
                                       },
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 8),
                                   // Construction year field
                                   SizedBox(
                                     width: screenSize.width < 600
@@ -926,17 +1048,32 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                       controller: _constructionYearController,
                                       keyboardType: TextInputType.number,
                                       decoration: InputDecoration(
-                                        hintText: 'Enter construction year',
+                                        hintText:
+                                            'edit_building.construction_year_hint'
+                                                .tr(),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
                                           ),
                                         ),
                                         //  prefixIcon: Icon(Icons.calendar_today),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 8),
                                   // Heated building area field
                                   SizedBox(
                                     width: screenSize.width < 600
@@ -948,10 +1085,34 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                       controller: _heatedBuildingAreaController,
                                       keyboardType: TextInputType.number,
                                       decoration: InputDecoration(
-                                        hintText: 'Enter heated building area',
+                                        hintText:
+                                            'edit_building.heated_area_hint'
+                                                .tr(),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
                                           ),
                                         ),
                                         //  prefixIcon: Icon(Icons.thermostat),
@@ -961,13 +1122,14 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                             value.trim().isNotEmpty &&
                                             int.tryParse(value.trim()) ==
                                                 null) {
-                                          return 'Please enter a valid number';
+                                          return 'edit_building.valid_number_required'
+                                              .tr();
                                         }
                                         return null;
                                       },
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 8),
                                   // Number of students/employees field
                                   SizedBox(
                                     width: screenSize.width < 600
@@ -981,10 +1143,33 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                       keyboardType: TextInputType.number,
                                       decoration: InputDecoration(
                                         hintText:
-                                            'Enter number of students/employees',
+                                            'edit_building.students_employees_hint'
+                                                .tr(),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
                                           ),
                                         ),
                                         //  prefixIcon: Icon(Icons.people),
@@ -994,7 +1179,8 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                             value.trim().isNotEmpty &&
                                             int.tryParse(value.trim()) ==
                                                 null) {
-                                          return 'Please enter a valid number';
+                                          return 'edit_building.valid_number_required'
+                                              .tr();
                                         }
                                         return null;
                                       },
@@ -1013,7 +1199,9 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                           children: [
                                             PrimaryOutlineButton(
                                               onPressed: _handleSave,
-                                              label: 'Update Building Changes',
+                                              label:
+                                                  'edit_building.update_building_changes'
+                                                      .tr(),
                                               width: 260,
                                             ),
                                           ],
@@ -1026,8 +1214,9 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                         : screenSize.width < 1200
                                         ? screenSize.width * 0.5
                                         : screenSize.width * 0.6,
-                                    child: const Text(
-                                      'Building contact information',
+                                    child: Text(
+                                      'edit_building.building_contact_information'
+                                          .tr(),
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
@@ -1429,7 +1618,9 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                             onPressed: _isLoadingBuildingContact
                                                 ? null
                                                 : _handleSaveBuildingContact,
-                                            label: 'Save Building Contact',
+                                            label:
+                                                'edit_building.save_building_contact'
+                                                    .tr(),
                                             width: 260,
                                           ),
                                   ),
@@ -1442,15 +1633,15 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                         : screenSize.width < 1200
                                         ? screenSize.width * 0.5
                                         : screenSize.width * 0.6,
-                                    child: const Text(
-                                      'Loxone Connection',
+                                    child: Text(
+                                      'edit_building.loxone_connection'.tr(),
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 24),
                                   // Loxone User field
                                   SizedBox(
                                     width: screenSize.width < 600
@@ -1461,17 +1652,40 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                     child: TextFormField(
                                       controller: _loxoneUserController,
                                       decoration: InputDecoration(
-                                        hintText: 'User',
+                                        hintText: 'edit_building.user_hint'
+                                            .tr(),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
                                           ),
                                         ),
                                         prefixIcon: Icon(Icons.person),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 8),
                                   // Loxone Password field
                                   SizedBox(
                                     width: screenSize.width < 600
@@ -1483,17 +1697,40 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                       controller: _loxonePassController,
                                       obscureText: true,
                                       decoration: InputDecoration(
-                                        hintText: 'password',
+                                        hintText: 'edit_building.password_hint'
+                                            .tr(),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
                                           ),
                                         ),
                                         prefixIcon: Icon(Icons.lock),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 8),
                                   // Loxone External Address field
                                   SizedBox(
                                     width: screenSize.width < 600
@@ -1505,17 +1742,41 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                       controller:
                                           _loxoneExternalAddressController,
                                       decoration: InputDecoration(
-                                        hintText: 'External address',
+                                        hintText:
+                                            'edit_building.external_address_hint'
+                                                .tr(),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
                                           ),
                                         ),
                                         prefixIcon: Icon(Icons.link),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 8),
                                   // Loxone Port field
                                   SizedBox(
                                     width: screenSize.width < 600
@@ -1527,10 +1788,33 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                       controller: _loxonePortController,
                                       keyboardType: TextInputType.number,
                                       decoration: InputDecoration(
-                                        hintText: 'Port',
+                                        hintText: 'edit_building.port_hint'
+                                            .tr(),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
                                           ),
                                         ),
                                         prefixIcon: Icon(
@@ -1539,7 +1823,7 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 8),
                                   // Loxone Serial Number field
                                   SizedBox(
                                     width: screenSize.width < 600
@@ -1550,10 +1834,34 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                     child: TextFormField(
                                       controller: _loxoneSerialNumberController,
                                       decoration: InputDecoration(
-                                        hintText: 'Serial Number',
+                                        hintText:
+                                            'edit_building.serial_number_hint'
+                                                .tr(),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            0,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF8B9A5B),
+                                            width: 2,
                                           ),
                                         ),
                                         prefixIcon: Icon(Icons.numbers),
@@ -1573,7 +1881,9 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
                                             PrimaryOutlineButton(
                                               onPressed:
                                                   _handleSaveLoxoneChanges,
-                                              label: 'Update Loxone Changes',
+                                              label:
+                                                  'edit_building.update_loxone_changes'
+                                                      .tr(),
                                               width: 260,
                                             ),
                                           ],
@@ -1604,8 +1914,8 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
 
     if (buildingName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Building name is required'),
+        SnackBar(
+          content: Text('edit_building.building_name_required'.tr()),
           backgroundColor: Colors.red,
         ),
       );
@@ -1708,8 +2018,8 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
       if (mounted) {
         if (response.statusCode == 200 || response.statusCode == 201) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Building updated successfully'),
+            SnackBar(
+              content: Text('edit_building.building_updated_successfully'.tr()),
               backgroundColor: Colors.green,
             ),
           );
@@ -1724,7 +2034,9 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Failed to update building: ${response.statusCode}',
+                'edit_building.failed_to_update'.tr(
+                  namedArgs: {'code': response.statusCode.toString()},
+                ),
               ),
               backgroundColor: Colors.red,
             ),
@@ -1735,7 +2047,11 @@ class _EditBuildingPageState extends State<EditBuildingPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error updating building: $e'),
+            content: Text(
+              'edit_building.error_updating'.tr(
+                namedArgs: {'error': e.toString()},
+              ),
+            ),
             backgroundColor: Colors.red,
           ),
         );

@@ -1761,7 +1761,7 @@ class _BuildingRecipientPageState extends State<BuildingRecipientPage> {
     final screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AppTheme.primary,
       body: Center(
         child: SingleChildScrollView(
           child: Container(
